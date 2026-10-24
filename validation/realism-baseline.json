@@ -1,0 +1,83 @@
+{
+  "capturedAt": "2026-10-24T10:44:35.536230+00:00",
+  "captureDirectory": "backups/realism-20261024-104150",
+  "safeToPauseAtCapture": true,
+  "queueRunning": 0,
+  "queuePending": 0,
+  "captures": [
+    {
+      "name": "runtime-source.tar.gz",
+      "bytes": 789543,
+      "sha256": "672ed6931cd8c5efc5fc888976e7737db04c5ba9dfd19273c4ae7c9d386232fc",
+      "files": 223
+    },
+    {
+      "name": "gpu-diagnostics.tar.gz",
+      "bytes": 62977510,
+      "sha256": "b0ab6605e931455c3fa219e4bce91f0b1f7f8aa0d8efe4f23847510e4bbfe89d",
+      "files": 31
+    }
+  ],
+  "historyMediaFilesChecked": 9,
+  "missingHistoryMedia": [],
+  "comparisons": [
+    {
+      "preset": "fast",
+      "resolution": "704",
+      "clipSeconds": 1.5,
+      "fps": 16,
+      "endToEndSeconds": 189.705
+    },
+    {
+      "preset": "quality",
+      "resolution": "480",
+      "clipSeconds": 1.5,
+      "fps": 16,
+      "endToEndSeconds": 324.332
+    },
+    {
+      "preset": "fast",
+      "resolution": "480",
+      "clipSeconds": 1.5,
+      "fps": 16,
+      "endToEndSeconds": 125.007
+    }
+  ],
+  "conditioningMaskAtFrame4": {
+    "source": {
+      "width": 480,
+      "height": 864,
+      "maskAreaFraction": 0.5714,
+      "bboxNormalized": [
+        0.0625,
+        0.1273,
+        1.0,
+        0.9931
+      ]
+    },
+    "reference": {
+      "width": 480,
+      "height": 864,
+      "maskAreaFraction": 0.3028,
+      "bboxNormalized": [
+        0.2104,
+        0.1123,
+        0.7,
+        0.9167
+      ]
+    }
+  },
+  "observations": [
+    "All three generated variants show a wider/farther view of the replacement subject than the source close shot.",
+    "Generated room features resemble the old demo prompt; source room preservation is poor.",
+    "The selected source person mask is present and covers the foreground subject.",
+    "The reference is fitted as a whole image; no explicit source-relative head/torso alignment is performed."
+  ],
+  "limits": [
+    "Three variants of one 1.5-second shot; not a general quality benchmark.",
+    "Mask area and bounding boxes are measured; no calibrated identity or realism score was calculated.",
+    "Geometry normalization and source-preserving prompt changes require a controlled GPU comparison."
+  ],
+  "noNewGpuJobsSubmittedForCapture": true,
+  "rawMediaKeptOutOfGit": true
+}
