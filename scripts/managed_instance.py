@@ -14,6 +14,15 @@ from types import SimpleNamespace
 import vast
 
 
+def ssh_failure(detail):
+    if 'REMOTE HOST IDENTIFICATION HAS CHANGED' in detail or 'Host key verification failed' in detail:
+        return 'SSH host identity verification failed. The saved host key was not removed or bypassed. Verify this instance’s host fingerprint before reconnecting.'
+    if 'Permission denied' in detail:
+        return ('SSH rejected the configured public key. Check the instance container log: if it reports bad ownership or modes for authorized_keys, '
+                'the host must repair /root/.ssh ownership and permissions. Adding the same key again will not fix that filesystem error.')
+    return None
+
+
 def check_local(identity):
     for tool in ('ssh', 'ssh-keygen', 'python3', 'ffmpeg', 'ffprobe'):
         if not shutil.which(tool):
@@ -72,8 +81,9 @@ def main():
                                    stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=18)
             if ready.returncode == 0: break
             detail = ready.stderr.decode(errors='replace')
-            if attempt >= 2 and any(text in detail for text in ('Permission denied', 'REMOTE HOST IDENTIFICATION HAS CHANGED')):
-                raise SystemExit('SSH authentication or host verification failed. Check the attached public key and host identity.')
+            failure = ssh_failure(detail)
+            if failure and ('Permission denied' not in detail or attempt >= 2):
+                raise SystemExit(failure)
         except subprocess.TimeoutExpired:
             pass
         attempt += 1

@@ -1,0 +1,55 @@
+{
+  "checkedUTC": "2026-10-24T19:09:55.113691+00:00",
+  "instanceId": 57550828,
+  "gpu": "RTX A6000",
+  "confirmedCause": "OpenSSH refused authentication because /root/.ssh/authorized_keys had unacceptable ownership or permissions.",
+  "serverLogEvidence": "Authentication refused: bad ownership or modes for file /root/.ssh/authorized_keys",
+  "matchingPublicKeyRegisteredAndAttached": true,
+  "providerKeyPayload": "ssh_keys is a JSON-encoded string containing the key records; decoded before checking.",
+  "diagnosisSource": "Vast container logs retrieved while compute was stopped",
+  "notReached": [
+    "project upload",
+    "ComfyUI installation",
+    "model downloads"
+  ],
+  "currentInstance": {
+    "computeStopped": true,
+    "quotedComputeHourlyUSD": 0.3333333333333333,
+    "quotedStorageHourlyUSD": 0.017777777777777778,
+    "quotedRunningTotalHourlyUSD": 0.3511111111111111,
+    "startupRepairAppliedToExistingRental": false,
+    "sshRevalidatedAfterRepair": false
+  },
+  "codeFix": {
+    "newRentals": "onstart repairs root/.ssh ownership and permissions, then maintains them if the provider rewrites keys.",
+    "existingRental": "Prepared the same startup-hook payload locally; applying it through the provider update/recreate API and resuming requires explicit authorization.",
+    "exactModes": {
+      "sshDirectory": "0700",
+      "authorizedKeys": "0600",
+      "rootDirectory": "remove group/other write"
+    },
+    "keysReplacedOrRemoved": false,
+    "strictModesDisabled": false,
+    "hostVerificationDisabled": false,
+    "symlinkedKeyTargetsModified": false,
+    "clientErrorTypesSeparated": true
+  },
+  "validation": {
+    "pythonPermissionRegressionTests": 4,
+    "pythonExistingToolsTests": 18,
+    "pythonModelProfileTests": 6,
+    "studioTests": 142,
+    "typescriptAndProductionBuild": "passed",
+    "shellSyntax": "passed",
+    "gpuIntegration": "Not rerun; existing instance remains stopped."
+  },
+  "externalActions": {
+    "gpuStartRequests": 0,
+    "newRentalRequests": 0,
+    "keyAttachDetachRequests": 0,
+    "containerLogRequests": 1,
+    "constrainedReadCommandRequests": 1,
+    "constrainedReadResult": "HTTP 400 invalid_args; no filesystem change"
+  },
+  "rawArtifacts": "Ignored backups/ssh-failure-57550828/"
+}

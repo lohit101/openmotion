@@ -1,5 +1,5 @@
 import { access, chmod, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { spawn, type ChildProcess } from 'node:child_process';
 import path from 'node:path';
 import os from 'node:os';
@@ -16,6 +16,7 @@ import { defaults } from '../shared/types';
 const MODEL_GB = modelBytes(modelFilesForSettings(defaults)) / 1e9;
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 export const RENTAL_IMAGE = 'nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04';
+export const SSH_ONSTART = readFileSync(new URL('../../scripts/ssh_permissions.sh', import.meta.url), 'utf8');
 const number = (value: unknown): number | null => value !== null && value !== '' && value !== undefined && Number.isFinite(Number(value)) ? Number(value) : null;
 const amount = (...values: unknown[]) => values.map(number).find(v => v !== null && v >= 0) ?? null;
 const driverNumber = (value: unknown) => { const parts = String(value || '').split('.'); return parts.length === 1 ? Number(value) : Number(parts[0]) * 1000000 + Number(parts[1]) * 1000 + Number(parts[2] || 0); };
@@ -324,7 +325,7 @@ export class CloudManager {
       const fresh = await this.verifyOffer(launch.offer, filters, ceiling, launch.approvedTransfer);
       if (this.closing || this.stopped.has(launch.id)) return;
       launch.offer = fresh; launch.creationAttempted = true; this.change(launch, 'requesting', 'Creating your Vast instance. Billing begins when the rental starts.');
-      const response = await this.client.request(`/api/v0/asks/${fresh.id}/`, 'PUT', { client_id: 'me', image: RENTAL_IMAGE, disk: fresh.disk, label: launch.label, runtype: 'ssh_direct', target_state: 'running', cancel_unavail: true });
+      const response = await this.client.request(`/api/v0/asks/${fresh.id}/`, 'PUT', { client_id: 'me', image: RENTAL_IMAGE, disk: fresh.disk, label: launch.label, runtype: 'ssh_direct', target_state: 'running', cancel_unavail: true, onstart: SSH_ONSTART });
       const id = Number(response?.new_contract); if (!Number.isSafeInteger(id) || id <= 0) throw new VastError('Vast accepted the request without an instance ID. Check instances before retrying.', 503, true);
       launch.instanceId = id;
       if (this.closing) { launch.needsReconnect = true; this.change(launch, 'waiting', 'Rental created. Reconnect setup to follow the existing instance.'); return; }

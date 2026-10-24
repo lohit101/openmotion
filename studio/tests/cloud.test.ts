@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { Store } from '../server/store';
-import { CloudManager, computeIsStopped, hasRegisteredSshKey, matchesGpuProbe, normalizeOffer, RENTAL_IMAGE, VastClient, VastError } from '../server/cloud';
+import { CloudManager, computeIsStopped, hasRegisteredSshKey, matchesGpuProbe, normalizeOffer, RENTAL_IMAGE, SSH_ONSTART, VastClient, VastError } from '../server/cloud';
 import { offerFiltersSchema } from '../shared/cloud';
 import type { ConnectionManager } from '../server/comfy';
 import type { Runner } from '../server/runner';
@@ -149,7 +149,7 @@ describe('Vast marketplace, billing and lifecycle', () => {
     const { cloud, fixture, provision, connection } = await manager(); const { offers } = await cloud.offers(filters);
     const launch = cloud.launch(offers[0].quote, .23, 'rent-once'); expect(cloud.launch(offers[0].quote, .23, 'rent-once').id).toBe(launch.id); await until(() => !cloud.state.busy);
     expect(launch.phase).toBe('ready'); expect(fixture.createCount).toBe(1); expect(provision).toHaveBeenCalledTimes(1); expect(connection.connect).toHaveBeenCalledWith('http://127.0.0.1:8188', false);
-    expect(fixture.calls.find(c => c.url.pathname === '/api/v0/asks/123/')!.body).toMatchObject({ disk: 80, image: RENTAL_IMAGE, runtype: 'ssh_direct', cancel_unavail: true });
+    expect(fixture.calls.find(c => c.url.pathname === '/api/v0/asks/123/')!.body).toMatchObject({ disk: 80, image: RENTAL_IMAGE, runtype: 'ssh_direct', cancel_unavail: true, onstart: SSH_ONSTART });
     await cloud.action(777, 'stop'); expect(launch.phase).toBe('stopped'); expect(cloud.state.instances[0].state).toBe('stopped');
     await expect(cloud.action(777, 'destroy', 'wrong-id')).rejects.toThrow('confirm'); expect(fixture.calls.filter(c => c.method === 'DELETE')).toHaveLength(0);
     await cloud.action(777, 'destroy', '777'); expect(launch.phase).toBe('destroyed'); expect(cloud.state.instances).toHaveLength(0);
