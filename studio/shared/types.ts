@@ -46,7 +46,7 @@ export interface Job {
   width: number; height: number; progress: Progress; segments: Segment[]; context: string;
   pendingPrompt: string | null; uploads: { source: string; reference: string } | null;
   error: string | null; output: string | null; poster: string | null; cancelRequested: boolean;
-  cancellationConfirmed?: boolean; submitting?: boolean;
+  cancellationConfirmed?: boolean; submitting?: boolean; retryRequired?: boolean;
   elapsedSeconds: number | null; origin: 'render' | 'import'; workflow: Record<string, GraphNode> | null;
   promptVersion?: 'scene-v1';
   framingVersion?: 'face-v1'; referenceFraming?: ReferenceFraming; framingCheck?: FramingCheck;

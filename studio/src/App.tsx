@@ -31,7 +31,7 @@ function ProgressPanel({ job, onCancel, onResume, onReuse, online }: { job: Job;
     {!failed && <div className="generation-meter"><div className={`meter-track ${hasCounter ? '' : 'indeterminate'}`} role="progressbar" aria-label={job.progress.stage} aria-valuenow={hasCounter ? job.progress.value! : undefined} aria-valuemax={hasCounter ? job.progress.max! : undefined} aria-valuemin={0}><span style={hasCounter ? { transform: `scaleX(${job.progress.value! / job.progress.max!})` } : undefined} /></div><div className="meter-caption"><span>{hasCounter ? `${Math.round(job.progress.value!)} / ${job.progress.max} ${job.progress.unit}` : 'Waiting for a progress counter'}</span><span>{formatTime(elapsed)} elapsed</span></div></div>}
     <div className="render-facts"><span>{job.width} × {job.height}</span><span>{job.settings.fps} fps</span><span>Segment {job.progress.segment} of {job.progress.segments}</span></div>
     {job.progress.completedFrames > 0 && <small>{job.progress.completedFrames} of {job.progress.targetFrames} frames saved locally</small>}
-    <div className="progress-actions">{activeStates.includes(job.status) && <button className="secondary-button" onClick={onCancel}>Cancel generation</button>}{job.status === 'interrupted' && <button className="primary-button compact" disabled={!online} onClick={job.cancelRequested ? onCancel : onResume}>{job.cancelRequested ? 'Check cancellation' : 'Check & resume'}</button>}{failed && <button className="secondary-button" onClick={onReuse}>Reuse settings</button>}</div>
+    <div className="progress-actions">{activeStates.includes(job.status) && <button className="secondary-button" onClick={onCancel}>Cancel generation</button>}{job.status === 'interrupted' && <button className="primary-button compact" disabled={!online} onClick={job.cancelRequested ? onCancel : onResume}>{job.cancelRequested ? 'Check cancellation' : job.retryRequired ? 'Render missing segment again' : 'Check & resume'}</button>}{failed && <button className="secondary-button" onClick={onReuse}>Reuse settings</button>}</div>
   </div>;
 }
 
@@ -74,6 +74,17 @@ export default function App() {
   const [info, setInfo] = useState(false), [message, setMessageValue] = useState(''), [creating, setCreating] = useState(false), [filter, setFilter] = useState('all'), [search, setSearch] = useState(''), [sort, setSort] = useState('newest');
   const setMessage = useCallback((text: string) => { setMessageValue(text); if (text) toast.error(text, { duration: 10000 }); }, []);
   const seenNotices = useRef(new Set<string>());
+  const renderStates = useRef(new Map<string, string>());
+  useEffect(() => {
+    for (const job of data?.jobs || []) {
+      const state = `${job.status}:${job.error || ''}`, previous = renderStates.current.get(job.id);
+      renderStates.current.set(job.id, state);
+      if (!previous || previous === state) continue;
+      if (job.status === 'reconnecting') toast.warning('Restoring GPU connection', { id: `render-${job.id}`, description: 'Checking the existing job. No new segment has been submitted.' });
+      else if (job.status === 'interrupted' || job.status === 'failed') toast.error(job.retryRequired ? 'Render segment is missing' : job.status === 'failed' ? 'Generation failed' : 'Generation interrupted', { id: `render-${job.id}`, description: job.error || 'Open the run for details.', duration: 14000 });
+      else if (previous.startsWith('reconnecting:')) toast.dismiss(`render-${job.id}`);
+    }
+  }, [data?.jobs]);
   const framingWarnings = useRef(new FramingWarningTracker());
   useEffect(() => {
     if (!data) return;
@@ -173,7 +184,7 @@ export default function App() {
     if (search.trim()) list = list.filter(j => (j.title + ' ' + j.settings.prompt).toLowerCase().includes(search.toLowerCase()));
     return [...list].sort((a, b) => sort === 'oldest' ? a.createdAt.localeCompare(b.createdAt) : b.createdAt.localeCompare(a.createdAt));
   }, [jobs, filter, search, sort]);
-  const handleJobAction = async (action: 'cancel' | 'resume') => { if (!selected) return; try { await api(`/jobs/${selected.id}/${action}`, {}); } catch (e) { setMessage((e as Error).message); } };
+  const handleJobAction = async (action: 'cancel' | 'resume') => { if (!selected) return; try { await api(`/jobs/${selected.id}/${action}`, action === 'resume' ? { retryMissing: !!selected.retryRequired } : {}); } catch (e) { setMessage((e as Error).message); } };
   const setCloud = useCallback((cloud: CloudState) => setData(old => old ? { ...old, cloud } : old), []);
   if (!data) return <div className="app-loading"><Aperture size={40} weight="light" /><h1>Recast Studio</h1><span className="activity-line" /><p>{message || 'Opening your local workspace'}</p>{message && <button className="secondary-button" onClick={() => location.reload()}>Retry</button>}</div>;
   return <div className="app-shell">

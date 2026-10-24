@@ -204,6 +204,8 @@ Keeping the same instance gives the fastest next session. Vast local volumes are
 
 ## Troubleshooting
 
+Studio restores a dropped managed SSH tunnel by checking the existing render. **Check & resume** never silently repeats a segment that disappeared after a server restart: it shows **Render missing segment again** and explains the extra compute cost. Completed segment receipts are saved locally before media transfer, so an interrupted download can be recovered without sampling that segment again. See [connection recovery](docs/connection-recovery.md) for the investigation and limits.
+
 | Symptom | Action |
 |---|---|
 | SSH permission denied | Add the public key to the account before creating an instance, or use Vast's instance-specific key management; verify the private-key path |

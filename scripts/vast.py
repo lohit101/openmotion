@@ -118,7 +118,18 @@ def tunnel(config, browser=True, capture_stderr=False):
             if probe.connect_ex(("127.0.0.1", config["local_port"])) == 0:
                 raise SystemExit("Local port %d is occupied. Configure a different --local-port." % config["local_port"])
         forward = "127.0.0.1:%d:127.0.0.1:%d" % (config["local_port"], config["remote_port"])
-        subprocess.run(ssh_arguments(config) + ["-M", "-S", control_path(config), "-f", "-N", "-o", "ExitOnForwardFailure=yes", "-L", forward, destination(config)], check=True, **({'stderr': subprocess.PIPE} if capture_stderr else {}))
+        # The background master must never inherit Studio/provisioner's pipes.
+        # Besides losing diagnostics, that can keep its launcher waiting for EOF.
+        logs = LOCAL / 'tunnels'
+        logs.mkdir(parents=True, exist_ok=True, mode=0o700)
+        logs.chmod(0o700)
+        log_path = logs / (Path(control_path(config)).stem + '.log')
+        with log_path.open('ab') as log:
+            log_path.chmod(0o600)
+            result = subprocess.run(ssh_arguments(config) + ["-M", "-S", control_path(config), "-f", "-N", "-o", "ExitOnForwardFailure=yes", "-L", forward, destination(config)],
+                                    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=log)
+        if result.returncode:
+            raise subprocess.CalledProcessError(result.returncode, result.args, stderr=log_path.read_bytes()[-3000:])
     url = "http://127.0.0.1:%d" % config["local_port"]
     print("ComfyUI: " + url)
     if browser:
@@ -214,6 +225,8 @@ def main():
     for action in ["setup", "open"]:
         item = sub.add_parser(action)
         item.add_argument("--no-browser", action="store_true")
+    item = sub.add_parser('tunnel', help='Restore SSH forwarding only; never start ComfyUI or GPU compute')
+    item.add_argument('--instance-id', type=int, required=True)
     for action in ["status", "logs", "doctor", "pull", "close", "stop-server", "shell"]:
         sub.add_parser(action)
     item = sub.add_parser("push-lora")
@@ -229,7 +242,12 @@ def main():
         return
     config = load()
     root = config["remote_root"]
-    if args.action == "setup":
+    if args.action == 'tunnel':
+        if config.get('instance_id') != args.instance_id or config.get('local_port') != 8188:
+            raise SystemExit('Saved tunnel belongs to a different instance. Reconnect the intended GPU in GPU cloud.')
+        os.environ['RECAST_SSH_BATCH'] = '1'
+        tunnel(config, browser=False)
+    elif args.action == "setup":
         setup(config, args.no_browser)
     elif args.action == "open":
         remote(config, ["bash", root + "/scripts/server.sh", "start"])

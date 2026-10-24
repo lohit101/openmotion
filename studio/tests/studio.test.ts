@@ -47,7 +47,7 @@ async function mockComfy() {
   const localCatalog = structuredClone(catalog), sockets = new Map<string, WebSocket>(), uploads = new Map<string, string>(), files = new Map<string, string>();
   (localCatalog.LoraLoaderModelOnly.input.required!.lora_name[0] as string[]).push(NATURAL_SPEED);
   const pending = new Map<string, any[]>(), history: Record<string, any> = {}, submissions: any[] = [], cancelled: string[] = [], calls: string[] = [];
-  let mode: 'complete' | 'hold' | 'lose-response' = 'complete', dropHistory = false, dropCancel = false, dropLatent = false;
+  let mode: 'complete' | 'hold' | 'lose-response' = 'complete', dropHistory = false, dropCancel = false, dropLatent = false, dropDownload = false;
   app.use(express.json({ limit: '5mb' })); app.use((req, _res, next) => { calls.push(req.method + ' ' + req.path); next(); });
   ws.on('connection', (socket, req) => { sockets.set(new URL(req.url!, 'http://localhost').searchParams.get('clientId')!, socket); });
   const emit = (client: string, type: string, data: unknown) => sockets.get(client)?.send(JSON.stringify({ type, data }));
@@ -87,11 +87,11 @@ async function mockComfy() {
     if (mode === 'complete') void complete(id);
   });
   app.post('/api/jobs/:id/cancel', (req, res) => { if (dropCancel) { dropCancel = false; req.socket.destroy(); return; } cancelled.push(req.params.id); pending.delete(req.params.id); res.json({ cancelled: true }); });
-  app.get('/view', (req, res) => { const file = files.get(String(req.query.filename)); if (file) res.sendFile(file); else res.sendStatus(404); });
+  app.get('/view', (req, res) => { if (dropDownload) { dropDownload = false; req.socket.destroy(); return; } const file = files.get(String(req.query.filename)); if (file) res.sendFile(file); else res.sendStatus(404); });
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   const address = server.address() as { port: number };
   return { endpoint: `http://127.0.0.1:${address.port}`, calls, submissions, cancelled, pending, history, complete, emit, uploads,
-    setMode(value: typeof mode) { mode = value; }, loseNextHistory() { dropHistory = true; }, loseNextCancel() { dropCancel = true; }, omitNextLatent() { dropLatent = true; },
+    setMode(value: typeof mode) { mode = value; }, loseNextHistory() { dropHistory = true; }, loseNextCancel() { dropCancel = true; }, omitNextLatent() { dropLatent = true; }, loseNextDownload() { dropDownload = true; },
     async close() { for (const socket of ws.clients) socket.terminate(); ws.close(); server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); }
   };
 }
@@ -330,4 +330,41 @@ describe('local app with the captured ComfyUI protocol', () => {
     expect(local!.store.job(id)).toMatchObject({ status: 'interrupted', cancelRequested: true }); expect(local!.store.job(id)!.cancellationConfirmed).not.toBe(true);
     await agent.post(`/api/jobs/${id}/cancel`).send({}).expect(200); expect(local!.store.job(id)).toMatchObject({ status: 'cancelled', cancellationConfirmed: true });
   });
+
+  it('requires an explicit rerender after a container loses an accepted prompt, even after repeated recovery clicks', async () => {
+    const agent = await setup(), values = await inputs(agent); mock!.setMode('hold'); await connect(agent);
+    const response = await agent.post('/api/jobs').set('Idempotency-Key', 'lost-container').send(values).expect(201), id = response.body.id;
+    const accepted = await until(() => local!.store.job(id)!, job => !!job.pendingPrompt), prompt = accepted.pendingPrompt!;
+    local!.runner.interrupt('Container restarted'); await until(() => local!.runner.busy, busy => !busy); mock!.pending.delete(prompt); await connect(agent);
+    await Promise.all([agent.post(`/api/jobs/${id}/resume`).send({}).expect(200), agent.post(`/api/jobs/${id}/resume`).send({}).expect(200)]);
+    expect(local!.store.job(id)).toMatchObject({ status: 'interrupted', retryRequired: true, pendingPrompt: prompt });
+    expect(local!.store.job(id)!.error).toContain('nothing has been resubmitted'); expect(mock!.submissions).toHaveLength(1);
+    await agent.post(`/api/jobs/${id}/resume`).send({}).expect(200); expect(mock!.submissions).toHaveLength(1);
+    mock!.setMode('complete'); await agent.post(`/api/jobs/${id}/resume`).send({ retryMissing: true }).expect(200);
+    const finished = await until(() => local!.store.job(id)!, job => job.status === 'completed');
+    expect(finished.retryRequired).toBe(false); expect(mock!.submissions).toHaveLength(2);
+  }, 20000);
+
+  it('preserves an ambiguous submission when the restarted GPU has forgotten both its queue and history', async () => {
+    const agent = await setup(), values = await inputs(agent); mock!.setMode('lose-response'); await connect(agent);
+    const response = await agent.post('/api/jobs').set('Idempotency-Key', 'lost-ambiguous').send(values).expect(201), id = response.body.id;
+    await until(() => local!.runner.busy, busy => !busy); mock!.pending.clear(); await connect(agent);
+    await agent.post(`/api/jobs/${id}/resume`).send({}).expect(200);
+    expect(local!.store.job(id)).toMatchObject({ status: 'interrupted', retryRequired: true, submitting: true, pendingPrompt: null });
+    expect(mock!.submissions).toHaveLength(1);
+  });
+
+  it('recovers a completed segment after its transfer fails and ComfyUI loses its in-memory history', async () => {
+    const agent = await setup(), values = await inputs(agent); mock!.loseNextDownload(); await connect(agent);
+    const response = await agent.post('/api/jobs').set('Idempotency-Key', 'lost-transfer').send(values).expect(201), id = response.body.id;
+    await until(() => local!.runner.busy, busy => !busy);
+    const interrupted = local!.store.job(id)!;
+    expect(interrupted.status).toBe('interrupted'); expect(interrupted.pendingPrompt).toBeTruthy();
+    const receipt = JSON.parse(await readFile(path.join(root, 'jobs', id, 'history_0.json'), 'utf8'));
+    expect(receipt.prompt[1]).toBe(interrupted.pendingPrompt); delete mock!.history[interrupted.pendingPrompt!];
+    await connect(agent); await agent.post(`/api/jobs/${id}/resume`).send({}).expect(200);
+    const finished = await until(() => local!.store.job(id)!, job => job.status === 'completed');
+    expect(finished.segments).toHaveLength(1); expect(mock!.submissions).toHaveLength(1);
+    await agent.get(`/api/jobs/${id}/video`).expect(200);
+  }, 20000);
 });

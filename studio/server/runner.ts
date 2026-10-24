@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import WebSocket from 'ws';
 import { randomUUID } from 'node:crypto';
@@ -14,6 +14,7 @@ import { missingPinnedAdapters } from './models';
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 export class Runner {
   busy = false; active: Job | null = null; abort: AbortController | null = null;
+  private resumes = new Map<string, Promise<void>>();
   public geometry: ReferenceGeometry;
   constructor(public store: Store, public connection: ConnectionManager, public template: Graph, public repo: string, geometry?: ReferenceGeometry) { this.geometry = geometry || localReferenceGeometry(repo); }
   interrupt(reason: string) {
@@ -60,22 +61,49 @@ export class Runner {
     const match = [...queue.queue_running, ...queue.queue_pending, ...Object.values(histories).map((h: any) => h.prompt)]
       .find((entry: any[]) => entry?.[3]?.client_id === 'recast-' + job.id && entry?.[2]?.['46']?.inputs.filename_prefix === prefix);
     if (match) job.pendingPrompt = match[1];
-    job.submitting = false;
+    if (match) job.submitting = false;
   }
-  async resume(job: Job) {
+  private async cachedHistory(job: Job): Promise<any | null> {
+    try {
+      const record = JSON.parse(await readFile(path.join(this.store.root, 'jobs', job.id, `history_${job.segments.length}.json`), 'utf8'));
+      const prefix = `recast/${job.id}/segment_${String(job.segments.length).padStart(4, '0')}`;
+      return record.prompt?.[1] === job.pendingPrompt && record.prompt?.[2]?.['46']?.inputs.filename_prefix === prefix && record.status?.status_str === 'success' ? record : null;
+    } catch { return null; }
+  }
+  private lostSegment(job: Job) {
+    job.status = 'interrupted'; job.retryRequired = true;
+    job.error = 'This segment is no longer in the GPU queue or saved history, usually after a server/container restart. Existing local segments are kept. Rendering the missing segment again costs compute; nothing has been resubmitted.';
+    job.progress.stage = 'Missing segment · waiting for your choice'; this.save(job);
+  }
+  async resume(job: Job, retryMissing = false) {
+    const existing = this.resumes.get(job.id); if (existing) return existing;
+    const task = this.resumeChecked(job, retryMissing); this.resumes.set(job.id, task);
+    try { await task; } finally { this.resumes.delete(job.id); }
+  }
+  private async resumeChecked(job: Job, retryMissing: boolean) {
     if (job.submitting && !job.pendingPrompt) await this.recoverPending(job);
+    let missing = !!job.submitting && !job.pendingPrompt;
     if (job.pendingPrompt) {
       const client = this.connection.client(); const history = await client.json('/history/' + job.pendingPrompt); const queue = await client.json('/queue');
       const ids = [...queue.queue_running, ...queue.queue_pending].map((v: any[]) => v[1]);
-      if (!history[job.pendingPrompt] && !ids.includes(job.pendingPrompt)) job.pendingPrompt = null;
+      missing = !history[job.pendingPrompt] && !ids.includes(job.pendingPrompt) && !await this.cachedHistory(job);
       if (history[job.pendingPrompt || '']?.status?.status_str === 'error') throw new Error('This segment failed on the GPU. Reuse its settings to create a corrected run.');
     }
-    job.status = 'queued'; job.cancelRequested = false; job.cancellationConfirmed = false; job.error = null; this.store.saveJob(job, false); void this.kick();
+    if (missing && !retryMissing) { this.lostSegment(job); return; }
+    if (missing) { job.pendingPrompt = null; job.submitting = false; }
+    job.retryRequired = false; job.status = 'queued'; job.cancelRequested = false; job.cancellationConfirmed = false; job.error = null; this.store.saveJob(job, false); void this.kick();
   }
   async run(job: Job, signal: AbortSignal) {
     const folder = path.join(this.store.root, 'jobs', job.id); await mkdir(folder, { recursive: true });
     const source = this.store.asset(job.sourceId)!, reference = this.store.asset(job.referenceId)!;
     const client = this.connection.client(); let socket: WebSocket | undefined;
+    const restore = client.recover;
+    if (restore) client.recover = async recoverySignal => {
+      job.status = 'reconnecting'; this.stage(job, 'Restoring connection · keeping the same GPU job');
+      const recovered = await restore(recoverySignal);
+      if (recovered) { job.status = 'running'; this.stage(job, 'Connection restored · checking existing output'); }
+      return recovered;
+    };
     try {
       this.checkCancelled(job); job.status = 'running'; job.startedAt ||= new Date().toISOString(); this.save(job);
       if (!job.uploads) {
@@ -116,7 +144,7 @@ export class Runner {
           job.pendingPrompt = response.prompt_id; job.submitting = false; this.save(job);
           if (this.store.job(job.id)?.cancelRequested) { await client.cancel(job.pendingPrompt!); const saved = this.store.job(job.id)!; saved.cancellationConfirmed = true; this.store.saveJob(saved, false); throw new Error('Cancelled.'); }
         }
-        let history: any, missing = 0, lastSocketAttempt = Date.now();
+        let history: any = await this.cachedHistory(job), missing = 0, lastSocketAttempt = Date.now();
         const segmentStart = Date.now();
         while (!history) {
           this.checkCancelled(job);
@@ -125,7 +153,7 @@ export class Runner {
           const queue = await client.json('/queue', undefined, signal);
           const present = [...queue.queue_running, ...queue.queue_pending].some((v: any[]) => v[1] === id);
           missing = present ? 0 : missing + 1;
-          if (missing >= 5) throw new OfflineError('This job is absent from ComfyUI after a restart. Resume to rerun only the unfinished segment.');
+          if (missing >= 5) { this.lostSegment(job); return; }
           if ((!socket || socket.readyState !== WebSocket.OPEN) && Date.now() - lastSocketAttempt > 5000) { socket?.close(); socket = await client.watch('recast-' + job.id, receive).catch(() => undefined); lastSocketAttempt = Date.now(); }
           await pause(1500);
         }
@@ -141,8 +169,12 @@ export class Runner {
         const frames = Number(context.source_count) - plan.overlap;
         if (!(frames > 0)) throw new Error('The source ended before this segment added any frames.');
         const file = `segment_${String(job.segments.length).padStart(4, '0')}.mp4`;
-        this.stage(job, 'Downloading completed segment'); await client.download(video, path.join(folder, file), signal);
-        await writeFile(path.join(folder, `history_${job.segments.length}.json`), JSON.stringify(history, null, 2));
+        // Retain the completion receipt before transferring media. A later
+        // disconnect must not turn a completed paid segment into a new render.
+        const receipt = path.join(folder, `history_${job.segments.length}.json`);
+        await writeFile(receipt + '.part', JSON.stringify(history, null, 2)); await rename(receipt + '.part', receipt);
+        this.stage(job, 'Downloading completed segment');
+        if (!await exists(path.join(folder, file))) await client.download(video, path.join(folder, file), signal);
         if (job.saveDiagnosticLatent) {
           const latent = outputs['51']?.latents?.[0];
           try {

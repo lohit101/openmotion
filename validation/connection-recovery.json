@@ -1,0 +1,49 @@
+{
+  "date": "2026-10-25",
+  "scope": "Connection loss, interrupted render recovery, and preservation of paid output",
+  "observed": {
+    "rental": "On-demand RTX A6000",
+    "containerRestartsDuringRun": 3,
+    "containerResetTrigger": "Unconfirmed; provider host/kernel evidence unavailable",
+    "comfyProcessAbsent": true,
+    "localSshMasterAbsent": true,
+    "generationLogLastStep": "4/8",
+    "currentSegmentExported": false,
+    "completedLocalVideos": 18,
+    "completedLocalVideosReadableAfterAppRestart": 18,
+    "accountCreditAvailable": true,
+    "matchingAccountStateChangesAtResetTimes": false
+  },
+  "changes": [
+    "Restore only the same managed SSH tunnel during failed queue/history reads",
+    "Do not restart rental/server or repeat POST submissions during transport recovery",
+    "Detach background SSH from launcher pipes; keep private transport logs",
+    "Require explicit rerender action for a segment missing after a restart",
+    "Preserve ambiguous submission evidence and deduplicate simultaneous resume checks",
+    "Atomically save completion receipts before downloading video",
+    "Recover a failed download using its receipt after in-memory history is cleared",
+    "Show recovery warnings and generation failures through toasts",
+    "Enable Python fault-handler and unbuffered logs on subsequent GPU server starts"
+  ],
+  "validation": {
+    "studioTestsPassed": 155,
+    "studioTestFilesPassed": 11,
+    "pythonTestsRun": 54,
+    "pythonTestsSkipped": 6,
+    "pythonTestsFailed": 0,
+    "typescriptAndProductionBuild": "passed",
+    "productionLocalAppRestarted": true,
+    "productionClientBundleUpdated": true,
+    "activeRendersAfterRestart": 0,
+    "providerComputeStopConfirmedAfterRestart": true,
+    "paidTestRendersSubmitted": 0,
+    "newRentalsCreated": 0
+  },
+  "limits": [
+    "Offline protocol fixtures validate orchestration, not model quality or GPU host stability",
+    "A container reset discards unfinished sampling steps",
+    "Receipt-based recovery requires a completion receipt to have reached the Mac and exported media to remain available",
+    "GPU-side logging changes deploy on the next user-authorized connection; the GPU remains stopped",
+    "Retained disk remains billed"
+  ]
+}

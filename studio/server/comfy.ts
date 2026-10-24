@@ -40,9 +40,15 @@ export function localEndpoint(value: string) {
   return url.origin;
 }
 export class ComfyClient {
-  constructor(public endpoint: string) {}
+  constructor(public endpoint: string, public recover?: (signal?: AbortSignal) => Promise<boolean>) {}
   async json(route: string, body?: unknown, signal?: AbortSignal): Promise<any> {
     const read = body === undefined, attempts = read ? READ_ATTEMPTS : 1;
+    let recoveryTried = false;
+    const restore = async () => {
+      if (!read || recoveryTried || !this.recover || !/^\/(history|queue)(\/|\?|$)/.test(route)) return false;
+      recoveryTried = true; signal?.throwIfAborted();
+      try { return await this.recover(signal); } catch (error) { if (signal?.aborted) throw signal.reason || error; return false; }
+    };
     for (let attempt = 0; attempt < attempts; attempt++) {
       signal?.throwIfAborted();
       let response: Response, value: unknown;
@@ -58,12 +64,14 @@ export class ComfyClient {
       } catch (error) {
         if (signal?.aborted) throw signal.reason || error;
         if (read && attempt + 1 < attempts) { await readBackoff(500 * (attempt + 1), signal); continue; }
+        if (await restore()) { attempt = -1; continue; }
         if (error instanceof OfflineError) throw error;
         throw new OfflineError('The GPU connection was lost. Reconnect to check the existing job before retrying.');
       }
       if (!response.ok) {
         if (read && RETRYABLE_READ_STATUS.has(response.status)) {
           if (attempt + 1 < attempts) { await readBackoff(500 * (attempt + 1), signal); continue; }
+          if (await restore()) { attempt = -1; continue; }
           throw new OfflineError('GPU status is temporarily unavailable. The existing job may still be running; reconnect to check it before retrying.');
         }
         throw new Error(responseMessage(value, response.status));
@@ -119,15 +127,38 @@ export function applyProgress(job: Job, event: any): boolean {
 }
 export class ConnectionManager {
   status: Connection; catalog: Catalog;
-  constructor(public store: Store, public repo: string, catalog: Catalog) {
+  private recovery: Promise<boolean> | null = null;
+  private revision = 0;
+  constructor(public store: Store, public repo: string, catalog: Catalog, private restore = command) {
     this.catalog = catalog;
     this.status = { state: 'offline', endpoint: store.value('endpoint', process.env.COMFY_URL || 'http://127.0.0.1:8188'), gpu: null,
       message: 'Local workspace. Connect your GPU when you are ready to generate.', checkedAt: null, loras: lorasFrom(catalog) };
   }
-  client() { return new ComfyClient(this.status.endpoint); }
+  client() { return new ComfyClient(this.status.endpoint, signal => this.recoverTransport(signal)); }
+  async recoverTransport(signal?: AbortSignal): Promise<boolean> {
+    if (this.recovery) return this.recovery;
+    const instance = this.store.value<number | null>('cloud-connected-instance', null), endpoint = this.status.endpoint, revision = this.revision;
+    if (!instance || endpoint !== 'http://127.0.0.1:8188') return false;
+    this.recovery = (async () => {
+      this.status.state = 'connecting'; this.status.message = 'Restoring the connection to the existing GPU job. No new render is being submitted.'; this.emit();
+      try {
+        await this.restore('python3', [path.join(this.repo, 'scripts/vast.py'), 'tunnel', '--instance-id', String(instance)], signal, 25000);
+        // Probe only: recovery never starts a server, installs files, or resumes a rental.
+        const stats = await new ComfyClient(endpoint).json('/system_stats', undefined, signal);
+        if (!stats.devices?.some((device: any) => /cuda/i.test(device.type || device.name))) return false;
+        if (this.revision !== revision || this.store.value('cloud-connected-instance', null) !== instance || this.status.endpoint !== endpoint) return false;
+        this.status.state = 'online'; this.status.message = 'Connection restored. Checking the existing GPU job.'; this.status.checkedAt = new Date().toISOString(); this.emit(); return true;
+      } catch (error) { if (signal?.aborted) throw signal.reason || error; return false; }
+    })().finally(() => {
+      if (this.revision === revision && this.status.state === 'connecting' && this.status.endpoint === endpoint) { this.status.state = 'offline'; this.status.message = 'The GPU server is unavailable. The rental was not restarted and the existing job was not resubmitted.'; this.emit(); }
+      this.recovery = null;
+    });
+    return this.recovery;
+  }
   emit() { this.store.emit('event', { type: 'connection', data: this.status }); }
   async connect(endpoint: string, useSSH: boolean) {
     if (this.status.state === 'connecting') return;
+    this.revision++;
     this.status.endpoint = localEndpoint(endpoint); this.store.set('endpoint', this.status.endpoint);
     this.status.state = 'connecting'; this.status.message = 'Checking the private GPU connection'; this.emit();
     try {
@@ -145,6 +176,6 @@ export class ConnectionManager {
     } catch (error) { this.status.state = 'offline'; this.status.message = 'Start your Vast instance, then reconnect. ' + (error instanceof Error ? error.message : String(error)).slice(0, 240); }
     this.emit();
   }
-  disconnect(message = 'GPU disconnected. Your local workspace and library are available.') { this.status.state = 'offline'; this.status.message = message; this.emit(); }
+  disconnect(message = 'GPU disconnected. Your local workspace and library are available.') { this.revision++; this.status.state = 'offline'; this.status.message = message; this.emit(); }
 }
 export function lorasFrom(catalog: Catalog) { return (catalog.LoraLoaderModelOnly?.input.required?.lora_name?.[0] as string[] || []).filter(n => n !== 'None'); }

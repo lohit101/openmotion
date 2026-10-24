@@ -5,11 +5,13 @@ import importlib.util
 import json
 import os
 import shutil
+import socket
 import subprocess
 import sys
 import tarfile
 import tempfile
 import threading
+import time
 import unittest
 from unittest.mock import patch, Mock
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -94,6 +96,31 @@ class VideoAssemblyTests(unittest.TestCase):
 
 
 class SSHTests(unittest.TestCase):
+    def test_background_tunnel_does_not_hold_the_launchers_output_pipes_open(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            helper = root / 'fake-ssh.py'
+            # Simulate ssh -f leaving a long-lived daemon with inherited stdio.
+            helper.write_text('import subprocess,sys\nsubprocess.Popen([sys.executable,"-c","import time;time.sleep(3)"],stdin=sys.stdin,stdout=sys.stdout,stderr=sys.stderr)\n')
+            with socket.socket() as sock:
+                sock.bind(('127.0.0.1', 0)); port = sock.getsockname()[1]
+            code = ('import sys;from pathlib import Path;sys.path.insert(0,sys.argv[1]);import vast;'
+                    'vast.LOCAL=Path(sys.argv[2]);vast.master_running=lambda config:False;'
+                    'vast.ssh_arguments=lambda config:[sys.executable,sys.argv[3]];'
+                    'vast.tunnel({"host":"fixture","port":22,"user":"root","local_port":int(sys.argv[4]),"remote_port":18189},browser=False,capture_stderr=True)')
+            started = time.monotonic()
+            result = subprocess.run([sys.executable, '-c', code, str(ROOT/'scripts'), str(root), str(helper), str(port)], capture_output=True, timeout=2, check=True)
+            self.assertLess(time.monotonic() - started, 2)
+            self.assertIn(b'ComfyUI:', result.stdout)
+            logs = list((root/'tunnels').glob('*.log')); self.assertEqual(len(logs), 1)
+            self.assertEqual(logs[0].stat().st_mode & 0o777, 0o600)
+
+    def test_tunnel_only_refuses_another_rental_before_attempting_ssh_or_server_start(self):
+        with patch.object(vast, 'load', return_value={'instance_id':123,'local_port':8188,'remote_root':'/fixture'}), patch.object(vast, 'tunnel') as tunnel, patch.object(vast, 'remote') as remote, patch.object(sys, 'argv', ['vast.py','tunnel','--instance-id','456']):
+            with self.assertRaisesRegex(SystemExit, 'different instance'):
+                vast.main()
+            tunnel.assert_not_called(); remote.assert_not_called()
+
     def test_pasted_vast_command_is_parsed_without_evaluation(self):
         value = vast.parse_ssh('ssh -p 23456 root@ssh4.vast.ai -L 8080:localhost:8080 -i "/tmp/key with spaces"')
         self.assertEqual(value, {"port": 23456, "user": "root", "identity": "/tmp/key with spaces", "host": "ssh4.vast.ai"})

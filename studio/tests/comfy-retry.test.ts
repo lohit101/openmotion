@@ -1,11 +1,40 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ComfyClient, OfflineError } from '../server/comfy';
+import { ComfyClient, ConnectionManager, OfflineError } from '../server/comfy';
+import type { Store } from '../server/store';
 
 const client = new ComfyClient('http://127.0.0.1:8188');
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } });
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe('safe ComfyUI metadata retries', () => {
+  it('restores a lost tunnel once and checks the same prompt without any mutation', async () => {
+    vi.useFakeTimers();
+    const recover = vi.fn().mockResolvedValue(true), fetcher = vi.fn();
+    for (let i = 0; i < 3; i++) fetcher.mockRejectedValueOnce(new TypeError('Tunnel closed'));
+    fetcher.mockResolvedValueOnce(json({ existing: { status: { completed: true } } })); vi.stubGlobal('fetch', fetcher);
+    const pending = new ComfyClient(client.endpoint, recover).json('/history/existing');
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(await pending).toEqual({ existing: { status: { completed: true } } }); expect(recover).toHaveBeenCalledOnce();
+    expect(fetcher).toHaveBeenCalledTimes(4);
+    expect(fetcher.mock.calls.every(([url, options]) => url.endsWith('/history/existing') && options.method === 'GET')).toBe(true);
+  });
+
+  it('does not enter an endless recovery loop when the tunnel restores but the GPU server stays down', async () => {
+    vi.useFakeTimers();
+    const recover = vi.fn().mockResolvedValue(true), fetcher = vi.fn().mockRejectedValue(new TypeError('Server closed'));
+    vi.stubGlobal('fetch', fetcher);
+    const pending = new ComfyClient(client.endpoint, recover).json('/queue').catch(error => error);
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(await pending).toBeInstanceOf(OfflineError); expect(recover).toHaveBeenCalledOnce(); expect(fetcher).toHaveBeenCalledTimes(6);
+  });
+
+  it('never invokes connection recovery or repeats a failed paid submission', async () => {
+    const recover = vi.fn().mockResolvedValue(true), fetcher = vi.fn().mockRejectedValue(new TypeError('Response lost'));
+    vi.stubGlobal('fetch', fetcher);
+    await expect(new ComfyClient(client.endpoint, recover).json('/prompt', { prompt: {} })).rejects.toThrow(OfflineError);
+    expect(recover).not.toHaveBeenCalled(); expect(fetcher).toHaveBeenCalledOnce();
+  });
+
   it('recovers a stalled history read with a longer deadline and does not resubmit the prompt', async () => {
     vi.useFakeTimers();
     const timeout = vi.spyOn(AbortSignal, 'timeout');
@@ -84,5 +113,39 @@ describe('safe ComfyUI metadata retries', () => {
     expect(await pending).toEqual({ queue_running: [], queue_pending: [] }); expect(fetcher).toHaveBeenCalledTimes(3);
     fetcher.mockResolvedValueOnce(new Response('<html>private proxy secret</html>', { status: 400 }));
     await expect(client.json('/queue')).rejects.toThrow('ComfyUI returned HTTP 400.'); expect(fetcher).toHaveBeenCalledTimes(4);
+  });
+});
+
+describe('managed connection recovery', () => {
+  function managed(restore: (...args: any[]) => Promise<string>) {
+    const values = new Map<string, any>([['cloud-connected-instance', 123]]);
+    const store = { value: (key: string, fallback: unknown) => values.get(key) ?? fallback, emit: vi.fn() } as unknown as Store;
+    return { connection: new ConnectionManager(store, '/test/project', {}, restore), values };
+  }
+
+  it('deduplicates concurrent reconnects and only repairs forwarding to the intended existing rental', async () => {
+    let release!: () => void;
+    const restore = vi.fn(() => new Promise<string>(resolve => { release = () => resolve(''); }));
+    const { connection } = managed(restore), fetcher = vi.fn().mockImplementation(() => Promise.resolve(json({ devices: [{ type: 'cuda' }] })));
+    vi.stubGlobal('fetch', fetcher);
+    const first = connection.recoverTransport(), second = connection.recoverTransport(); release();
+    expect(await first).toBe(true); expect(await second).toBe(true); expect(restore).toHaveBeenCalledOnce();
+    expect(restore.mock.calls[0]).toEqual(['python3', ['/test/project/scripts/vast.py', 'tunnel', '--instance-id', '123'], undefined, 25000]);
+    expect(connection.status.state).toBe('online'); expect(fetcher).toHaveBeenCalledOnce(); expect(fetcher.mock.calls[0][0]).toMatch(/\/system_stats$/);
+  });
+
+  it('does not reconnect a stopped/unmanaged instance or a custom endpoint', async () => {
+    const restore = vi.fn().mockResolvedValue(''), { connection, values } = managed(restore);
+    values.delete('cloud-connected-instance'); expect(await connection.recoverTransport()).toBe(false);
+    values.set('cloud-connected-instance', 123); connection.status.endpoint = 'http://127.0.0.1:9999';
+    expect(await connection.recoverTransport()).toBe(false); expect(restore).not.toHaveBeenCalled();
+  });
+
+  it('keeps a manual disconnect authoritative while forwarding repair is in flight', async () => {
+    let release!: () => void;
+    const restore = vi.fn(() => new Promise<string>(resolve => { release = () => resolve(''); }));
+    const { connection } = managed(restore); vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json({ devices: [{ type: 'cuda' }] })));
+    const recovery = connection.recoverTransport(); connection.disconnect('Stopped by you'); release();
+    expect(await recovery).toBe(false); expect(connection.status.state).toBe('offline'); expect(connection.status.message).toBe('Stopped by you');
   });
 });

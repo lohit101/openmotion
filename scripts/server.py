@@ -122,6 +122,7 @@ def run_foreground():
     PIDFILE.write_text(json.dumps({"pid": os.getpid(), "main": main, "started": time.time()}))
     os.chdir(install["comfy_root"])
     os.environ["PYTHONUNBUFFERED"] = "1"
+    os.environ["PYTHONFAULTHANDLER"] = "1"
     os.execv(arguments[0], arguments)
 
 
@@ -161,7 +162,7 @@ def start():
             subprocess.run(["supervisorctl", "start", "character-swap"], check=True)
         return wait_ready(config, service=True)
     with LOG.open("ab") as log:
-        process = subprocess.Popen(arguments, cwd=install["comfy_root"], stdout=log, stderr=subprocess.STDOUT,
+        process = subprocess.Popen(arguments, cwd=install["comfy_root"], env={**os.environ, 'PYTHONUNBUFFERED': '1', 'PYTHONFAULTHANDLER': '1'}, stdout=log, stderr=subprocess.STDOUT,
                                    stdin=subprocess.DEVNULL, start_new_session=True)
     PIDFILE.write_text(json.dumps({"pid": process.pid, "main": main, "started": time.time()}))
     print("Starting ComfyUI; log: " + str(LOG), flush=True)

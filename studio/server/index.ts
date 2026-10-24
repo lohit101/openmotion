@@ -162,7 +162,8 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     const job = store.job(String(req.params.id)); if (!job) return void res.sendStatus(404);
     if (connection.status.state !== 'online') return void res.status(503).json({ error: 'Reconnect your GPU first.' });
     if (job.status !== 'interrupted') return void res.status(409).json({ error: 'Only an interrupted run can be resumed. Reuse settings to start another run.' });
-    await runner.resume(job); res.json(publicJob(store.job(job.id)!));
+    const value = z.object({ retryMissing: z.boolean().default(false) }).parse(req.body || {});
+    await runner.resume(job, value.retryMissing); res.json(publicJob(store.job(job.id)!));
   });
   app.get('/api/jobs/:id/:type', (req, res) => {
     const job = store.job(String(req.params.id)); if (!job) return void res.sendStatus(404);
