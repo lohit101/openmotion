@@ -2,7 +2,9 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import * as Select from '@radix-ui/react-select';
 import * as Switch from '@radix-ui/react-switch';
 import * as Dialog from '@radix-ui/react-dialog';
-import { Check, CaretDown, X, UploadSimple, FilmStrip, Image as ImageIcon, Play, Pause, ArrowsOut, ArrowsHorizontal, SpeakerHigh, SpeakerSlash } from '@phosphor-icons/react';
+import { Check, CaretDown, X, UploadSimple, FilmStrip, Image as ImageIcon, Play, Pause, ArrowsOut, ArrowsIn, ArrowsHorizontal, SpeakerHigh, SpeakerSlash } from '@phosphor-icons/react';
+import { toast } from 'sonner';
+import { observeFullscreen, toggleFullscreen } from './fullscreen';
 import type { Asset, Job } from '../shared/types';
 
 export async function api<T>(route: string, body?: unknown, method?: string): Promise<T> {
@@ -46,6 +48,17 @@ export function AssetDrop({ kind, asset, onAsset, onError }: { kind: 'video' | '
 export function VideoPlayer({ job, compare }: { job: Job; compare: boolean }) {
   const video = useRef<HTMLVideoElement>(null), before = useRef<HTMLVideoElement>(null), container = useRef<HTMLDivElement>(null);
   const [playing, setPlaying] = useState(false), [time, setTime] = useState(0), [duration, setDuration] = useState(3), [split, setSplit] = useState(50), [muted, setMuted] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
+  useEffect(() => {
+    if (container.current) return observeFullscreen(container.current, setFullscreen);
+  }, []);
+  const changeFullscreen = async () => {
+    if (!container.current) return;
+    try {
+      if (typeof container.current.requestFullscreen === 'function') await toggleFullscreen(container.current);
+      else toast.error('Fullscreen is not available in this browser.');
+    } catch { toast.error('Fullscreen could not be changed. Try again or press Esc to exit.'); }
+  };
   useEffect(() => { setPlaying(false); setTime(0); setSplit(50); }, [job.id]);
   useEffect(() => { if (compare && before.current && video.current) { before.current.currentTime = video.current.currentTime; if (!video.current.paused) void before.current.play().catch(() => undefined); } else before.current?.pause(); }, [compare]);
   const play = () => { if (!video.current) return; if (video.current.paused) void video.current.play().catch(() => undefined); else video.current.pause(); };
@@ -54,5 +67,5 @@ export function VideoPlayer({ job, compare }: { job: Job; compare: boolean }) {
     <video ref={video} key={job.id} src={`/api/jobs/${job.id}/video`} poster={`/api/jobs/${job.id}/poster`} muted={muted} playsInline preload="metadata" onLoadedMetadata={e => setDuration(e.currentTarget.duration)} onTimeUpdate={sync} onPlay={() => { setPlaying(true); if (compare) void before.current?.play().catch(() => undefined); }} onPause={() => { setPlaying(false); before.current?.pause(); }} onEnded={() => { setPlaying(false); before.current?.pause(); }} onClick={play} aria-label="Generated video" />
     {compare && <><video className="before-video" ref={before} src={`/api/jobs/${job.id}/source`} muted playsInline preload="auto" style={{ clipPath: `inset(0 ${100 - split}% 0 0)` }} aria-label="Original source video" /><div className="compare-labels"><span>Original</span><span>Generated</span></div><div className="compare-line" style={{ left: `${split}%` }}><span><ArrowsHorizontal size={17} /></span></div><input className="compare-range" type="range" min={0} max={100} value={split} onChange={e => setSplit(Number(e.target.value))} aria-label="Compare original and generated video" /></>}
     {!playing && !compare && <button className="big-play" onClick={play} aria-label="Play generated video"><Play size={25} weight="fill" /></button>}
-  </div><div className="playback-controls"><button className="icon-button" onClick={play} aria-label={playing ? 'Pause video' : 'Play video'}>{playing ? <Pause size={17} weight="fill" /> : <Play size={17} weight="fill" />}</button><span className="timecode">{formatTime(time)}</span><input type="range" className="seek" min={0} max={Number.isFinite(duration) ? duration : 3} step={0.01} value={Math.min(time, duration || 3)} onChange={e => { const n = Number(e.target.value); if (video.current) video.current.currentTime = n; if (before.current) before.current.currentTime = n; setTime(n); }} aria-label="Seek video" /><span className="timecode">{formatTime(duration)}</span><button className="icon-button" onClick={() => setMuted(!muted)} aria-label={muted ? 'Unmute video' : 'Mute video'}>{muted ? <SpeakerSlash size={17} /> : <SpeakerHigh size={17} />}</button><button className="icon-button" onClick={() => void container.current?.requestFullscreen().catch(() => undefined)} aria-label="Full screen"><ArrowsOut size={17} /></button></div></div>;
+  </div><div className="playback-controls"><button className="icon-button" onClick={play} aria-label={playing ? 'Pause video' : 'Play video'}>{playing ? <Pause size={17} weight="fill" /> : <Play size={17} weight="fill" />}</button><span className="timecode">{formatTime(time)}</span><input type="range" className="seek" min={0} max={Number.isFinite(duration) ? duration : 3} step={0.01} value={Math.min(time, duration || 3)} onChange={e => { const n = Number(e.target.value); if (video.current) video.current.currentTime = n; if (before.current) before.current.currentTime = n; setTime(n); }} aria-label="Seek video" /><span className="timecode">{formatTime(duration)}</span><button className="icon-button" onClick={() => setMuted(!muted)} aria-label={muted ? 'Unmute video' : 'Mute video'}>{muted ? <SpeakerSlash size={17} /> : <SpeakerHigh size={17} />}</button><button className="icon-button" onClick={() => void changeFullscreen()} aria-label={fullscreen ? 'Exit full screen' : 'Enter full screen'} title={fullscreen ? 'Exit full screen (Esc)' : 'Enter full screen'} aria-pressed={fullscreen}>{fullscreen ? <ArrowsIn size={17} /> : <ArrowsOut size={17} />}</button></div></div>;
 }
