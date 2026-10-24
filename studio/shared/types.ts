@@ -32,6 +32,13 @@ export interface Asset { id: string; kind: 'video' | 'image'; name: string; path
 export type JobStatus = 'queued' | 'running' | 'reconnecting' | 'interrupted' | 'completed' | 'failed' | 'cancelled';
 export interface Progress { stage: string; node: string | null; value: number | null; max: number | null; unit: string; segment: number; segments: number; completedFrames: number; targetFrames: number; updatedAt: number; }
 export interface Segment { promptId: string; frames: number; file: string; seconds: number; }
+export interface ReferenceFraming {
+  version: 'face-v1'; status: 'aligned'; width: number; height: number; anchorFrame: number;
+  scale: number; translateX: number; translateY: number; preparedSha256: string; warnings: string[];
+}
+export interface FramingCheck {
+  status: 'matched' | 'warning' | 'unverified'; warnings: string[]; samples: Record<string, unknown>[];
+}
 export interface Job {
   id: string; title: string; status: JobStatus; settings: Settings; sourceId: string; referenceId: string;
   createdAt: string; startedAt?: string; finishedAt?: string; favorite: boolean; deleted: boolean;
@@ -41,6 +48,7 @@ export interface Job {
   cancellationConfirmed?: boolean; submitting?: boolean;
   elapsedSeconds: number | null; origin: 'render' | 'import'; workflow: Record<string, GraphNode> | null;
   promptVersion?: 'scene-v1';
+  framingVersion?: 'face-v1'; referenceFraming?: ReferenceFraming; framingCheck?: FramingCheck;
 }
 export interface GraphNode { class_type: string; inputs: Record<string, unknown>; _meta?: { title: string }; }
 export type Graph = Record<string, GraphNode>;

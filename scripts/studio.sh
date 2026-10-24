@@ -12,6 +12,7 @@ for dependency in npm python3 ffmpeg ffprobe; do
     exit 1
   fi
 done
+python3 "$RECAST_REPO/scripts/setup_local_geometry.py"
 if [[ ! -d node_modules ]]; then npm ci --no-audit --no-fund; fi
 npm run build
 exec node dist-server/index.js

@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import express from 'express';
 import multer from 'multer';
@@ -15,6 +15,7 @@ import { command, probe } from '../server/media';
 import { compileWorkflow, validateGraph, RELIGHT } from '../server/workflow';
 import { defaults, geometry, nextSegment, segmentCount } from '../shared/types';
 import { compilePrompt, PROMPT_VERSION } from '../shared/prompts';
+import type { ReferenceGeometry } from '../server/framing';
 import prompts from '../../config/prompts.json';
 import type { Catalog, Graph, Job } from '../shared/types';
 
@@ -82,7 +83,7 @@ async function mockComfy() {
   app.get('/view', (req, res) => { const file = files.get(String(req.query.filename)); if (file) res.sendFile(file); else res.sendStatus(404); });
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   const address = server.address() as { port: number };
-  return { endpoint: `http://127.0.0.1:${address.port}`, calls, submissions, cancelled, pending, history, complete, emit,
+  return { endpoint: `http://127.0.0.1:${address.port}`, calls, submissions, cancelled, pending, history, complete, emit, uploads,
     setMode(value: typeof mode) { mode = value; }, loseNextHistory() { dropHistory = true; }, loseNextCancel() { dropCancel = true; },
     async close() { for (const socket of ws.clients) socket.terminate(); ws.close(); server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); }
   };
@@ -118,11 +119,26 @@ describe('native workflow and progress contracts', () => {
 
 describe('local app with the captured ComfyUI protocol', () => {
   let local: Awaited<ReturnType<typeof createApplication>> | undefined, mock: Awaited<ReturnType<typeof mockComfy>> | undefined, root = '';
+  let geometry: ReferenceGeometry;
   afterEach(async () => {
     if (local) { local.connection.disconnect(); local.runner.abort?.abort(); await until(() => local!.runner.busy, busy => !busy); local.store.close(); }
     await mock?.close(); if (root) await rm(root, { recursive: true, force: true }); local = undefined; mock = undefined;
   });
-  async function setup() { root = await mkdtemp(path.join(os.tmpdir(), 'recast-test-')); mock = await mockComfy(); local = await createApplication({ dataRoot: root, seed: false, allowSSH: false, repo }); return request(local.app); }
+  async function setup() {
+    root = await mkdtemp(path.join(os.tmpdir(), 'recast-test-')); mock = await mockComfy();
+    // Synthetic media has no faces. This injected protocol fixture checks that
+    // prepared inputs and quality reports are wired correctly; detector/affine
+    // behavior is verified separately by the CPU geometry tests.
+    geometry = {
+      prepare: vi.fn<ReferenceGeometry['prepare']>(async (job, _source, reference, folder, signal) => {
+        const file = path.join(folder, 'aligned-reference.png');
+        await command('ffmpeg', ['-v', 'error', '-y', '-i', reference, '-vf', `scale=${job.width}:${job.height}`, '-frames:v', '1', file], signal);
+        return { file, summary: { version: 'face-v1', status: 'aligned', width: job.width, height: job.height, anchorFrame: 0, scale: 2, translateX: 10, translateY: 20, preparedSha256: 'a'.repeat(64), warnings: [] } };
+      }),
+      check: vi.fn<ReferenceGeometry['check']>(async () => ({ status: 'matched', warnings: [], samples: [{ scaleRatio: 1, centerDistance: 0 }] })),
+    };
+    local = await createApplication({ dataRoot: root, seed: false, allowSSH: false, repo, geometry }); return request(local.app);
+  }
   async function inputs(agent: ReturnType<typeof request>) {
     const source = await agent.post('/api/assets/video').attach('file', video).expect(201); const ref = await agent.post('/api/assets/image').attach('file', image).expect(201);
     return { sourceId: source.body.id, referenceId: ref.body.id, settings: { ...defaults, seconds: 3 } };
@@ -150,6 +166,7 @@ describe('local app with the captured ComfyUI protocol', () => {
     const response = await agent.post('/api/jobs').set('Idempotency-Key', 'empty-prompt').send(values).expect(201);
     await until(() => mock!.submissions.length, count => count === 1);
     expect(local!.store.job(response.body.id)!.promptVersion).toBe(PROMPT_VERSION);
+    expect(local!.store.job(response.body.id)!.framingVersion).toBe('face-v1');
     expect(mock!.submissions[0].prompt['31'].inputs.text).toBe(compilePrompt('swap', ''));
     await agent.post(`/api/jobs/${response.body.id}/cancel`).expect(200);
     await until(() => local!.store.job(response.body.id)!.status, status => status === 'cancelled');
@@ -162,6 +179,11 @@ describe('local app with the captured ComfyUI protocol', () => {
     const job = await until(() => local!.store.job(response.body.id)!, j => ['completed', 'failed', 'interrupted'].includes(j.status), 25000);
     expect(job.error).toBeNull(); expect(job.status).toBe('completed'); expect(job.progress.completedFrames).toBe(94); expect(job.segments.map(s => s.frames)).toEqual([81, 13]);
     expect(mock!.submissions).toHaveLength(2); expect(mock!.submissions.every(s => s.socketReady)).toBe(true);
+    expect(geometry.prepare).toHaveBeenCalledOnce(); expect(geometry.check).toHaveBeenCalledOnce();
+    expect(job.referenceFraming?.status).toBe('aligned'); expect(job.framingCheck?.status).toBe('matched');
+    const uploadedReference = await probe(mock!.uploads.get(String(mock!.submissions[0].prompt['4'].inputs.image))!);
+    expect([uploadedReference.width, uploadedReference.height]).toEqual([job.width, job.height]);
+    await agent.get(`/api/jobs/${job.id}/aligned-reference`).expect(200);
     expect(mock!.submissions[1].prompt['36'].inputs.context_path).toContain('context-'); expect(mock!.submissions[1].prompt['1'].inputs.skip_frames).toBe(76);
     expect(stages.some(s => s.node === '43' && s.value === 2 && s.max === 6)).toBe(true);
     const meta = await probe(job.output!); expect(meta.duration).toBeCloseTo(5.875, 1); expect(meta.fps).toBe(16); expect(meta.hasAudio).toBe(true);
@@ -171,6 +193,43 @@ describe('local app with the captured ComfyUI protocol', () => {
     await agent.patch(`/api/jobs/${job.id}`).send({ favorite: true, title: 'Saved take', deleted: true }).expect(200);
     await agent.patch(`/api/jobs/${job.id}`).send({ deleted: false }).expect(200); expect(local!.store.job(job.id)).toMatchObject({ favorite: true, title: 'Saved take', deleted: false });
   }, 30000);
+  it('rejects ambiguous reference framing locally before any GPU input upload or sampling', async () => {
+    const agent = await setup(), values = await inputs(agent); await connect(agent);
+    vi.mocked(geometry.prepare).mockRejectedValueOnce(new Error('More than one face was detected. No GPU generation was submitted.'));
+    const response = await agent.post('/api/jobs').set('Idempotency-Key', 'ambiguous-framing').send(values).expect(201);
+    const job = await until(() => local!.store.job(response.body.id)!, j => j.status === 'failed');
+    expect(job.error).toContain('No GPU generation was submitted'); expect(mock!.submissions).toHaveLength(0);
+    expect(mock!.calls.filter(call => call === 'POST /upload/image')).toHaveLength(0);
+    expect(geometry.check).not.toHaveBeenCalled();
+  });
+  it('keeps a completed render with a framing warning and never automatically retries it', async () => {
+    const agent = await setup(), values = await inputs(agent); await connect(agent);
+    vi.mocked(geometry.check).mockResolvedValueOnce({ status: 'warning', samples: [{ scaleRatio: 0.5 }], warnings: ['The subject is smaller than the source.'] });
+    const response = await agent.post('/api/jobs').set('Idempotency-Key', 'framing-warning').send(values).expect(201);
+    const job = await until(() => local!.store.job(response.body.id)!, j => ['completed', 'failed'].includes(j.status));
+    expect(job.status).toBe('completed'); expect(job.output).toBeTruthy(); expect(job.progress.stage).toBe('Complete · review framing');
+    expect(job.framingCheck?.warnings).toEqual(['The subject is smaller than the source.']); expect(mock!.submissions).toHaveLength(1);
+    await agent.get(`/api/jobs/${job.id}/video`).expect(200);
+  });
+  it('bypasses source alignment for motion transfer and leaves older jobs on their original inputs', async () => {
+    const agent = await setup(), values = await inputs(agent); values.settings.mode = 'motion'; await connect(agent);
+    const response = await agent.post('/api/jobs').set('Idempotency-Key', 'motion-mode').send(values).expect(201);
+    const job = await until(() => local!.store.job(response.body.id)!, j => ['completed', 'failed'].includes(j.status));
+    expect(job.status).toBe('completed'); expect(job.framingVersion).toBeUndefined(); expect(geometry.prepare).not.toHaveBeenCalled(); expect(geometry.check).not.toHaveBeenCalled();
+    await agent.get(`/api/jobs/${job.id}/aligned-reference`).expect(404);
+    const old = jobFixture(); old.id = randomUUID(); old.sourceId = values.sourceId; old.referenceId = values.referenceId; old.uploads = null; old.settings = { ...defaults, seconds: 1 };
+    local!.store.addJob(old); void local!.runner.kick();
+    const finished = await until(() => local!.store.job(old.id)!, j => ['completed', 'failed'].includes(j.status));
+    expect(finished.status).toBe('completed'); expect(geometry.prepare).not.toHaveBeenCalled(); expect(geometry.check).not.toHaveBeenCalled();
+  });
+  it('retains the finished file if the optional output geometry check cannot run', async () => {
+    const agent = await setup(), values = await inputs(agent); await connect(agent);
+    vi.mocked(geometry.check).mockRejectedValueOnce(new Error('Face detector unavailable'));
+    const response = await agent.post('/api/jobs').set('Idempotency-Key', 'check-unavailable').send(values).expect(201);
+    const job = await until(() => local!.store.job(response.body.id)!, j => ['completed', 'failed'].includes(j.status));
+    expect(job.status).toBe('completed'); expect(job.framingCheck?.status).toBe('unverified'); expect(mock!.submissions).toHaveLength(1);
+    await agent.get(`/api/jobs/${job.id}/video`).expect(200);
+  });
   it('cancels only its own prompt and requires acknowledgement before showing cancelled', async () => {
     const agent = await setup(), values = await inputs(agent); mock!.setMode('hold'); await connect(agent);
     const response = await agent.post('/api/jobs').set('Idempotency-Key', 'cancel').send(values).expect(201), id = response.body.id;

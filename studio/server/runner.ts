@@ -8,11 +8,13 @@ import { command, poster, prepareVideo } from './media';
 import type { Store } from './store';
 import type { Graph, Job } from '../shared/types';
 import { nextSegment } from '../shared/types';
+import { exists, localReferenceGeometry, type ReferenceGeometry } from './framing';
 
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 export class Runner {
   busy = false; active: Job | null = null; abort: AbortController | null = null;
-  constructor(public store: Store, public connection: ConnectionManager, public template: Graph, public repo: string) {}
+  public geometry: ReferenceGeometry;
+  constructor(public store: Store, public connection: ConnectionManager, public template: Graph, public repo: string, geometry?: ReferenceGeometry) { this.geometry = geometry || localReferenceGeometry(repo); }
   interrupt(reason: string) {
     this.abort?.abort(new OfflineError(reason));
     for (const job of this.store.jobs()) if (job.origin === 'render' && ['queued', 'running', 'reconnecting'].includes(job.status)) {
@@ -76,10 +78,18 @@ export class Runner {
     try {
       this.checkCancelled(job); job.status = 'running'; job.startedAt ||= new Date().toISOString(); this.save(job);
       if (!job.uploads) {
-        this.stage(job, 'Preparing your clip'); const prepared = await prepareVideo(job, source, folder, signal); this.checkCancelled(job);
+        this.stage(job, 'Preparing your clip');
+        const existingSource = path.join(folder, 'prepared-source.mp4');
+        const prepared = job.framingVersion && await exists(existingSource) ? existingSource : await prepareVideo(job, source, folder, signal); this.checkCancelled(job);
+        let referenceFile = reference.path;
+        if (job.framingVersion && job.settings.mode === 'swap') {
+          this.stage(job, 'Matching character to source framing');
+          const aligned = await this.geometry.prepare(job, prepared, reference.path, folder, signal);
+          referenceFile = aligned.file; job.referenceFraming = aligned.summary; this.save(job); this.checkCancelled(job);
+        }
         this.stage(job, 'Transferring inputs to GPU', 0, 2, 'inputs');
         const video = await client.upload(prepared, job.id + '-source', signal); this.stage(job, 'Transferring inputs to GPU', 1, 2, 'inputs');
-        const image = await client.upload(reference.path, job.id + '-reference', signal); job.uploads = { source: video, reference: image }; this.save(job);
+        const image = await client.upload(referenceFile, job.id + '-reference', signal); job.uploads = { source: video, reference: image }; this.save(job);
       }
       while (job.progress.completedFrames < job.progress.targetFrames) {
         this.checkCancelled(job);
@@ -139,8 +149,16 @@ export class Runner {
       const code = 'import json,sys;from pathlib import Path;sys.path.insert(0,sys.argv[1]);from render_clip import finish_video;p=Path(sys.argv[2]);finish_video(json.loads((p/"assembly.json").read_text()),p)';
       await command('python3', ['-c', code, path.join(this.repo, 'scripts'), folder], signal, 120000);
       job.output = path.join(folder, 'final.mp4'); job.poster = path.join(folder, 'poster.jpg'); await poster(job.output, job.poster);
+      if (job.framingVersion && job.settings.mode === 'swap') {
+        this.stage(job, 'Checking subject scale and position');
+        try { job.framingCheck = await this.geometry.check(job, path.join(folder, 'prepared-source.mp4'), job.output, folder, signal); }
+        catch (error) {
+          if (signal.aborted) throw error;
+          job.framingCheck = { status: 'unverified', samples: [], warnings: ['The video was saved, but its framing could not be checked. Review it against the source before using it.'] };
+        }
+      }
       job.status = 'completed'; job.finishedAt = new Date().toISOString(); job.elapsedSeconds = (Date.parse(job.finishedAt) - Date.parse(job.startedAt!)) / 1000;
-      this.stage(job, 'Complete', null, null);
+      this.stage(job, job.framingCheck && job.framingCheck.status !== 'matched' ? 'Complete · review framing' : 'Complete', null, null);
     } catch (error) {
       if (signal.aborted && signal.reason instanceof OfflineError) error = signal.reason;
       const saved = this.store.job(job.id); const cancelled = saved?.cancelRequested && saved.cancellationConfirmed;

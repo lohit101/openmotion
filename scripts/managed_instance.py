@@ -33,6 +33,8 @@ def check_local(identity):
             raise ValueError('Deployment package is incomplete: ' + name)
     for name in ('models.lock.json', 'optional-models.lock.json', 'runtime.lock.json', 'server.json'):
         json.loads((vast.ROOT / 'config' / name).read_text())
+    # CPU-only dependency/model checks happen before any paid rental request.
+    subprocess.run([shutil.which('python3'), str(vast.ROOT / 'scripts/setup_local_geometry.py'), '--check'], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
     with socket.socket() as probe:
         occupied = probe.connect_ex(('127.0.0.1', 8188)) == 0
     if occupied:

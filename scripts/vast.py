@@ -148,7 +148,7 @@ def configure(args):
 
 def bundle(path):
     with tarfile.open(path, "w:gz") as archive:
-        for name in ["README.md", "config", "scripts", "custom_nodes", "workflows", "tests", "validation"]:
+        for name in ["README.md", "config", "scripts", "custom_nodes", "workflows", "tests", "validation", "licenses"]:
             source = ROOT / name
             if not source.exists():
                 raise RuntimeError("Missing deployment file: " + name)

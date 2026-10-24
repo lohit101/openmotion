@@ -17,16 +17,17 @@ import { offerFiltersSchema } from '../shared/cloud';
 import { defaults, geometry, segmentCount, settingsSchema } from '../shared/types';
 import type { Asset, Catalog, Graph, Job } from '../shared/types';
 import { migrateDemoPrompt, PROMPT_VERSION } from '../shared/prompts';
+import { FRAMING_VERSION, type ReferenceGeometry } from './framing';
 
 const STUDIO = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const REPO = path.dirname(STUDIO);
 const publicAsset = (asset: Asset) => ({ ...asset, path: '', poster: 'ready' });
-export async function createApplication(options: { dataRoot?: string; seed?: boolean; repo?: string; allowSSH?: boolean; catalog?: Catalog; template?: Graph } = {}) {
+export async function createApplication(options: { dataRoot?: string; seed?: boolean; repo?: string; allowSSH?: boolean; catalog?: Catalog; template?: Graph; geometry?: ReferenceGeometry } = {}) {
   const repo = options.repo || REPO;
   const store = new Store(options.dataRoot || process.env.RECAST_DATA || path.join(STUDIO, 'data'));
   const catalog: Catalog = options.catalog || JSON.parse(readFileSync(path.join(repo, 'integration-snapshot/object-info.json'), 'utf8'));
   const template: Graph = options.template || JSON.parse(readFileSync(path.join(repo, 'workflows/api/scail2_int8_swap.json'), 'utf8'));
-  const connection = new ConnectionManager(store, repo, catalog), runner = new Runner(store, connection, template, repo);
+  const connection = new ConnectionManager(store, repo, catalog), runner = new Runner(store, connection, template, repo, options.geometry);
   const cloud = new CloudManager(store, connection, runner, repo);
   if (options.seed !== false) await seedExamples(store, repo);
   for (const job of store.jobs()) {
@@ -110,7 +111,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     validateSelection(source, reference, value.settings.start, value.settings.seconds, value.settings.fps);
     const settings = { ...value.settings, prompt: migrateDemoPrompt(value.settings.prompt, value.settings.mode) }; if (settings.randomSeed) settings.seed = randomInt(0, 0xffffffff);
     const [width, height] = geometry(settings, source), target = Math.ceil(settings.seconds * settings.fps);
-    const job: Job = { id: randomUUID(), title: source.name.replace(/\.[^.]+$/, '') + (settings.mode === 'swap' ? ' / character swap' : ' / motion transfer'), status: 'queued', sourceId: source.id, referenceId: reference.id, settings, promptVersion: PROMPT_VERSION,
+    const job: Job = { id: randomUUID(), title: source.name.replace(/\.[^.]+$/, '') + (settings.mode === 'swap' ? ' / character swap' : ' / motion transfer'), status: 'queued', sourceId: source.id, referenceId: reference.id, settings, promptVersion: PROMPT_VERSION, ...(settings.mode === 'swap' ? { framingVersion: FRAMING_VERSION } : {}),
       createdAt: new Date().toISOString(), favorite: false, deleted: false, width, height,
       progress: { stage: 'Queued', node: null, value: null, max: null, unit: 'steps', segment: 1, segments: segmentCount(target, settings.framesPerPass), completedFrames: 0, targetFrames: target, updatedAt: Date.now() },
       segments: [], context: '', pendingPrompt: null, uploads: null, error: null, output: null, poster: null, cancelRequested: false, elapsedSeconds: null, origin: 'render', workflow: null };
@@ -135,6 +136,10 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   });
   app.get('/api/jobs/:id/:type', (req, res) => {
     const job = store.job(String(req.params.id)); if (!job) return void res.sendStatus(404);
+    if (req.params.type === 'aligned-reference') {
+      if (!job.referenceFraming) return void res.sendStatus(404);
+      return void res.sendFile(path.join(store.root, 'jobs', job.id, 'aligned-reference.png'));
+    }
     const type = String(req.params.type);
     if (type === 'workflow') { if (!job.workflow) return void res.status(404).json({ error: 'This run has not submitted a workflow yet.' }); res.attachment(`recast-${job.id}-workflow.json`).json(job.workflow); return; }
     const file = type === 'video' ? job.output : type === 'poster' ? job.poster : type === 'source' ? path.join(store.root, 'jobs', job.id, 'prepared-source.mp4') : null;
