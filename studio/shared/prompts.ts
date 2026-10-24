@@ -1,4 +1,5 @@
 import prompts from '../../config/prompts.json';
+import { modelDefinitions } from './models';
 
 export type MotionMode = 'swap' | 'motion';
 export const PROMPT_VERSION = 'scene-v1' as const;
@@ -27,8 +28,12 @@ export function compilePrompt(mode: MotionMode, prompt: string): string {
   return `${base}\n\n${custom}`;
 }
 
-export function renderPrompt(settings: { mode: MotionMode; prompt: string }, version?: typeof PROMPT_VERSION): string {
+export function renderPrompt(settings: { mode: MotionMode; prompt: string; loraA?: string; loraAStrength?: number; loraB?: string; loraBStrength?: number }, version?: typeof PROMPT_VERSION): string {
   // In-progress jobs made before this harness retain their original text on
   // continuation. Newly created jobs opt in and save the exact compiled graph.
-  return version === PROMPT_VERSION ? compilePrompt(settings.mode, settings.prompt) : settings.prompt;
+  if (version !== PROMPT_VERSION) return settings.prompt;
+  let text = compilePrompt(settings.mode, settings.prompt);
+  const selected = [settings.loraAStrength ? settings.loraA : '', settings.loraBStrength ? settings.loraB : ''];
+  for (const file of modelDefinitions) if (file.trigger && selected.includes(file.filename) && !text.toLowerCase().includes(file.trigger.toLowerCase())) text += `\n\n${file.trigger}`;
+  return text;
 }

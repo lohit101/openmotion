@@ -7,7 +7,7 @@ export const settingsSchema = z.object({
   mode: z.enum(['swap', 'motion']).default('swap'),
   prompt: z.string().trim().max(8000).default(''),
   negativePrompt: z.string().max(4000).default(defaultNegativePrompt),
-  preset: z.enum(['fast', 'natural', 'quality']).default('fast'),
+  preset: z.enum(['fast', 'natural', 'quality']).default('natural'),
   resolution: z.enum(['480', '704']).default('480'),
   orientation: z.enum(['source', 'portrait', 'landscape', 'square']).default('source'),
   fps: z.union([z.literal(16), z.literal(24), z.literal(30)]).default(16),

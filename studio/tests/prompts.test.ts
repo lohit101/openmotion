@@ -7,6 +7,7 @@ import { Store } from '../server/store';
 import { compileWorkflow } from '../server/workflow';
 import { compilePrompt, defaultPrompt, migrateDemoPrompt, PROMPT_VERSION, promptAfterModeChange, renderPrompt } from '../shared/prompts';
 import { defaults, settingsSchema } from '../shared/types';
+import { SOCIAL_STYLE } from '../shared/models';
 import type { Graph, Job } from '../shared/types';
 
 const repo = path.resolve(import.meta.dirname, '../..');
@@ -65,5 +66,14 @@ describe('scene-preserving prompt harness', () => {
     delete job.promptVersion; job.settings.prompt = prompts.legacyDemoPrompts[1];
     expect(compileWorkflow(template, job)['31'].inputs.text).toBe(prompts.legacyDemoPrompts[1]);
     expect(renderPrompt(job.settings)).toBe(job.settings.prompt);
+  });
+  it('adds the publisher trigger only for an enabled social style and leaves the baseline unchanged', () => {
+    const baseline = renderPrompt(defaults, PROMPT_VERSION);
+    expect(baseline).not.toContain('instag00n');
+    const styled = { ...defaults, loraA: SOCIAL_STYLE, loraAStrength: 0.35 };
+    expect(renderPrompt(styled, PROMPT_VERSION)).toBe(baseline + '\n\ninstag00n');
+    expect(renderPrompt({ ...styled, loraAStrength: 0 }, PROMPT_VERSION)).toBe(baseline);
+    expect(renderPrompt({ ...styled, prompt: 'instag00n portrait' }, PROMPT_VERSION).match(/instag00n/g)).toHaveLength(1);
+    expect(renderPrompt(styled)).toBe(styled.prompt);
   });
 });

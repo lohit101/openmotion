@@ -10,10 +10,9 @@ import type { Runner } from './runner';
 import { command } from './media';
 import type { CloudInstance, CloudLaunch, CloudState, GpuOffer, OfferFilters } from '../shared/cloud';
 import { canRetryRental, offerFiltersSchema, offerGpuFilter, sameGpuModel, supportedGpuName } from '../shared/cloud';
-import { modelBytes, modelFilesForSettings } from '../shared/models';
-import { defaults } from '../shared/types';
+import { modelBytes, pinnedModels, setupModelFiles } from '../shared/models';
 
-const MODEL_GB = modelBytes(modelFilesForSettings(defaults)) / 1e9;
+const MODEL_GB = modelBytes(setupModelFiles) / 1e9;
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 export const RENTAL_IMAGE = 'nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04';
 export const SSH_ONSTART = readFileSync(new URL('../../scripts/ssh_permissions.sh', import.meta.url), 'utf8');
@@ -248,7 +247,7 @@ export class CloudManager {
       createdAt: raw.start_date ? new Date(Number(raw.start_date) * 1000).toISOString() : null };
   }
   async offers(filters: OfferFilters) {
-    const modelFiles = modelFilesForSettings({ ...defaults, ...this.store.draft().settings });
+    const modelFiles = setupModelFiles;
     const rows = await this.client.offers(filters); const offers = rows.map(raw => normalizeOffer(raw, filters, modelBytes(modelFiles) / 1e9)).filter(o => o.compatible);
     const value = (o: GpuOffer) => filters.sort === 'compute' ? o.computeHourly : filters.sort === 'setup' ? (o.totalHourly === null || o.modelDownloadCost === null ? null : o.totalHourly + o.modelDownloadCost) : o.totalHourly;
     offers.sort((a, b) => (value(a) ?? Infinity) - (value(b) ?? Infinity));
@@ -377,7 +376,8 @@ export class CloudManager {
     const controller = new AbortController(); this.activeAbort = controller;
     const warningAfter = this.options.setupWarningMs ?? 15 * 60000;
     launch.setupStartedAt = new Date().toISOString(); launch.setupWarningAt = new Date(Date.now() + warningAfter).toISOString(); launch.setupDeadline = null;
-    launch.needsReconnect = false; launch.setupSlow = false; launch.warning = null; launch.safetyStatus = 'armed'; launch.autoStopOnFailure = true; launch.lastFailure = undefined; launch.failureCode = undefined; this.emit();
+    launch.needsReconnect = false; launch.setupSlow = false; launch.warning = null; launch.safetyStatus = 'armed'; launch.autoStopOnFailure = true; launch.lastFailure = undefined; launch.failureCode = undefined;
+    launch.setupDownloads = pinnedModels.filter(file => setupModelFiles.includes(file.destination)).map(file => ({ id: file.destination, downloaded: 0, total: file.size, phase: 'queued' })); this.emit();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const aborted = new Promise<never>((_resolve, reject) => controller.signal.addEventListener('abort', () => reject(controller.signal.reason || new Error('GPU setup interrupted.')), { once: true }));
     try {
@@ -431,14 +431,26 @@ export class CloudManager {
       }
       this.change(launch, 'waiting', String(instance.status_msg || 'Container status: ' + instance.actual_status)); await pause(this.options.pollMs ?? 5000);
     }
-    this.change(launch, 'installing', 'Installing pinned ComfyUI. Model files download only when requested.');
-    const log = (line: string) => { if (signal.aborted || this.stopped.has(launch.id)) return; launch.logs.push(line.slice(0, 800)); launch.logs = launch.logs.slice(-120); if (line.startsWith('RECAST_WARNING ')) launch.warning = line.slice(15, 500); if (/Downloading|Verified:|CUDA test|Setup complete|RECAST_STAGE/.test(line)) launch.message = line.replace('RECAST_STAGE ', '').slice(0, 250); launch.updatedAt = new Date().toISOString(); this.emit(); };
+    this.change(launch, 'installing', 'Installing ComfyUI and required model files. Extras stay optional.');
+    const log = (line: string) => {
+      if (signal.aborted || this.stopped.has(launch.id)) return;
+      if (line.startsWith('RECAST_MODEL_PROGRESS ')) {
+        try {
+          const event = JSON.parse(line.slice(22)), file = launch.setupDownloads?.find(file => file.id === event.destination);
+          if (file && event.total === file.total && Number.isFinite(event.downloaded) && event.downloaded >= 0 && event.downloaded <= file.total && ['downloading', 'verifying', 'ready'].includes(event.phase)) Object.assign(file, { downloaded: event.downloaded, phase: event.phase });
+        } catch { /* Only validated downloader telemetry updates progress. */ }
+      }
+      launch.logs.push(line.slice(0, 800)); launch.logs = launch.logs.slice(-120);
+      if (line.startsWith('RECAST_WARNING ')) launch.warning = line.slice(15, 500);
+      if (/Downloading|Verified:|CUDA test|Setup complete|RECAST_STAGE/.test(line)) launch.message = line.replace('RECAST_STAGE ', '').slice(0, 250);
+      launch.updatedAt = new Date().toISOString(); this.emit();
+    };
     if (this.options.provision) await this.options.provision(instance, log, signal);
     else await this.runProvision(instance, identity, log, signal);
     check();
     this.change(launch, 'connecting', 'Checking the actual CUDA ComfyUI server');
     await this.connection.connect('http://127.0.0.1:8188', false); check(); if (this.connection.status.state !== 'online') throw new Error(this.connection.status.message);
-    launch.setupDeadline = null; launch.setupWarningAt = null; launch.setupSlow = false; launch.warning = null; launch.safetyStatus = 'disarmed'; this.store.set('cloud-connected-instance', launch.instanceId); this.change(launch, 'ready', 'GPU connected. Choose model downloads in Models, then generate.');
+    launch.setupDeadline = null; launch.setupWarningAt = null; launch.setupSlow = false; launch.warning = null; launch.safetyStatus = 'disarmed'; this.store.set('cloud-connected-instance', launch.instanceId); this.change(launch, 'ready', 'GPU connected and required files verified. Optional LoRAs are in Settings → Extras.');
   }
   private async probeGpu(instance: any, identity: string) {
     if (this.options.probe) return this.options.probe(instance, identity);

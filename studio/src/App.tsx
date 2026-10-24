@@ -9,8 +9,8 @@ import type { CloudState } from '../shared/cloud';
 import { setupNotice } from '../shared/cloud-status';
 import { framingNotice, FramingWarningTracker } from '../shared/framing-status';
 import { samplingNote, samplingOptions, samplingSteps } from '../shared/sampling-display';
-import { DPO, emptyModels, modelDefinitions, modelFilesForSettings, presetModelFiles, RELIGHT as RELIGHT_MODEL, type ModelsState } from '../shared/models';
-import ModelsWorkspace, { DownloadButton, DownloadSelect, RequiredFiles, type DownloadControls } from './ModelDownloads';
+import { DPO, emptyModels, modelDefinitions, modelFilesForSettings, presetModelFiles, RELIGHT as RELIGHT_MODEL, setupModelFiles, SOCIAL_STYLE, type ModelsState } from '../shared/models';
+import ModelsWorkspace, { DownloadButton, DownloadSelect, RequiredFiles, modelSize, type DownloadControls } from './ModelDownloads';
 import FramingNotice from './FramingNotice';
 import SettingsWorkspace, { type SettingsTab } from './SettingsWorkspace';
 import { Toaster, toast } from 'sonner';
@@ -70,7 +70,7 @@ export default function App() {
   const [data, setData] = useState<Bootstrap | null>(null), [draft, setDraft] = useState<Draft>({ sourceId: null, referenceId: null, settings: defaults });
   const [view, setView] = useState<'create' | 'library' | 'gpu' | 'settings'>('create'), [selectedId, setSelectedId] = useState<string | null>(null), [compare, setCompare] = useState(false), [advanced, setAdvanced] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('connection');
-  const openModels = () => { setSettingsTab('models'); setView('settings'); };
+  const openModels = () => { setSettingsTab('extras'); setView('settings'); };
   const [info, setInfo] = useState(false), [message, setMessageValue] = useState(''), [creating, setCreating] = useState(false), [filter, setFilter] = useState('all'), [search, setSearch] = useState(''), [sort, setSort] = useState('newest');
   const setMessage = useCallback((text: string) => { setMessageValue(text); if (text) toast.error(text, { duration: 10000 }); }, []);
   const seenNotices = useRef(new Set<string>());
@@ -104,6 +104,7 @@ export default function App() {
       else if (e.type === 'connection') setData(old => old ? { ...old, connection: e.data } : old);
       else if (e.type === 'cloud') setData(old => old ? { ...old, cloud: e.data } : old);
       else if (e.type === 'models') setData(old => old ? { ...old, models: e.data } : old);
+      else if (e.type === 'lora-removed') setDraft(old => ({ ...old, settings: { ...old.settings, ...(old.settings.loraA === e.data.name ? { loraA: 'None' } : {}), ...(old.settings.loraB === e.data.name ? { loraB: 'None' } : {}) } }));
     };
     return () => { disposed = true; stream.close(); };
   }, [receiveBootstrap]);
@@ -115,7 +116,7 @@ export default function App() {
   const refreshModels = useCallback(() => {
     void api<ModelsState>('/models').then(models => setData(old => old ? { ...old, models } : old)).catch(error => setMessage(error.message));
   }, [setMessage]);
-  useEffect(() => { if (data) refreshModels(); }, [data?.connection.state, data?.connection.checkedAt, refreshModels]);
+  useEffect(() => { if (data && !data.cloud.busy) refreshModels(); }, [data?.connection.state, data?.connection.checkedAt, data?.cloud.busy, refreshModels]);
   const lastModelStates = useRef(new Map<string, string>());
   useEffect(() => {
     for (const file of data?.models?.files || []) {
@@ -129,6 +130,13 @@ export default function App() {
   const downloadModels = useCallback((files: string[]) => {
     void api<ModelsState>('/models/download', { files }).then(models => { setData(old => old ? { ...old, models } : old); toast.message('Downloads queued', { description: 'Only the files you requested will be installed.' }); }).catch(error => setMessage(error.message));
   }, [setMessage]);
+  const removeLora = useCallback((name: string) => {
+    void api<{ freedBytes: number; models: ModelsState }>('/models/delete', { name }).then(result => {
+      setData(old => old ? { ...old, models: result.models } : old);
+      setDraft(old => ({ ...old, settings: { ...old.settings, ...(old.settings.loraA === name ? { loraA: 'None' } : {}), ...(old.settings.loraB === name ? { loraB: 'None' } : {}) } }));
+      toast.success('LoRA removed', { description: `${modelSize(result.freedBytes)} freed on your GPU. You can download it again.` });
+    }).catch(error => setMessage(error.message));
+  }, [setMessage]);
   const assets = data?.assets || [], jobs = data?.jobs || [], connection = data?.connection;
   const source = assets.find(a => a.id === draft.sourceId), reference = assets.find(a => a.id === draft.referenceId);
   const selected = jobs.find(j => j.id === selectedId && !j.deleted) || jobs.find(j => !j.deleted);
@@ -139,7 +147,8 @@ export default function App() {
   const missingCustom = [draft.settings.loraA, draft.settings.loraB].filter(name => name !== 'None' && !connection?.loras.includes(name) && !modelDefinitions.some(file => file.filename === name));
   const modelsReady = requiredFiles.every(id => modelState.files.find(file => file.id === id)?.status === 'installed') &&
     [draft.settings.loraA, draft.settings.loraB].every(name => name === 'None' || connection?.loras.includes(name));
-  const downloads: DownloadControls = { state: modelState, online, blocked: !!data?.cloud.busy || jobs.some(job => activeStates.includes(job.status)), download: downloadModels };
+  const needsSetupFiles = setupModelFiles.some(id => modelState.files.find(file => file.id === id)?.status !== 'installed');
+  const downloads: DownloadControls = { state: modelState, online, blocked: !!data?.cloud.busy || jobs.some(job => activeStates.includes(job.status)), download: downloadModels, remove: removeLora };
   const [width, height] = geometry(draft.settings, source || { width: 480, height: 832 });
   const valid = settingsSchema.safeParse(draft.settings).success && !!source && !!reference && draft.settings.start + draft.settings.seconds <= (source?.duration || 0) + 1 / draft.settings.fps && draft.settings.seconds * draft.settings.fps >= 5;
   const update = (changes: Partial<Settings>) => setDraft(old => ({ ...old, settings: { ...old.settings, ...(changes.mode && changes.prompt === undefined ? { prompt: promptAfterModeChange(old.settings.prompt, changes.mode) } : {}), ...changes } }));
@@ -183,7 +192,7 @@ export default function App() {
         <button className={`rail-link ${view === 'gpu' ? 'active' : ''}`} aria-current={view === 'gpu' ? 'page' : undefined} onClick={() => setView('gpu')} title="GPU cloud"><Lightning size={21} /><span>GPU cloud</span></button>
       </nav><div className="rail-settings"><button className={`rail-link ${view === 'settings' ? 'active' : ''}`} aria-current={view === 'settings' ? 'page' : undefined} onClick={() => setView('settings')} title="Settings"><GearSix size={21} /><span>Settings</span></button></div></div>
     </aside>
-    {view === 'settings' ? <SettingsWorkspace tab={settingsTab} onTabChange={setSettingsTab} connection={connection!} error={setMessage} browse={() => setView('gpu')} models={<ModelsWorkspace controls={downloads} required={requiredFiles} missingCustom={missingCustom} refresh={refreshModels} cancel={() => { void api<ModelsState>('/models/cancel', {}).then(models => { setData(old => old ? { ...old, models } : old); toast.message('Downloads cancelled. Partial files are kept.'); }).catch(error => setMessage(error.message)); }} create={() => setView('create')} />} /> : view === 'gpu' ? <Suspense fallback={<main className="gpu-loading">Opening GPU cloud</main>}><GpuWorkspace cloud={data.cloud} setCloud={setCloud} notify={setMessage} onCreate={() => setView('create')} /></Suspense> : view === 'create' ? <main className="create-layout"><section className="editor"><div className="editor-scroll"><div className="editor-heading"><span className="section-icon"><FilmStrip size={19} /></span><h1>Motion control</h1><span className="model-tag">SCAIL-2</span></div><p className="editor-description">New character. Same performance.</p><div className="mode-tabs" role="group" aria-label="Generation mode"><button aria-pressed={draft.settings.mode === 'swap'} className={draft.settings.mode === 'swap' ? 'active' : ''} onClick={() => update({ mode: 'swap' })}>Character swap</button><button aria-pressed={draft.settings.mode === 'motion'} className={draft.settings.mode === 'motion' ? 'active' : ''} onClick={() => update({ mode: 'motion' })}>Motion transfer</button></div>
+    {view === 'settings' ? <SettingsWorkspace tab={settingsTab} onTabChange={setSettingsTab} connection={connection!} error={setMessage} browse={() => setView('gpu')} models={<ModelsWorkspace controls={downloads} required={requiredFiles} missingCustom={missingCustom} refresh={refreshModels} cancel={() => { void api<ModelsState>('/models/cancel', {}).then(models => { setData(old => old ? { ...old, models } : old); toast.message('Downloads cancelled. Partial files are kept.'); }).catch(error => setMessage(error.message)); }} setup={() => setView('gpu')} useLora={name => { setDraft(old => ({ ...old, settings: { ...old.settings, loraA: name, loraAStrength: name === SOCIAL_STYLE ? 0.35 : 0.8 } })); setView('create'); }} />} /> : view === 'gpu' ? <Suspense fallback={<main className="gpu-loading">Opening GPU cloud</main>}><GpuWorkspace cloud={data.cloud} setCloud={setCloud} notify={setMessage} onCreate={() => setView('create')} /></Suspense> : view === 'create' ? <main className="create-layout"><section className="editor"><div className="editor-scroll"><div className="editor-heading"><span className="section-icon"><FilmStrip size={19} /></span><h1>Motion control</h1><span className="model-tag">SCAIL-2</span></div><p className="editor-description">New character. Same performance.</p><div className="mode-tabs" role="group" aria-label="Generation mode"><button aria-pressed={draft.settings.mode === 'swap'} className={draft.settings.mode === 'swap' ? 'active' : ''} onClick={() => update({ mode: 'swap' })}>Character swap</button><button aria-pressed={draft.settings.mode === 'motion'} className={draft.settings.mode === 'motion' ? 'active' : ''} onClick={() => update({ mode: 'motion' })}>Motion transfer</button></div>
       <div className="input-pair"><AssetDrop kind="video" asset={source} onAsset={a => selectAsset('video', a)} onError={setMessage} /><AssetDrop kind="image" asset={reference} onAsset={a => selectAsset('image', a)} onError={setMessage} /></div>
       {draft.settings.mode === 'swap' && <p className="framing-hint">The reference supplies appearance. The video supplies position, scale and camera framing.</p>}
       <div className="prompt-field"><label htmlFor="prompt">Prompt<span>Optional refinements</span></label><textarea id="prompt" ref={promptRef} value={draft.settings.prompt} onChange={e => update({ prompt: e.target.value })} maxLength={8000} spellCheck={false} placeholder="Leave empty to use the default. Add only specific details you want to refine." /><div className="prompt-bottom"><span>{draft.settings.prompt.trim() ? `${draft.settings.prompt.length.toLocaleString()} / 8,000` : 'Default prompt active'}</span><div><button onClick={() => { update({ prompt: defaultPrompt(draft.settings.mode) }); promptRef.current?.focus(); }}>Use default</button><button onClick={() => { update({ prompt: '' }); promptRef.current?.focus(); }}>Clear</button></div></div></div>
@@ -191,9 +200,9 @@ export default function App() {
       <div className="settings-grid"><label>Frame rate<SmallSelect label="Frame rate" value={String(draft.settings.fps)} onChange={v => update({ fps: Number(v) as 16 | 24 | 30 })} options={[{ value: '16', label: '16 fps' }, { value: '24', label: '24 fps' }, { value: '30', label: '30 fps' }]} /></label><label>Duration <span className="label-unit">seconds</span><input type="number" min="0.2" max={Math.min(30, source?.duration || 30)} step="0.1" value={draft.settings.seconds} onChange={e => update({ seconds: Number(e.target.value) })} /></label></div>
       {source && <label className="start-range"><span>Clip starts at <b>{draft.settings.start.toFixed(2)}s</b></span><input type="range" aria-label="Clip start time" min={0} max={Math.max(0, source.duration - draft.settings.seconds)} step={1 / draft.settings.fps} value={draft.settings.start} onChange={e => update({ start: Number(e.target.value) })} /><small>{width} × {height} output <span>{Math.ceil(draft.settings.seconds * draft.settings.fps)} frames</span></small></label>}
       {(draft.settings.preset !== 'fast' || draft.settings.resolution === '704' || draft.settings.mode === 'motion') && <div className="preset-note"><Info size={15} /><span>{draft.settings.mode === 'motion' ? 'Motion transfer uses the reference scene. This mode has not been GPU-tested in this app.' : samplingNote(draft.settings.preset)}</span></div>}
-      <RequiredFiles files={requiredFiles} controls={downloads} manage={openModels} /><button className="advanced-trigger" onClick={() => setAdvanced(!advanced)} aria-expanded={advanced}><SlidersHorizontal size={15} /> Advanced settings<CaretRight size={14} className={advanced ? 'rotated' : ''} /></button>
+      <RequiredFiles files={requiredFiles} controls={downloads} manage={openModels} setup={() => setView('gpu')} /><button className="advanced-trigger" onClick={() => setAdvanced(!advanced)} aria-expanded={advanced}><SlidersHorizontal size={15} /> Advanced settings<CaretRight size={14} className={advanced ? 'rotated' : ''} /></button>
       {advanced && <Advanced settings={draft.settings} update={update} loras={connection!.loras} downloads={downloads} />}
-    </div><div className="generate-footer"><button className="primary-button generate" disabled={!online || !valid || creating || !modelsReady || modelState.busy} onClick={() => void generate()}><Sparkle size={18} weight="fill" />{creating ? 'Submitting...' : 'Generate'}<kbd>⌘ ↵</kbd></button><div className="generate-caption">{!online ? <><Plug size={12} /><button onClick={() => setView('gpu')}>Connect GPU to generate</button></> : !modelsReady || modelState.busy ? <><DownloadSimple size={12} /><button onClick={openModels}>{modelState.busy ? 'Downloading selected model files' : 'Download required files to generate'}</button></> : !valid ? 'Add both inputs and choose a valid clip range.' : <><CheckCircle size={12} />Ready on your GPU</>}</div></div></section>
+    </div><div className="generate-footer"><button className="primary-button generate" disabled={!online || !valid || creating || !modelsReady || modelState.busy} onClick={() => void generate()}><Sparkle size={18} weight="fill" />{creating ? 'Submitting...' : 'Generate'}<kbd>⌘ ↵</kbd></button><div className="generate-caption">{!online ? <><Plug size={12} /><button onClick={() => setView('gpu')}>Connect GPU to generate</button></> : !modelsReady || modelState.busy ? <><DownloadSimple size={12} /><button onClick={needsSetupFiles ? () => setView('gpu') : openModels}>{needsSetupFiles ? 'Required files are part of GPU setup' : modelState.busy ? 'Updating extra model files' : 'Download selected extras to generate'}</button></> : !valid ? 'Add both inputs and choose a valid clip range.' : <><CheckCircle size={12} />Ready on your GPU</>}</div></div></section>
     <section className="workspace"><div className="workspace-header"><div><span className="workspace-overline">YOUR WORKSPACE</span><h2>{selected?.title || 'Your next creation'}</h2></div><div className="workspace-actions">{selected?.status === 'completed' && <><button className="icon-button" title="Render details" aria-label="Render details" onClick={() => setInfo(true)}><Info size={18} /></button><button className="icon-button" title="Reuse settings" aria-label="Reuse selected render settings" onClick={() => reuse(selected)}><ArrowCounterClockwise size={18} /></button><a className="secondary-button" href={`/api/jobs/${selected.id}/video?download=1`}><DownloadSimple size={15} />Download</a></>}</div></div>
       {selected && <FramingNotice job={selected} onCompare={() => setCompare(true)} />}
       <div className={`preview-stage ${selected?.status === 'completed' ? 'has-result' : ''}`}>

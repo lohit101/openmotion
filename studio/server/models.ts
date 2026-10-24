@@ -1,9 +1,19 @@
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import type { Catalog, Graph } from '../shared/types';
-import { emptyModels, modelDefinitions, pinnedModels, type ModelsState } from '../shared/models';
+import { emptyModels, modelDefinitions, pinnedModels, setupModelFiles, type InstalledLora, type ModelsState } from '../shared/models';
 import type { Store } from './store';
 import { lorasFrom, type ConnectionManager } from './comfy';
+import { command } from './media';
+
+export async function manageModelStorage(repo: string, instanceId: number, action: 'inventory' | 'delete', name?: string): Promise<{ loras?: InstalledLora[]; name?: string; freedBytes?: number; removed?: boolean }> {
+  const args = ['-u', path.join(repo, 'scripts/managed_models.py'), '--instance-id', String(instanceId), '--action', action];
+  if (action === 'delete') args.push('--lora', name!);
+  const output = await command('python3', args, undefined, 45000);
+  const line = output.split(/\r?\n/).find(line => line.startsWith('RECAST_MODEL_STORAGE '));
+  if (!line) throw new Error('The GPU did not return a model storage result.');
+  return JSON.parse(line.slice(21));
+}
 
 export function missingPinnedAdapters(graph: Graph, catalog: Catalog): string[] {
   const installed = catalog.LoraLoaderModelOnly?.input.required?.lora_name?.[0];
@@ -69,7 +79,7 @@ export class ModelManager {
   private queue = new Set<string>(); private controller: AbortController | null = null;
   private work: Promise<void> | null = null; private refreshing: Promise<ModelsState> | null = null;
   private preparing = 0; private cancelEpoch = 0;
-  constructor(public store: Store, public connection: ConnectionManager, public repo: string, private download: DownloadWorker = downloadPinnedModels) {}
+  constructor(public store: Store, public connection: ConnectionManager, public repo: string, private download: DownloadWorker = downloadPinnedModels, private storage: typeof manageModelStorage = manageModelStorage) {}
   emit() { this.store.emit('event', { type: 'models', data: this.state }); }
   async refresh(): Promise<ModelsState> {
     if (this.refreshing) return this.refreshing;
@@ -78,7 +88,7 @@ export class ModelManager {
       try {
         if (this.connection.status.state !== 'online') {
           for (const file of this.state.files) if (!['queued', 'downloading'].includes(file.status)) Object.assign(file, { status: 'unknown', percent: null });
-          this.state.error = null; this.state.checkedAt = null; return this.state;
+          this.state.error = null; this.state.checkedAt = null; this.state.installedLoras = []; return this.state;
         }
         const catalog: Catalog = await this.connection.client().json('/object_info');
         const installed = installedModelIds(catalog);
@@ -87,6 +97,11 @@ export class ModelManager {
           else if (file.status !== 'failed') Object.assign(file, { status: 'missing', percent: null, message: '' });
         }
         this.connection.catalog = catalog;
+        const instanceId = this.store.value<number | null>('cloud-connected-instance', null);
+        if (instanceId && this.connection.status.endpoint === 'http://127.0.0.1:8188') {
+          const result = await this.storage(this.repo, instanceId, 'inventory');
+          this.state.installedLoras = result.loras || [];
+        }
         const loras = lorasFrom(catalog);
         if (JSON.stringify(loras) !== JSON.stringify(this.connection.status.loras)) { this.connection.status.loras = loras; this.connection.emit(); }
         this.state.error = null; this.state.checkedAt = new Date().toISOString();
@@ -99,6 +114,7 @@ export class ModelManager {
     return this.refreshing;
   }
   async start(files: string[]) {
+    if (this.state.deleting) throw new Error('Wait for the LoRA removal to finish.');
     if (!files.length || files.length > modelDefinitions.length || files.some(id => !modelDefinitions.some(file => file.id === id))) throw new Error('Choose known model files from the download list.');
     if (this.connection.status.state !== 'online') throw new Error('Connect a running GPU before downloading models.');
     const instanceId = this.store.value<number | null>('cloud-connected-instance', null), endpoint = this.connection.status.endpoint;
@@ -147,5 +163,26 @@ export class ModelManager {
     this.queue.clear(); this.controller?.abort(new Error('Cancelled.'));
     for (const file of this.state.files) if (file.status === 'queued') Object.assign(file, { status: 'missing', message: 'Cancelled. Click download to resume.', percent: null });
     await this.work; this.emit(); return this.state;
+  }
+  async remove(name: string) {
+    if (this.state.busy) throw new Error('Finish or cancel active transfers before removing a LoRA.');
+    if (setupModelFiles.includes('loras/' + name)) throw new Error('This LoRA is included in required setup.');
+    if (!name || name.length > 300 || /[\x00-\x1f\x7f]/.test(name) || name.startsWith('/') || name.includes('\\') || name.split('/').some(p => !p || p === '.' || p === '..') || !name.endsWith('.safetensors')) throw new Error('Choose a valid LoRA filename.');
+    const instanceId = this.store.value<number | null>('cloud-connected-instance', null);
+    if (!instanceId || this.connection.status.state !== 'online' || this.connection.status.endpoint !== 'http://127.0.0.1:8188') throw new Error('Connect the managed GPU before removing LoRAs.');
+    this.state.busy = true; this.state.deleting = name; this.emit();
+    try {
+      const result = await this.storage(this.repo, instanceId, 'delete', name);
+      if (result.name !== name || !Number.isFinite(result.freedBytes) || result.freedBytes! < 0) throw new Error('The GPU did not confirm this LoRA removal. Refresh its storage before retrying.');
+      const draft = this.store.draft();
+      if (draft.settings.loraA === name) draft.settings.loraA = 'None';
+      if (draft.settings.loraB === name) draft.settings.loraB = 'None';
+      this.store.set('draft', draft);
+      const file = this.state.files.find(file => file.id === 'loras/' + name);
+      if (file) Object.assign(file, { status: 'missing', percent: null, message: '', error: null });
+      this.store.emit('event', { type: 'lora-removed', data: result });
+      if (this.refreshing) await this.refreshing;
+      await this.refresh(); return { ...result, models: this.state };
+    } finally { this.state.busy = false; this.state.deleting = null; this.emit(); }
   }
 }

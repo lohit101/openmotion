@@ -14,7 +14,7 @@ import { seedExamples } from './seed';
 import { validateSelection } from './workflow';
 import { CloudManager } from './cloud';
 import { ModelManager } from './models';
-import { modelFilesForSettings } from '../shared/models';
+import { modelDefinitions, modelFilesForSettings } from '../shared/models';
 import { offerFiltersSchema } from '../shared/cloud';
 import { defaults, geometry, segmentCount, settingsSchema } from '../shared/types';
 import type { Asset, Catalog, Graph, Job } from '../shared/types';
@@ -59,10 +59,15 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   app.get('/api/models', async (_req, res) => res.json(await models.refresh()));
   app.post('/api/models/download', async (req, res) => {
     if (cloud.state.busy || runner.busy || store.jobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status))) return void res.status(409).json({ error: 'Finish the current setup or render before downloading models.' });
-    const value = z.object({ files: z.array(z.string().max(300)).min(1).max(9) }).parse(req.body);
+    const value = z.object({ files: z.array(z.string().max(300)).min(1).max(modelDefinitions.length) }).parse(req.body);
     res.status(202).json(await models.start(value.files));
   });
   app.post('/api/models/cancel', async (_req, res) => res.json(await models.cancel()));
+  app.post('/api/models/delete', async (req, res) => {
+    if (cloud.state.busy || runner.busy || store.jobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status))) return void res.status(409).json({ error: 'Finish setup or rendering before removing a LoRA.' });
+    const value = z.object({ name: z.string().min(1).max(300) }).parse(req.body);
+    res.json(await models.remove(value.name));
+  });
   app.post('/api/cloud/key', async (req, res) => { const value = z.object({ key: z.string().trim().min(12).max(500) }).parse(req.body); await cloud.saveKey(value.key); res.json(cloud.state); });
   app.delete('/api/cloud/key', async (_req, res) => { await cloud.removeKey(); res.json(cloud.state); });
   app.post('/api/cloud/refresh', async (_req, res) => res.json(await cloud.refresh()));

@@ -10,7 +10,7 @@ const steps: Record<Settings['preset'], number> = { fast: 6, natural: 8, quality
 export function samplingSteps(preset: Settings['preset']): number { return steps[preset]; }
 
 export function samplingNote(preset: Settings['preset']): string {
-  if (preset === 'natural') return 'Natural is an experimental 8-step preset. In our short comparison it changed some mouth and brow expressions; Fast remains the default. Relighting is a separate switch in Advanced settings. More steps take longer; compare the result with your source.';
+  if (preset === 'natural') return 'Natural uses 8 steps and is included in setup. In our short comparison it changed some mouth and brow expressions. Relighting is a separate switch in Advanced settings. Compare the result with your source.';
   if (preset === 'quality') return 'Quality uses 20 steps with the speed adapter disabled. It takes longer and does not guarantee a better result. Relighting is controlled separately in Advanced settings.';
   return 'Higher resolution takes more time and memory. Relighting is controlled separately in Advanced settings.';
 }

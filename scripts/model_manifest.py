@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def selected_manifest(files=None):
     available = []
-    for name in ('models.lock.json', 'optional-models.lock.json', 'natural-models.lock.json'):
+    for name in ('models.lock.json', 'optional-models.lock.json', 'natural-models.lock.json', 'extra-models.lock.json'):
         available.extend(json.loads((ROOT / 'config' / name).read_text())['files'])
     if files is None:
         files = [item['destination'] for item in available]
@@ -19,6 +19,10 @@ def selected_manifest(files=None):
         raise ValueError('Unknown or duplicate setup model. Only pinned files can be downloaded automatically.')
     selected = [item for item in available if item['destination'] in files]
     return {'total_bytes': sum(item['size'] for item in selected), 'files': selected}
+
+
+def required_setup_manifest():
+    return selected_manifest(json.loads((ROOT / 'config/setup-models.json').read_text())['files'])
 
 
 def manifest_path(remote_root, manifest):
@@ -34,3 +38,12 @@ def write_remote_manifest(config, manifest):
             't=p.with_suffix(".tmp");t.write_text(json.dumps(json.loads(sys.argv[2]),indent=2)+"\\n");t.replace(p)')
     vast.remote(config, ['python3', '-c', code, target, json.dumps(manifest)])
     return target
+
+
+if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--setup-output', type=Path, required=True)
+    args = parser.parse_args()
+    args.setup_output.parent.mkdir(parents=True, exist_ok=True)
+    args.setup_output.write_text(json.dumps(required_setup_manifest(), indent=2) + '\n')

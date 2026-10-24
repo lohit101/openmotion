@@ -149,6 +149,7 @@ def main():
     parser.add_argument("--model-dir", type=Path, default=ROOT / "models")
     parser.add_argument("--manifest", type=Path, default=ROOT / "config/models.lock.json")
     parser.add_argument("--workers", type=int, choices=range(1, 5), default=2)
+    parser.add_argument("--reserve-gb", type=int, choices=range(5, 65), default=5)
     parser.add_argument("--verify-only", action="store_true")
     parser.add_argument("--rehash", action="store_true")
     parser.add_argument("--list", action="store_true")
@@ -168,7 +169,7 @@ def main():
         return
     pending = sum(max(0, f["size"] - min(f["size"], (args.model_dir / (f["destination"] + ".part")).stat().st_size))
                   if (args.model_dir / (f["destination"] + ".part")).exists() else f["size"] for f in missing)
-    reserve = 5 * 1024 ** 3
+    reserve = args.reserve_gb * 1024 ** 3
     if shutil.disk_usage(args.model_dir).free < pending + reserve:
         raise SystemExit("Need %.1f GB free for remaining downloads plus working space." % ((pending + reserve) / 1e9))
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as pool:

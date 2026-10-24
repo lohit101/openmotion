@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
-from model_manifest import manifest_path, selected_manifest
+from model_manifest import manifest_path, selected_manifest, required_setup_manifest
 from managed_models import check_connection
 from doctor import profile_schema_graph
 from check_workflows import check_api
@@ -60,7 +60,7 @@ class ModelProfileTests(unittest.TestCase):
             with self.subTest(config=altered), self.assertRaises(ValueError):
                 check_connection(altered, 123)
 
-    def test_existing_runtime_check_never_calls_the_model_downloader(self):
+    def test_existing_setup_verifies_required_files_before_reusing_cached_installation(self):
         with patch.object(sys, 'argv', ['managed_instance.py', '--host', 'fixture.example', '--port', '23456', '--identity', '/tmp/fixture-key', '--instance-id', '123']), \
              patch.object(managed_instance, 'check_local', return_value={'ok': True}), \
              patch.object(managed_instance.vast, 'configure'), patch.object(managed_instance.vast, 'upload_package'), \
@@ -68,9 +68,16 @@ class ModelProfileTests(unittest.TestCase):
              patch.object(managed_instance.subprocess, 'run', return_value=SimpleNamespace(returncode=0, stdout=b'', stderr=b'')) as run:
             managed_instance.main()
             commands = [str(call.args[0]) for call in run.call_args_list]
-            self.assertTrue(any('--runtime-only' in command for command in commands))
+            self.assertTrue(any('required-models.json' in command and '--manifest' in command for command in commands))
             self.assertFalse(any('download_models.py' in command for command in commands))
             tunnel.assert_called_once()
+
+    def test_required_bundle_covers_natural_recipe_but_never_optional_extras(self):
+        manifest = required_setup_manifest()
+        names = {f['destination'] for f in manifest['files']}
+        self.assertEqual(manifest['total_bytes'], 29738555883)
+        self.assertEqual(len(names), 8)
+        self.assertFalse(any('Instagoon' in name or 'lightx2v_I2V' in name for name in names))
 
 
 if __name__ == '__main__':

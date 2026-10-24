@@ -1,0 +1,47 @@
+{
+  "checkedUTC": "2026-10-24T20:02:40.264874+00:00",
+  "requiredSetup": {
+    "files": 8,
+    "bytes": 29738555883,
+    "recipe": "Natural 8-step swap, DPO 1 and relighting 1",
+    "parallelRuntimeAndModelDownloads": true,
+    "extraFilesAutomaticallyDownloaded": false
+  },
+  "extras": {
+    "catalog": [
+      "Fast / motion acceleration",
+      "Social media style - Instagooner"
+    ],
+    "socialStyleBytes": 613557448,
+    "publisher": "https://civitai.com/models/1836311?modelVersionId=2078049",
+    "pinnedMirror": "Chroma111/CivitAI-Archive-2",
+    "sha256MatchesPublisher": true,
+    "headerComparison": {
+      "checkedBase": "SCAIL-2 INT8 pinned checkpoint header",
+      "adapter": "Instagoon-v1-step00001400.safetensors",
+      "adapterModules": 400,
+      "shapeMatchedModules": 400,
+      "mismatches": [],
+      "scope": "Header key/shape comparison only. No LoRA application or visual video benchmark."
+    },
+    "visualVideoBenchmarkPerformed": false,
+    "enabledByDefault": false
+  },
+  "validation": {
+    "studioTestsPassed": 146,
+    "pythonModelProfileTestsPassed": 7,
+    "pythonStorageTestsPassed": 4,
+    "pythonParallelSetupTestsPassed": 2,
+    "pythonExistingToolsTestsPassed": 18,
+    "pythonSshPermissionsTestsPassed": 4,
+    "productionBuild": "passed",
+    "liveDeletionTest": {
+      "instanceId": 57550828,
+      "onlyAgentCreatedFixtureRemoved": true,
+      "freedBytes": 131168,
+      "inventoryUpdated": true
+    },
+    "automaticSetupHandoff": "Existing SSH launch path failed on transient connection refusal; retry repair and live resumption follow in a separate fix."
+  },
+  "rawArtifacts": "Ignored backups/automatic-setup-extras/ and backups/lora-research-20261025/"
+}

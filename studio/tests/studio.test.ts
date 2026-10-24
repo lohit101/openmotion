@@ -17,7 +17,7 @@ import { defaults, geometry, nextSegment, segmentCount } from '../shared/types';
 import { compilePrompt, PROMPT_VERSION } from '../shared/prompts';
 import type { ReferenceGeometry } from '../server/framing';
 import prompts from '../../config/prompts.json';
-import type { Asset, Catalog, Graph, Job } from '../shared/types';
+import type { Asset, Catalog, Graph, Job, Settings } from '../shared/types';
 
 const repo = path.resolve(import.meta.dirname, '../..');
 const catalog: Catalog = JSON.parse(readFileSync(path.join(repo, 'integration-snapshot/object-info.json'), 'utf8'));
@@ -35,7 +35,7 @@ async function until<T>(read: () => T, predicate: (value: T) => boolean, timeout
   return value;
 }
 function jobFixture(): Job {
-  return { id: randomUUID(), title: 'Protocol test', status: 'running', sourceId: 'video', referenceId: 'image', settings: { ...defaults }, createdAt: new Date().toISOString(), favorite: false, deleted: false,
+  return { id: randomUUID(), title: 'Protocol test', status: 'running', sourceId: 'video', referenceId: 'image', settings: { ...defaults, preset: 'fast' }, createdAt: new Date().toISOString(), favorite: false, deleted: false,
     width: 480, height: 800, progress: { stage: 'Queued', node: null, value: null, max: null, unit: 'steps', segment: 1, segments: 1, completedFrames: 0, targetFrames: 48, updatedAt: Date.now() },
     segments: [], context: '', pendingPrompt: null, uploads: { source: 'source.mp4', reference: 'character.png' }, error: null, output: null, poster: null, cancelRequested: false, elapsedSeconds: null, origin: 'render', workflow: null };
 }
@@ -158,7 +158,7 @@ describe('local app with the captured ComfyUI protocol', () => {
   }
   async function inputs(agent: ReturnType<typeof request>) {
     const source = await agent.post('/api/assets/video').attach('file', video).expect(201); const ref = await agent.post('/api/assets/image').attach('file', image).expect(201);
-    return { sourceId: source.body.id, referenceId: ref.body.id, settings: { ...defaults, seconds: 3 } };
+    return { sourceId: source.body.id, referenceId: ref.body.id, settings: { ...defaults, preset: 'fast' as Settings['preset'], seconds: 3 } };
   }
   async function connect(agent: ReturnType<typeof request>) {
     await agent.post('/api/connection/connect').send({ endpoint: mock!.endpoint, useSSH: false }).expect(202);
@@ -177,7 +177,7 @@ describe('local app with the captured ComfyUI protocol', () => {
   it('exposes manual files offline and never downloads from a selection or missing-model generate request', async () => {
     const agent = await setup(), values = await inputs(agent);
     const offline = await agent.get('/api/models').expect(200);
-    expect(offline.body.files).toHaveLength(9); expect(mock!.calls).toEqual([]);
+    expect(offline.body.files).toHaveLength(10); expect(mock!.calls).toEqual([]);
     await agent.post('/api/models/download').send({ files: ['loras/untrusted.safetensors'] }).expect(400);
     await connect(agent);
     const live = structuredClone(local!.connection.catalog);

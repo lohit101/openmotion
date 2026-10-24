@@ -12,6 +12,7 @@ import time
 from types import SimpleNamespace
 
 import vast
+from model_manifest import required_setup_manifest
 
 
 def ssh_failure(detail):
@@ -40,7 +41,7 @@ def check_local(identity):
     for name in ('README.md', 'config', 'scripts', 'custom_nodes', 'workflows', 'tests', 'validation', 'licenses'):
         if not (vast.ROOT / name).exists():
             raise ValueError('Deployment package is incomplete: ' + name)
-    for name in ('models.lock.json', 'optional-models.lock.json', 'natural-models.lock.json', 'runtime.lock.json', 'server.json'):
+    for name in ('models.lock.json', 'optional-models.lock.json', 'natural-models.lock.json', 'extra-models.lock.json', 'setup-models.json', 'runtime.lock.json', 'server.json'):
         json.loads((vast.ROOT / 'config' / name).read_text())
     # CPU-only dependency/model checks happen before any paid rental request.
     subprocess.run([shutil.which('python3'), str(vast.ROOT / 'scripts/setup_local_geometry.py'), '--check'], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
@@ -95,15 +96,18 @@ def main():
     print('RECAST_STAGE Uploading the small deployment package', flush=True)
     vast.upload_package(config)
     root = config['remote_root']
-    print('RECAST_STAGE Runtime-only setup; model files download only when requested in Studio', flush=True)
-    fast = ('test -f {r}/state/managed-provision.exit && '
+    print('RECAST_STAGE Preparing ComfyUI and the required model bundle; extras stay optional', flush=True)
+    fast = ('python3 {r}/scripts/model_manifest.py --setup-output {r}/state/required-models.json && '
+            'test -f {r}/state/managed-provision.exit && '
             'test "$(cat {r}/state/managed-provision.exit)" = 0 && '
             'bash {r}/scripts/server.sh start && '
-            '{r}/.venv/bin/python {r}/scripts/doctor.py --runtime-only').format(r=shlex.quote(root))
+            '{r}/.venv/bin/python {r}/scripts/doctor.py --manifest {r}/state/required-models.json').format(r=shlex.quote(root))
     ready = subprocess.run(vast.ssh_arguments(config) + ['-T', vast.destination(config), shlex.join(['bash', '-lc', fast])],
                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=120)
     if ready.returncode == 0:
         print('RECAST_STAGE Existing installation verified; reusing cached models', flush=True)
+        for item in required_setup_manifest()['files']:
+            print('RECAST_MODEL_PROGRESS ' + json.dumps({'destination': item['destination'], 'downloaded': item['size'], 'total': item['size'], 'phase': 'ready'}), flush=True)
         vast.tunnel(config, browser=False)
         return
     # Keep installation on the host if this Mac or its network disconnects.

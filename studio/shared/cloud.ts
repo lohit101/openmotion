@@ -61,6 +61,7 @@ export interface CloudLaunch {
   setupStartedAt?: string; setupWarningAt?: string | null; setupSlow?: boolean; warning?: string | null; needsReconnect?: boolean;
   safetyStatus?: 'armed' | 'stop_requested' | 'stopped' | 'unconfirmed' | 'disarmed';
   lastFailure?: string; failureCode?: 'offer-unavailable' | 'price-changed' | 'transfer-changed' | 'setup-failed' | 'request-unconfirmed';
+  setupDownloads?: { id: string; downloaded: number; total: number; phase: 'queued' | 'downloading' | 'verifying' | 'ready' }[];
 }
 export function canRetryRental(launch: CloudLaunch) {
   if (['offer-unavailable', 'price-changed', 'transfer-changed'].includes(launch.failureCode || '') || /offer.*(?:rented|no longer listed|unavailable)|price increased|transfer.*increased/i.test(launch.message)) return false;

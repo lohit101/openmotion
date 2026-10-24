@@ -19,14 +19,26 @@ def check_connection(config, instance_id):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--instance-id', type=int, required=True)
-    parser.add_argument('--model-files', required=True)
+    parser.add_argument('--model-files')
+    parser.add_argument('--action', choices=['download', 'inventory', 'delete'], default='download')
+    parser.add_argument('--lora')
     args = parser.parse_args()
     config = vast.load()
     check_connection(config, args.instance_id)
-    manifest = selected_manifest(json.loads(args.model_files))
     os.environ['RECAST_SSH_BATCH'] = '1'
-    target = write_remote_manifest(config, manifest)
     root = Path(config['remote_root'])
+    if args.action != 'download':
+        command = ['python3', str(root / 'scripts/model_storage.py'), '--model-dir', str(root / 'models')]
+        if args.action == 'delete':
+            from model_storage import lora_parts
+            lora_parts(args.lora)
+            command.extend(['--delete-lora', args.lora])
+        vast.remote(config, command)
+        return
+    if not args.model_files:
+        raise ValueError('Choose model files to download.')
+    manifest = selected_manifest(json.loads(args.model_files))
+    target = write_remote_manifest(config, manifest)
     vast.remote(config, [str(root / '.venv/bin/python'), str(root / 'scripts/download_models.py'),
                          '--manifest', target, '--model-dir', str(root / 'models')])
 

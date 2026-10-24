@@ -3,8 +3,8 @@ import { ArrowSquareOut, Lightning, Plug } from '@phosphor-icons/react';
 import type { Connection } from '../shared/types';
 import { api, Toggle } from './components';
 
-export type SettingsTab = 'connection' | 'models';
-const tabs: { id: SettingsTab; label: string }[] = [{ id: 'connection', label: 'Connection' }, { id: 'models', label: 'Models' }];
+export type SettingsTab = 'connection' | 'extras';
+const tabs: { id: SettingsTab; label: string }[] = [{ id: 'connection', label: 'Connection' }, { id: 'extras', label: 'Extras' }];
 
 function ConnectionSettings({ connection, error, browse }: { connection: Connection; error: (message: string) => void; browse: () => void }) {
   const [endpoint, setEndpoint] = useState(connection.endpoint), [ssh, setSSH] = useState(true);
@@ -37,7 +37,7 @@ export default function SettingsWorkspace({ tab, onTabChange, connection, error,
         onTabChange(next.id); document.getElementById(`settings-${next.id}-tab`)?.focus();
       }}>{item.label}</button>)}</div>
     <div role="tabpanel" id={`settings-${tab}-panel`} aria-labelledby={`settings-${tab}-tab`} tabIndex={0}>
-      {tab === 'models' ? models : <ConnectionSettings connection={connection} error={error} browse={browse} />}
+      {tab === 'extras' ? models : <ConnectionSettings connection={connection} error={error} browse={browse} />}
     </div>
   </div></main>;
 }

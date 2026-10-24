@@ -4,7 +4,7 @@ This project runs full-person video replacement in ComfyUI using the native SCAI
 
 The local **Recast Studio** dashboard provides paired uploads, prompt/settings controls, before/after playback, a persistent library and native ComfyUI progress. Its **GPU cloud** section searches live compatible NVIDIA RTX and A-series offers, prices the chosen storage allocation, launches the pinned setup and manages Recast-created instances. Start it with `bash scripts/studio.sh`, then open `http://127.0.0.1:3000`. It opens offline and does not contact the GPU until you connect. See [the Studio guide](studio/README.md) for account setup, rental controls and the GPU validation boundary.
 
-GPU cloud includes a **Check configuration · no rental** action, exact rental-ask and fee rechecks, duplicate-rental protection and live download progress. A long setup shows a yellow warning after 15 minutes and keeps going. Actual setup failures show red errors and request a compute stop while retaining the billable disk. Keep the local server open to receive status and handle failures. Healthy remote setup and ready instances remain running until stopped.
+GPU cloud downloads the required Natural bundle during setup; optional style/feature LoRAs and their storage/removal controls live in **Settings → Extras**. See [required setup and optional extras](docs/model-downloads.md). GPU cloud includes a **Check configuration · no rental** action, exact rental-ask and fee rechecks, duplicate-rental protection and live download progress. A long setup shows a yellow warning after 15 minutes and keeps going. Actual setup failures show red errors and request a compute stop while retaining the billable disk. Keep the local server open to receive status and handle failures. Healthy remote setup and ready instances remain running until stopped.
 
 The prompt now has a reusable scene-preserving default. Leave it unchanged, clear it to use the same base automatically, or add a short refinement. Known old demo prompts are migrated without rewriting historical renders. See [prompt behavior](docs/prompt-harness.md) and the [captured realism review](docs/realism-review.md).
 
@@ -107,7 +107,7 @@ Run these commands on your Mac from this project directory. Python 3 and OpenSSH
 
 The browser address is **http://127.0.0.1:8188**. Traffic goes through SSH to a server listening only on the remote loopback interface. You do not need to expose port 8188 publicly or set up a cloud tunnel.
 
-Setup transfers the runtime packages. Model downloads are a separate, explicit step in Studio. For direct ComfyUI CLI use, request the base bundle on the host with `.venv/bin/python scripts/download_models.py --model-dir models`. Requested downloads resume from partial files and verified weights are reused. Kernel compilation and model staging can also make the first generation slower than later runs. If SSH drops during setup, rerun `setup` after reconnecting.
+Setup transfers the runtime packages. This standalone CLI path installs the runtime only. Studio GPU cloud automatically downloads its required Natural bundle during setup; optional extras stay manual. For direct ComfyUI CLI use, request the base bundle on the host with `.venv/bin/python scripts/download_models.py --model-dir models`. Requested downloads resume from partial files and verified weights are reused. Kernel compilation and model staging can also make the first generation slower than later runs. If SSH drops during setup, rerun `setup` after reconnecting.
 
 If port 8188 is already used on your Mac, configure with `--local-port 8190`, then open the resulting address printed by the helper. The private remote port is 18189, separate from the Vast preset's ComfyUI service. If another application occupies that remote port, change `config/server.json` before deploying and reconfigure the local connection. When Vast's supervisor environment is available, this installation registers a private service with automatic restart. Bare CUDA images use an owned background process instead. Logs are saved in `state/comfyui.log`; process recovery checks the exact installation, port and input directory.
 
@@ -209,7 +209,7 @@ Keeping the same instance gives the fastest next session. Vast local volumes are
 | SSH permission denied | Add the public key to the account before creating an instance, or use Vast's instance-specific key management; verify the private-key path |
 | CUDA driver check fails | Select a host with CUDA 13 support and driver 580.65.06 or newer |
 | Red or missing nodes | Run `setup` to install the pinned core and both node packs; refresh the browser afterwards |
-| Models absent from dropdowns | Download the required files explicitly in Models, then Refresh; check the model-path configuration |
+| Models absent from dropdowns | Reconnect managed setup for required files; download selected optional files in Settings → Extras, then Refresh |
 | Model download interrupted | Click its download/retry button; `.part` files resume and completed files are hash-verified |
 | Wrong person is replaced | Fix the tracking text, selected object index and reference mask before changing the sampler |
 | Face or clothes change | Improve the reference and prompt; use one continuous shot; compare adapters individually |

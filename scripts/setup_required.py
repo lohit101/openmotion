@@ -1,0 +1,98 @@
+#!/usr/bin/env python3
+"""Install the runtime and required models concurrently; extras are never selected."""
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import sys
+import time
+
+from model_manifest import required_setup_manifest
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def terminate_children(children):
+    for child in children:
+        if child.poll() is None:
+            try:
+                os.killpg(child.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+    for child in children:
+        try:
+            child.wait(timeout=8)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(child.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            child.wait()
+
+
+def run_parallel(tasks, env=None):
+    """Fail on an actual task error and stop sibling processes, keeping partials."""
+    children = []
+    previous = {}
+
+    def interrupted(signum, _frame):
+        raise KeyboardInterrupt('Setup interrupted by signal %d' % signum)
+
+    try:
+        for signum in (signal.SIGINT, signal.SIGTERM):
+            previous[signum] = signal.signal(signum, interrupted)
+        for label, command in tasks:
+            children.append((label, subprocess.Popen(command, env=env, start_new_session=True)))
+        while True:
+            pending = False
+            for label, child in children:
+                code = child.poll()
+                if code is None:
+                    pending = True
+                elif code:
+                    raise RuntimeError('%s failed with exit code %d. Downloaded files and partials are retained.' % (label, code))
+            if not pending:
+                return
+            time.sleep(0.25)
+    finally:
+        terminate_children([child for _label, child in children])
+        for signum, handler in previous.items():
+            signal.signal(signum, handler)
+
+
+def main():
+    state = ROOT / 'state'
+    state.mkdir(parents=True, exist_ok=True)
+    manifest = required_setup_manifest()
+    plan = state / 'required-models.json'
+    plan.write_text(json.dumps(manifest, indent=2) + '\n')
+    reserve = '5' if (state / 'packages-ready.json').exists() else '17'
+    env = dict(os.environ, RECAST_SKIP_MODEL_DOWNLOADS='1', PYTHONUNBUFFERED='1')
+    python = ROOT / '.venv/bin/python'
+    # A cached installation needs only its missing required files, not another
+    # apt/pip pass. This probe never renders or downloads a model.
+    healthy = False
+    if python.is_file() and (state / 'packages-ready.json').exists():
+        try:
+            subprocess.run(['bash', str(ROOT / 'scripts/server.sh'), 'start'], check=True, timeout=120)
+            healthy = subprocess.run([str(python), str(ROOT / 'scripts/doctor.py'), '--runtime-only'], timeout=120).returncode == 0
+        except (OSError, subprocess.SubprocessError):
+            pass
+    print('RECAST_STAGE %s; downloading required files (%.2f GB). Extras stay optional.' %
+          ('Reusing the installed runtime' if healthy else 'Installing ComfyUI', manifest['total_bytes'] / 1e9), flush=True)
+    tasks = [('Required model download', [sys.executable, '-u', str(ROOT / 'scripts/download_models.py'),
+              '--manifest', str(plan), '--model-dir', str(ROOT / 'models'), '--reserve-gb', reserve])]
+    if not healthy:
+        tasks.append(('ComfyUI runtime installation', ['bash', str(ROOT / 'scripts/bootstrap.sh')]))
+    run_parallel(tasks, env)
+    print('RECAST_STAGE Verifying required models, CUDA and ComfyUI', flush=True)
+    subprocess.run([str(python), str(ROOT / 'scripts/doctor.py'), '--manifest', str(plan)], check=True)
+    print('RECAST_STAGE ComfyUI and all required files are ready. Extras are available in Settings.', flush=True)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (OSError, RuntimeError, subprocess.SubprocessError, KeyboardInterrupt) as error:
+        raise SystemExit(str(error)) from error

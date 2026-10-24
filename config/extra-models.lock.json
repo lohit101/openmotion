@@ -1,0 +1,15 @@
+{
+  "total_bytes": 613557448,
+  "files": [
+    {
+      "repo": "Chroma111/CivitAI-Archive-2",
+      "revision": "b4121b03c9d9adad952ff33774ba35d384506a4a",
+      "filename": "1836311/2078049/Instagoon-v1-step00001400.safetensors",
+      "destination": "loras/Instagoon-v1-step00001400.safetensors",
+      "size": 613557448,
+      "sha256": "aeaa363c29a4eec6c978b11bce3c1878a62e0b658c8a1b3bc5f8409c9e4a654b",
+      "license": "other",
+      "source": "https://civitai.com/models/1836311?modelVersionId=2078049"
+    }
+  ]
+}

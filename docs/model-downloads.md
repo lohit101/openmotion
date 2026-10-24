@@ -1,25 +1,36 @@
-# Manual model downloads
+# Required setup and optional extras
 
-New rentals install pinned ComfyUI, its nodes and Python packages without fetching model weights. The GPU can connect before any models are installed. Runtime packages still take time and bandwidth; this change does not make a fresh GPU ready to render immediately.
+Studio setup installs the ComfyUI runtime and automatically downloads the required bundle. On a fresh GPU the two jobs run concurrently; an existing healthy runtime is reused. Setup reports Ready only after the CUDA, workflow schema and required-file integrity checks pass. Connecting the app or clicking Generate never downloads an optional extra or queues a render.
 
-In Motion control, each quality choice has a separate download button. Clicking **Natural / 8 steps** only selects it; clicking its arrow downloads its T2V acceleration file. **Fast / 6 steps** uses a different I2V adapter and stays uninstalled unless explicitly requested. Natural in Motion transfer uses the I2V adapter. Quality / 20 steps needs neither acceleration file. Relighting and the detail adapter have their own buttons in Advanced settings. Resolution, frame rate, duration and framing share the same models and need no extra files.
+`config/setup-models.json` selects eight pinned files totaling **29,738,555,883 bytes / 29.74 GB**: SCAIL-2 INT8, the text and reference encoders, video VAE, person tracker, Natural T2V acceleration, SCAIL-2 DPO detail and replacement relighting. Natural / 8 steps is the default for new drafts. Current saved drafts and historical jobs retain their settings. The measured Natural rendering recipe is unchanged.
 
-The **Settings → Models** tab lists every pinned file, its size, purpose, requirement for the current settings and availability on the connected GPU. Download one file at a time, queue several individually, or explicitly click **Download required files** for the current recipe. That shortcut does not fetch unused features. User-provided LoRAs still use the existing local upload helper and appear after Refresh; Studio never guesses a third-party download URL.
+Setup downloads at most two model files concurrently with the runtime installer. It reserves working space for runtime packages, resumes partial files, verifies SHA256 and uses per-file locks. The setup card retains actual per-file byte counters independently of the trimmed log, including checksum verification. A slow setup warns after 15 minutes and continues. An actual setup failure requests a compute stop; completed weights and partial files remain for retry. Reconnecting an existing rental checks the required bundle again rather than repeating successful transfers.
 
-| Recipe | Required weights, decimal GB | Files |
-|---|---:|---:|
-| Shared models only | 26.654 | 5 |
-| Natural swap, DPO 1, relighting 1 | 29.739 | 8 |
-| Fast swap, DPO 1, relighting 1 | 29.846 | 8 |
-| Quality, DPO 1, relighting 1 | 29.108 | 7 |
-| All supported weights/adapters | 30.477 | 9 |
+## Settings → Extras
 
-The measured Natural recipe is unchanged. It skips the unused 738,005,744-byte I2V speed file. The five shared weights remain necessary for generation. DPO or relighting at zero strength is omitted from the compiled graph, so disabling it does not require its file. Existing weights are retained; nothing is deleted remotely.
+The Extras tab contains optional downloads and custom uploaded LoRAs; it does not list the eight included setup files as separate downloads.
 
-Transfers go directly from the pinned publisher URLs to the GPU disk, with two files at most in parallel. The existing downloader resumes partials, verifies SHA256 and serializes competing writes to the same file. Progress comes from remote transfer counters; unknown or verifying stages use an indeterminate indicator. A slow transfer warns after 15 minutes and keeps running. Failures show red per-file errors and toasts. Cancel stops the local transfer workers and preserves partial files for an explicit retry. It never stops, resumes or replaces the rented GPU.
+| Extra | Download size | Purpose |
+|---|---:|---|
+| Fast / motion acceleration | 738,005,744 bytes / 738 MB | Fast 6-step generation and Natural in Motion transfer |
+| Social media style · Instagooner | 613,557,448 bytes / 614 MB | Experimental influencer/phone-camera style LoRA for the Wan 2.1 14B backbone |
 
-Downloads require a connected Recast-managed instance and a matching saved SSH tunnel. The API refuses unknown destinations and arbitrary URLs, duplicate active transfers do not start another worker, and rendering/setup/lifecycle changes are coordinated with the download queue. Generate checks required files before creating a job; the Runner also validates the live graph before submitting to ComfyUI. Missing files do not trigger automatic downloads or a paid resubmission.
+The style adapter remains disabled after download. **Use in LoRA A** selects it at an experimental starting strength of 0.35. Its publisher trigger `instag00n` is included in new compiled prompts while that adapter has a nonzero strength; it is omitted when disabled. Existing unstyled graphs and pre-harness continuation prompts remain unchanged. There is no measured SCAIL-2 video-quality improvement yet. See [the original research](influencer-lora-research.md).
 
-The marketplace's model transfer estimate describes the selected recipe if requested later, rather than an automatic startup charge. GPU compute continues to be billed while downloading or idle, and allocated storage is billed independently of how many model files have been installed. Destroying a rental removes that disk's model cache.
+The style file is pinned to a public Hugging Face mirror with the same size and SHA256 as the publisher's Civitai record. Civitai's download endpoint required authentication when checked; the pinned mirror is publicly downloadable. Its 400 adapter module pairs match the SCAIL-2 checkpoint's layer dimensions. That header comparison is structural evidence, not a test of LoRA application or visual quality. Model-card image examples do not establish temporal consistency or uncensored behavior.
 
-For direct CLI use, `vast.py setup` now installs the runtime only. To explicitly fetch the standalone Fast graph's base bundle on the host, run `.venv/bin/python scripts/download_models.py --model-dir models`. Optional relighting and Natural manifests remain available for explicit CLI requests. `doctor.py --runtime-only` checks CUDA, nodes and tools without requiring weights; plain `doctor.py` checks the standalone base bundle too.
+Optional downloads require an explicit download button. Selecting a quality, lighting, detail or LoRA option does not start a transfer. Resolution, frame rate, duration and framing share the same model files. Generate validates all files required by the selected settings before creating a paid job and never downloads missing extras automatically.
+
+## Remove optional LoRAs
+
+The trash button beside an installed extra removes its weights, partial download and verification stamp from the connected managed GPU. The tab also inventories uploaded `.safetensors` LoRAs, including files in subfolders, and shows how much space extras use. A successful removal reports the actual removed byte count, refreshes ComfyUI's choices and clears matching LoRA A/B selections in the current draft. Saved videos and historical job settings remain untouched. Files can be downloaded again later; removal does not resize the rented disk.
+
+Deletion is unavailable during setup, rendering or model transfers. The backend independently enforces those checks, validates the managed instance and saved tunnel, rejects required setup adapters and path traversal, refuses symlinked/linked targets, and takes the same file lock used by downloads. It cannot delete checkpoints, encoders, reference media or arbitrary remote paths through this endpoint. A removal failure is reported without claiming freed space.
+
+## Files and CLI
+
+Pinned source revisions, sizes and hashes live in the existing base/Natural/relighting manifests and `config/extra-models.lock.json`. Add future optional adapters there and provide their UI metadata in `studio/shared/models.ts`; leave them out of `config/setup-models.json`. Test backbone compatibility and video results separately.
+
+Studio's marketplace transfer estimate covers the automatic required bundle, excluding extras. Runtime downloads, compute and host-specific transfer rates are additional. Allocated storage remains billed independently of installed-file size, and destroying a rental removes its remote cache.
+
+The standalone `vast.py setup` / `bootstrap.sh` path remains a runtime-only tool for manually managed ComfyUI. On that GPU, `python3 scripts/setup_required.py` installs/checks the same automatic Natural bundle. The legacy standalone Fast graphs also need the optional I2V acceleration file; download it explicitly from Extras or with the pinned base manifest. `doctor.py --runtime-only` checks the runtime, while Studio's final check uses the generated required-bundle manifest.

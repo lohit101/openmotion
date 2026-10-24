@@ -7,7 +7,7 @@ import { PassThrough } from 'node:stream';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { defaults, type Catalog, type Graph, type Job } from '../shared/types';
-import { I2V_SPEED, modelBytes, modelFilesForSettings, NATURAL_SPEED, pinnedModels, RELIGHT } from '../shared/models';
+import { I2V_SPEED, modelBytes, modelFilesForSettings, NATURAL_SPEED, pinnedModels, RELIGHT, setupModelFiles, SOCIAL_STYLE } from '../shared/models';
 import { compileWorkflow } from '../server/workflow';
 import { downloadPinnedModels, installedModelIds, missingPinnedAdapters, ModelManager } from '../server/models';
 import { Store } from '../server/store';
@@ -42,9 +42,11 @@ describe('selected-recipe model provisioning', () => {
   it('saves exactly the inactive acceleration file, retaining the measured recipe', () => {
     const full = pinnedModels.reduce((sum, file) => sum + file.size, 0);
     const natural = modelFilesForSettings({ ...defaults, preset: 'natural' });
-    expect(full - modelBytes(natural)).toBe(738005744);
+    expect(full - modelBytes(natural)).toBe(738005744 + 613557448);
     expect(natural).toContain('loras/' + NATURAL_SPEED); expect(natural).toContain('loras/' + RELIGHT);
-    expect(full - modelBytes(modelFilesForSettings(defaults))).toBe(630697104);
+    expect(modelFilesForSettings(defaults)).toEqual(natural);
+    expect(new Set(natural)).toEqual(new Set(setupModelFiles));
+    expect(natural).not.toContain('loras/' + SOCIAL_STYLE);
   });
 
   it('does not preload relighting when disabled, in motion mode, or at zero strength', () => {
@@ -151,9 +153,13 @@ describe('manual model queue', () => {
       expect(files).toHaveLength(1); const file = files[0]; progress('Downloading ' + file, 23);
       await new Promise<void>((resolve, reject) => { controls.set(file, { resolve: () => { choices.push(file.slice(file.lastIndexOf('/') + 1)); resolve(); }, reject }); signal.addEventListener('abort', () => reject(new Error('Cancelled')), { once: true }); });
     });
-    manager = new ModelManager(store, connection as unknown as ConnectionManager, repo, worker);
+    const storage = vi.fn(async (_repo: string, _id: number, action: 'inventory' | 'delete', name?: string) => {
+      if (action === 'delete') { const index = choices.indexOf(name!); if (index >= 0) choices.splice(index, 1); return { name, freedBytes: 123, removed: true }; }
+      return { loras: choices.map(name => ({ name, size: 123, included: setupModelFiles.includes('loras/' + name) })) };
+    });
+    manager = new ModelManager(store, connection as unknown as ConnectionManager, repo, worker, storage);
     const untilIdle = async () => { for (let i = 0; i < 100 && manager!.state.busy; i++) await new Promise(resolve => setTimeout(resolve, 5)); expect(manager!.state.busy).toBe(false); };
-    return { manager, worker, controls, connection, choices, untilIdle };
+    return { manager, worker, storage, controls, connection, choices, untilIdle };
   }
   it('refreshes availability without downloading and installs only an explicitly clicked file', async () => {
     const { manager, worker, controls, untilIdle } = await fixture(), file = 'loras/' + NATURAL_SPEED;
@@ -194,5 +200,26 @@ describe('manual model queue', () => {
     expect(installed.has('checkpoints/sam3.1_multiplex_fp16.safetensors')).toBe(true);
     expect(installed.has('text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors')).toBe(true);
     expect(installedModelIds({}).size).toBe(0);
+  });
+  it('removes only optional LoRAs, refreshes choices, and clears the current draft selection', async () => {
+    const { manager, storage, choices, connection, worker } = await fixture();
+    choices.push(SOCIAL_STYLE); const draft = store!.draft(); draft.settings.loraA = SOCIAL_STYLE; store!.set('draft', draft);
+    const result = await manager.remove(SOCIAL_STYLE);
+    expect(result.freedBytes).toBe(123); expect(connection.status.loras).not.toContain(SOCIAL_STYLE);
+    expect(store!.draft().settings.loraA).toBe('None'); expect(manager.state.files.find(f => f.id === 'loras/' + SOCIAL_STYLE)?.status).toBe('missing');
+    expect(storage).toHaveBeenCalledWith(repo, 123, 'delete', SOCIAL_STYLE); expect(worker).not.toHaveBeenCalled(); expect(manager.state.busy).toBe(false);
+    await expect(manager.remove(NATURAL_SPEED)).rejects.toThrow('required setup');
+    await expect(manager.remove('../outside.safetensors')).rejects.toThrow('valid');
+    expect(storage.mock.calls.filter(c => c[2] === 'delete')).toHaveLength(1);
+  });
+  it('blocks deletion during a transfer and new downloads while deletion is pending', async () => {
+    const { manager, choices, storage } = await fixture();
+    await manager.start(['loras/' + I2V_SPEED]);
+    await expect(manager.remove(SOCIAL_STYLE)).rejects.toThrow('active transfers'); await manager.cancel();
+    let finish!: () => void; storage.mockImplementationOnce(async (_repo, _id, _action, name) => { await new Promise<void>(resolve => { finish = resolve; }); return { name, freedBytes: 12, removed: true }; });
+    choices.push(SOCIAL_STYLE); const pending = manager.remove(SOCIAL_STYLE);
+    expect(manager.state.deleting).toBe(SOCIAL_STYLE);
+    await expect(manager.start(['loras/' + I2V_SPEED])).rejects.toThrow('removal');
+    finish(); await pending;
   });
 });

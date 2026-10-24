@@ -7,6 +7,7 @@ import { CloudManager, computeIsStopped, hasRegisteredSshKey, matchesGpuProbe, n
 import { offerFiltersSchema } from '../shared/cloud';
 import type { ConnectionManager } from '../server/comfy';
 import type { Runner } from '../server/runner';
+import { pinnedModels, setupModelFiles, SOCIAL_STYLE } from '../shared/models';
 
 const filters = offerFiltersSchema.parse({});
 const publicKey = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFixturePublicKeyOnly test-fixture';
@@ -88,7 +89,7 @@ describe('Vast marketplace, billing and lifecycle', () => {
   });
   it('normalizes the quoted total without counting storage twice and exposes real transfer fees', () => {
     const offer = normalizeOffer(rawOffer(), filters); expect(offer.compatible).toBe(true); expect(offer.totalHourly).toBe(.23); expect(offer.computeHourly).toBe(.2); expect(offer.storageHourly).toBe(.03);
-    expect(offer.storageMonthly).toBeCloseTo(21.6); expect(offer.modelDownloadCost).toBeCloseTo(.029845864523); expect(offer.vram).toBe(24);
+    expect(offer.storageMonthly).toBeCloseTo(21.6); expect(offer.modelDownloadCost).toBeCloseTo(.029738555883); expect(offer.vram).toBe(24);
     const old = normalizeOffer({ ...rawOffer(), driver_version: '535.86.05', gpu_ram: 16384 }, filters); expect(old.compatible).toBe(false); expect(old.reasons.join()).toContain('580.65.06');
   });
   it('queries compatible hardware with selected disk and authenticates only in the HTTPS header', async () => {
@@ -249,6 +250,24 @@ describe('Vast marketplace, billing and lifecycle', () => {
     launch.setupDeadline = new Date(Date.now() - 10000).toISOString(); await cloud.enforceSafety();
     expect(fixture.calls.some(c => c.body?.state === 'stopped')).toBe(false); expect(fixture.createCount).toBe(1);
     release(); await until(() => !cloud.state.busy); expect(launch.phase).toBe('ready'); expect(launch.setupSlow).toBe(false);
+  });
+  it('retains validated required-file counters across log trimming and waits for complete provisioning', async () => {
+    let release!: () => void; const wait = new Promise<void>(resolve => { release = resolve; });
+    const { cloud, provision } = await manager();
+    const file = pinnedModels.find(file => file.destination === setupModelFiles[0])!;
+    provision.mockImplementationOnce(async (_instance, log) => {
+      log('RECAST_MODEL_PROGRESS ' + JSON.stringify({ destination: file.destination, downloaded: 1024, total: file.size, phase: 'downloading' }));
+      for (let i = 0; i < 150; i++) log('Runtime package ' + i);
+      log('RECAST_MODEL_PROGRESS ' + JSON.stringify({ destination: file.destination, downloaded: file.size + 1, total: file.size, phase: 'ready' }));
+      log('RECAST_MODEL_PROGRESS ' + JSON.stringify({ destination: 'loras/' + SOCIAL_STYLE, downloaded: 10, total: 10, phase: 'ready' }));
+      await wait;
+    });
+    const { offers } = await cloud.offers(filters); const launch = cloud.launch(offers[0].quote, .23, 'setup-counters');
+    await until(() => launch.setupDownloads?.[0]?.downloaded === 1024);
+    expect(launch.phase).toBe('installing'); expect(launch.logs).toHaveLength(120);
+    expect(launch.setupDownloads).toHaveLength(8); expect(launch.setupDownloads?.[0]).toMatchObject({ downloaded: 1024, phase: 'downloading' });
+    expect(launch.setupDownloads?.some(file => file.id.includes('Instagoon'))).toBe(false);
+    release(); await until(() => !cloud.state.busy); expect(launch.phase).toBe('ready');
   });
   it('requires actual stopped state even if the stop API acknowledges success', async () => {
     const { cloud, fixture } = await manager(); const { offers } = await cloud.offers(filters); const launch = cloud.launch(offers[0].quote, .23, 'ack-only'); await until(() => !cloud.state.busy);
