@@ -1,0 +1,95 @@
+{
+  "date": "2026-10-24",
+  "scope": "One user-authorized RTX 3090 comparison of source-aligned character conditioning",
+  "settings": {
+    "mode": "swap",
+    "prompt": "Photorealistic live-action footage of the character shown in the reference image, with the same facial identity, hairstyle, outfit, clothing details and individual body proportions throughout the shot. The character performs the source person's actions with the same timing, facial expressions, gaze, gestures and contact with nearby objects. The character occupies the source person's position and depth in the scene, with matching apparent head and torso size, perspective and cropping in every frame. The source video's composition, camera distance, camera movement, background, other people and foreground occlusions remain consistent. Light direction, exposure, color temperature, highlights, contact shadows and reflected light match the source environment. Natural skin texture, coherent anatomy, grounded movement, realistic fabric folds and motion blur, stable facial features and continuous organic motion form one coherent camera recording.",
+    "negativePrompt": "identity drift, changing face, changing clothes, duplicate person, flicker, warped hands, extra fingers, deformed limbs, waxy skin, oversharpening, blurry face, floating feet",
+    "preset": "fast",
+    "resolution": "704",
+    "orientation": "source",
+    "fps": 24,
+    "seconds": 1.5,
+    "start": 0,
+    "seed": 20261024,
+    "randomSeed": false,
+    "relight": false,
+    "relightStrength": 1,
+    "dpoStrength": 1,
+    "sourcePerson": "person",
+    "referencePerson": "person",
+    "objectIndices": "0",
+    "framesPerPass": 81,
+    "loraA": "None",
+    "loraAStrength": 0.8,
+    "loraB": "None",
+    "loraBStrength": 0.8
+  },
+  "output": {
+    "width": 704,
+    "height": 1248,
+    "fps": 24,
+    "frames": 36,
+    "durationSeconds": 1.5,
+    "hasSourceAudio": true,
+    "elapsedSeconds": 342.233,
+    "sha256": "c628cbf118e0a57d7bc310f6a543cbe646e40c94b377ead576f42a95f0fcfe6d",
+    "libraryTitle": "Source framing test \u00b7 same inputs \u00b7 704p / 24 fps"
+  },
+  "parity": {
+    "sameSourceAsset": true,
+    "sameReferenceAsset": true,
+    "samePreparedSourceBytes": true,
+    "sameAllGenerationSettings": true,
+    "sameSamplerPromptAndControls": true,
+    "onlyGraphInputDifferences": [
+      "source upload filename",
+      "aligned reference upload filename",
+      "output prefix"
+    ]
+  },
+  "baselineFraming": {
+    "status": "warning",
+    "samples": 5,
+    "headScaleMin": 0.6025912264817951,
+    "headScaleMax": 0.6408244589171211,
+    "headScaleMedian": 0.6230284133507322,
+    "maxAbsoluteHorizontalOffsetFraction": 0.16694233602263375,
+    "maxAbsoluteVerticalOffsetFraction": 0.0429724136988322,
+    "maxCenterDisplacementDiagonalFraction": 0.08741663448654716
+  },
+  "correctedFraming": {
+    "status": "matched",
+    "samples": 5,
+    "headScaleMin": 0.9160237525205717,
+    "headScaleMax": 1.006079545642621,
+    "headScaleMedian": 0.9618018376897566,
+    "maxAbsoluteHorizontalOffsetFraction": 0.006597300737106293,
+    "maxAbsoluteVerticalOffsetFraction": 0.004199695587158159,
+    "maxCenterDisplacementDiagonalFraction": 0.004062199061397228
+  },
+  "visualReview": {
+    "comparedTimesSeconds": [
+      0.25,
+      0.75,
+      1.25
+    ],
+    "observed": "Close upper-body crop and rightward subject placement now follow the source much more closely. Reference outfit/hair and approximate performance are retained.",
+    "remainingIssues": [
+      "Polished skin texture",
+      "Some raised fingers appear oversized or smoothed",
+      "Hand/shoulder contact and cloth folds are not pixel-identical",
+      "Background/doorway are regenerated rather than pixel-preserved"
+    ],
+    "limitation": "One short single-person shot; face boxes are not identity or whole-body fidelity scores. No general guarantee for other shots or long-video consistency."
+  },
+  "lifecycle": {
+    "newPaidRenders": 1,
+    "newRentalCreated": false,
+    "cachedGenerationModelsReused": true,
+    "computeStoppedConfirmed": true,
+    "providerStateAfterStop": "exited",
+    "libraryPlaybackVerifiedWhileGpuOffline": true
+  },
+  "artifacts": "Raw user media, source/before/after comparison and mask previews retained in ignored local backups."
+}
