@@ -44,7 +44,7 @@ export interface GpuOffer {
   verified: boolean; reliability: number; driver: string; cuda: number; diskMax: number; diskBandwidth: number;
   downloadMbps: number; uploadMbps: number; downloadPerGB: number | null; uploadPerGB: number | null; pcie: number;
   computeHourly: number | null; storageHourly: number | null; totalHourly: number | null; storageMonthly: number | null;
-  modelDownloadCost: number | null; disk: number; expiresAt: string; quote: string; compatible: boolean; reasons: string[];
+  modelDownloadCost: number | null; modelDownloadGB?: number; disk: number; expiresAt: string; quote: string; compatible: boolean; reasons: string[];
 }
 export interface CloudInstance {
   id: number; label: string; gpu: string; count: number; vram: number; ram: number; state: string; intendedState: string; message: string;

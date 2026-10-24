@@ -107,7 +107,7 @@ describe('native workflow and progress contracts', () => {
     expect(graph['22'].inputs.model).toEqual(['50', 0]); expect(graph['50'].inputs.lora_name).toBe(RELIGHT);
     expect(graph['42'].inputs.model).toEqual(graph['43'].inputs.model); expect(graph['40'].inputs.replacement_mode).toBe(true);
     job.settings = { ...job.settings, preset: 'quality', mode: 'motion', loraA: 'missing-adapter.safetensors' }; const quality = compileWorkflow(template, job);
-    expect(quality['50']).toBeUndefined(); expect(quality['24'].inputs.strength_model).toBe(0); expect(quality['42'].inputs.steps).toBe(20);
+    expect(quality['50']).toBeUndefined(); expect(quality['24']).toBeUndefined(); expect(quality['25'].inputs.model).toEqual(['23', 0]); expect(quality['42'].inputs.steps).toBe(20);
     expect(quality['43'].inputs.cfg).toBe(5); expect(quality['41'].inputs.sampler_name).toBe('uni_pc'); expect(quality['11'].inputs.replacement_mode).toBe(false);
     expect(validateGraph(quality, local).join()).toContain('missing-adapter.safetensors');
   });
@@ -174,6 +174,24 @@ describe('local app with the captured ComfyUI protocol', () => {
     const media = await agent.get(`/api/assets/${values.sourceId}/original`).set('Range', 'bytes=0-99').expect(206); expect(media.body.length).toBe(100);
     expect(mock!.calls).toEqual([]);
   });
+  it('exposes manual files offline and never downloads from a selection or missing-model generate request', async () => {
+    const agent = await setup(), values = await inputs(agent);
+    const offline = await agent.get('/api/models').expect(200);
+    expect(offline.body.files).toHaveLength(9); expect(mock!.calls).toEqual([]);
+    await agent.post('/api/models/download').send({ files: ['loras/untrusted.safetensors'] }).expect(400);
+    await connect(agent);
+    const live = structuredClone(local!.connection.catalog);
+    for (const schema of Object.values(live)) for (const rule of Object.values({ ...schema.input.required, ...schema.input.optional })) {
+      if (Array.isArray(rule[0])) rule[0] = rule[0].filter((name: unknown) => name !== NATURAL_SPEED);
+    }
+    const client = local!.connection.client();
+    vi.spyOn(local!.connection, 'client').mockReturnValue({ ...client, json: vi.fn(async () => live) } as unknown as typeof client);
+    values.settings.preset = 'natural'; await agent.post('/api/draft').send(values).expect(200);
+    const blocked = await agent.post('/api/jobs').set('Idempotency-Key', 'missing-model').send(values).expect(409);
+    expect(blocked.body.missingModels).toEqual(['loras/' + NATURAL_SPEED]);
+    expect(local!.store.jobs()).toHaveLength(0); expect(mock!.submissions).toHaveLength(0);
+    expect(local!.models.state.busy).toBe(false);
+  });
   it('migrates stale sample drafts and compiles an empty prompt in a newly created job', async () => {
     const agent = await setup(), values = await inputs(agent);
     values.settings.prompt = prompts.legacyDemoPrompts[1];
@@ -189,6 +207,14 @@ describe('local app with the captured ComfyUI protocol', () => {
     expect(mock!.submissions[0].prompt['31'].inputs.text).toBe(compilePrompt('swap', ''));
     await agent.post(`/api/jobs/${response.body.id}/cancel`).expect(200);
     await until(() => local!.store.job(response.body.id)!.status, status => status === 'cancelled');
+  });
+  it('keeps simultaneous Generate retries idempotent across the asynchronous model check', async () => {
+    const agent = await setup(), values = await inputs(agent); mock!.setMode('hold'); await connect(agent);
+    const responses = await Promise.all([agent.post('/api/jobs').set('Idempotency-Key', 'parallel-retry').send(values), agent.post('/api/jobs').set('Idempotency-Key', 'parallel-retry').send(values)]);
+    expect(responses.map(response => response.status).sort()).toEqual([200, 201]);
+    expect(responses[0].body.id).toBe(responses[1].body.id); expect(local!.store.jobs()).toHaveLength(1);
+    await until(() => mock!.submissions.length, count => count === 1);
+    await agent.post(`/api/jobs/${responses[0].body.id}/cancel`).expect(200);
   });
   it('submits once, receives real counters and assembles two segments with one audio track', async () => {
     const agent = await setup(), values = await inputs(agent); values.settings.seconds = 5.875; await connect(agent);

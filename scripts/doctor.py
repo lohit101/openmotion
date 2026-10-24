@@ -17,9 +17,25 @@ from resources import effective_ram_bytes
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def profile_schema_graph(graph, manifest):
+    """Check a template against installed preset files without requiring inactive adapters."""
+    graph = json.loads(json.dumps(graph))
+    selected = {item['destination'] for item in manifest['files']}
+    if '24' in graph and 'loras/' + graph['24']['inputs']['lora_name'] not in selected:
+        natural = 'lightx2v_T2V_14B_cfg_step_distill_v2_lora_rank64_bf16.safetensors'
+        if 'loras/' + natural in selected:
+            graph['24']['inputs']['lora_name'] = natural
+        else:
+            graph['25']['inputs']['model'] = graph['24']['inputs']['model']
+            del graph['24']
+    return graph
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--json", action="store_true")
+    parser.add_argument("--manifest", type=Path)
+    parser.add_argument("--runtime-only", action="store_true", help="Check the installation without requiring model downloads")
     args = parser.parse_args()
     checks = []
 
@@ -44,11 +60,11 @@ def main():
                 "vram_GB": round(torch.cuda.get_device_properties(0).total_memory / 1e9, 2)}
 
     def models():
-        manifest = json.loads((ROOT / "config/models.lock.json").read_text())
+        manifest = json.loads((args.manifest or ROOT / "config/models.lock.json").read_text())
         bad = [item["destination"] for item in manifest["files"] if not valid_file(ROOT / "models" / item["destination"], item)]
         if bad:
             raise RuntimeError("Missing or unverified: " + ", ".join(bad))
-        return "7 pinned model files, %.2f GB" % (manifest["total_bytes"] / 1e9)
+        return "%d pinned model files, %.2f GB" % (len(manifest['files']), manifest["total_bytes"] / 1e9)
 
     def schemas():
         port = json.loads((ROOT / "config/server.json").read_text())["port"]
@@ -56,10 +72,15 @@ def main():
             catalog = json.load(response)
         errors = []
         for path in (ROOT / "workflows/api").glob("*.json"):
-            errors += check_api(json.loads(path.read_text()), catalog)
+            graph = json.loads(path.read_text())
+            if args.manifest:
+                graph = profile_schema_graph(graph, json.loads(args.manifest.read_text()))
+            errors += check_api(graph, catalog, allow_missing_files=args.runtime_only)
         if errors:
             raise RuntimeError("; ".join(errors))
-        return "Both workflows match the running server, including filenames and LoRA choices"
+        return ("Runtime workflow schemas match; model downloads are manual" if args.runtime_only else
+                "Workflow schemas match; selected model files verified by manifest" if args.manifest else
+                "Both workflows match the running server, including filenames and LoRA choices")
 
     def video():
         if not shutil.which("ffmpeg"):
@@ -67,7 +88,8 @@ def main():
         return subprocess.check_output(["ffmpeg", "-version"], text=True).splitlines()[0]
 
     record("CUDA runtime", gpu)
-    record("Model integrity", models)
+    if not args.runtime_only:
+        record("Model integrity", models)
     record("Video tools", video)
     record("Live workflow schemas", schemas)
     report = {"checks": checks, "generation_benchmarked_by_this_check": False,

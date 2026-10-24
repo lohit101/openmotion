@@ -85,12 +85,11 @@ def main():
     print('RECAST_STAGE Uploading the small deployment package', flush=True)
     vast.upload_package(config)
     root = config['remote_root']
+    print('RECAST_STAGE Runtime-only setup; model files download only when requested in Studio', flush=True)
     fast = ('test -f {r}/state/managed-provision.exit && '
             'test "$(cat {r}/state/managed-provision.exit)" = 0 && '
             'bash {r}/scripts/server.sh start && '
-            '{r}/.venv/bin/python {r}/scripts/download_models.py --manifest {r}/config/optional-models.lock.json --model-dir {r}/models --verify-only && '
-            '{r}/.venv/bin/python {r}/scripts/download_models.py --manifest {r}/config/natural-models.lock.json --model-dir {r}/models --verify-only && '
-            '{r}/.venv/bin/python {r}/scripts/doctor.py').format(r=shlex.quote(root))
+            '{r}/.venv/bin/python {r}/scripts/doctor.py --runtime-only').format(r=shlex.quote(root))
     ready = subprocess.run(vast.ssh_arguments(config) + ['-T', vast.destination(config), shlex.join(['bash', '-lc', fast])],
                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=120)
     if ready.returncode == 0:

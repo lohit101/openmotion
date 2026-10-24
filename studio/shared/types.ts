@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { CloudState } from './cloud';
 import { defaultNegativePrompt, defaultPrompt } from './prompts';
+import type { ModelsState } from './models';
 
 export const settingsSchema = z.object({
   mode: z.enum(['swap', 'motion']).default('swap'),
@@ -56,7 +57,7 @@ export type Graph = Record<string, GraphNode>;
 export type Catalog = Record<string, { input: { required?: Record<string, unknown[]>; optional?: Record<string, unknown[]> }; output: string[] }>;
 export interface Connection { state: 'offline' | 'connecting' | 'online'; endpoint: string; gpu: string | null; message: string; loras: string[]; checkedAt: string | null; }
 export interface Draft { sourceId: string | null; referenceId: string | null; settings: Settings; }
-export interface Bootstrap { assets: Asset[]; jobs: Job[]; draft: Draft; connection: Connection; cloud: CloudState; }
+export interface Bootstrap { assets: Asset[]; jobs: Job[]; draft: Draft; connection: Connection; cloud: CloudState; models: ModelsState; }
 
 export function geometry(settings: Settings, source: Pick<Asset, 'width' | 'height'>): [number, number] {
   const short = Number(settings.resolution);

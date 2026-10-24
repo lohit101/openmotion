@@ -71,7 +71,7 @@ Use an on-demand, single-GPU instance for the first setup. The target is:
 
 This CUDA 13 package uses PyTorch 2.11.0 and torchvision 0.26.0. [NVIDIA documents the CUDA 13 driver requirements](https://docs.nvidia.com/deploy/cuda-compatibility/minor-version-compatibility.html). A suitable host driver is necessary even when the container has the right CUDA packages. An older container Python can be replaced automatically with an isolated Python 3.12 runtime.
 
-The seven base model files total **28.619 GB decimal**. The tested relighting adapter adds **1.227 GB**, bringing that bundle to **29.846 GB**. Managed Studio setup also installs the **0.631 GB** T2V acceleration adapter for its optional Natural preset: **30.477 GB** total model files. Disk also contains the container environment, a Python environment, temporary frames, uploaded media and results. Additional models, LoRAs or upscalers consume extra space. Inspect the host's disk and download-bandwidth rates before renting; model downloads are billed by some Vast hosts.
+Setup now installs the runtime **without model weights**. Download files explicitly beside feature options or on Studio’s **Models** page. The five shared weights total **26.654 GB decimal**. Natural swap with DPO and relighting needs **29.739 GB**; Fast swap needs **29.846 GB**. Installing every supported adapter would total **30.477 GB**, but unused features are never downloaded automatically. See [manual downloads](docs/model-downloads.md). Disk also contains the container environment, a Python environment, temporary frames, uploaded media and results. Additional models, LoRAs or upscalers consume extra space. Inspect the host's disk and download-bandwidth rates before renting; model downloads are billed by some Vast hosts.
 
 Do not choose a huge all-in-one ComfyUI template for this package. It installs a separate, pinned ComfyUI into `/workspace/ComfyUI-character-swap` so it does not overwrite another application.
 
@@ -103,11 +103,11 @@ Run these commands on your Mac from this project directory. Python 3 and OpenSSH
    python3 scripts/vast.py setup
    ```
 
-   The command uploads only the setup files. On the GPU host it checks the driver, RAM and free disk; installs the pinned runtime; downloads and verifies the seven models; installs small upstream sample inputs; copies the workflows into ComfyUI; starts the private server; and checks the live node schemas. It then opens your browser. Existing saved workflows and input files are kept on a repeated setup.
+   The command uploads only the setup files. On the GPU host it checks the driver, RAM and free disk; installs the pinned runtime without model weights; installs small upstream sample inputs; copies the workflows into ComfyUI; starts the private server; and checks the live node schemas. It then opens your browser. Existing saved workflows and input files are kept on a repeated setup.
 
 The browser address is **http://127.0.0.1:8188**. Traffic goes through SSH to a server listening only on the remote loopback interface. You do not need to expose port 8188 publicly or set up a cloud tunnel.
 
-Setup is the slow part: it transfers 28.6 GB of weights plus runtime packages. Downloads resume from partial files and verified weights are reused. Kernel compilation and model staging can also make the first generation slower than later runs. If SSH drops during setup, rerun `setup` after reconnecting.
+Setup transfers the runtime packages. Model downloads are a separate, explicit step in Studio. For direct ComfyUI CLI use, request the base bundle on the host with `.venv/bin/python scripts/download_models.py --model-dir models`. Requested downloads resume from partial files and verified weights are reused. Kernel compilation and model staging can also make the first generation slower than later runs. If SSH drops during setup, rerun `setup` after reconnecting.
 
 If port 8188 is already used on your Mac, configure with `--local-port 8190`, then open the resulting address printed by the helper. The private remote port is 18189, separate from the Vast preset's ComfyUI service. If another application occupies that remote port, change `config/server.json` before deploying and reconfigure the local connection. When Vast's supervisor environment is available, this installation registers a private service with automatic restart. Bare CUDA images use an owned background process instead. Logs are saved in `state/comfyui.log`; process recovery checks the exact installation, port and input directory.
 
@@ -209,8 +209,8 @@ Keeping the same instance gives the fastest next session. Vast local volumes are
 | SSH permission denied | Add the public key to the account before creating an instance, or use Vast's instance-specific key management; verify the private-key path |
 | CUDA driver check fails | Select a host with CUDA 13 support and driver 580.65.06 or newer |
 | Red or missing nodes | Run `setup` to install the pinned core and both node packs; refresh the browser afterwards |
-| Models absent from dropdowns | Run `doctor`; check download completion and the generated model-path configuration |
-| Model download interrupted | Rerun setup; `.part` files are resumed and completed files are hash-verified |
+| Models absent from dropdowns | Download the required files explicitly in Models, then Refresh; check the model-path configuration |
+| Model download interrupted | Click its download/retry button; `.part` files resume and completed files are hash-verified |
 | Wrong person is replaced | Fix the tracking text, selected object index and reference mask before changing the sampler |
 | Face or clothes change | Improve the reference and prompt; use one continuous shot; compare adapters individually |
 | Out of memory | Start with 49 frames at 480p-class resolution, remove optional adapters, and inspect RAM as well as VRAM |

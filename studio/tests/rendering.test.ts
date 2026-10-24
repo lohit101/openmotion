@@ -45,7 +45,7 @@ describe('versioned temporal rendering', () => {
     job.settings.preset = 'quality'; const quality = compileWorkflow(template, job);
     expect(quality['1'].inputs.preset).toBe('undistilled_40_steps');
     expect(quality['42'].inputs.steps).toBe(20); expect(quality['43'].inputs.cfg).toBe(5);
-    expect(quality['24'].inputs.strength_model).toBe(0);
+    expect(quality['24']).toBeUndefined(); expect(quality['25'].inputs.model).toEqual(['23', 0]);
     expect(quality['25'].inputs.shift).toBe(3); expect(quality['41'].inputs.sampler_name).toBe('uni_pc');
   });
 

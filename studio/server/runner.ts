@@ -9,6 +9,7 @@ import type { Store } from './store';
 import type { Graph, Job } from '../shared/types';
 import { nextSegment } from '../shared/types';
 import { exists, localReferenceGeometry, type ReferenceGeometry } from './framing';
+import { missingPinnedAdapters } from './models';
 
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 export class Runner {
@@ -100,7 +101,10 @@ export class Runner {
         socket = await client.watch('recast-' + job.id, receive).catch(() => undefined);
         if (!job.pendingPrompt) {
           this.stage(job, 'Checking workflow'); const graph = compileWorkflow(this.template, job);
-          const liveCatalog = await client.json('/object_info', undefined, signal); const issues = validateGraph(graph, liveCatalog);
+          const liveCatalog = await client.json('/object_info', undefined, signal);
+          const missing = missingPinnedAdapters(graph, liveCatalog);
+          if (missing.length) throw new Error('Download the selected adapters in Models before generating: ' + missing.join(', '));
+          const issues = validateGraph(graph, liveCatalog);
           if (issues.length) throw new Error(issues.slice(0, 4).join(' '));
           job.workflow = graph; await writeFile(path.join(folder, `workflow_${job.segments.length}.json`), JSON.stringify(graph, null, 2));
           this.checkCancelled(job); this.stage(job, 'Waiting for GPU');

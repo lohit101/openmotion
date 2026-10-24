@@ -3,6 +3,8 @@ set -euo pipefail
 SWAP_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 COMFY_ROOT="${COMFY_ROOT:-/workspace/ComfyUI-character-swap}"
 export PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
+export RECAST_SKIP_MODEL_DOWNLOADS="${RECAST_SKIP_MODEL_DOWNLOADS:-1}"
+export RECAST_MODEL_MANIFEST="${RECAST_MODEL_MANIFEST:-$SWAP_ROOT/config/models.lock.json}"
 if ! command -v python3 >/dev/null || ! command -v flock >/dev/null; then
   if [[ "$(id -u)" == "0" ]] && command -v apt-get >/dev/null; then
     apt-get update -qq
@@ -36,8 +38,8 @@ if tuple(map(int,driver.split('.'))) < tuple(map(int,lock['minimum_driver'].spli
 if int(memory)<23000: raise SystemExit('This package targets a 24 GB or larger GPU.')
 ram=effective_ram_bytes()
 if ram<29*1024**3: raise SystemExit('Choose at least 32 GB system RAM for this native INT8 package.')
-manifest=json.loads((root/'config/models.lock.json').read_text()); pending=0
-for f in manifest['files']:
+manifest=json.loads(Path(os.environ['RECAST_MODEL_MANIFEST']).read_text()); pending=0
+for f in ([] if os.environ.get('RECAST_SKIP_MODEL_DOWNLOADS') == '1' else manifest['files']):
     target=root/'models'/f['destination']; partial=target.with_name(target.name+'.part')
     if not target.is_file() or target.stat().st_size!=f['size']:
         pending+=max(0,f['size']-(partial.stat().st_size if partial.exists() else 0))
@@ -141,7 +143,11 @@ x=torch.randn((64,64),device='cuda',dtype=torch.float16)
 torch.mm(x,x);torch.cuda.synchronize()
 print('CUDA test passed:',torch.__version__,torch.cuda.get_device_name(0))
 PY
-"$SWAP_VENV_PYTHON" "$SWAP_ROOT/scripts/download_models.py" --model-dir "$SWAP_ROOT/models"
+if [[ "${RECAST_SKIP_MODEL_DOWNLOADS:-0}" != "1" ]]; then
+  "$SWAP_VENV_PYTHON" "$SWAP_ROOT/scripts/download_models.py" --manifest "$RECAST_MODEL_MANIFEST" --model-dir "$SWAP_ROOT/models"
+else
+  echo 'RECAST_STAGE Runtime installed. Choose model downloads explicitly in Studio.'
+fi
 if [[ ! -f "$SWAP_ROOT/data/user/default/workflows/Character Swap/02 Character Swap INT8.json" ]]; then
   cp "$SWAP_ROOT/workflows/scail2_int8_swap.json" "$SWAP_ROOT/data/user/default/workflows/Character Swap/02 Character Swap INT8.json"
 fi
@@ -150,5 +156,9 @@ if [[ ! -f "$SWAP_ROOT/data/user/default/workflows/Character Swap/01 Check Masks
 fi
 "$SWAP_VENV_PYTHON" "$SWAP_ROOT/scripts/sample_inputs.py" --input-dir "$SWAP_ROOT/data/input"
 bash "$SWAP_ROOT/scripts/server.sh" start
-"$SWAP_VENV_PYTHON" "$SWAP_ROOT/scripts/doctor.py"
+if [[ "${RECAST_SKIP_MODEL_DOWNLOADS:-0}" == "1" ]]; then
+  "$SWAP_VENV_PYTHON" "$SWAP_ROOT/scripts/doctor.py" --runtime-only
+else
+  "$SWAP_VENV_PYTHON" "$SWAP_ROOT/scripts/doctor.py" --manifest "$RECAST_MODEL_MANIFEST"
+fi
 echo "Setup complete. Reconnect with: python3 scripts/vast.py open"

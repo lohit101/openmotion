@@ -1,9 +1,8 @@
 import type { Asset, Catalog, Graph, Job } from '../shared/types';
 import { nextSegment } from '../shared/types';
 import { renderPrompt } from '../shared/prompts';
-export const RELIGHT = 'wan2.1_SCAIL_2_relight_lora_bf16.safetensors';
-export const NATURAL_SPEED = 'lightx2v_T2V_14B_cfg_step_distill_v2_lora_rank64_bf16.safetensors';
-export const I2V_SPEED = 'lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors';
+import { RELIGHT, NATURAL_SPEED, I2V_SPEED } from '../shared/models';
+export { RELIGHT, NATURAL_SPEED, I2V_SPEED };
 
 export function compileWorkflow(template: Graph, job: Job): Graph {
   if (!job.uploads) throw new Error('Inputs have not been transferred.');
@@ -16,10 +15,14 @@ export function compileWorkflow(template: Graph, job: Job): Graph {
   graph['11'].inputs.object_indices = s.objectIndices; graph['11'].inputs.replacement_mode = s.mode === 'swap';
   graph['40'].inputs.replacement_mode = s.mode === 'swap'; graph['31'].inputs.text = renderPrompt(s, job.promptVersion); graph['32'].inputs.text = s.negativePrompt;
   graph['36'].inputs.context_path = job.context;
+  const detailModel = s.dpoStrength > 0 ? ['21', 0] : ['20', 0];
+  if (s.dpoStrength === 0) delete graph['21'];
   graph['50'] = { class_type: 'LoraLoaderModelOnly', inputs: { model: ['21', 0], lora_name: RELIGHT, strength_model: s.relight && s.mode === 'swap' ? s.relightStrength : 0 }, _meta: { title: 'SCAIL-2 relighting' } };
+  graph['50'].inputs.model = detailModel;
   // Omit the loader entirely when disabled so a base-only installation does not require this optional file.
-  graph['22'].inputs.model = s.relight && s.mode === 'swap' ? ['50', 0] : ['21', 0];
-  if (!(s.relight && s.mode === 'swap')) delete graph['50'];
+  const relighting = s.relight && s.mode === 'swap' && s.relightStrength > 0;
+  graph['22'].inputs.model = relighting ? ['50', 0] : detailModel;
+  if (!relighting) delete graph['50'];
   Object.assign(graph['22'].inputs, { lora_name: s.loraA, strength_model: s.loraAStrength });
   Object.assign(graph['23'].inputs, { lora_name: s.loraB, strength_model: s.loraBStrength });
   if (s.preset === 'quality') { graph['42'].inputs.steps = 20; graph['43'].inputs.cfg = 5; graph['24'].inputs.strength_model = 0; graph['25'].inputs.shift = 3; graph['41'].inputs.sampler_name = 'uni_pc'; }
@@ -29,6 +32,9 @@ export function compileWorkflow(template: Graph, job: Job): Graph {
     graph['24'].inputs.strength_model = 0.8;
     graph['25'].inputs.shift = 5; graph['41'].inputs.sampler_name = 'euler';
   }
+  // Even a zero-strength native loader validates its filename. Remove the
+  // inactive speed node so Quality needs neither acceleration download.
+  if (s.preset === 'quality') { graph['25'].inputs.model = ['23', 0]; delete graph['24']; }
   if (job.renderVersion === 'continuous-v1') {
     // Native decode shares temporal/spatial context for the whole shot. The VAE
     // owns its memory handling and automatic fallback rather than this graph

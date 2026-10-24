@@ -1,0 +1,80 @@
+{
+  "checkedUTC": "2026-10-24T18:34:26.961814+00:00",
+  "feature": "Explicit per-option and per-file model downloads",
+  "startup": {
+    "modelWeightsAutomaticallyDownloaded": false,
+    "runtimePackagesStillRequired": true,
+    "standaloneCLIAlsoRuntimeOnlyByDefault": true
+  },
+  "actionsThatDoNotDownload": [
+    "app bootstrap",
+    "connect",
+    "availability refresh",
+    "preset/feature selection",
+    "Generate",
+    "job resume"
+  ],
+  "modelFiles": {
+    "pinnedFileCount": 9,
+    "sharedCoreFileCount": 5,
+    "sharedCoreBytes": 26653985675,
+    "naturalSwapWithDPOAndRelightBytes": 29738555883,
+    "skippedI2VSpeedBytesForNaturalSwap": 738005744
+  },
+  "downloadControls": [
+    "quality options including separate Fast and Natural arrows",
+    "relighting",
+    "detail DPO",
+    "known built-in LoRAs in A/B",
+    "individual shared files in Models sidebar",
+    "explicit Download required files shortcut"
+  ],
+  "safeguards": [
+    "no unknown download destinations or guessed third-party URLs",
+    "saved SSH instance and private endpoint must match",
+    "at most two file transfers",
+    "duplicate active requests coalesced",
+    "resumable partials and pinned SHA256",
+    "exact remote byte counters and separate checksum phase",
+    "old deployed downloaders retain genuine percentage-log fallback",
+    "cancel keeps partials without a GPU lifecycle action",
+    "slow warning without timeout stop",
+    "missing files rejected before creating a render job",
+    "idempotency rechecked after async availability check",
+    "no automatic download or paid resubmission"
+  ],
+  "renderPreservation": {
+    "comparedToCompletedA40Job": "b308b307-1747-460d-8167-1b30427b2186",
+    "naturalGraphIdentical": true,
+    "changedNodeIds": [],
+    "disabledZeroStrengthDPOAndRelightOmitted": true,
+    "qualityOmitsInactiveSpeedLoader": true
+  },
+  "validation": {
+    "studioTests": 142,
+    "studioTestFiles": 11,
+    "pythonToolTests": 18,
+    "pythonModelProfileTests": 6,
+    "typescriptAndProductionBuild": "passed",
+    "shellSyntax": "passed",
+    "gitDiffCheck": "passed",
+    "browser": "Safari isolated localhost:3002; actual preset selection, per-option arrows, advanced controls and Models navigation verified through accessibility tree; model library and editor screenshots inspected",
+    "responsiveLimit": "Separate narrow-viewport visual pass not completed; native scrolling returned noWindowsAvailable and zoom attempts did not establish a changed viewport",
+    "freshPaidRentalOrModelDownloadTested": false,
+    "productionBrowser": "Updated localhost:3000 loaded in Safari; preserved 18 library jobs, Natural/8, 704p/24fps/5-second draft; Models navigation, required labels, file sizes and offline download gating confirmed."
+  },
+  "liveLocalServer": {
+    "port": 3000,
+    "modelRows": 9,
+    "connectionState": "offline",
+    "renderJobsPreserved": 22,
+    "activeJobs": []
+  },
+  "gpuLifecycleActionsDuringThisTask": 0,
+  "paidRenderSubmissionsDuringThisTask": 0,
+  "limitations": [
+    "Runtime-only setup still downloads Python/runtime packages. Shared weights must be explicitly downloaded before the first render.",
+    "Availability uses ComfyUI filename inventory; an existing external file is not freshly SHA256-hashed by every refresh. Explicit downloads verify pinned hashes.",
+    "New manual flow has local/protocol/downloader/UI checks; no fresh paid rental was created. Existing remote weights were retained."
+  ]
+}

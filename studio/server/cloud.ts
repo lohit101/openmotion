@@ -10,11 +10,10 @@ import type { Runner } from './runner';
 import { command } from './media';
 import type { CloudInstance, CloudLaunch, CloudState, GpuOffer, OfferFilters } from '../shared/cloud';
 import { canRetryRental, offerFiltersSchema, offerGpuFilter, sameGpuModel, supportedGpuName } from '../shared/cloud';
-import baseModels from '../../config/models.lock.json';
-import relightModels from '../../config/optional-models.lock.json';
-import naturalModels from '../../config/natural-models.lock.json';
+import { modelBytes, modelFilesForSettings } from '../shared/models';
+import { defaults } from '../shared/types';
 
-const MODEL_GB = (baseModels.total_bytes + relightModels.total_bytes + naturalModels.total_bytes) / 1e9;
+const MODEL_GB = modelBytes(modelFilesForSettings(defaults)) / 1e9;
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 export const RENTAL_IMAGE = 'nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04';
 const number = (value: unknown): number | null => value !== null && value !== '' && value !== undefined && Number.isFinite(Number(value)) ? Number(value) : null;
@@ -99,7 +98,7 @@ export class VastClient {
     return (id ? value.offers.filter((offer: any) => Number(offer.ask_contract_id ?? offer.id) === id) : value.offers) as any[];
   }
 }
-export function normalizeOffer(raw: any, filters: OfferFilters): GpuOffer {
+export function normalizeOffer(raw: any, filters: OfferFilters, modelGB = MODEL_GB): GpuOffer {
   const storageHourly = amount(raw.search?.diskHour, raw.storage_total_cost), totalHourly = amount(raw.search?.totalHour, raw.dph_total);
   const computeHourly = amount(raw.search?.gpuCostPerHour, raw.dph_base, totalHourly !== null && storageHourly !== null ? totalHourly - storageHourly : null);
   const reasons: string[] = [], gpu = String(raw.gpu_name || ''), ram = Number(raw.cpu_ram || 0) / 1000, vram = Number(raw.gpu_ram || 0) / 1024;
@@ -118,7 +117,7 @@ export function normalizeOffer(raw: any, filters: OfferFilters): GpuOffer {
     driver: String(raw.driver_version || ''), cuda: Number(raw.cuda_max_good || 0), diskMax: Number(raw.disk_space || 0), diskBandwidth: Number(raw.disk_bw || 0),
     downloadMbps: Number(raw.inet_down || 0), uploadMbps: Number(raw.inet_up || 0), downloadPerGB: amount(raw.inet_down_cost), uploadPerGB: amount(raw.inet_up_cost), pcie: Number(raw.pcie_bw || 0),
     computeHourly, storageHourly, totalHourly, storageMonthly: amount(raw.storage_cost) === null ? null : Number(raw.storage_cost) * filters.disk,
-    modelDownloadCost: amount(raw.inet_down_cost) === null ? null : Number(raw.inet_down_cost) * MODEL_GB, disk: filters.disk,
+    modelDownloadCost: amount(raw.inet_down_cost) === null ? null : Number(raw.inet_down_cost) * modelGB, modelDownloadGB: modelGB, disk: filters.disk,
     expiresAt: new Date(Date.now() + 90000).toISOString(), quote: randomUUID(), compatible: !reasons.length, reasons };
 }
 
@@ -248,7 +247,8 @@ export class CloudManager {
       createdAt: raw.start_date ? new Date(Number(raw.start_date) * 1000).toISOString() : null };
   }
   async offers(filters: OfferFilters) {
-    const rows = await this.client.offers(filters); const offers = rows.map(raw => normalizeOffer(raw, filters)).filter(o => o.compatible);
+    const modelFiles = modelFilesForSettings({ ...defaults, ...this.store.draft().settings });
+    const rows = await this.client.offers(filters); const offers = rows.map(raw => normalizeOffer(raw, filters, modelBytes(modelFiles) / 1e9)).filter(o => o.compatible);
     const value = (o: GpuOffer) => filters.sort === 'compute' ? o.computeHourly : filters.sort === 'setup' ? (o.totalHourly === null || o.modelDownloadCost === null ? null : o.totalHourly + o.modelDownloadCost) : o.totalHourly;
     offers.sort((a, b) => (value(a) ?? Infinity) - (value(b) ?? Infinity));
     for (const [key, value] of this.quotes) if (Date.parse(value.offer.expiresAt) + 10 * 60000 < Date.now()) this.quotes.delete(key);
@@ -259,7 +259,7 @@ export class CloudManager {
   private async verifyOffer(offer: GpuOffer, filters: OfferFilters, ceiling: number, approved = { download: offer.downloadPerGB, upload: offer.uploadPerGB }) {
     const rows = await this.client.offers(filters, offer.id);
     if (!rows.length) throw new PreflightError('This exact offer is no longer listed with the selected resources. Choose a fresh offer from the marketplace.', 'offer-unavailable');
-    const fresh = normalizeOffer(rows[0], filters);
+    const fresh = normalizeOffer(rows[0], filters, offer.modelDownloadGB);
     if (fresh.machineId !== offer.machineId || fresh.gpu !== offer.gpu) throw new Error('The offer hardware changed. Review a fresh offer before renting.');
     if (!fresh.compatible) throw new Error(fresh.reasons.join(' '));
     if (fresh.totalHourly === null || fresh.totalHourly > ceiling + 0.000001) throw new PreflightError('The hourly price increased. Review a fresh quote before renting.', 'price-changed');
@@ -430,14 +430,14 @@ export class CloudManager {
       }
       this.change(launch, 'waiting', String(instance.status_msg || 'Container status: ' + instance.actual_status)); await pause(this.options.pollMs ?? 5000);
     }
-    this.change(launch, 'installing', 'Installing pinned ComfyUI, model files and relighting. Live setup output appears below.');
+    this.change(launch, 'installing', 'Installing pinned ComfyUI. Model files download only when requested.');
     const log = (line: string) => { if (signal.aborted || this.stopped.has(launch.id)) return; launch.logs.push(line.slice(0, 800)); launch.logs = launch.logs.slice(-120); if (line.startsWith('RECAST_WARNING ')) launch.warning = line.slice(15, 500); if (/Downloading|Verified:|CUDA test|Setup complete|RECAST_STAGE/.test(line)) launch.message = line.replace('RECAST_STAGE ', '').slice(0, 250); launch.updatedAt = new Date().toISOString(); this.emit(); };
     if (this.options.provision) await this.options.provision(instance, log, signal);
     else await this.runProvision(instance, identity, log, signal);
     check();
     this.change(launch, 'connecting', 'Checking the actual CUDA ComfyUI server');
     await this.connection.connect('http://127.0.0.1:8188', false); check(); if (this.connection.status.state !== 'online') throw new Error(this.connection.status.message);
-    launch.setupDeadline = null; launch.setupWarningAt = null; launch.setupSlow = false; launch.warning = null; launch.safetyStatus = 'disarmed'; this.store.set('cloud-connected-instance', launch.instanceId); this.change(launch, 'ready', 'GPU ready. Return to Motion control to generate.');
+    launch.setupDeadline = null; launch.setupWarningAt = null; launch.setupSlow = false; launch.warning = null; launch.safetyStatus = 'disarmed'; this.store.set('cloud-connected-instance', launch.instanceId); this.change(launch, 'ready', 'GPU connected. Choose model downloads in Models, then generate.');
   }
   private async probeGpu(instance: any, identity: string) {
     if (this.options.probe) return this.options.probe(instance, identity);

@@ -13,6 +13,8 @@ import { ingest } from './media';
 import { seedExamples } from './seed';
 import { validateSelection } from './workflow';
 import { CloudManager } from './cloud';
+import { ModelManager } from './models';
+import { modelFilesForSettings } from '../shared/models';
 import { offerFiltersSchema } from '../shared/cloud';
 import { defaults, geometry, segmentCount, settingsSchema } from '../shared/types';
 import type { Asset, Catalog, Graph, Job } from '../shared/types';
@@ -29,6 +31,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   const template: Graph = options.template || JSON.parse(readFileSync(path.join(repo, 'workflows/api/scail2_int8_swap.json'), 'utf8'));
   const connection = new ConnectionManager(store, repo, catalog), runner = new Runner(store, connection, template, repo, options.geometry);
   const cloud = new CloudManager(store, connection, runner, repo);
+  const models = new ModelManager(store, connection, repo);
   if (options.seed !== false) await seedExamples(store, repo);
   for (const job of store.jobs()) {
     if (job.origin === 'render' && ['queued', 'running', 'reconnecting'].includes(job.status)) { job.status = 'interrupted'; job.error = 'The local app restarted. Reconnect to check the existing GPU job before resuming.'; store.saveJob(job); }
@@ -43,7 +46,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Referrer-Policy', 'same-origin'); next();
   });
   app.use(express.json({ limit: '100kb' }));
-  const bootstrap = () => ({ assets: store.assets().map(publicAsset), jobs: store.jobs().map(publicJob), draft: store.draft(), connection: connection.status, cloud: cloud.state });
+  const bootstrap = () => ({ assets: store.assets().map(publicAsset), jobs: store.jobs().map(publicJob), draft: store.draft(), connection: connection.status, cloud: cloud.state, models: models.state });
   app.get('/api/bootstrap', (_req, res) => res.json(bootstrap()));
   app.get('/api/events', (req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
@@ -53,21 +56,35 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     req.on('close', () => { clearInterval(heartbeat); store.off('event', send); });
   });
   app.get('/api/cloud', (_req, res) => res.json(cloud.state));
+  app.get('/api/models', async (_req, res) => res.json(await models.refresh()));
+  app.post('/api/models/download', async (req, res) => {
+    if (cloud.state.busy || runner.busy || store.jobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status))) return void res.status(409).json({ error: 'Finish the current setup or render before downloading models.' });
+    const value = z.object({ files: z.array(z.string().max(300)).min(1).max(9) }).parse(req.body);
+    res.status(202).json(await models.start(value.files));
+  });
+  app.post('/api/models/cancel', async (_req, res) => res.json(await models.cancel()));
   app.post('/api/cloud/key', async (req, res) => { const value = z.object({ key: z.string().trim().min(12).max(500) }).parse(req.body); await cloud.saveKey(value.key); res.json(cloud.state); });
   app.delete('/api/cloud/key', async (_req, res) => { await cloud.removeKey(); res.json(cloud.state); });
   app.post('/api/cloud/refresh', async (_req, res) => res.json(await cloud.refresh()));
   app.post('/api/cloud/offers', async (req, res) => res.json(await cloud.offers(offerFiltersSchema.parse(req.body))));
   app.post('/api/cloud/preflight', async (req, res) => { const value = z.object({ quote: z.string().uuid() }).parse(req.body); res.json(await cloud.checkConfiguration(value.quote)); });
   app.post('/api/cloud/launch', (req, res) => {
+    if (models.state.busy) return void res.status(409).json({ error: 'Finish or cancel model downloads before changing GPU instances.' });
     const value = z.object({ quote: z.string().uuid(), approvedHourly: z.number().positive().max(100) }).parse(req.body);
     const key = req.get('Idempotency-Key'); if (!key || key.length > 120) return void res.status(400).json({ error: 'A rental request ID is required.' });
     res.status(202).json(cloud.launch(value.quote, value.approvedHourly, key));
   });
-  app.post('/api/cloud/launches/:id/continue', async (req, res) => { const launch = cloud.state.launches.find(l => l.id === req.params.id); if (!launch) return void res.sendStatus(404); res.status(202).json(await cloud.continue(launch)); });
+  app.post('/api/cloud/launches/:id/continue', async (req, res) => { if (models.state.busy) return void res.status(409).json({ error: 'Finish or cancel downloads before reconnecting setup.' }); const launch = cloud.state.launches.find(l => l.id === req.params.id); if (!launch) return void res.sendStatus(404); res.status(202).json(await cloud.continue(launch)); });
   app.post('/api/cloud/launches/:id/cancel', async (req, res) => { const launch = cloud.state.launches.find(l => l.id === req.params.id); if (!launch) return void res.sendStatus(404); res.json(await cloud.cancel(launch)); });
   app.post('/api/cloud/instances/:id/:action', async (req, res) => {
     const id = z.coerce.number().int().positive().parse(req.params.id), action = z.enum(['start', 'stop', 'destroy', 'connect']).parse(req.params.action);
-    const value = z.object({ confirmation: z.string().optional() }).parse(req.body || {}); res.json(await cloud.action(id, action, value.confirmation));
+    const value = z.object({ confirmation: z.string().optional() }).parse(req.body || {});
+    if (models.state.busy) {
+      if (['start', 'connect'].includes(action)) return void res.status(409).json({ error: 'Finish or cancel downloads before reconnecting setup.' });
+      if (action === 'destroy' && value.confirmation !== String(id)) return void res.status(400).json({ error: 'Enter the instance ID to confirm deletion.' });
+      await models.cancel();
+    }
+    res.json(await cloud.action(id, action, value.confirmation));
   });
   app.post('/api/draft', (req, res) => {
     const value = z.object({ sourceId: z.string().nullable(), referenceId: z.string().nullable(), settings: settingsSchema }).parse(req.body);
@@ -90,7 +107,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     res.sendFile(req.params.type === 'poster' ? asset.poster : asset.path);
   });
   app.post('/api/connection/connect', async (req, res) => {
-    if (cloud.state.busy) return void res.status(409).json({ error: 'GPU setup is in progress. Wait for GPU cloud to finish connecting the selected rental.' });
+    if (cloud.state.busy || models.state.busy) return void res.status(409).json({ error: 'GPU setup or model download is in progress. Wait for it to finish connecting the selected rental.' });
     const value = z.object({ endpoint: z.string().max(200), useSSH: z.boolean().default(true) }).parse(req.body);
     localEndpoint(value.endpoint);
     if (runner.active || (connection.status.state === 'online' && store.jobs().some(j => j.status === 'queued'))) return void res.status(409).json({ error: 'Finish or cancel the active queue before changing the connection.' });
@@ -98,15 +115,23 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     void connection.connect(value.endpoint, options.allowSSH === false ? false : value.useSSH).then(() => runner.kick());
   });
   app.post('/api/connection/disconnect', (_req, res) => {
-    if (runner.active || store.jobs().some(j => j.status === 'queued')) return void res.status(409).json({ error: 'Cancel the active queue before disconnecting. This does not stop rental billing.' });
+    if (runner.active || models.state.busy || store.jobs().some(j => j.status === 'queued')) return void res.status(409).json({ error: 'Cancel the active render or download queue before disconnecting. This does not stop rental billing.' });
     connection.disconnect(); res.json(connection.status);
   });
-  app.post('/api/jobs', (req, res) => {
+  app.post('/api/jobs', async (req, res) => {
     if (cloud.state.busy || cloud.state.launches.some(l => ['stopping', 'destroying'].includes(l.phase) || (l.instanceId && l.safetyStatus === 'unconfirmed'))) return void res.status(503).json({ error: 'The GPU setup or stop status is not settled. Your draft is saved; check GPU cloud before generating.' });
     const value = z.object({ sourceId: z.string(), referenceId: z.string(), settings: settingsSchema, saveDiagnosticLatent: z.boolean().default(false) }).parse(req.body);
     const key = req.get('Idempotency-Key'); if (!key || key.length > 120) return void res.status(400).json({ error: 'A request ID is required.' });
     const existing = store.byKey(key); if (existing) return void res.json(publicJob(existing));
     if (connection.status.state !== 'online') return void res.status(503).json({ error: 'Connect the GPU before generating. Your draft is saved locally.' });
+    if (models.state.busy) return void res.status(409).json({ error: 'Wait for model downloads to finish before generating.' });
+    await models.refresh();
+    const accepted = store.byKey(key); if (accepted) return void res.json(publicJob(accepted));
+    if (models.state.busy || cloud.state.busy || connection.status.state !== 'online') return void res.status(409).json({ error: 'The GPU or model downloads changed while checking. Nothing was queued; wait for readiness before generating.' });
+    if (models.state.error) return void res.status(503).json({ error: models.state.error });
+    const missing = modelFilesForSettings(value.settings).filter(id => models.state.files.find(file => file.id === id)?.status !== 'installed');
+    if (missing.length) return void res.status(409).json({ error: 'Download the required files in Models before generating. Nothing was queued.', missingModels: missing });
+    for (const name of [value.settings.loraA, value.settings.loraB]) if (name !== 'None' && !connection.status.loras.includes(name)) return void res.status(409).json({ error: 'Upload the selected custom LoRA before generating: ' + name });
     const source = store.asset(value.sourceId), reference = store.asset(value.referenceId); if (!source || !reference) throw new Error('Upload both inputs before generating.');
     validateSelection(source, reference, value.settings.start, value.settings.seconds, value.settings.fps);
     const settings = { ...value.settings, prompt: migrateDemoPrompt(value.settings.prompt, value.settings.mode) }; if (settings.randomSeed) settings.seed = randomInt(0, 0xffffffff);
@@ -155,10 +180,10 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     const message = error instanceof z.ZodError ? error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join(' ') : error.code === 'LIMIT_FILE_SIZE' ? 'Videos can be up to 512 MB.' : error.message || 'This action could not be completed.';
     res.status(error instanceof z.ZodError ? 422 : error instanceof multer.MulterError ? 413 : 400).json({ error: String(message).slice(0, 2000) });
   });
-  return { app, store, connection, runner, cloud };
+  return { app, store, connection, runner, cloud, models };
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
-  const { app, store, cloud } = await createApplication();
+  const { app, store, cloud, models } = await createApplication();
   const port = Number(process.env.PORT || 3000);
   const server = app.listen(port, '127.0.0.1', () => console.log(`Recast Studio: http://127.0.0.1:${port} (GPU disconnected until you connect)`));
   server.on('error', error => { console.error(error.message); cloud.dispose(); store.close(); process.exitCode = 1; });
@@ -166,7 +191,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
   const shutdown = async () => {
     if (closing) return; closing = true; server.closeAllConnections(); server.close();
     const deadline = setTimeout(() => { console.error('Shutdown could not confirm all setup stops. Check your instances in Vast.'); process.exit(1); }, 60000);
-    try { await cloud.shutdown(); clearTimeout(deadline); cloud.dispose(); store.close(); process.exit(0); }
+    try { await models.cancel(); await cloud.shutdown(); clearTimeout(deadline); cloud.dispose(); store.close(); process.exit(0); }
     catch (error) { console.error((error as Error).message); clearTimeout(deadline); cloud.dispose(); store.close(); process.exit(1); }
   };
   process.once('SIGINT', () => void shutdown()); process.once('SIGTERM', () => void shutdown());

@@ -9,6 +9,8 @@ import type { CloudState } from '../shared/cloud';
 import { setupNotice } from '../shared/cloud-status';
 import { framingNotice, FramingWarningTracker } from '../shared/framing-status';
 import { samplingNote, samplingOptions, samplingSteps } from '../shared/sampling-display';
+import { DPO, emptyModels, modelDefinitions, modelFilesForSettings, presetModelFiles, RELIGHT as RELIGHT_MODEL, type ModelsState } from '../shared/models';
+import ModelsWorkspace, { DownloadButton, DownloadSelect, RequiredFiles, type DownloadControls } from './ModelDownloads';
 import FramingNotice from './FramingNotice';
 import { Toaster, toast } from 'sonner';
 const GpuWorkspace = lazy(() => import('./GpuWorkspace'));
@@ -32,19 +34,20 @@ function ProgressPanel({ job, onCancel, onResume, onReuse, online }: { job: Job;
   </div>;
 }
 
-function Advanced({ settings: s, update, loras }: { settings: Settings; update: (v: Partial<Settings>) => void; loras: string[] }) {
-  const options = [{ value: 'None', label: 'None' }, ...loras.map(v => ({ value: v, label: shortLora(v) }))];
+function Advanced({ settings: s, update, loras, downloads }: { settings: Settings; update: (v: Partial<Settings>) => void; loras: string[]; downloads: DownloadControls }) {
+  const choices = [...new Set([...loras, ...modelDefinitions.filter(file => file.group === 'adapter').map(file => file.filename)])];
+  const options = [{ value: 'None', label: 'None', files: [] }, ...choices.map(v => ({ value: v, label: modelDefinitions.find(file => file.filename === v)?.label || shortLora(v), files: modelDefinitions.filter(file => file.filename === v).map(file => file.id) }))];
   return <div className="advanced-body"><div className="settings-grid"><label>Framing<SmallSelect label="Framing" value={s.orientation} onChange={v => update({ orientation: v as Settings['orientation'] })} options={[{ value: 'source', label: 'Match source' }, { value: 'portrait', label: 'Portrait 9:16' }, { value: 'landscape', label: 'Landscape 16:9' }, { value: 'square', label: 'Square 1:1' }]} /></label><label>Frames per pass<SmallSelect label="Frames per pass" value={String(s.framesPerPass)} onChange={v => update({ framesPerPass: Number(v) as 49 | 81 })} options={[{ value: '81', label: '81 frames' }, { value: '49', label: '49, less VRAM' }]} /></label></div>
-    <Toggle label="Relight character" detail={s.mode === 'swap' ? 'Match the source lighting' : 'Available in character swap'} checked={s.relight && s.mode === 'swap'} onChange={v => update({ relight: v })} disabled={s.mode !== 'swap'} />
+    <div className="feature-download-row"><Toggle label="Relight character" detail={s.mode === 'swap' ? 'Match the source lighting' : 'Available in character swap'} checked={s.relight && s.mode === 'swap'} onChange={v => update({ relight: v })} disabled={s.mode !== 'swap'} /><DownloadButton files={['loras/' + RELIGHT_MODEL]} controls={downloads} label="Character relighting" /></div>
     {s.relight && s.mode === 'swap' && <label className="slider-field"><span>Relight strength <b>{s.relightStrength.toFixed(2)}</b></span><input type="range" min="0" max="2" step="0.05" value={s.relightStrength} onChange={e => update({ relightStrength: Number(e.target.value) })} /></label>}
-    <label className="slider-field"><span>Detail adapter <b>{s.dpoStrength.toFixed(2)}</b></span><input type="range" min="0" max="2" step="0.05" value={s.dpoStrength} onChange={e => update({ dpoStrength: Number(e.target.value) })} /></label>
+    <div className="feature-download-row"><label className="slider-field"><span>Detail adapter <b>{s.dpoStrength.toFixed(2)}</b></span><input type="range" min="0" max="2" step="0.05" value={s.dpoStrength} onChange={e => update({ dpoStrength: Number(e.target.value) })} /></label><DownloadButton files={['loras/' + DPO]} controls={downloads} label="Detail adapter" /></div>
     <Toggle label="Random seed" checked={s.randomSeed} onChange={v => update({ randomSeed: v })} />
     {!s.randomSeed && <label className="full-label">Seed<input type="number" min="0" max={Number.MAX_SAFE_INTEGER} value={s.seed} onChange={e => update({ seed: Number(e.target.value) })} /></label>}
     <label className="full-label">Source person<input value={s.sourcePerson} onChange={e => update({ sourcePerson: e.target.value })} /></label>
     <div className="settings-grid"><label>Reference subject<input value={s.referencePerson} onChange={e => update({ referencePerson: e.target.value })} /></label><label>Person index<input value={s.objectIndices} onChange={e => update({ objectIndices: e.target.value })} /></label></div>
-    <label className="full-label">LoRA A<SmallSelect label="LoRA A" value={s.loraA} options={options} onChange={v => update({ loraA: v })} /></label>
+    <div className="full-label">LoRA A<DownloadSelect label="LoRA A" value={s.loraA} options={options} onChange={v => update({ loraA: v })} controls={downloads} /></div>
     {s.loraA !== 'None' && <label className="slider-field"><span>LoRA A strength <b>{s.loraAStrength.toFixed(2)}</b></span><input type="range" min="-2" max="2" step="0.05" value={s.loraAStrength} onChange={e => update({ loraAStrength: Number(e.target.value) })} /></label>}
-    <label className="full-label">LoRA B<SmallSelect label="LoRA B" value={s.loraB} options={options} onChange={v => update({ loraB: v })} /></label>
+    <div className="full-label">LoRA B<DownloadSelect label="LoRA B" value={s.loraB} options={options} onChange={v => update({ loraB: v })} controls={downloads} /></div>
     {s.loraB !== 'None' && <label className="slider-field"><span>LoRA B strength <b>{s.loraBStrength.toFixed(2)}</b></span><input type="range" min="-2" max="2" step="0.05" value={s.loraBStrength} onChange={e => update({ loraBStrength: Number(e.target.value) })} /></label>}
     <small className="field-hint">Use adapters compatible with SCAIL-2. The two slots are additional to the detail and relighting adapters.</small>
     <label className="full-label">Negative prompt<textarea rows={3} value={s.negativePrompt} onChange={e => update({ negativePrompt: e.target.value })} /></label>
@@ -71,7 +74,7 @@ function ConnectionDialog({ open, setOpen, connection, error, browse }: { open: 
 
 export default function App() {
   const [data, setData] = useState<Bootstrap | null>(null), [draft, setDraft] = useState<Draft>({ sourceId: null, referenceId: null, settings: defaults });
-  const [view, setView] = useState<'create' | 'library' | 'gpu'>('create'), [selectedId, setSelectedId] = useState<string | null>(null), [compare, setCompare] = useState(false), [advanced, setAdvanced] = useState(false);
+  const [view, setView] = useState<'create' | 'library' | 'gpu' | 'models'>('create'), [selectedId, setSelectedId] = useState<string | null>(null), [compare, setCompare] = useState(false), [advanced, setAdvanced] = useState(false);
   const [connectionOpen, setConnectionOpen] = useState(false), [info, setInfo] = useState(false), [message, setMessageValue] = useState(''), [creating, setCreating] = useState(false), [filter, setFilter] = useState('all'), [search, setSearch] = useState(''), [sort, setSort] = useState('newest');
   const setMessage = useCallback((text: string) => { setMessageValue(text); if (text) toast.error(text, { duration: 10000 }); }, []);
   const seenNotices = useRef(new Set<string>());
@@ -104,6 +107,7 @@ export default function App() {
       else if (e.type === 'asset') setData(old => old ? { ...old, assets: [e.data, ...old.assets.filter(a => a.id !== e.data.id)] } : old);
       else if (e.type === 'connection') setData(old => old ? { ...old, connection: e.data } : old);
       else if (e.type === 'cloud') setData(old => old ? { ...old, cloud: e.data } : old);
+      else if (e.type === 'models') setData(old => old ? { ...old, models: e.data } : old);
     };
     return () => { disposed = true; stream.close(); };
   }, [receiveBootstrap]);
@@ -112,11 +116,34 @@ export default function App() {
     saveTimer.current = setTimeout(() => { void api('/draft', draft).catch(e => setMessage('Draft not saved: ' + e.message)); }, 500);
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
   }, [draft]);
+  const refreshModels = useCallback(() => {
+    void api<ModelsState>('/models').then(models => setData(old => old ? { ...old, models } : old)).catch(error => setMessage(error.message));
+  }, [setMessage]);
+  useEffect(() => { if (data) refreshModels(); }, [data?.connection.state, data?.connection.checkedAt, refreshModels]);
+  const lastModelStates = useRef(new Map<string, string>());
+  useEffect(() => {
+    for (const file of data?.models?.files || []) {
+      const before = lastModelStates.current.get(file.id), label = modelDefinitions.find(model => model.id === file.id)?.label || 'Model';
+      if (['downloading', 'queued'].includes(before || '') && file.status === 'installed') toast.success(`${label} downloaded`, { description: 'Available on this GPU.' });
+      if (file.status === 'failed' && before !== 'failed') toast.error(`${label} download failed`, { description: file.error || 'Partial files are kept. Click retry to resume.', duration: 12000 });
+      if (file.message.includes('longer than') && !seenNotices.current.has('slow-' + file.id)) { seenNotices.current.add('slow-' + file.id); toast.warning('Download is taking longer than usual', { description: 'The transfer is still running. You can cancel and resume it.' }); }
+      lastModelStates.current.set(file.id, file.status);
+    }
+  }, [data?.models]);
+  const downloadModels = useCallback((files: string[]) => {
+    void api<ModelsState>('/models/download', { files }).then(models => { setData(old => old ? { ...old, models } : old); toast.message('Downloads queued', { description: 'Only the files you requested will be installed.' }); }).catch(error => setMessage(error.message));
+  }, [setMessage]);
   const assets = data?.assets || [], jobs = data?.jobs || [], connection = data?.connection;
   const source = assets.find(a => a.id === draft.sourceId), reference = assets.find(a => a.id === draft.referenceId);
   const selected = jobs.find(j => j.id === selectedId && !j.deleted) || jobs.find(j => !j.deleted);
   const selectedFramingNotice = selected ? framingNotice(selected) : null;
   const recent = jobs.filter(j => !j.deleted).slice(0, 6), online = connection?.state === 'online';
+  const modelState = data?.models || emptyModels();
+  const requiredFiles = modelFilesForSettings(draft.settings);
+  const missingCustom = [draft.settings.loraA, draft.settings.loraB].filter(name => name !== 'None' && !connection?.loras.includes(name) && !modelDefinitions.some(file => file.filename === name));
+  const modelsReady = requiredFiles.every(id => modelState.files.find(file => file.id === id)?.status === 'installed') &&
+    [draft.settings.loraA, draft.settings.loraB].every(name => name === 'None' || connection?.loras.includes(name));
+  const downloads: DownloadControls = { state: modelState, online, blocked: !!data?.cloud.busy || jobs.some(job => activeStates.includes(job.status)), download: downloadModels };
   const [width, height] = geometry(draft.settings, source || { width: 480, height: 832 });
   const valid = settingsSchema.safeParse(draft.settings).success && !!source && !!reference && draft.settings.start + draft.settings.seconds <= (source?.duration || 0) + 1 / draft.settings.fps && draft.settings.seconds * draft.settings.fps >= 5;
   const update = (changes: Partial<Settings>) => setDraft(old => ({ ...old, settings: { ...old.settings, ...(changes.mode && changes.prompt === undefined ? { prompt: promptAfterModeChange(old.settings.prompt, changes.mode) } : {}), ...changes } }));
@@ -127,14 +154,14 @@ export default function App() {
   const patch = async (job: Job, changes: Partial<Job>) => { try { await api('/jobs/' + job.id, changes, 'PATCH'); } catch (e) { setMessage((e as Error).message); } };
   const reuse = (job: Job) => { setDraft({ sourceId: job.sourceId, referenceId: job.referenceId, settings: { ...job.settings, prompt: migrateDemoPrompt(job.settings.prompt, job.settings.mode), randomSeed: false } }); setView('create'); setSelectedId(job.id); toast.success('Inputs and settings loaded.'); };
   const generate = useCallback(async () => {
-    if (creating || !online || !valid) return;
+    if (creating || !online || !valid || !modelsReady || modelState.busy) return;
     setCreating(true); setMessage(''); requestId.current ||= crypto.randomUUID();
     try {
       const response = await fetch('/api/jobs', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Idempotency-Key': requestId.current }, body: JSON.stringify({ sourceId: draft.sourceId, referenceId: draft.referenceId, settings: draft.settings }) });
       const result = await response.json(); if (!response.ok) { requestId.current = null; throw new Error(result.error); }
       requestId.current = null; setData(old => old ? { ...old, jobs: [result, ...old.jobs.filter(j => j.id !== result.id)] } : old); setSelectedId(result.id); setView('create'); setCompare(false);
     } catch (e) { setMessage((e as Error).message); } finally { setCreating(false); }
-  }, [creating, online, valid, draft]);
+  }, [creating, online, valid, draft, modelsReady, modelState.busy]);
   useEffect(() => { const key = (event: KeyboardEvent) => { if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') { event.preventDefault(); void generate(); } }; window.addEventListener('keydown', key); return () => window.removeEventListener('keydown', key); }, [generate]);
   const visibleJobs = useMemo(() => {
     let list = jobs.filter(j => filter === 'trash' ? j.deleted : !j.deleted && (filter !== 'favorites' || j.favorite));
@@ -154,20 +181,21 @@ export default function App() {
         <button className={`rail-link ${view === 'create' ? 'active' : ''}`} aria-current={view === 'create' ? 'page' : undefined} onClick={() => setView('create')} title="Motion control"><SlidersHorizontal size={21} /><span>Motion control</span></button>
         <button className={`rail-link ${view === 'library' ? 'active' : ''}`} aria-current={view === 'library' ? 'page' : undefined} onClick={() => setView('library')} title="My library"><SquaresFour size={21} /><span>My library</span><small className="rail-count">{jobs.filter(j => !j.deleted).length}</small></button>
         <button className={`rail-link ${view === 'gpu' ? 'active' : ''}`} aria-current={view === 'gpu' ? 'page' : undefined} onClick={() => setView('gpu')} title="GPU cloud"><Lightning size={21} /><span>GPU cloud</span></button>
+        <button className={`rail-link ${view === 'models' ? 'active' : ''}`} aria-current={view === 'models' ? 'page' : undefined} onClick={() => setView('models')} title="Models"><DownloadSimple size={21} /><span>Models</span></button>
       </nav>
       <div className="rail-bottom"><button className="rail-link" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} title={theme === 'dark' ? 'Light theme' : 'Dark theme'} aria-label="Toggle theme">{theme === 'dark' ? <Sun size={21} /> : <Moon size={21} />}<span>{theme === 'dark' ? 'Light theme' : 'Dark theme'}</span></button><button className="rail-link" onClick={() => setConnectionOpen(true)} title="Connection settings"><GearSix size={21} /><span>Settings</span></button><div className="local-avatar" title="Local workspace">L</div></div>
     </aside>
-    {view === 'gpu' ? <Suspense fallback={<main className="gpu-loading">Opening GPU cloud</main>}><GpuWorkspace cloud={data.cloud} setCloud={setCloud} notify={setMessage} onCreate={() => setView('create')} /></Suspense> : view === 'create' ? <main className="create-layout"><section className="editor"><div className="editor-scroll"><div className="editor-heading"><span className="section-icon"><FilmStrip size={19} /></span><h1>Motion control</h1><span className="model-tag">SCAIL-2</span></div><p className="editor-description">New character. Same performance.</p><div className="mode-tabs" role="group" aria-label="Generation mode"><button aria-pressed={draft.settings.mode === 'swap'} className={draft.settings.mode === 'swap' ? 'active' : ''} onClick={() => update({ mode: 'swap' })}>Character swap</button><button aria-pressed={draft.settings.mode === 'motion'} className={draft.settings.mode === 'motion' ? 'active' : ''} onClick={() => update({ mode: 'motion' })}>Motion transfer</button></div>
+    {view === 'models' ? <ModelsWorkspace controls={downloads} required={requiredFiles} missingCustom={missingCustom} refresh={refreshModels} cancel={() => { void api<ModelsState>('/models/cancel', {}).then(models => { setData(old => old ? { ...old, models } : old); toast.message('Downloads cancelled. Partial files are kept.'); }).catch(error => setMessage(error.message)); }} create={() => setView('create')} /> : view === 'gpu' ? <Suspense fallback={<main className="gpu-loading">Opening GPU cloud</main>}><GpuWorkspace cloud={data.cloud} setCloud={setCloud} notify={setMessage} onCreate={() => setView('create')} /></Suspense> : view === 'create' ? <main className="create-layout"><section className="editor"><div className="editor-scroll"><div className="editor-heading"><span className="section-icon"><FilmStrip size={19} /></span><h1>Motion control</h1><span className="model-tag">SCAIL-2</span></div><p className="editor-description">New character. Same performance.</p><div className="mode-tabs" role="group" aria-label="Generation mode"><button aria-pressed={draft.settings.mode === 'swap'} className={draft.settings.mode === 'swap' ? 'active' : ''} onClick={() => update({ mode: 'swap' })}>Character swap</button><button aria-pressed={draft.settings.mode === 'motion'} className={draft.settings.mode === 'motion' ? 'active' : ''} onClick={() => update({ mode: 'motion' })}>Motion transfer</button></div>
       <div className="input-pair"><AssetDrop kind="video" asset={source} onAsset={a => selectAsset('video', a)} onError={setMessage} /><AssetDrop kind="image" asset={reference} onAsset={a => selectAsset('image', a)} onError={setMessage} /></div>
       {draft.settings.mode === 'swap' && <p className="framing-hint">The reference supplies appearance. The video supplies position, scale and camera framing.</p>}
       <div className="prompt-field"><label htmlFor="prompt">Prompt<span>Optional refinements</span></label><textarea id="prompt" ref={promptRef} value={draft.settings.prompt} onChange={e => update({ prompt: e.target.value })} maxLength={8000} spellCheck={false} placeholder="Leave empty to use the default. Add only specific details you want to refine." /><div className="prompt-bottom"><span>{draft.settings.prompt.trim() ? `${draft.settings.prompt.length.toLocaleString()} / 8,000` : 'Default prompt active'}</span><div><button onClick={() => { update({ prompt: defaultPrompt(draft.settings.mode) }); promptRef.current?.focus(); }}>Use default</button><button onClick={() => { update({ prompt: '' }); promptRef.current?.focus(); }}>Clear</button></div></div></div>
-      <div className="settings-grid"><label>Quality<SmallSelect label="Quality preset" value={draft.settings.preset} onChange={v => update({ preset: v as Settings['preset'] })} options={samplingOptions} /></label><label>Resolution<SmallSelect label="Resolution" value={draft.settings.resolution} onChange={v => update({ resolution: v as '480' | '704' })} options={[{ value: '480', label: '480p' }, { value: '704', label: '704p' }]} /></label></div>
+      <div className="settings-grid"><div className="download-field"><span>Quality</span><DownloadSelect label="Quality preset" value={draft.settings.preset} onChange={v => update({ preset: v as Settings['preset'] })} options={samplingOptions.map(option => ({ ...option, files: presetModelFiles(option.value, draft.settings.mode) }))} controls={downloads} /></div><label>Resolution<SmallSelect label="Resolution" value={draft.settings.resolution} onChange={v => update({ resolution: v as '480' | '704' })} options={[{ value: '480', label: '480p' }, { value: '704', label: '704p' }]} /></label></div>
       <div className="settings-grid"><label>Frame rate<SmallSelect label="Frame rate" value={String(draft.settings.fps)} onChange={v => update({ fps: Number(v) as 16 | 24 | 30 })} options={[{ value: '16', label: '16 fps' }, { value: '24', label: '24 fps' }, { value: '30', label: '30 fps' }]} /></label><label>Duration <span className="label-unit">seconds</span><input type="number" min="0.2" max={Math.min(30, source?.duration || 30)} step="0.1" value={draft.settings.seconds} onChange={e => update({ seconds: Number(e.target.value) })} /></label></div>
       {source && <label className="start-range"><span>Clip starts at <b>{draft.settings.start.toFixed(2)}s</b></span><input type="range" aria-label="Clip start time" min={0} max={Math.max(0, source.duration - draft.settings.seconds)} step={1 / draft.settings.fps} value={draft.settings.start} onChange={e => update({ start: Number(e.target.value) })} /><small>{width} × {height} output <span>{Math.ceil(draft.settings.seconds * draft.settings.fps)} frames</span></small></label>}
       {(draft.settings.preset !== 'fast' || draft.settings.resolution === '704' || draft.settings.mode === 'motion') && <div className="preset-note"><Info size={15} /><span>{draft.settings.mode === 'motion' ? 'Motion transfer uses the reference scene. This mode has not been GPU-tested in this app.' : samplingNote(draft.settings.preset)}</span></div>}
-      <button className="advanced-trigger" onClick={() => setAdvanced(!advanced)} aria-expanded={advanced}><SlidersHorizontal size={15} /> Advanced settings<CaretRight size={14} className={advanced ? 'rotated' : ''} /></button>
-      {advanced && <Advanced settings={draft.settings} update={update} loras={connection!.loras} />}
-    </div><div className="generate-footer"><button className="primary-button generate" disabled={!online || !valid || creating} onClick={() => void generate()}><Sparkle size={18} weight="fill" />{creating ? 'Submitting...' : 'Generate'}<kbd>⌘ ↵</kbd></button><div className="generate-caption">{!online ? <><Plug size={12} /><button onClick={() => setView('gpu')}>Connect GPU to generate</button></> : !valid ? 'Add both inputs and choose a valid clip range.' : <><CheckCircle size={12} />Ready on your GPU</>}</div></div></section>
+      <RequiredFiles files={requiredFiles} controls={downloads} manage={() => setView('models')} /><button className="advanced-trigger" onClick={() => setAdvanced(!advanced)} aria-expanded={advanced}><SlidersHorizontal size={15} /> Advanced settings<CaretRight size={14} className={advanced ? 'rotated' : ''} /></button>
+      {advanced && <Advanced settings={draft.settings} update={update} loras={connection!.loras} downloads={downloads} />}
+    </div><div className="generate-footer"><button className="primary-button generate" disabled={!online || !valid || creating || !modelsReady || modelState.busy} onClick={() => void generate()}><Sparkle size={18} weight="fill" />{creating ? 'Submitting...' : 'Generate'}<kbd>⌘ ↵</kbd></button><div className="generate-caption">{!online ? <><Plug size={12} /><button onClick={() => setView('gpu')}>Connect GPU to generate</button></> : !modelsReady || modelState.busy ? <><DownloadSimple size={12} /><button onClick={() => setView('models')}>{modelState.busy ? 'Downloading selected model files' : 'Download required files to generate'}</button></> : !valid ? 'Add both inputs and choose a valid clip range.' : <><CheckCircle size={12} />Ready on your GPU</>}</div></div></section>
     <section className="workspace"><div className="workspace-header"><div><span className="workspace-overline">YOUR WORKSPACE</span><h2>{selected?.title || 'Your next creation'}</h2></div><div className="workspace-actions">{selected?.status === 'completed' && <><button className="icon-button" title="Render details" aria-label="Render details" onClick={() => setInfo(true)}><Info size={18} /></button><button className="icon-button" title="Reuse settings" aria-label="Reuse selected render settings" onClick={() => reuse(selected)}><ArrowCounterClockwise size={18} /></button><a className="secondary-button" href={`/api/jobs/${selected.id}/video?download=1`}><DownloadSimple size={15} />Download</a></>}</div></div>
       {selected && <FramingNotice job={selected} onCompare={() => setCompare(true)} />}
       <div className={`preview-stage ${selected?.status === 'completed' ? 'has-result' : ''}`}>

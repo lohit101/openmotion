@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Download only the seven pinned files, with resume and SHA256 verification."""
+"""Download the selected pinned files, with resume and SHA256 verification."""
 
 import argparse
 import concurrent.futures
@@ -41,6 +41,11 @@ def atomic_json(path, value):
     temporary.replace(path)
 
 
+def report_transfer(item, downloaded, phase):
+    print('RECAST_MODEL_PROGRESS ' + json.dumps({'destination': item['destination'], 'downloaded': downloaded,
+          'total': item['size'], 'phase': phase}), flush=True)
+
+
 def valid_file(path, item, rehash=False):
     if not path.is_file() or path.stat().st_size != item["size"]:
         return False
@@ -67,6 +72,7 @@ def download(item, model_dir, *, opener=None, base_url=None, rehash=False, retri
     with final.with_name(final.name + ".lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         if valid_file(final, item, rehash):
+            report_transfer(item, item['size'], 'ready')
             print("Ready: " + relative.as_posix(), flush=True)
             return final
         part = final.with_name(final.name + ".part")
@@ -102,6 +108,7 @@ def download(item, model_dir, *, opener=None, base_url=None, rehash=False, retri
                         last_report = time.monotonic()
                         count = offset
                         print("Downloading %s (%.2f / %.2f GB)" % (final.name, count / 1e9, item["size"] / 1e9), flush=True)
+                        report_transfer(item, count, 'downloading')
                         with part.open(mode) as output:
                             for block in iter(lambda: response.read(4 * 1024 * 1024), b""):
                                 output.write(block)
@@ -109,10 +116,12 @@ def download(item, model_dir, *, opener=None, base_url=None, rehash=False, retri
                                 if count > item["size"]:
                                     raise ValueError("Download exceeded the pinned file size")
                                 if time.monotonic() - last_report > 15:
+                                    report_transfer(item, count, 'downloading')
                                     print("  %s: %.0f%%" % (final.name, 100 * count / item["size"]), flush=True)
                                     last_report = time.monotonic()
                 if part.stat().st_size != item["size"]:
                     raise OSError("Incomplete download; partial file retained for resume")
+                report_transfer(item, item['size'], 'verifying')
                 if sha256(part) != item["sha256"]:
                     part.unlink()
                     raise ValueError("SHA256 mismatch; invalid partial file removed")
@@ -121,6 +130,7 @@ def download(item, model_dir, *, opener=None, base_url=None, rehash=False, retri
                 atomic_json(final.with_name(final.name + ".verified.json"),
                             {"sha256": item["sha256"], "size": stat.st_size, "mtime_ns": stat.st_mtime_ns})
                 print("Verified: " + final.name, flush=True)
+                report_transfer(item, item['size'], 'ready')
                 return final
             except urllib.error.HTTPError as error:
                 if error.code in (401, 403, 404):
