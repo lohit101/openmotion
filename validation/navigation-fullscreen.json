@@ -1,0 +1,47 @@
+{
+  "date": "2026-10-24",
+  "scope": "Workspace navigation simplification and reversible video fullscreen control",
+  "changes": {
+    "header": [
+      "Existing aperture logo",
+      "Recast Studio brand",
+      "GPU connection status"
+    ],
+    "navigation": "Motion control, My library and GPU cloud are available in the left sidebar only; theme and connection settings remain there too",
+    "responsive": "Labeled sidebar on wide screens, accessible icon rail retained at narrow widths instead of disappearing",
+    "fullscreen": "Toggle exits if this player owns browser fullscreen, otherwise enters; fullscreenchange drives icon/label state, including browser Escape exit; rejected requests show an error toast",
+    "fullscreenLayout": "Preserve aspect ratio and keep playback/exit controls visible"
+  },
+  "validation": {
+    "typescriptAndProductionBuild": "passed",
+    "fullscreenRegressionTests": {
+      "passed": 3,
+      "covers": [
+        "Repeated enter/exit with the same control",
+        "External/Escape exit and listener cleanup",
+        "Rejected browser request does not claim fullscreen"
+      ]
+    },
+    "browserVisualReview": {
+      "browser": "Safari",
+      "desktopHeaderAndSidebar": "passed",
+      "librarySidebarNavigation": "passed",
+      "gpuCloudSidebarNavigation": "passed",
+      "narrowEffectiveViewportAtIncreasedPageZoom": "passed; sidebar retained, no top navigation; normal zoom restored"
+    },
+    "nativeFullscreenEndToEnd": "not verified: Safari rejected the accessibility-activated request, and Chrome interaction was repeatedly interrupted by concurrent user activity. Automated lifecycle tests use an event-driven fullscreen API fixture, not a real browser fullscreen session.",
+    "gitWhitespaceCheck": "passed",
+    "studioTests": {
+      "files": 10,
+      "passed": 102,
+      "failed": 0
+    }
+  },
+  "lifecycle": {
+    "newGpuRentals": 0,
+    "paidRendersSubmitted": 0,
+    "gpuLifecycleActions": 0,
+    "serverRestarted": false,
+    "frontendBuildServedAfterPageRefresh": true
+  }
+}
