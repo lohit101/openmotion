@@ -89,6 +89,8 @@ The local frontend, real GPU submission, completed-media download and offline li
 
 30 fps, motion transfer, additional user LoRAs and long-shot AI continuity still need GPU quality/memory tests. Higher output fps resamples the input; it does not provide a separate motion interpolation model. Compatible SCAIL-2 LoRAs can be added with `scripts/vast.py push-lora`; reconnect to refresh the installed adapter list. Other model architectures need a compatible workflow branch.
 
+The first user-started A40 observation completed a five-second 704 × 1248 Natural / 8-step render at **16 fps in 12m22s**, estimated at **$0.086** using its $0.418/hour running quote. The previous RTX 3090 Natural run used **24 fps**, took **34m22s** and cost an estimated **$0.112** at $0.196/hour. These are different frame workloads, not a controlled hardware-only benchmark. Similar 81-frame sections were about twice as fast on the A40, with roughly similar/slightly higher section cost; fresh setup/transfer and idle charges are additional. See [the saved comparison](../validation/a40-vs-3090.json) for controls, telemetry and limitations. No extra paid benchmark was submitted.
+
 ## Development
 
 ```bash

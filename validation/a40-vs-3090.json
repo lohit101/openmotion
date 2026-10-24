@@ -1,0 +1,165 @@
+{
+  "date": "2026-10-24",
+  "scope": "Observe the user-started first A40 render and compare with existing RTX 3090 runs; no additional benchmark generation submitted",
+  "runs": {
+    "a40": {
+      "gpu": "A40",
+      "outputWidth": 704,
+      "outputHeight": 1248,
+      "outputSeconds": 5,
+      "fps": 16,
+      "outputFrames": 80,
+      "preset": "natural",
+      "stepsPerSection": 8,
+      "relightStrength": 1.25,
+      "elapsedSeconds": 742.497,
+      "sections": [
+        {
+          "frames": 80,
+          "seconds": 730.022
+        }
+      ],
+      "quotedRunningHourlyUSD": 0.41777777777777775,
+      "estimatedRenderUSD": 0.08616631851851851,
+      "framingCheck": "matched"
+    },
+    "3090_natural": {
+      "gpu": "RTX 3090",
+      "outputWidth": 704,
+      "outputHeight": 1248,
+      "outputSeconds": 5,
+      "fps": 24,
+      "outputFrames": 120,
+      "preset": "natural",
+      "stepsPerSection": 8,
+      "relightStrength": 1,
+      "elapsedSeconds": 2061.978,
+      "sections": [
+        {
+          "frames": 81,
+          "seconds": 1479.542
+        },
+        {
+          "frames": 39,
+          "seconds": 558.514
+        }
+      ],
+      "quotedRunningHourlyUSD": 0.19555555555555557,
+      "estimatedRenderUSD": 0.11200868148148149,
+      "framingCheck": "matched"
+    },
+    "3090_fast": {
+      "gpu": "RTX 3090",
+      "outputWidth": 704,
+      "outputHeight": 1248,
+      "outputSeconds": 5,
+      "fps": 24,
+      "outputFrames": 120,
+      "preset": "fast",
+      "stepsPerSection": 6,
+      "relightStrength": 1.25,
+      "elapsedSeconds": 1806.887,
+      "sections": [
+        {
+          "frames": 81,
+          "seconds": 1124.873
+        },
+        {
+          "frames": 39,
+          "seconds": 434.335
+        }
+      ],
+      "quotedRunningHourlyUSD": 0.19555555555555557,
+      "estimatedRenderUSD": 0.0981518864197531,
+      "framingCheck": "matched"
+    }
+  },
+  "comparison": {
+    "sameOriginalSource": true,
+    "sameOriginalReference": true,
+    "sameResolution": true,
+    "sameSeed": true,
+    "sameNaturalSamplerAndAcceleration": true,
+    "naturalSettingsDifferences": {
+      "fps": {
+        "3090": 24,
+        "a40": 16
+      },
+      "relightStrength": {
+        "3090": 1,
+        "a40": 1.25
+      }
+    },
+    "sameAlignedReferenceBytes": false,
+    "matchedHardwareOnlyBenchmark": false,
+    "confounds": [
+      "A40 produces 80 frames at 16 fps in one section; RTX 3090 produces 120 frames at 24 fps in two sections",
+      "Natural comparison relighting strength changed from 1.0 to 1.25",
+      "Reference preparation bytes differ and conditioning videos are sampled at different fps",
+      "First A40 render on a fresh installation versus an already-used RTX 3090; CPU/RAM, power cap and cache state differ"
+    ]
+  },
+  "wholeRunResults": {
+    "a40HourlyPriceMultiple": 2.1363636363636362,
+    "a40SpeedMultipleAtActualSettings": 2.7770859680241133,
+    "wallTimeReductionPercent": 63.991031912076664,
+    "estimatedRenderSavingUSD": 0.02584236296296298,
+    "estimatedRenderSavingPercent": 23.07174999398196,
+    "estimatedSavingAgainst3090FastPercent": 12.211245589287511,
+    "a40BreakEvenMinutesAgainstOldNatural": 16.086353191489366
+  },
+  "similarWindowProxy": {
+    "generatedFramesEach": 81,
+    "rtx3090SectionSeconds": 1479.542,
+    "a40SectionSeconds": 730.022,
+    "rtx3090EstimatedSectionUSD": 0.08037018271604938,
+    "a40EstimatedSectionUSD": 0.0847186024691358,
+    "a40WindowSpeedMultiple": 2.0267087841188345,
+    "a40WindowCostChangePercent": 5.410488823261139,
+    "steadySamplingSecondsPerStep": {
+      "rtx3090": 178.96,
+      "a40": 81.8
+    },
+    "limitation": "Comparable tensor/window size, not identical scene conditioning or cache state. Source frame count 80 is padded to 81 by SwapPrepareShot. This proxy does not prove same-settings hardware cost savings."
+  },
+  "a40Telemetry": {
+    "activeSnapshotUsedMiB": 35623,
+    "totalReportedMiB": 46068,
+    "gpuUtilizationPercent": 100,
+    "activePowerWatts": 297.84,
+    "powerLimitWatts": 300,
+    "temperatureC": 67,
+    "attentionBackend": "PyTorch SDPA",
+    "memoryInterpretation": "The active snapshot uses more VRAM than a 24 GB card can hold. Reduced memory pressure is a plausible contributor; no profiler isolated the cause."
+  },
+  "prior3090Observation": {
+    "powerLimitWatts": 260,
+    "defaultPowerLimitWatts": 350,
+    "source": "Read-only nvidia-smi output captured earlier in this conversation before the user destroyed the RTX 3090 instance"
+  },
+  "setupAndStorage": {
+    "a40FreshSetupElapsedSeconds": 781.987,
+    "modelTransferQuoteUSD": 0.07936604590364582,
+    "setupElapsedAtRunningRateEquivalentUSD": 0.09074910864197529,
+    "setupBillingLimit": "Wall-clock rate conversion only; not an invoice. Actual billable setup time may differ during container loading. Runtime downloads add transfer costs.",
+    "a40ListedStorageMonthlyUSDAt64GB": 12.8,
+    "prior3090ListedStorageMonthlyUSDAt80GB": 15.999999999999998,
+    "storageDifferenceReason": "Same per-GB listed rate, smaller 64 GB allocation versus 80 GB; not a GPU-family saving",
+    "modelTransferOnlyPaybackClipCountAtObservedSaving": 4,
+    "paybackLimit": "Conditional on accepting the lower-fps output and maintaining this observed saving; additional setup costs extend payback"
+  },
+  "decision": {
+    "timeToResult": "A40 configuration is substantially faster in this observation",
+    "perRenderCost": "About 23% lower at the actual differing settings",
+    "hardwareOnlyCostEfficiency": "Not proven better; similar-window section cost was slightly higher",
+    "quality": "Framing check passes, but 16 fps supplies fewer motion samples. No visual identity/acceptance score was measured."
+  },
+  "billingMethod": "Estimated render USD = measured client elapsed seconds / 3600 \u00d7 saved running quote, including allocated storage during that interval. Excludes idle time, retained storage outside rendering, setup, bandwidth and taxes. No invoice reconciliation.",
+  "artifacts": "Raw job snapshots, progress timestamps, A40 performance logs and pricing are retained only under ignored backups/a40-comparison-20261024/",
+  "lifecycle": {
+    "agentSubmittedPaidGenerations": 0,
+    "agentChangedRenderSettings": false,
+    "agentSentStartStopDestroy": false,
+    "gpuLeftUnderUserControl": true
+  }
+}
