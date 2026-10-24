@@ -29,9 +29,9 @@
 .required-models-summary > button span { color: var(--quiet); font-size: 10px; }
 .required-models p { margin: 4px 0 0; color: var(--quiet); font-size: 10px; line-height: 1.6; }
 .required-models p button { color: var(--accent-text); padding: 0; font-size: inherit; }
-.models-workspace { grid-column: 2; padding: 37px clamp(22px, 4vw, 66px) 50px; overflow-y: auto; height: calc(100dvh - 65px); }
+.models-workspace { min-width: 0; }
 .models-heading { display: flex; justify-content: space-between; align-items: center; gap: 20px; max-width: 1050px; margin: 0 auto 30px; }
-.models-heading h1 { font-size: 30px; font-weight: 560; letter-spacing: -.9px; margin: 8px 0; }
+.models-heading h2 { font-size: 21px; font-weight: 550; letter-spacing: -.5px; margin: 8px 0; }
 .models-heading p { font-size: 12px; color: var(--muted); margin: 0; }
 .model-recipe { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 20px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); max-width: 1050px; margin: 0 auto; }
 .model-recipe strong { font-size: 14px; font-weight: 550; }
@@ -61,7 +61,6 @@
 .model-download-notice { display: flex; gap: 20px; align-items: center; justify-content: space-between; max-width: 1050px; margin: 20px auto; color: var(--muted); font-size: 11px; }
 .models-footer-note { border-top: 1px solid var(--line); padding-top: 18px; }
 @media (max-width: 700px) {
-  .models-workspace { padding: 25px 19px; }
   .model-recipe { align-items: flex-start; flex-direction: column; gap: 14px; }
   .model-file { gap: 15px; }
   .model-file-actions { grid-template-columns: auto 32px; gap: 9px; }
@@ -70,4 +69,3 @@
   .model-group-heading { flex-wrap: wrap; gap: 0 10px; }
   .model-group-heading h2 { margin-bottom: 7px; }
 }
-@media (max-width: 760px) { .models-workspace { height: auto; min-height: calc(100dvh - 61px); overflow-y: visible; } }

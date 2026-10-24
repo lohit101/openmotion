@@ -1,0 +1,54 @@
+{
+  "checkedUTC": "2026-10-24T18:46:13.788863+00:00",
+  "change": "Dashboard navigation and Settings tabs",
+  "layout": {
+    "header": [
+      "brand",
+      "GPU connection status",
+      "small theme icon"
+    ],
+    "sidebarTop": [
+      "Motion control"
+    ],
+    "sidebarBottom": [
+      "My library",
+      "GPU cloud",
+      "divider",
+      "Settings"
+    ],
+    "profileBadgeRemoved": true,
+    "modelDownloadsLocation": "Settings / Models",
+    "settingsTabs": [
+      "Connection",
+      "Models"
+    ]
+  },
+  "behavior": {
+    "editorManageFilesOpensModelsTabDirectly": true,
+    "themeTogglePersistsExistingPreference": true,
+    "perOptionDownloadsPreserved": true,
+    "gpuOrModelActionsOnNavigation": false
+  },
+  "validation": {
+    "studioTestsPassed": 142,
+    "typescriptAndProductionBuild": "passed",
+    "gitDiffCheck": "passed",
+    "browser": "Safari on localhost:3000",
+    "verified": [
+      "Settings opens as a page",
+      "Connection and Models tabs expose their correct panels",
+      "Models is absent from the sidebar",
+      "all nine model files remain visible under Settings / Models",
+      "Manage files opens Settings with Models selected",
+      "theme icon toggles light/dark and was restored to the original dark preference",
+      "screenshots inspected for header icon placement, bottom library/GPU links, settings divider and removed profile badge"
+    ],
+    "limits": [
+      "No separate narrow-viewport screenshot pass.",
+      "Native capture intermittently reported timeout/audio-video capture errors; subsequent accessibility observations confirmed actions completed."
+    ]
+  },
+  "gpuStarts": 0,
+  "paidRendersSubmitted": 0,
+  "modelDownloadsStarted": 0
+}

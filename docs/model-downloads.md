@@ -4,7 +4,7 @@ New rentals install pinned ComfyUI, its nodes and Python packages without fetchi
 
 In Motion control, each quality choice has a separate download button. Clicking **Natural / 8 steps** only selects it; clicking its arrow downloads its T2V acceleration file. **Fast / 6 steps** uses a different I2V adapter and stays uninstalled unless explicitly requested. Natural in Motion transfer uses the I2V adapter. Quality / 20 steps needs neither acceleration file. Relighting and the detail adapter have their own buttons in Advanced settings. Resolution, frame rate, duration and framing share the same models and need no extra files.
 
-The **Models** sidebar page lists every pinned file, its size, purpose, requirement for the current settings and availability on the connected GPU. Download one file at a time, queue several individually, or explicitly click **Download required files** for the current recipe. That shortcut does not fetch unused features. User-provided LoRAs still use the existing local upload helper and appear after Refresh; Studio never guesses a third-party download URL.
+The **Settings → Models** tab lists every pinned file, its size, purpose, requirement for the current settings and availability on the connected GPU. Download one file at a time, queue several individually, or explicitly click **Download required files** for the current recipe. That shortcut does not fetch unused features. User-provided LoRAs still use the existing local upload helper and appear after Refresh; Studio never guesses a third-party download URL.
 
 | Recipe | Required weights, decimal GB | Files |
 |---|---:|---:|

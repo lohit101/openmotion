@@ -53,7 +53,7 @@ export default function ModelsWorkspace({ controls, required, refresh, cancel, c
   const ready = required.filter(id => controls.state.files.find(file => file.id === id)?.status === 'installed').length;
   const missing = required.filter(id => controls.state.files.find(file => file.id === id)?.status !== 'installed');
   const remaining = modelDefinitions.filter(file => missing.includes(file.id)).reduce((sum, file) => sum + file.size, 0);
-  return <main className="models-workspace"><div className="models-heading"><div><span className="workspace-overline">FILES ON YOUR GPU</span><h1>Models</h1><p>Download what you use. Keep the rest optional.</p></div><button className="secondary-button" disabled={controls.state.refreshing || !controls.online} onClick={refresh}><ArrowClockwise size={14} />{controls.state.refreshing ? 'Checking files…' : 'Refresh'}</button></div>
+  return <section className="models-workspace" aria-label="Model downloads"><div className="models-heading"><div><span className="workspace-overline">FILES ON YOUR GPU</span><h2>Model downloads</h2><p>Download what you use. Keep the rest optional.</p></div><button className="secondary-button" disabled={controls.state.refreshing || !controls.online} onClick={refresh}><ArrowClockwise size={14} />{controls.state.refreshing ? 'Checking files…' : 'Refresh'}</button></div>
     <div className="model-recipe"><div><strong>{controls.online ? `${ready} of ${required.length} required files ready` : 'Connect your GPU to check its files'}</strong><p>For your current Motion control settings. Selecting an option never downloads files.</p></div>
       {ready === required.length && controls.online ? <button className="primary-button compact" onClick={create}><CheckCircle size={15} />Back to create</button> : <button className="primary-button compact" disabled={!controls.online || controls.blocked || controls.state.refreshing || !missing.length || missing.every(id => ['downloading', 'queued'].includes(controls.state.files.find(file => file.id === id)?.status || ''))} onClick={() => controls.download(missing)}><DownloadSimple size={15} />Download required files<span>{modelSize(remaining)}</span></button>}
     </div>
@@ -72,5 +72,5 @@ export default function ModelsWorkspace({ controls, required, refresh, cancel, c
       })}</div>
     </section>)}
     <p className="models-footer-note">Resolution, frame rate, duration and framing share these models. They need no additional downloads. Custom LoRAs remain local uploads and appear in the LoRA selectors after refresh.</p>
-  </main>;
+  </section>;
 }
