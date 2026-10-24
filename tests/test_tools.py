@@ -21,6 +21,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import download_models
 import vast
 import render_clip
+from prompting import compile_prompt
 spec_server = importlib.util.spec_from_file_location('swap_server', ROOT / 'scripts/server.py')
 swap_server = importlib.util.module_from_spec(spec_server)
 spec_server.loader.exec_module(swap_server)
@@ -219,6 +220,17 @@ class DownloadTests(unittest.TestCase):
 
 
 class GraphTests(unittest.TestCase):
+    def test_shared_prompt_defaults_and_optional_refinements(self):
+        prompts = json.loads((ROOT / "config/prompts.json").read_text())
+        graph = json.loads((ROOT / "workflows/api/scail2_int8_swap.json").read_text())
+        self.assertEqual(graph["31"]["inputs"]["text"], compile_prompt())
+        self.assertEqual(graph["32"]["inputs"]["text"], prompts["negative"])
+        self.assertEqual(compile_prompt("Natural blinking."), prompts["swap"] + "\n\nNatural blinking.")
+        self.assertEqual(compile_prompt(prompts["legacyDemoPrompts"][1]), prompts["swap"])
+        self.assertEqual(compile_prompt("", "motion"), prompts["motion"])
+        with self.assertRaises(ValueError):
+            compile_prompt("", "unsupported")
+
     def test_layout_nodes_do_not_overlap_in_the_same_column(self):
         for path in (ROOT / "workflows").glob("*.json"):
             graph = json.loads(path.read_text())

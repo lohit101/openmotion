@@ -7,8 +7,9 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PROMPT = "The adult person from the reference image performs the actions in the source video. Preserve the reference person's face, hairstyle, body proportions and clothing throughout. Preserve the source scene, camera movement, lighting, shadows and interactions. Natural live action footage, realistic skin texture and coherent hands."
-NEGATIVE = "identity drift, changing face, changing clothes, duplicate person, flicker, warped hands, extra fingers, deformed limbs, waxy skin, oversharpening, blurry face, floating feet"
+PROMPTS = json.loads((ROOT / "config/prompts.json").read_text())
+PROMPT = PROMPTS["swap"]
+NEGATIVE = PROMPTS["negative"]
 
 
 def describe():

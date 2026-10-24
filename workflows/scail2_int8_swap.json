@@ -1111,7 +1111,7 @@
         "Node name for S&R": "CLIPTextEncode"
       },
       "widgets_values": [
-        "The adult person from the reference image performs the actions in the source video. Preserve the reference person's face, hairstyle, body proportions and clothing throughout. Preserve the source scene, camera movement, lighting, shadows and interactions. Natural live action footage, realistic skin texture and coherent hands."
+        "Photorealistic live-action footage of the character shown in the reference image, with the same facial identity, hairstyle, outfit, clothing details and individual body proportions throughout the shot. The character performs the source person's actions with the same timing, facial expressions, gaze, gestures and contact with nearby objects. The character occupies the source person's position and depth in the scene, with matching apparent head and torso size, perspective and cropping in every frame. The source video's composition, camera distance, camera movement, background, other people and foreground occlusions remain consistent. Light direction, exposure, color temperature, highlights, contact shadows and reflected light match the source environment. Natural skin texture, coherent anatomy, grounded movement, realistic fabric folds and motion blur, stable facial features and continuous organic motion form one coherent camera recording."
       ]
     },
     {
@@ -1149,7 +1149,7 @@
         "Node name for S&R": "CLIPTextEncode"
       },
       "widgets_values": [
-        "identity drift, changing face, changing clothes, duplicate person, flicker, warped hands, extra fingers, deformed limbs, waxy skin, oversharpening, blurry face, floating feet"
+        "identity drift, changing face, changing clothes, duplicate person, flicker, warped hands, extra fingers, deformed limbs, waxy skin, oversharpening, blurry face, floating feet, scale drift, sliding body, detached shadows, mismatched lighting, background warping, cutout edges, halo"
       ]
     },
     {

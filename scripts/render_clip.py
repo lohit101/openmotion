@@ -17,6 +17,7 @@ import urllib.request
 import uuid
 from datetime import datetime
 from pathlib import Path
+from prompting import compile_prompt
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -158,7 +159,7 @@ def main():
     parser.add_argument("--reference", type=Path)
     parser.add_argument("--seconds", type=float)
     parser.add_argument("--start", type=float, default=0)
-    parser.add_argument("--prompt")
+    parser.add_argument("--prompt", default="", help="Optional finished-video details; scene-preserving defaults are always included.")
     parser.add_argument("--url", default="http://127.0.0.1:8188")
     parser.add_argument("--width", type=int, default=480)
     parser.add_argument("--height", type=int, default=832)
@@ -202,9 +203,7 @@ def main():
         if args.fps <= 0 or seconds * args.fps < 5 or args.start < 0:
             raise ValueError("Choose a positive frame rate and at least five source frames.")
         rules.dimensions(args.width, args.height)
-        prompt = args.prompt or input("Describe the reference character's appearance and the scene: ").strip()
-        if not prompt:
-            raise ValueError("An appearance/scene prompt is required.")
+        prompt = compile_prompt(args.prompt)
         settings = {"width": args.width, "height": args.height, "fps": args.fps, "seed": args.seed,
                     "preset": args.preset, "start_seconds": math.floor(args.start * args.fps) / args.fps,
                     "source_person": args.source_person, "reference_person": args.reference_person,

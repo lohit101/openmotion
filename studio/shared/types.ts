@@ -1,10 +1,11 @@
 import { z } from 'zod';
 import type { CloudState } from './cloud';
+import { defaultNegativePrompt, defaultPrompt } from './prompts';
 
 export const settingsSchema = z.object({
   mode: z.enum(['swap', 'motion']).default('swap'),
-  prompt: z.string().trim().min(3, 'Describe the character and the scene.').max(8000),
-  negativePrompt: z.string().max(4000).default('identity drift, changing face, changing clothes, duplicate person, flicker, warped hands, extra fingers, deformed limbs, waxy skin, oversharpening, blurry face, floating feet'),
+  prompt: z.string().trim().max(8000).default(''),
+  negativePrompt: z.string().max(4000).default(defaultNegativePrompt),
   preset: z.enum(['fast', 'quality']).default('fast'),
   resolution: z.enum(['480', '704']).default('480'),
   orientation: z.enum(['source', 'portrait', 'landscape', 'square']).default('source'),
@@ -26,7 +27,7 @@ export const settingsSchema = z.object({
   loraBStrength: z.number().min(-2).max(2).default(0.8),
 });
 export type Settings = z.infer<typeof settingsSchema>;
-export const defaults: Settings = settingsSchema.parse({ prompt: 'An adult woman with dark hair in a high bun, a black asymmetric crop top, loose black cargo trousers and combat boots performs a small dance in a room with gray and yellow curtains. Fixed camera, natural room lighting and realistic clothing movement.' });
+export const defaults: Settings = settingsSchema.parse({ prompt: defaultPrompt() });
 export interface Asset { id: string; kind: 'video' | 'image'; name: string; path: string; width: number; height: number; duration: number; fps: number; size: number; hasAudio: boolean; poster: string; createdAt: string; }
 export type JobStatus = 'queued' | 'running' | 'reconnecting' | 'interrupted' | 'completed' | 'failed' | 'cancelled';
 export interface Progress { stage: string; node: string | null; value: number | null; max: number | null; unit: string; segment: number; segments: number; completedFrames: number; targetFrames: number; updatedAt: number; }
@@ -39,6 +40,7 @@ export interface Job {
   error: string | null; output: string | null; poster: string | null; cancelRequested: boolean;
   cancellationConfirmed?: boolean; submitting?: boolean;
   elapsedSeconds: number | null; origin: 'render' | 'import'; workflow: Record<string, GraphNode> | null;
+  promptVersion?: 'scene-v1';
 }
 export interface GraphNode { class_type: string; inputs: Record<string, unknown>; _meta?: { title: string }; }
 export type Graph = Record<string, GraphNode>;

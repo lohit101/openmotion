@@ -4,6 +4,7 @@ import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import type { Asset, Draft, Job } from '../shared/types';
 import { defaults } from '../shared/types';
+import { migrateDemoPrompt } from '../shared/prompts';
 
 export class Store extends EventEmitter {
   db: DatabaseSync;
@@ -31,7 +32,12 @@ export class Store extends EventEmitter {
     this.db.prepare('UPDATE jobs SET data=? WHERE id=?').run(JSON.stringify(job), job.id);
     this.emit('event', { type: 'job', data: publicJob(job) });
   }
-  draft(): Draft { return this.value('draft', { sourceId: null, referenceId: null, settings: defaults }); }
+  draft(): Draft {
+    const draft = this.value<Draft>('draft', { sourceId: null, referenceId: null, settings: defaults });
+    const prompt = migrateDemoPrompt(draft.settings.prompt, draft.settings.mode);
+    if (prompt !== draft.settings.prompt) { draft.settings.prompt = prompt; this.set('draft', draft); }
+    return draft;
+  }
   close() { this.db.close(); }
 }
 export function publicJob(job: Job): Job { return { ...job, workflow: null, uploads: null, context: '', output: job.output ? 'ready' : null, poster: job.poster ? 'ready' : null }; }

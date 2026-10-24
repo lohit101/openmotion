@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-24",
+  "scope": "Offline scene-preserving prompt harness and exact demo-prompt migration",
+  "version": "scene-v1",
+  "checks": {
+    "typescript": "passed",
+    "studio_tests": { "passed": 60, "failed": 0, "files": 4 },
+    "python_tests": { "passed": 18, "failed": 0 },
+    "workflow_schema_and_wiring": "both generated workflows passed against the pinned catalog",
+    "production_build": "passed; pre-existing large frontend chunk advisory remains",
+    "diff_whitespace": "passed"
+  },
+  "regressions": [
+    "Blank and short user refinements receive the descriptive base in actual submitted native conditioning",
+    "Swap and motion modes use distinct source/reference scene semantics",
+    "Only exact known sample text migrates; edited prompts remain intact",
+    "Draft migration retains input IDs and generation settings without editing historical jobs",
+    "Pre-harness jobs retain their original prompt on continuation",
+    "Python batch and editable ComfyUI defaults share the JSON prompt source"
+  ],
+  "new_gpu_renders": 0,
+  "new_model_downloads": 0,
+  "quality_status": "Not GPU-validated. Generic prompt text is not an automatic visual caption or a geometric constraint. Compare against the captured baseline before claiming improved realism."
+}

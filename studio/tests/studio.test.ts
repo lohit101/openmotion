@@ -14,6 +14,8 @@ import { applyProgress, localEndpoint } from '../server/comfy';
 import { command, probe } from '../server/media';
 import { compileWorkflow, validateGraph, RELIGHT } from '../server/workflow';
 import { defaults, geometry, nextSegment, segmentCount } from '../shared/types';
+import { compilePrompt, PROMPT_VERSION } from '../shared/prompts';
+import prompts from '../../config/prompts.json';
 import type { Catalog, Graph, Job } from '../shared/types';
 
 const repo = path.resolve(import.meta.dirname, '../..');
@@ -138,6 +140,19 @@ describe('local app with the captured ComfyUI protocol', () => {
     await agent.post('/api/draft').set('Origin', 'https://unrelated.example').send(values).expect(403);
     const media = await agent.get(`/api/assets/${values.sourceId}/original`).set('Range', 'bytes=0-99').expect(206); expect(media.body.length).toBe(100);
     expect(mock!.calls).toEqual([]);
+  });
+  it('migrates stale sample drafts and compiles an empty prompt in a newly created job', async () => {
+    const agent = await setup(), values = await inputs(agent);
+    values.settings.prompt = prompts.legacyDemoPrompts[1];
+    const draft = await agent.post('/api/draft').send(values).expect(200);
+    expect(draft.body.settings.prompt).toBe(defaults.prompt); expect(mock!.calls).toEqual([]);
+    values.settings.prompt = ''; mock!.setMode('hold'); await connect(agent);
+    const response = await agent.post('/api/jobs').set('Idempotency-Key', 'empty-prompt').send(values).expect(201);
+    await until(() => mock!.submissions.length, count => count === 1);
+    expect(local!.store.job(response.body.id)!.promptVersion).toBe(PROMPT_VERSION);
+    expect(mock!.submissions[0].prompt['31'].inputs.text).toBe(compilePrompt('swap', ''));
+    await agent.post(`/api/jobs/${response.body.id}/cancel`).expect(200);
+    await until(() => local!.store.job(response.body.id)!.status, status => status === 'cancelled');
   });
   it('submits once, receives real counters and assembles two segments with one audio track', async () => {
     const agent = await setup(), values = await inputs(agent); values.settings.seconds = 5.875; await connect(agent);

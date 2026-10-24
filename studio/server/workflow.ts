@@ -1,5 +1,6 @@
 import type { Asset, Catalog, Graph, Job } from '../shared/types';
 import { nextSegment } from '../shared/types';
+import { renderPrompt } from '../shared/prompts';
 export const RELIGHT = 'wan2.1_SCAIL_2_relight_lora_bf16.safetensors';
 
 export function compileWorkflow(template: Graph, job: Job): Graph {
@@ -11,7 +12,7 @@ export function compileWorkflow(template: Graph, job: Job): Graph {
   graph['2'].inputs.video = job.uploads.source; graph['4'].inputs.image = job.uploads.reference;
   graph['7'].inputs.text = s.sourcePerson; graph['8'].inputs.text = s.referencePerson;
   graph['11'].inputs.object_indices = s.objectIndices; graph['11'].inputs.replacement_mode = s.mode === 'swap';
-  graph['40'].inputs.replacement_mode = s.mode === 'swap'; graph['31'].inputs.text = s.prompt; graph['32'].inputs.text = s.negativePrompt;
+  graph['40'].inputs.replacement_mode = s.mode === 'swap'; graph['31'].inputs.text = renderPrompt(s, job.promptVersion); graph['32'].inputs.text = s.negativePrompt;
   graph['36'].inputs.context_path = job.context;
   graph['50'] = { class_type: 'LoraLoaderModelOnly', inputs: { model: ['21', 0], lora_name: RELIGHT, strength_model: s.relight && s.mode === 'swap' ? s.relightStrength : 0 }, _meta: { title: 'SCAIL-2 relighting' } };
   // Omit the loader entirely when disabled so a base-only installation does not require this optional file.

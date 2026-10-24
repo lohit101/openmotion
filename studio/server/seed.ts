@@ -38,7 +38,7 @@ export async function seedExamples(store: Store, repo: string) {
         progress: { stage: 'Complete', node: null, value: null, max: null, unit: 'steps', segment: 1, segments: 1, completedFrames: 48, targetFrames: 48, updatedAt: Date.now() },
         segments: [], context: '', pendingPrompt: null, uploads: null, error: null, output, poster: thumb, cancelRequested: false, elapsedSeconds: item.time, origin: 'import', workflow: history?.prompt?.[2] || null };
       store.addJob(job);
-      if (item.id === 'example-indoor' && !store.value('draftInitialized', false)) { store.set('draft', { sourceId, referenceId: reference.id, settings }); store.set('draftInitialized', true); }
+      if (item.id === 'example-indoor' && !store.value('draftInitialized', false)) { store.set('draft', { sourceId, referenceId: reference.id, settings: { ...settings, prompt: defaults.prompt } }); store.set('draftInitialized', true); }
     } catch (error) { console.warn(`Could not import ${item.title}:`, error instanceof Error ? error.message : error); }
   }
   store.set('examplesImported', true);
