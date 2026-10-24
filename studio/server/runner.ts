@@ -80,7 +80,8 @@ export class Runner {
       if (!job.uploads) {
         this.stage(job, 'Preparing your clip');
         const existingSource = path.join(folder, 'prepared-source.mp4');
-        const prepared = job.framingVersion && await exists(existingSource) ? existingSource : await prepareVideo(job, source, folder, signal); this.checkCancelled(job);
+        const reusable = job.framingVersion && await exists(path.join(folder, 'reference-framing.json')) && await exists(existingSource);
+        const prepared = reusable ? existingSource : await prepareVideo(job, source, folder, signal); this.checkCancelled(job);
         let referenceFile = reference.path;
         if (job.framingVersion && job.settings.mode === 'swap') {
           this.stage(job, 'Matching character to source framing');

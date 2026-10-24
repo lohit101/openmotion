@@ -46,11 +46,15 @@ export async function ingest(store: Store, file: string, kind: Asset['kind'], na
 }
 export async function prepareVideo(job: Job, source: Asset, folder: string, signal: AbortSignal) {
   const output = path.join(folder, 'prepared-source.mp4');
+  const temporary = path.join(folder, `prepared-source-${randomUUID()}.mp4`);
   const start = Math.floor(job.settings.start * job.settings.fps) / job.settings.fps;
   const duration = job.progress.targetFrames / job.settings.fps;
   const audio = source.hasAudio ? ['-map', '0:a:0', '-c:a', 'aac', '-ar', '48000', '-b:a', '192k'] : ['-an'];
-  await command('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-ss', String(start), '-i', source.path, '-t', String(duration),
-    '-map', '0:v:0', '-vf', `fps=${job.settings.fps},scale=${job.width}:${job.height}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad=${job.width}:${job.height}:(ow-iw)/2:(oh-ih)/2`,
-    '-frames:v', String(job.progress.targetFrames), '-c:v', 'libx264', '-preset', 'fast', '-crf', '16', '-pix_fmt', 'yuv420p', ...audio, '-movflags', '+faststart', output], signal, 180000);
-  return output;
+  try {
+    await command('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-ss', String(start), '-i', source.path, '-t', String(duration),
+      '-map', '0:v:0', '-vf', `fps=${job.settings.fps},scale=${job.width}:${job.height}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad=${job.width}:${job.height}:(ow-iw)/2:(oh-ih)/2`,
+      '-frames:v', String(job.progress.targetFrames), '-c:v', 'libx264', '-preset', 'fast', '-crf', '16', '-pix_fmt', 'yuv420p', ...audio, '-movflags', '+faststart', temporary], signal, 180000);
+    await rename(temporary, output);
+    return output;
+  } finally { await rm(temporary, { force: true }); }
 }

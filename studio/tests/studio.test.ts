@@ -3,21 +3,21 @@ import request from 'supertest';
 import express from 'express';
 import multer from 'multer';
 import { createServer } from 'node:http';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { WebSocketServer, WebSocket } from 'ws';
 import { createApplication } from '../server/index';
-import { applyProgress, localEndpoint } from '../server/comfy';
-import { command, probe } from '../server/media';
+import { applyProgress, localEndpoint, OfflineError } from '../server/comfy';
+import { command, probe, prepareVideo } from '../server/media';
 import { compileWorkflow, validateGraph, RELIGHT } from '../server/workflow';
 import { defaults, geometry, nextSegment, segmentCount } from '../shared/types';
 import { compilePrompt, PROMPT_VERSION } from '../shared/prompts';
 import type { ReferenceGeometry } from '../server/framing';
 import prompts from '../../config/prompts.json';
-import type { Catalog, Graph, Job } from '../shared/types';
+import type { Asset, Catalog, Graph, Job } from '../shared/types';
 
 const repo = path.resolve(import.meta.dirname, '../..');
 const catalog: Catalog = JSON.parse(readFileSync(path.join(repo, 'integration-snapshot/object-info.json'), 'utf8'));
@@ -115,6 +115,16 @@ describe('native workflow and progress contracts', () => {
     expect(localEndpoint('http://127.0.0.1:8188')).toBe('http://127.0.0.1:8188');
     for (const url of ['http://example.com', 'file:///etc/passwd', 'http://localhost:8188/path', 'http://user:secret@localhost']) expect(() => localEndpoint(url)).toThrow();
   });
+  it('does not replace a valid prepared clip when local FFmpeg preparation is aborted', async () => {
+    const folder = await mkdtemp(path.join(os.tmpdir(), 'recast-preparation-'));
+    try {
+      const existing = path.join(folder, 'prepared-source.mp4'); await writeFile(existing, 'previous complete file');
+      const controller = new AbortController(); controller.abort();
+      await expect(prepareVideo(jobFixture(), { path: video, hasAudio: true } as Asset, folder, controller.signal)).rejects.toThrow();
+      expect(await readFile(existing, 'utf8')).toBe('previous complete file');
+      expect(await readdir(folder)).toEqual(['prepared-source.mp4']);
+    } finally { await rm(folder, { recursive: true, force: true }); }
+  });
 });
 
 describe('local app with the captured ComfyUI protocol', () => {
@@ -201,6 +211,18 @@ describe('local app with the captured ComfyUI protocol', () => {
     expect(job.error).toContain('No GPU generation was submitted'); expect(mock!.submissions).toHaveLength(0);
     expect(mock!.calls.filter(call => call === 'POST /upload/image')).toHaveLength(0);
     expect(geometry.check).not.toHaveBeenCalled();
+  });
+  it('regenerates an interrupted unverified source preparation before a paid submission can resume', async () => {
+    const agent = await setup(), values = await inputs(agent); await connect(agent);
+    vi.mocked(geometry.prepare).mockRejectedValueOnce(new OfflineError('Local preparation interrupted by instance stop'));
+    const response = await agent.post('/api/jobs').set('Idempotency-Key', 'truncated-preparation').send(values).expect(201), id = response.body.id;
+    await until(() => local!.store.job(id)!.status, status => status === 'interrupted'); await until(() => local!.runner.busy, busy => !busy);
+    await writeFile(path.join(root, 'jobs', id, 'prepared-source.mp4'), 'incomplete source left by an earlier preparation');
+    await connect(agent); await agent.post(`/api/jobs/${id}/resume`).send({}).expect(200);
+    const job = await until(() => local!.store.job(id)!, j => ['completed', 'failed', 'interrupted'].includes(j.status) && j.progress.completedFrames > 0);
+    expect(job.status).toBe('completed'); expect(job.progress.completedFrames).toBe(48); expect(mock!.submissions).toHaveLength(1);
+    expect(geometry.prepare).toHaveBeenCalledTimes(2);
+    expect((await probe(path.join(root, 'jobs', id, 'prepared-source.mp4'))).duration).toBeCloseTo(3, 1);
   });
   it('keeps a completed render with a framing warning and never automatically retries it', async () => {
     const agent = await setup(), values = await inputs(agent); await connect(agent);

@@ -28,7 +28,7 @@ def check_local(identity):
         usable = agent.returncode == 0 and any(line.split()[:2] == expected for line in agent.stdout.splitlines())
     if not usable:
         raise ValueError('The SSH private key cannot authenticate with its public key. Unlock it in ssh-agent before renting.')
-    for name in ('README.md', 'config', 'scripts', 'custom_nodes', 'workflows', 'tests', 'validation'):
+    for name in ('README.md', 'config', 'scripts', 'custom_nodes', 'workflows', 'tests', 'validation', 'licenses'):
         if not (vast.ROOT / name).exists():
             raise ValueError('Deployment package is incomplete: ' + name)
     for name in ('models.lock.json', 'optional-models.lock.json', 'runtime.lock.json', 'server.json'):
