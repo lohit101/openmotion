@@ -52,7 +52,7 @@ def describe():
     add(41, "KSamplerSelect", "Euler sampler", [2890, 0], sampler_name="euler")
     add(42, "BasicScheduler", "Scheduler matches the sampling model", [2890, 180], model=link(25), scheduler="simple", steps=link(1, 5), denoise=1.0)
     add(43, "SamplerCustom", "09 Generate replacement", [2890, 440], model=link(25), add_noise=True, noise_seed=link(1, 9), cfg=link(1, 6), positive=link(40), negative=link(40, 1), sampler=link(41), sigmas=link(42), latent_image=link(40, 2))
-    add(44, "VAEDecodeTiled", "Decode with bounded video tiles", [2890, 800], samples=link(43), vae=link(35), tile_size=512, overlap=128, temporal_size=32, temporal_overlap=8)
+    add(44, "VAEDecode", "Decode whole shot with continuous temporal cache", [2890, 800], samples=link(43), vae=link(35))
     add(45, "SwapFinalizeShot", "Trim padding and overlap; align audio", [3330, 0], images=link(44), source_count=link(3, 2), overlap=link(36, 2), fps=link(1, 2), audio=link(3, 3))
     add(46, "VHS_VideoCombine", "10 Final MP4 with source audio", [3330, 300], images=link(45), audio=link(45, 1), frame_rate=link(1, 2), loop_count=0, filename_prefix="character_swap/shot", format="video/h264-mp4", pingpong=False, save_output=True, pix_fmt="yuv420p", crf=17, save_metadata=True, trim_to_audio=False)
     add(47, "SwapSaveContext", "Continuation file for the next pass", [3330, 1000], images=link(45, 2), fps=link(1, 2), skip_frames=link(1, 4))

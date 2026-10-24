@@ -103,7 +103,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   });
   app.post('/api/jobs', (req, res) => {
     if (cloud.state.busy || cloud.state.launches.some(l => ['stopping', 'destroying'].includes(l.phase) || (l.instanceId && l.safetyStatus === 'unconfirmed'))) return void res.status(503).json({ error: 'The GPU setup or stop status is not settled. Your draft is saved; check GPU cloud before generating.' });
-    const value = z.object({ sourceId: z.string(), referenceId: z.string(), settings: settingsSchema }).parse(req.body);
+    const value = z.object({ sourceId: z.string(), referenceId: z.string(), settings: settingsSchema, saveDiagnosticLatent: z.boolean().default(false) }).parse(req.body);
     const key = req.get('Idempotency-Key'); if (!key || key.length > 120) return void res.status(400).json({ error: 'A request ID is required.' });
     const existing = store.byKey(key); if (existing) return void res.json(publicJob(existing));
     if (connection.status.state !== 'online') return void res.status(503).json({ error: 'Connect the GPU before generating. Your draft is saved locally.' });
@@ -111,7 +111,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     validateSelection(source, reference, value.settings.start, value.settings.seconds, value.settings.fps);
     const settings = { ...value.settings, prompt: migrateDemoPrompt(value.settings.prompt, value.settings.mode) }; if (settings.randomSeed) settings.seed = randomInt(0, 0xffffffff);
     const [width, height] = geometry(settings, source), target = Math.ceil(settings.seconds * settings.fps);
-    const job: Job = { id: randomUUID(), title: source.name.replace(/\.[^.]+$/, '') + (settings.mode === 'swap' ? ' / character swap' : ' / motion transfer'), status: 'queued', sourceId: source.id, referenceId: reference.id, settings, promptVersion: PROMPT_VERSION, ...(settings.mode === 'swap' ? { framingVersion: FRAMING_VERSION } : {}),
+    const job: Job = { id: randomUUID(), title: source.name.replace(/\.[^.]+$/, '') + (settings.mode === 'swap' ? ' / character swap' : ' / motion transfer'), status: 'queued', sourceId: source.id, referenceId: reference.id, settings, promptVersion: PROMPT_VERSION, renderVersion: 'continuous-v1', saveDiagnosticLatent: value.saveDiagnosticLatent, ...(settings.mode === 'swap' ? { framingVersion: FRAMING_VERSION } : {}),
       createdAt: new Date().toISOString(), favorite: false, deleted: false, width, height,
       progress: { stage: 'Queued', node: null, value: null, max: null, unit: 'steps', segment: 1, segments: segmentCount(target, settings.framesPerPass), completedFrames: 0, targetFrames: target, updatedAt: Date.now() },
       segments: [], context: '', pendingPrompt: null, uploads: null, error: null, output: null, poster: null, cancelRequested: false, elapsedSeconds: null, origin: 'render', workflow: null };

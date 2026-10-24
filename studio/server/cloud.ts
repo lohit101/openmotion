@@ -10,8 +10,11 @@ import type { Runner } from './runner';
 import { command } from './media';
 import type { CloudInstance, CloudLaunch, CloudState, GpuOffer, OfferFilters } from '../shared/cloud';
 import { canRetryRental, offerFiltersSchema } from '../shared/cloud';
+import baseModels from '../../config/models.lock.json';
+import relightModels from '../../config/optional-models.lock.json';
+import naturalModels from '../../config/natural-models.lock.json';
 
-const MODEL_GB = 29.845864523;
+const MODEL_GB = (baseModels.total_bytes + relightModels.total_bytes + naturalModels.total_bytes) / 1e9;
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 export const RENTAL_IMAGE = 'nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04';
 const number = (value: unknown): number | null => value !== null && value !== '' && value !== undefined && Number.isFinite(Number(value)) ? Number(value) : null;

@@ -550,7 +550,7 @@
     }
   },
   "44": {
-    "class_type": "VAEDecodeTiled",
+    "class_type": "VAEDecode",
     "inputs": {
       "samples": [
         "43",
@@ -559,14 +559,10 @@
       "vae": [
         "35",
         0
-      ],
-      "tile_size": 512,
-      "overlap": 128,
-      "temporal_size": 32,
-      "temporal_overlap": 8
+      ]
     },
     "_meta": {
-      "title": "Decode with bounded video tiles"
+      "title": "Decode whole shot with continuous temporal cache"
     }
   },
   "45": {

@@ -6,7 +6,7 @@ export const settingsSchema = z.object({
   mode: z.enum(['swap', 'motion']).default('swap'),
   prompt: z.string().trim().max(8000).default(''),
   negativePrompt: z.string().max(4000).default(defaultNegativePrompt),
-  preset: z.enum(['fast', 'quality']).default('fast'),
+  preset: z.enum(['fast', 'natural', 'quality']).default('fast'),
   resolution: z.enum(['480', '704']).default('480'),
   orientation: z.enum(['source', 'portrait', 'landscape', 'square']).default('source'),
   fps: z.union([z.literal(16), z.literal(24), z.literal(30)]).default(16),
@@ -49,6 +49,7 @@ export interface Job {
   elapsedSeconds: number | null; origin: 'render' | 'import'; workflow: Record<string, GraphNode> | null;
   promptVersion?: 'scene-v1';
   framingVersion?: 'face-v1'; referenceFraming?: ReferenceFraming; framingCheck?: FramingCheck;
+  renderVersion?: 'continuous-v1'; saveDiagnosticLatent?: boolean;
 }
 export interface GraphNode { class_type: string; inputs: Record<string, unknown>; _meta?: { title: string }; }
 export type Graph = Record<string, GraphNode>;
@@ -78,5 +79,5 @@ export const stageNames: Record<string, string> = {
   '21': 'Applying detail adapter', '22': 'Applying LoRA A', '23': 'Applying LoRA B', '24': 'Preparing acceleration', '25': 'Preparing sampler',
   '30': 'Loading text encoder', '31': 'Encoding prompt', '32': 'Encoding negative prompt', '33': 'Loading vision encoder', '34': 'Encoding character',
   '35': 'Loading video decoder', '36': 'Loading continuity', '40': 'Encoding motion', '41': 'Preparing sampler', '42': 'Preparing schedule',
-  '43': 'Generating video', '44': 'Decoding video', '45': 'Aligning frames and audio', '46': 'Exporting segment', '47': 'Saving continuity', '48': 'Finishing segment', '50': 'Applying relighting',
+  '43': 'Generating video', '44': 'Decoding video', '45': 'Aligning frames and audio', '46': 'Exporting segment', '47': 'Saving continuity', '48': 'Finishing segment', '50': 'Applying relighting', '51': 'Saving diagnostic sample',
 };

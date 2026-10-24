@@ -1656,14 +1656,14 @@
     },
     {
       "id": 44,
-      "type": "VAEDecodeTiled",
+      "type": "VAEDecode",
       "pos": [
         2890,
         962
       ],
       "size": [
         320,
-        218
+        180
       ],
       "flags": {},
       "order": 30,
@@ -1689,16 +1689,11 @@
           ]
         }
       ],
-      "title": "Decode with bounded video tiles",
+      "title": "Decode whole shot with continuous temporal cache",
       "properties": {
-        "Node name for S&R": "VAEDecodeTiled"
+        "Node name for S&R": "VAEDecode"
       },
-      "widgets_values": [
-        512,
-        128,
-        32,
-        8
-      ]
+      "widgets_values": []
     },
     {
       "id": 45,
@@ -2659,7 +2654,7 @@
         2870,
         -65,
         360,
-        1270
+        1232
       ],
       "color": "#6b5151",
       "font_size": 24,

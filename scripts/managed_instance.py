@@ -31,7 +31,7 @@ def check_local(identity):
     for name in ('README.md', 'config', 'scripts', 'custom_nodes', 'workflows', 'tests', 'validation', 'licenses'):
         if not (vast.ROOT / name).exists():
             raise ValueError('Deployment package is incomplete: ' + name)
-    for name in ('models.lock.json', 'optional-models.lock.json', 'runtime.lock.json', 'server.json'):
+    for name in ('models.lock.json', 'optional-models.lock.json', 'natural-models.lock.json', 'runtime.lock.json', 'server.json'):
         json.loads((vast.ROOT / 'config' / name).read_text())
     # CPU-only dependency/model checks happen before any paid rental request.
     subprocess.run([shutil.which('python3'), str(vast.ROOT / 'scripts/setup_local_geometry.py'), '--check'], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
@@ -89,6 +89,7 @@ def main():
             'test "$(cat {r}/state/managed-provision.exit)" = 0 && '
             'bash {r}/scripts/server.sh start && '
             '{r}/.venv/bin/python {r}/scripts/download_models.py --manifest {r}/config/optional-models.lock.json --model-dir {r}/models --verify-only && '
+            '{r}/.venv/bin/python {r}/scripts/download_models.py --manifest {r}/config/natural-models.lock.json --model-dir {r}/models --verify-only && '
             '{r}/.venv/bin/python {r}/scripts/doctor.py').format(r=shlex.quote(root))
     ready = subprocess.run(vast.ssh_arguments(config) + ['-T', vast.destination(config), shlex.join(['bash', '-lc', fast])],
                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=120)

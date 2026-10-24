@@ -15,6 +15,8 @@ echo 'RECAST_STAGE Installing the pinned ComfyUI runtime'
 bash "$RECAST_ROOT/scripts/bootstrap.sh"
 echo 'RECAST_STAGE Downloading the tested relighting adapter'
 "$RECAST_ROOT/.venv/bin/python" "$RECAST_ROOT/scripts/download_models.py" --manifest "$RECAST_ROOT/config/optional-models.lock.json" --model-dir "$RECAST_ROOT/models"
+echo 'RECAST_STAGE Downloading the replacement acceleration adapter'
+"$RECAST_ROOT/.venv/bin/python" "$RECAST_ROOT/scripts/download_models.py" --manifest "$RECAST_ROOT/config/natural-models.lock.json" --model-dir "$RECAST_ROOT/models"
 echo 'RECAST_STAGE Checking ComfyUI and the GPU'
 bash "$RECAST_ROOT/scripts/server.sh" start
 "$RECAST_ROOT/.venv/bin/python" "$RECAST_ROOT/scripts/doctor.py"

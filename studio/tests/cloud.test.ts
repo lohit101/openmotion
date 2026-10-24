@@ -88,7 +88,7 @@ describe('Vast marketplace, billing and lifecycle', () => {
   });
   it('normalizes the quoted total without counting storage twice and exposes real transfer fees', () => {
     const offer = normalizeOffer(rawOffer(), filters); expect(offer.compatible).toBe(true); expect(offer.totalHourly).toBe(.23); expect(offer.computeHourly).toBe(.2); expect(offer.storageHourly).toBe(.03);
-    expect(offer.storageMonthly).toBeCloseTo(21.6); expect(offer.modelDownloadCost).toBeCloseTo(.029845864523); expect(offer.vram).toBe(24);
+    expect(offer.storageMonthly).toBeCloseTo(21.6); expect(offer.modelDownloadCost).toBeCloseTo(.030476561627); expect(offer.vram).toBe(24);
     const old = normalizeOffer({ ...rawOffer(), driver_version: '535.86.05', gpu_ram: 16384 }, filters); expect(old.compatible).toBe(false); expect(old.reasons.join()).toContain('580.65.06');
   });
   it('queries compatible hardware with selected disk and authenticates only in the HTTPS header', async () => {

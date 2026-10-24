@@ -12,7 +12,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { createApplication } from '../server/index';
 import { applyProgress, localEndpoint, OfflineError } from '../server/comfy';
 import { command, probe, prepareVideo } from '../server/media';
-import { compileWorkflow, validateGraph, RELIGHT } from '../server/workflow';
+import { compileWorkflow, validateGraph, RELIGHT, NATURAL_SPEED } from '../server/workflow';
 import { defaults, geometry, nextSegment, segmentCount } from '../shared/types';
 import { compilePrompt, PROMPT_VERSION } from '../shared/prompts';
 import type { ReferenceGeometry } from '../server/framing';
@@ -45,8 +45,9 @@ function jobFixture(): Job {
 async function mockComfy() {
   const app = express(), server = createServer(app), ws = new WebSocketServer({ server, path: '/ws' });
   const localCatalog = structuredClone(catalog), sockets = new Map<string, WebSocket>(), uploads = new Map<string, string>(), files = new Map<string, string>();
+  (localCatalog.LoraLoaderModelOnly.input.required!.lora_name[0] as string[]).push(NATURAL_SPEED);
   const pending = new Map<string, any[]>(), history: Record<string, any> = {}, submissions: any[] = [], cancelled: string[] = [], calls: string[] = [];
-  let mode: 'complete' | 'hold' | 'lose-response' = 'complete', dropHistory = false, dropCancel = false;
+  let mode: 'complete' | 'hold' | 'lose-response' = 'complete', dropHistory = false, dropCancel = false, dropLatent = false;
   app.use(express.json({ limit: '5mb' })); app.use((req, _res, next) => { calls.push(req.method + ' ' + req.path); next(); });
   ws.on('connection', (socket, req) => { sockets.set(new URL(req.url!, 'http://localhost').searchParams.get('clientId')!, socket); });
   const emit = (client: string, type: string, data: unknown) => sockets.get(client)?.send(JSON.stringify({ type, data }));
@@ -67,7 +68,12 @@ async function mockComfy() {
     await command('ffmpeg', ['-v', 'error', '-y', '-ss', String((skip + overlap) / fps), '-i', uploads.get(String(graph['2'].inputs.video))!, '-frames:v', String(cap - overlap), '-an', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', file]);
     files.set(filename, file); history[id] = { prompt: entry, status: { status_str: 'success', completed: true, messages: [] }, outputs: {
       '46': { gifs: [{ filename, subfolder: 'recast', type: 'output' }] }, '47': { context: [{ path: '/gpu/output/context-' + id + '.safetensors', source_count: cap, source_end_frame: skip + cap, fps }] }
-    } }; pending.delete(id); emit(entry[3].client_id, 'executing', { prompt_id: id, node: null });
+    } };
+    if (graph['51'] && !dropLatent) {
+      const latentName = id + '.latent', latentFile = path.join(fixtures, latentName); await writeFile(latentFile, 'Protocol fixture latent, not a sampled tensor'); files.set(latentName, latentFile);
+      history[id].outputs['51'] = { latents: [{ filename: latentName, subfolder: 'recast', type: 'output' }] };
+    }
+    dropLatent = false; pending.delete(id); emit(entry[3].client_id, 'executing', { prompt_id: id, node: null });
   }
   app.post('/prompt', (req, res) => {
     const id = randomUUID(), entry = [submissions.length, id, req.body.prompt, { client_id: req.body.client_id }, []];
@@ -75,7 +81,8 @@ async function mockComfy() {
     if (mode === 'lose-response') { req.socket.destroy(); return; }
     emit(req.body.client_id, 'execution_start', { prompt_id: id });
     emit(req.body.client_id, 'executing', { prompt_id: id, node: '43' });
-    emit(req.body.client_id, 'progress', { prompt_id: id, node: '43', value: 2, max: 6 });
+    const steps = req.body.prompt['42'].inputs.steps;
+    emit(req.body.client_id, 'progress', { prompt_id: id, node: '43', value: 2, max: typeof steps === 'number' ? steps : 6 });
     res.json({ prompt_id: id, node_errors: {} });
     if (mode === 'complete') void complete(id);
   });
@@ -84,7 +91,7 @@ async function mockComfy() {
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   const address = server.address() as { port: number };
   return { endpoint: `http://127.0.0.1:${address.port}`, calls, submissions, cancelled, pending, history, complete, emit, uploads,
-    setMode(value: typeof mode) { mode = value; }, loseNextHistory() { dropHistory = true; }, loseNextCancel() { dropCancel = true; },
+    setMode(value: typeof mode) { mode = value; }, loseNextHistory() { dropHistory = true; }, loseNextCancel() { dropCancel = true; }, omitNextLatent() { dropLatent = true; },
     async close() { for (const socket of ws.clients) socket.terminate(); ws.close(); server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); }
   };
 }
@@ -177,6 +184,8 @@ describe('local app with the captured ComfyUI protocol', () => {
     await until(() => mock!.submissions.length, count => count === 1);
     expect(local!.store.job(response.body.id)!.promptVersion).toBe(PROMPT_VERSION);
     expect(local!.store.job(response.body.id)!.framingVersion).toBe('face-v1');
+    expect(local!.store.job(response.body.id)!.renderVersion).toBe('continuous-v1');
+    expect(mock!.submissions[0].prompt['44'].class_type).toBe('VAEDecode');
     expect(mock!.submissions[0].prompt['31'].inputs.text).toBe(compilePrompt('swap', ''));
     await agent.post(`/api/jobs/${response.body.id}/cancel`).expect(200);
     await until(() => local!.store.job(response.body.id)!.status, status => status === 'cancelled');
@@ -250,6 +259,23 @@ describe('local app with the captured ComfyUI protocol', () => {
     const response = await agent.post('/api/jobs').set('Idempotency-Key', 'check-unavailable').send(values).expect(201);
     const job = await until(() => local!.store.job(response.body.id)!, j => ['completed', 'failed'].includes(j.status));
     expect(job.status).toBe('completed'); expect(job.framingCheck?.status).toBe('unverified'); expect(mock!.submissions).toHaveLength(1);
+    await agent.get(`/api/jobs/${job.id}/video`).expect(200);
+  });
+  it('exports an optional diagnostic latent while sampling only once with the Natural profile', async () => {
+    const agent = await setup(), values = await inputs(agent); values.settings.preset = 'natural'; await connect(agent);
+    const response = await agent.post('/api/jobs').set('Idempotency-Key', 'natural-diagnostic').send({ ...values, saveDiagnosticLatent: true }).expect(201);
+    const job = await until(() => local!.store.job(response.body.id)!, j => ['completed', 'failed'].includes(j.status));
+    expect(job.status).toBe('completed'); expect(mock!.submissions).toHaveLength(1); expect(job.settings.preset).toBe('natural');
+    expect(mock!.submissions[0].prompt['24'].inputs.lora_name).toBe(NATURAL_SPEED); expect(mock!.submissions[0].prompt['42'].inputs.steps).toBe(8);
+    expect(await readFile(path.join(root, 'jobs', job.id, 'latent_0000.latent'), 'utf8')).toBe('Protocol fixture latent, not a sampled tensor');
+    await agent.get(`/api/jobs/${job.id}/video`).expect(200);
+  });
+  it('retains paid video output when an optional latent export is unavailable', async () => {
+    const agent = await setup(), values = await inputs(agent); await connect(agent); mock!.omitNextLatent();
+    const response = await agent.post('/api/jobs').set('Idempotency-Key', 'missing-diagnostic').send({ ...values, saveDiagnosticLatent: true }).expect(201);
+    const job = await until(() => local!.store.job(response.body.id)!, j => ['completed', 'failed'].includes(j.status));
+    expect(job.status).toBe('completed'); expect(mock!.submissions).toHaveLength(1);
+    expect(JSON.parse(await readFile(path.join(root, 'jobs', job.id, 'latent_0_unavailable.json'), 'utf8')).warning).toContain('completed video was retained');
     await agent.get(`/api/jobs/${job.id}/video`).expect(200);
   });
   it('cancels only its own prompt and requires acknowledgement before showing cancelled', async () => {

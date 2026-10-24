@@ -139,6 +139,18 @@ export class Runner {
         const file = `segment_${String(job.segments.length).padStart(4, '0')}.mp4`;
         this.stage(job, 'Downloading completed segment'); await client.download(video, path.join(folder, file), signal);
         await writeFile(path.join(folder, `history_${job.segments.length}.json`), JSON.stringify(history, null, 2));
+        if (job.saveDiagnosticLatent) {
+          const latent = outputs['51']?.latents?.[0];
+          try {
+            if (!latent) throw new Error('No diagnostic latent was returned.');
+            await client.download(latent, path.join(folder, `latent_${String(job.segments.length).padStart(4, '0')}.latent`), signal);
+          } catch (error) {
+            if (signal.aborted) throw error;
+            // Diagnostics must not discard a completed paid render or cause it
+            // to be sampled again. The saved segment remains authoritative.
+            await writeFile(path.join(folder, `latent_${job.segments.length}_unavailable.json`), JSON.stringify({ warning: 'The completed video was retained but the optional latent export was unavailable.' }));
+          }
+        }
         job.segments.push({ file, promptId: job.pendingPrompt!, frames, seconds: (Date.now() - segmentStart) / 1000 });
         job.context = context.path; job.pendingPrompt = null; job.progress.completedFrames += frames;
         if (context.source_count < plan.cap) job.progress.targetFrames = job.progress.completedFrames;
