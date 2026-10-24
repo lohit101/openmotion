@@ -1,0 +1,16 @@
+{
+  "comfyui_repo": "https://github.com/Comfy-Org/ComfyUI.git",
+  "comfyui_commit": "fb3befd168731438f88bc96e0920a538e8649878",
+  "video_helper_repo": "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git",
+  "video_helper_commit": "4d907bee61e92c2e65af3bd6383a4e4d356126d1",
+  "torch": "2.11.0",
+  "torchvision": "0.26.0",
+  "torchaudio": "2.11.0",
+  "torch_index": "https://download.pytorch.org/whl/cu130",
+  "python_versions": [
+    "3.12",
+    "3.13"
+  ],
+  "minimum_driver": "580.65.06",
+  "model_bytes": 28618927971
+}

@@ -1,0 +1,7 @@
+{
+  "host": "127.0.0.1",
+  "port": 18189,
+  "reserve_vram_gb": 1.0,
+  "max_upload_mb": 512,
+  "cache_ram_gb": [3, 6]
+}

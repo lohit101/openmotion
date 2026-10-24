@@ -1,0 +1,109 @@
+{
+  "checked_utc": "2026-10-23T21:09:49.282336+00:00",
+  "platform": "macOS CPU-only validation",
+  "standard_library_tests_passed": 13,
+  "native_prompt_validation_passed": [
+    "scail2_int8_masks.json",
+    "scail2_int8_swap.json"
+  ],
+  "helper_execution_passed": [
+    "coupled sampling presets",
+    "optional LoRA None bypass",
+    "reference aspect-ratio padding",
+    "source tail padding and trimming",
+    "exact saved-context round trip",
+    "continuation offset validation",
+    "audio overlap trimming"
+  ],
+  "live_api_video_io": {
+    "passed": true,
+    "source": "synthetic test pattern with tone",
+    "output_frames": 94,
+    "segments_new_frames": [
+      81,
+      13
+    ],
+    "fps": 16,
+    "duration_seconds": 5.875,
+    "checks": [
+      "multipart upload",
+      "two API jobs",
+      "saved continuation context",
+      "MP4 export",
+      "original audio assembly"
+    ]
+  },
+  "model_url_checks": [
+    {
+      "file": "diffusion_models/wan2.1_14B_SCAIL_2_int8_convrot.safetensors",
+      "http_status": 200,
+      "content_length": "16654506256",
+      "expected_bytes": 16654506256
+    },
+    {
+      "file": "text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+      "http_status": 200,
+      "content_length": "6735906897",
+      "expected_bytes": 6735906897
+    },
+    {
+      "file": "clip_vision/clip_vision_h.safetensors",
+      "http_status": 200,
+      "content_length": "1264219396",
+      "expected_bytes": 1264219396
+    },
+    {
+      "file": "vae/Wan2_1_VAE_bf16.safetensors",
+      "http_status": 200,
+      "content_length": "253806278",
+      "expected_bytes": 253806278
+    },
+    {
+      "file": "checkpoints/sam3.1_multiplex_fp16.safetensors",
+      "http_status": 200,
+      "content_length": "1745546848",
+      "expected_bytes": 1745546848
+    },
+    {
+      "file": "loras/lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors",
+      "http_status": 200,
+      "content_length": "738005744",
+      "expected_bytes": 738005744
+    },
+    {
+      "file": "loras/wan2.1_SCAIL_2_DPO_lora_bf16.safetensors",
+      "http_status": 200,
+      "content_length": "1226936552",
+      "expected_bytes": 1226936552
+    }
+  ],
+  "model_total_bytes": 28618927971,
+  "runtime": {
+    "comfyui_repo": "https://github.com/Comfy-Org/ComfyUI.git",
+    "comfyui_commit": "fb3befd168731438f88bc96e0920a538e8649878",
+    "video_helper_repo": "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git",
+    "video_helper_commit": "4d907bee61e92c2e65af3bd6383a4e4d356126d1",
+    "torch": "2.11.0",
+    "torchvision": "0.26.0",
+    "torchaudio": "2.11.0",
+    "torch_index": "https://download.pytorch.org/whl/cu130",
+    "python_versions": [
+      "3.12",
+      "3.13"
+    ],
+    "minimum_driver": "580.65.06",
+    "model_bytes": 28618927971
+  },
+  "gpu_generation_tested": false,
+  "visual_character_swap_quality_tested": false,
+  "gui_preview": "Unavailable; graph geometry and node schemas checked structurally",
+  "remaining_gpu_checks": [
+    "Linux CUDA installation",
+    "INT8 model generation",
+    "actual peak RAM and VRAM",
+    "render time",
+    "identity and realism on target footage"
+  ],
+  "followup_gpu_validation": "gpu-report.json",
+  "latest_standard_library_test_count": 14
+}

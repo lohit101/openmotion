@@ -1,0 +1,24 @@
+{
+  "captured_utc": "2026-10-23T23:00:42.304320+00:00",
+  "queue_was_empty": true,
+  "files": {
+    "workflows/api/scail2_int8_swap.json": {
+      "bytes": 11666,
+      "sha256": "e7871c1fa0c090eeed7dd8951d1d766eb736da08801a551bdd37b2550effaa73"
+    },
+    "outputs/simple-dance-test/before.mp4": {
+      "bytes": 532007,
+      "sha256": "338ed85967a126a47df40fa34d87f89adbc86f016ab2231ce7a55f1cac5e9dc5"
+    },
+    "outputs/simple-dance-test/character-reference.png": {
+      "bytes": 6237372,
+      "sha256": "6c490a93b053fa184eab2f0004ed010872b04a5d9e8b9037f15babc95247c5dc"
+    },
+    "outputs/simple-dance-test/after.mp4": {
+      "bytes": 552661,
+      "sha256": "e2418b5449d3de36573a6857edaabc34f2aa7246c974fbb99ab13c38541810a3"
+    }
+  },
+  "runtime_revision": "fb3befd168731438f88bc96e0920a538e8649878",
+  "purpose": "Offline UI and API harness development; no generation submitted during capture."
+}

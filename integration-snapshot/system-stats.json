@@ -1,0 +1,80 @@
+{
+  "system": {
+    "os": "linux",
+    "ram_total": 104058585088,
+    "ram_free": 71990849536,
+    "comfyui_version": "0.42.0",
+    "required_frontend_version": "1.57.1",
+    "installed_templates_version": "0.11.96",
+    "required_templates_version": "0.11.96",
+    "comfy_package_versions": [
+      {
+        "name": "comfyui-frontend-package",
+        "installed": "1.57.1",
+        "required": "1.57.1"
+      },
+      {
+        "name": "comfyui-workflow-templates",
+        "installed": "0.11.96",
+        "required": "0.11.96"
+      },
+      {
+        "name": "comfyui-embedded-docs",
+        "installed": "0.5.14",
+        "required": "0.5.14"
+      },
+      {
+        "name": "comfy-aimdo",
+        "installed": "0.6.0",
+        "required": "0.6.0"
+      },
+      {
+        "name": "comfy-kitchen",
+        "installed": "0.2.40",
+        "required": "0.2.40"
+      }
+    ],
+    "python_version": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+    "pytorch_version": "2.11.0+cu130",
+    "embedded_python": false,
+    "deploy_environment": "local-git",
+    "argv": [
+      "/workspace/ComfyUI-character-swap/main.py",
+      "--listen",
+      "127.0.0.1",
+      "--port",
+      "18189",
+      "--reserve-vram",
+      "1.0",
+      "--cache-ram",
+      "3",
+      "6",
+      "--disable-partner-nodes",
+      "--use-pytorch-cross-attention",
+      "--disable-xformers",
+      "--max-upload-size",
+      "512",
+      "--extra-model-paths-config",
+      "/workspace/character-swap/state/model-paths.yaml",
+      "--input-directory",
+      "/workspace/character-swap/data/input",
+      "--output-directory",
+      "/workspace/character-swap/data/output",
+      "--temp-directory",
+      "/workspace/character-swap/data/temp",
+      "--user-directory",
+      "/workspace/character-swap/data/user"
+    ]
+  },
+  "devices": [
+    {
+      "name": "cuda:0 NVIDIA GeForce RTX 3090 : cudaMallocAsync",
+      "type": "cuda",
+      "index": 0,
+      "vram_total": 25298141184,
+      "vram_free": 5546014970,
+      "torch_vram_total": 268435456,
+      "torch_vram_free": 120944890
+    }
+  ]
+}

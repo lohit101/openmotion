@@ -1,0 +1,60 @@
+{
+  "checkedAt": "2026-10-24T10:05:08.119Z",
+  "instanceId": 57490355,
+  "gpu": "RTX 3090",
+  "quotedRunningHourlyUSD": 0.19555555555555557,
+  "initialSetupStartedAt": "2026-10-24T08:42:47.779Z",
+  "runtimePackagesReadyAt": "2026-10-24T08:59:11.588Z",
+  "measuredDownloadMBps": 11.4,
+  "measureWindowSeconds": 20,
+  "mainModelRetainedGBOnResume": 10.226,
+  "lastAttemptStartedAt": "2026-10-24T10:03:42.959Z",
+  "currentPhase": "ready",
+  "newRentalCreatedDuringThisTask": false,
+  "generationSubmittedDuringThisTask": false,
+  "elapsedTimeAutoStop": false,
+  "slowWarningAfterMinutes": 15,
+  "stopOnActualSetupFailure": true,
+  "realGpuReadinessVerifiedBySsh": true,
+  "comfyReady": true,
+  "appTestsPassed": 55,
+  "pythonTestsPassed": 17,
+  "billingNote": "Cost estimates use the quoted rate, not an account invoice. Existing instance restarted/reconnected with user authorization.",
+  "connectionGpu": "NVIDIA GeForce RTX 3090",
+  "connectionCheckedAt": "2026-10-24T10:04:46.832Z",
+  "setupDeadline": null,
+  "comfyStats": {
+    "comfyuiVersion": "0.42.0",
+    "pytorchVersion": "2.11.0+cu130",
+    "devices": [
+      {
+        "name": "cuda:0 NVIDIA GeForce RTX 3090 : cudaMallocAsync",
+        "type": "cuda",
+        "index": 0,
+        "vram_total": 25298141184,
+        "vram_free": 25020137472,
+        "torch_vram_total": 0,
+        "torch_vram_free": 0
+      }
+    ]
+  },
+  "queue": {
+    "running": 0,
+    "pending": 0
+  },
+  "installedLoras": [
+    "lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors",
+    "wan2.1_SCAIL_2_DPO_lora_bf16.safetensors",
+    "wan2.1_SCAIL_2_relight_lora_bf16.safetensors"
+  ],
+  "relightingVerified": true,
+  "liveNodeCount": 731,
+  "repairs": [
+    "Removed elapsed-time setup stop; slow setup warns without interruption",
+    "Transient provider offline status can be bypassed with a successful SSH/GPU readiness check",
+    "Reused the healthy private ComfyUI process after model downloads instead of restarting it",
+    "Recovered owned ComfyUI processes by exact main path, port and input directory when PID record is stale",
+    "Serialized explicit retry behind an in-flight stop to avoid conflicting instance actions"
+  ],
+  "setupReadyAt": "2026-10-24T10:04:46.832Z"
+}

@@ -1,0 +1,104 @@
+{
+  "checkedAt": "2026-10-24T08:25:36.022Z",
+  "source": "Final production app with live Vast account; read-only provider queries and local SSH/tool preflight",
+  "rootCause": "The id search predicate returned no rows for a still-available ask; ask_contract_id matched that same available rental.",
+  "families": [
+    {
+      "gpu": "RTX 3090",
+      "offerCount": 15,
+      "askContractId": 56041649,
+      "machineId": 146854,
+      "quotedHourly": 0.21185185185185185,
+      "diskGB": 80,
+      "preflight": {
+        "ready": true,
+        "checks": [
+          {
+            "name": "Local tools, SSH authentication and deployment files",
+            "ok": true,
+            "message": "Passed"
+          },
+          {
+            "name": "Existing account SSH key",
+            "ok": true,
+            "message": "Passed"
+          },
+          {
+            "name": "Exact rental ask, hardware, hourly price and transfer fees",
+            "ok": true,
+            "message": "Passed"
+          }
+        ],
+        "checkedAt": "2026-10-24T08:25:33.638Z",
+        "rentalRequests": 0
+      }
+    },
+    {
+      "gpu": "RTX 4090",
+      "offerCount": 36,
+      "askContractId": 45777644,
+      "machineId": 145317,
+      "quotedHourly": 0.43555555555555553,
+      "diskGB": 80,
+      "preflight": {
+        "ready": true,
+        "checks": [
+          {
+            "name": "Local tools, SSH authentication and deployment files",
+            "ok": true,
+            "message": "Passed"
+          },
+          {
+            "name": "Existing account SSH key",
+            "ok": true,
+            "message": "Passed"
+          },
+          {
+            "name": "Exact rental ask, hardware, hourly price and transfer fees",
+            "ok": true,
+            "message": "Passed"
+          }
+        ],
+        "checkedAt": "2026-10-24T08:25:34.627Z",
+        "rentalRequests": 0
+      }
+    },
+    {
+      "gpu": "RTX 5090",
+      "offerCount": 39,
+      "askContractId": 56849278,
+      "machineId": 153110,
+      "quotedHourly": 0.6444444444444445,
+      "diskGB": 80,
+      "preflight": {
+        "ready": true,
+        "checks": [
+          {
+            "name": "Local tools, SSH authentication and deployment files",
+            "ok": true,
+            "message": "Passed"
+          },
+          {
+            "name": "Existing account SSH key",
+            "ok": true,
+            "message": "Passed"
+          },
+          {
+            "name": "Exact rental ask, hardware, hourly price and transfer fees",
+            "ok": true,
+            "message": "Passed"
+          }
+        ],
+        "checkedAt": "2026-10-24T08:25:35.745Z",
+        "rentalRequests": 0
+      }
+    }
+  ],
+  "instancesBefore": 0,
+  "instancesAfter": 0,
+  "rentalRequests": 0,
+  "instanceWrites": 0,
+  "sshRegistrations": 0,
+  "paidEndToEndProvisioning": "Not performed during this audit",
+  "limits": "Local setup stop guard requires the server to run and provider connectivity; stopped storage remains billed."
+}

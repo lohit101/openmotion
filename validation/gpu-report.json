@@ -1,0 +1,139 @@
+{
+  "checked_utc": "2026-10-23T22:11:32.645199+00:00",
+  "hardware": {
+    "gpu": "NVIDIA GeForce RTX 3090",
+    "nominal_vram_mib": 24576,
+    "driver": "595.84",
+    "effective_container_ram_bytes": 104058585088
+  },
+  "runtime": {
+    "comfyui_repo": "https://github.com/Comfy-Org/ComfyUI.git",
+    "comfyui_commit": "fb3befd168731438f88bc96e0920a538e8649878",
+    "video_helper_repo": "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git",
+    "video_helper_commit": "4d907bee61e92c2e65af3bd6383a4e4d356126d1",
+    "torch": "2.11.0",
+    "torchvision": "0.26.0",
+    "torchaudio": "2.11.0",
+    "torch_index": "https://download.pytorch.org/whl/cu130",
+    "python_versions": [
+      "3.12",
+      "3.13"
+    ],
+    "minimum_driver": "580.65.06",
+    "model_bytes": 28618927971
+  },
+  "models": {
+    "base_file_count": 7,
+    "base_bytes": 28618927971,
+    "optional_relight_bytes": 1226936552,
+    "download_sha256_verified": true
+  },
+  "disk": {
+    "allocated_bytes": 85899345920,
+    "free_bytes_after_tests": 41703280640,
+    "total_used_bytes_after_tests": 44196065280,
+    "project_allocated_kib": 35799848
+  },
+  "runs": [
+    {
+      "name": "baseline",
+      "prompt_id": "d5dd10c3-430e-4a30-94fd-06c108e8667c",
+      "server_execution_seconds": 126.379,
+      "client_seconds": 130.18,
+      "exported_frames": 48,
+      "settings": {
+        "width": 832,
+        "height": 480,
+        "fps": 16.0,
+        "seed": 20261024,
+        "preset": "fast_6_steps",
+        "start_seconds": 0.0,
+        "source_person": "person",
+        "reference_person": "person",
+        "object_indices": "0",
+        "prompt": "Photorealistic live-action outdoor footage. The adult woman in the reference image, with dark hair in a high bun, a black asymmetric long-sleeved crop top, loose layered black cargo trousers and black combat boots, performs the same dance and body turns as the source performer. Keep her face, hairstyle, body proportions and black outfit consistent. Preserve the source camera framing, grassy field, windswept tree, small building, distant sea and natural warm daylight. Natural skin texture, realistic cloth folds, coherent hands and grounded feet, continuous organic movement.",
+        "lora_a": "None",
+        "lora_a_strength": 0.8,
+        "lora_b": "None",
+        "lora_b_strength": 0.8
+      },
+      "telemetry_sample_count": 62,
+      "sampled_gpu_peak_mib": 24099.0,
+      "process_resident_high_water_gib": 30.42,
+      "sampled_cgroup_memory_peak_gib_including_other_services_and_file_cache": 58.103,
+      "execution_succeeded": true
+    },
+    {
+      "name": "relight",
+      "prompt_id": "8e7a7447-cdcf-4fe9-84d3-93795b016125",
+      "server_execution_seconds": 101.545,
+      "client_seconds": 104.75,
+      "exported_frames": 48,
+      "settings": {
+        "width": 832,
+        "height": 480,
+        "fps": 16.0,
+        "seed": 20261024,
+        "preset": "fast_6_steps",
+        "start_seconds": 0.0,
+        "source_person": "person",
+        "reference_person": "person",
+        "object_indices": "0",
+        "prompt": "Photorealistic live-action outdoor footage. The adult woman in the reference image, with dark hair in a high bun, a black asymmetric long-sleeved crop top, loose layered black cargo trousers and black combat boots, performs the same dance and body turns as the source performer. Keep her face, hairstyle, body proportions and black outfit consistent. Preserve the source camera framing, grassy field, windswept tree, small building, distant sea and natural warm daylight. Natural skin texture, realistic cloth folds, coherent hands and grounded feet, continuous organic movement.",
+        "lora_a": "wan2.1_SCAIL_2_relight_lora_bf16.safetensors",
+        "lora_a_strength": 1.0,
+        "lora_b": "None",
+        "lora_b_strength": 0.8
+      },
+      "telemetry_sample_count": 50,
+      "sampled_gpu_peak_mib": 21545.0,
+      "process_resident_high_water_gib": 31.98,
+      "sampled_cgroup_memory_peak_gib_including_other_services_and_file_cache": 60.827,
+      "execution_succeeded": true
+    }
+  ],
+  "method": {
+    "telemetry_interval_seconds": 2,
+    "gpu_peak": "Maximum sampled nvidia-smi memory.used; may miss short peaks; includes other GPU processes.",
+    "ram_peak": "Linux process VmHWM, resident memory high-water mark; not a minimum required system RAM measurement.",
+    "client_time": "Queue submission through completion polling and MP4 download; excludes software installation and initial input upload.",
+    "server_time": "ComfyUI execution_start to execution_success; second run reused input conditioning cache."
+  },
+  "visual_assessment": {
+    "selected": "relight",
+    "improvement": "Bright blue/white rim largely removed; subject illumination blends more naturally into the warm source scene.",
+    "preserved": "Dance trajectory and broad poses, black outfit identity, camera composition and recognizable tree/building/sea background.",
+    "limitations": [
+      "Clothing volume and fine details vary during turns.",
+      "Hands, boots and small facial details need closer review.",
+      "Source face is too small to establish close-up identity fidelity.",
+      "No quantitative identity or calibrated perceptual realism score was computed.",
+      "Only one three-second shot tested; GPU continuation seams and 20-step 704p 24-30fps settings remain unbenchmarked."
+    ]
+  },
+  "files": {
+    "before": "outputs/first-gpu-test/before.mp4",
+    "after": "outputs/first-gpu-test/after.mp4",
+    "comparison": "outputs/first-gpu-test/before-after.mp4"
+  },
+  "audio_video_verification": {
+    "video_frames": 48,
+    "fps": 16,
+    "video_duration_seconds": 3,
+    "audio_duration_seconds": 3,
+    "container_duration_seconds": 3,
+    "video_start_seconds": 0,
+    "audio_start_seconds": 0,
+    "concat_aac_preroll_regression_test_passed": true
+  },
+  "additional_shots": [
+    {
+      "report": "simple-dance-gpu-report.json",
+      "client_seconds": 123.3,
+      "geometry": [
+        480,
+        768
+      ]
+    }
+  ]
+}

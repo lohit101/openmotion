@@ -1,0 +1,17 @@
+{
+  "source": "Comfy-Org workflow template sample inputs",
+  "files": [
+    {
+      "url": "https://raw.githubusercontent.com/Comfy-Org/workflow_templates/67984637eefcd4825dcf5c134e39034785be1682/input/driving_outdoor_dance.mp4",
+      "destination": "source.mp4",
+      "size": 2257399,
+      "sha256": "29616c58ddb9c7ef8b11173153ed3ab4050fd759bf007391a8c4507b649a999d"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Comfy-Org/workflow_templates/67984637eefcd4825dcf5c134e39034785be1682/input/reference_streetwear_character.png",
+      "destination": "reference.png",
+      "size": 6237372,
+      "sha256": "6c490a93b053fa184eab2f0004ed010872b04a5d9e8b9037f15babc95247c5dc"
+    }
+  ]
+}

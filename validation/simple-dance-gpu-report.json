@@ -1,0 +1,94 @@
+{
+  "checked_utc": "2026-10-23T22:37:36.318397+00:00",
+  "gpu": "NVIDIA GeForce RTX 3090",
+  "source": {
+    "repository": "ali-vilab/UniAnimate",
+    "revision": "643c9637715888cea38818892bf1ef313a3dcfa9",
+    "path": "data/videos/source_video.mp4",
+    "url": "https://raw.githubusercontent.com/ali-vilab/UniAnimate/643c9637715888cea38818892bf1ef313a3dcfa9/data/videos/source_video.mp4",
+    "platform_origin": "Unverified; accessible portrait social-dance example supplied by UniAnimate, not directly downloaded from TikTok.",
+    "source_clip_window_seconds": [
+      0,
+      3
+    ],
+    "original_source_has_audio": false,
+    "selection_reason": "One front-facing adult woman, static phone camera, simple indoor background, small arm/hip movements, no cuts or full-body spins.",
+    "width": 480,
+    "height": 768,
+    "fps": 16,
+    "export_frames": 48,
+    "conditioning_frames": 49,
+    "preset": "fast_6_steps",
+    "seed": 20261024,
+    "relight_strength": 1.0,
+    "dpo_strength": 1.0,
+    "source_sha256": "338ed85967a126a47df40fa34d87f89adbc86f016ab2231ce7a55f1cac5e9dc5",
+    "reference_sha256": "6c490a93b053fa184eab2f0004ed010872b04a5d9e8b9037f15babc95247c5dc",
+    "prompt": "A photorealistic vertical smartphone video of an adult woman with dark hair in a high bun, wearing a black asymmetric long-sleeved crop top, loose layered black cargo trousers and black combat boots. She faces the camera and performs a small casual dance in place, gently shifting her hips and moving her arms. Gray and yellow floor-length curtains form the background. A green potted plant sits on a wooden cabinet on the left, and a pale floral sofa is on the right beside a white floor. Fixed camera, steady indoor room lighting, natural skin texture, realistic cloth folds and shadows, continuous live-action movement.",
+    "generation_completed": true,
+    "prompt_id": "a131173e-d3fe-45ea-a16d-b9e3f045d52f",
+    "client_seconds": 123.3
+  },
+  "settings": {
+    "width": 480,
+    "height": 768,
+    "fps": 16.0,
+    "seed": 20261024,
+    "preset": "fast_6_steps",
+    "start_seconds": 0.0,
+    "source_person": "person",
+    "reference_person": "person",
+    "object_indices": "0",
+    "prompt": "A photorealistic vertical smartphone video of an adult woman with dark hair in a high bun, wearing a black asymmetric long-sleeved crop top, loose layered black cargo trousers and black combat boots. She faces the camera and performs a small casual dance in place, gently shifting her hips and moving her arms. Gray and yellow floor-length curtains form the background. A green potted plant sits on a wooden cabinet on the left, and a pale floral sofa is on the right beside a white floor. Fixed camera, steady indoor room lighting, natural skin texture, realistic cloth folds and shadows, continuous live-action movement.",
+    "lora_a": "wan2.1_SCAIL_2_relight_lora_bf16.safetensors",
+    "lora_a_strength": 1.0,
+    "lora_b": "None",
+    "lora_b_strength": 0.8
+  },
+  "server_execution_seconds": 115.674,
+  "client_seconds": 123.3,
+  "sampled_gpu_peak_mib": 23623.0,
+  "process_resident_high_water_gib": 31.493,
+  "telemetry_interval_seconds": 2,
+  "exports": [
+    {
+      "file": "before.mp4",
+      "video_frames": 48,
+      "fps": 16,
+      "duration_seconds": 3,
+      "audio_streams": 0
+    },
+    {
+      "file": "after.mp4",
+      "video_frames": 48,
+      "fps": 16,
+      "duration_seconds": 3,
+      "audio_streams": 0
+    },
+    {
+      "file": "before-after.mp4",
+      "video_frames": 48,
+      "fps": 16,
+      "duration_seconds": 3,
+      "audio_streams": 0
+    }
+  ],
+  "visual_assessment": {
+    "observed_improvement": "Front-facing face, bun hairstyle and asymmetric black outfit remain more consistent across sampled frames than the outdoor dance; room lighting blends naturally.",
+    "remaining_limits": [
+      "Some hand/finger and loose fabric distortion remains.",
+      "This is one short clip at 480 x 768, not proof of perfect consistency or 704p quality.",
+      "No calibrated identity or realism score was calculated."
+    ]
+  },
+  "runtime_fix": {
+    "id": "vhs-silent-video-audio-v1",
+    "patched_utils_sha256": "6af170247a8caeb8914f497d92e39fb4910e8f90189fe9f774eb4bdb0e13a36e",
+    "checks_passed": [
+      "silent input returns empty audio",
+      "existing audio retained",
+      "corrupt media still errors",
+      "complete silent-input GPU swap exports correctly"
+    ]
+  }
+}

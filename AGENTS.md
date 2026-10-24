@@ -1,0 +1,7 @@
+# Project workflow
+
+- Keep this project in Git. Make a separate, focused commit after each completed bug fix or feature, with the relevant validation recorded. Do not rewrite existing commits unless the user asks.
+- Commit source code, workflows, model/runtime manifests, documentation and small sanitized validation reports. Keep API/SSH credentials, `.local`, Studio databases, uploaded references/videos, generated media, model weights and raw GPU captures out of Git. Raw capture bundles belong under ignored `backups/`.
+- Work offline whenever possible. The user controls pausing and unpausing the rented GPU. Capture what is needed before they pause; finish independent implementation and checks before requesting GPU validation. Do not automatically start/resume a paused instance or submit new paid test renders without the user's authorization.
+- Healthy GPU setup has no elapsed-time stop. Slow setup shows a yellow warning/toast; actual failures show red messages/toasts and request a compute stop. Preserve downloaded models on failure. Keep manual instance stop/destroy controls available.
+- For realism work, compare synchronized source/output frames and saved conditioning masks. Check scale, placement, occlusions, lighting and temporal consistency. Preserve originals and settings, distinguish measured results from hypotheses, and do not promise perfect realism from an untested change.

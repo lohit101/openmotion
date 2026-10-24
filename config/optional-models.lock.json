@@ -1,0 +1,14 @@
+{
+  "total_bytes": 1226936552,
+  "files": [
+    {
+      "repo": "Comfy-Org/SCAIL-2",
+      "revision": "fe3c728bc793ba21ca674688f822afb709ad44fb",
+      "filename": "loras/wan2.1_SCAIL_2_relight_lora_bf16.safetensors",
+      "destination": "loras/wan2.1_SCAIL_2_relight_lora_bf16.safetensors",
+      "size": 1226936552,
+      "sha256": "538056c306179bb82e88f8e965609e7ebf99fbf2caa8b9e49db6a718974c3d7b",
+      "license": "mit"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "supports_preview_metadata": true,
+  "supports_model_type_tags": true,
+  "max_upload_size": 536870912.0,
+  "extension": {
+    "manager": {
+      "supports_v4": true
+    }
+  },
+  "node_replacements": true,
+  "assets": false
+}

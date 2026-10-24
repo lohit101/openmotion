@@ -1,0 +1,106 @@
+{
+  "date": "2026-10-24",
+  "app": "Recast Studio",
+  "local_url": "http://127.0.0.1:3000",
+  "production_build": "passed",
+  "typecheck": "passed",
+  "app_contract_tests": 55,
+  "existing_workflow_tests": 17,
+  "offline_checks": [
+    "Media upload validation and private local draft persistence",
+    "Captured native ComfyUI schema and workflow compilation",
+    "Native progress event counters and stage transitions",
+    "Two-segment assembly: 94 frames at 16 fps with source audio once",
+    "Idempotent render and rental submission",
+    "Targeted prompt cancellation and unconfirmed cancellation recovery",
+    "Accepted render and rental recovery after a lost HTTP response",
+    "Quoted GPU plus storage pricing without double counting",
+    "Pre-rental availability and price-ceiling recheck",
+    "Local API-key file permissions and secret-free public state",
+    "Provider stop and destroy contracts with exact instance-ID confirmation",
+    "Existing Vast SSH public_key records are reused without duplicate registration",
+    "SSH registration races are recovered only after exact-key verification",
+    "Pre-rental retries retain their approved price ceiling and do not duplicate uncertain rentals",
+    "Python compile and shell syntax checks for managed deployment",
+    "Exact ask_contract_id revalidation, hardware identity and hourly/transfer fee ceilings",
+    "Reported VRAM floor excludes hosts advertising a 4090 with only about 22 GiB usable memory",
+    "Local SSH authentication, FFmpeg/FFprobe, deployment package and tunnel-port preflight before rental",
+    "Actual stopped status required; acknowledgement alone does not report stopped compute",
+    "Recovered/null create responses are reconciled without repeating rental creation",
+    "Unconfirmed request/stop blocks another rental and removal of the API key",
+    "Emergency stop of a known rental remains available if the account listing response is malformed",
+    "Long setup produces a warning without elapsed-time compute stop; legacy deadlines are ignored",
+    "Healthy remote setup survives local shutdown and offers reconnection after restart",
+    "Transient offline/provider errors retry; live SSH plus matching GPU can establish readiness when provider status lags",
+    "Setup warnings and real failures produce deduplicated yellow/red toasts; real per-file download percentages are displayed",
+    "ComfyUI process ownership recovery, isolated process-group signals and warning-only slow startup",
+    "Explicit resume waits for in-flight stop checks to avoid a stale stop racing the new setup"
+  ],
+  "visual_checks": {
+    "browser": "Native Google Chrome",
+    "views": [
+      "Creation workspace",
+      "Comparison playback",
+      "Library search",
+      "GPU account onboarding",
+      "Marketplace fixture",
+      "Running/stopped instance fixture",
+      "Corrected historical offer error and live no-rental preflight receipt in native Chrome accessibility tree",
+      "Yellow warning toast and persistent slow-setup panel",
+      "Per-file model download progress",
+      "Red setup failure toast"
+    ],
+    "appearances": [
+      "dark",
+      "light"
+    ],
+    "narrow_viewport": "393 x 852 CSS pixels",
+    "fixture_warning": "Port 3002 uses labeled example offers and disables paid creation. Production has no simulated offers."
+  },
+  "paid_rentals_created_during_ui_work": 0,
+  "gpu_generations_submitted_during_ui_work": 0,
+  "live_ssh_regression_check": {
+    "existing_account_key_recognized": true,
+    "api_requests": [
+      "GET /api/v0/ssh/"
+    ],
+    "registration_requests": 0,
+    "rental_requests": 0
+  },
+  "pending": [
+    "First generation through the frontend on this rebuilt GPU; deployment, models, CUDA and connection have passed live checks",
+    "GPU benchmarks for 20 steps, 704p, 24/30 fps, motion transfer and longer AI continuity"
+  ],
+  "cloud_delivery_audit": {
+    "report": "validation/cloud-delivery-report.json",
+    "checked_at": "2026-10-24T08:25:36.022Z",
+    "app_tests": 55,
+    "python_tests": 17,
+    "live_preflight_families": [
+      "RTX 3090",
+      "RTX 4090",
+      "RTX 5090"
+    ],
+    "instances_before": 0,
+    "instances_after": 0,
+    "paid_rentals_created": 0,
+    "provider_ssh_keys_changed": 0,
+    "setup_stop_guard": "Elapsed-time stop removed at user request. Warning after 15 minutes; real setup failures still request compute stop.",
+    "final_browser_pixel_check": "Native Chrome: yellow warning toast and panel with real-format counters in light mode; red failure toast in dark mode. Isolated port 3002 fixture, paid operations disabled."
+  },
+  "live_setup_session": {
+    "report": "validation/setup-session-report.json",
+    "instance_id": 57490355,
+    "phase": "ready",
+    "cuda": "passed",
+    "models": "All eight files verified, including relighting",
+    "private_tunnel": "passed",
+    "queue": {
+      "running": 0,
+      "pending": 0
+    },
+    "new_rentals_created_during_this_task": 0,
+    "new_generations_submitted_during_this_task": 0,
+    "elapsed_time_stop": false
+  }
+}
