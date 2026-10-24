@@ -1,5 +1,7 @@
 # Realism baseline and next comparison
 
+The later [lighting continuity comparison](lighting-continuity.md) isolates a decoder-induced exposure pulse using the same sampled latent. Continuous decoding removes that pulse in the tested short shot. Its optional eight-step sampling experiment has expression/framing tradeoffs and does not replace Fast as the default.
+
 The GPU capture is complete under the ignored directory `backups/realism-20261024-104150/`. Three user-submitted renders finished and the queue was empty. Inputs, references, normalized source videos, final videos, graph/history records, source and reference masks, continuation tensors, runtime code/configuration and a SQLite backup are available locally. Both capture archives have SHA256 hashes in `validation/realism-baseline.json`; all nine image/video files referenced by ComfyUI history were found in the archive. No new render was submitted for this capture.
 
 Git now records the source/workflow baseline. `AGENTS.md` requires a focused commit after each completed fix or feature. Credentials, user media, the Studio database and raw GPU captures remain ignored. Pause/unpause stays under the user's control; further GPU validation must wait for authorization.

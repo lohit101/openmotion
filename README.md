@@ -71,7 +71,7 @@ Use an on-demand, single-GPU instance for the first setup. The target is:
 
 This CUDA 13 package uses PyTorch 2.11.0 and torchvision 0.26.0. [NVIDIA documents the CUDA 13 driver requirements](https://docs.nvidia.com/deploy/cuda-compatibility/minor-version-compatibility.html). A suitable host driver is necessary even when the container has the right CUDA packages. An older container Python can be replaced automatically with an isolated Python 3.12 runtime.
 
-The seven base model files total **28.619 GB decimal**. The tested relighting adapter adds **1.227 GB**, bringing that bundle to **29.846 GB**. Disk also contains the container environment, a Python environment, temporary frames, uploaded media and results. Additional models, LoRAs or upscalers consume extra space. Inspect the host's disk and download-bandwidth rates before renting; model downloads are billed by some Vast hosts.
+The seven base model files total **28.619 GB decimal**. The tested relighting adapter adds **1.227 GB**, bringing that bundle to **29.846 GB**. Managed Studio setup also installs the **0.631 GB** T2V acceleration adapter for its optional Natural preset: **30.477 GB** total model files. Disk also contains the container environment, a Python environment, temporary frames, uploaded media and results. Additional models, LoRAs or upscalers consume extra space. Inspect the host's disk and download-bandwidth rates before renting; model downloads are billed by some Vast hosts.
 
 Do not choose a huge all-in-one ComfyUI template for this package. It installs a separate, pinned ComfyUI into `/workspace/ComfyUI-character-swap` so it does not overwrite another application.
 

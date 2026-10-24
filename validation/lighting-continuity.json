@@ -1,0 +1,183 @@
+{
+  "date": "2026-10-24",
+  "scope": "One user-authorized same-input short-shot lighting comparison on the retained RTX 3090, plus decoding the exact same sampled latent with old settings",
+  "libraryTitle": "Lighting continuity \u00b7 Natural 8 \u00b7 same inputs",
+  "output": {
+    "width": 704,
+    "height": 1248,
+    "fps": 24,
+    "frames": 36,
+    "generatedFrames": 37,
+    "durationSeconds": 1.5,
+    "elapsedSeconds": 437.558,
+    "sha256": "f23330f16b9f063aeb4090ae23903a485c8715fbc3830c9d990c9a320d6aba37"
+  },
+  "settings": {
+    "mode": "swap",
+    "preset": "natural",
+    "resolution": "704",
+    "orientation": "source",
+    "fps": 24,
+    "seconds": 1.5,
+    "start": 0,
+    "seed": 20261024,
+    "relight": true,
+    "relightStrength": 1,
+    "dpoStrength": 1,
+    "framesPerPass": 81,
+    "loraA": "None",
+    "loraB": "None"
+  },
+  "sampling": {
+    "steps": 8,
+    "cfg": 1,
+    "sampler": "euler",
+    "shift": 5,
+    "acceleration": "lightx2v_T2V_14B_cfg_step_distill_v2_lora_rank64_bf16.safetensors",
+    "accelerationStrength": 0.8
+  },
+  "parity": {
+    "sameSourceAsset": true,
+    "sameReferenceAsset": true,
+    "samePreparedSourceBytes": true,
+    "baselineSettingsDifferences": {
+      "preset": {
+        "baseline": "fast",
+        "candidate": "natural"
+      },
+      "relight": {
+        "baseline": false,
+        "candidate": true
+      }
+    },
+    "sameSourceRelativeReferencePreparation": true,
+    "additionalPrimaryGraphChanges": [
+      "native VAEDecode instead of VAEDecodeTiled",
+      "optional SaveLatent diagnostic output"
+    ]
+  },
+  "decoderOnlyControl": {
+    "sampledLatentSha256": "2313ab2fff0f2d7a8a8fef904f54a855be4f49df4250c0b56a8e45cd9acd6c7e",
+    "latentIndependentlyVerified": true,
+    "diffusionSamplers": 0,
+    "oldDecoder": {
+      "class_type": "VAEDecodeTiled",
+      "inputs": {
+        "samples": [
+          "52",
+          0
+        ],
+        "vae": [
+          "35",
+          0
+        ],
+        "tile_size": 512,
+        "overlap": 128,
+        "temporal_size": 32,
+        "temporal_overlap": 8
+      }
+    },
+    "sameVAEAndExportConditions": true,
+    "completed": true
+  },
+  "ceilingExposure": {
+    "method": "Motion-compensated adjacent-frame median log2 linear-luminance ratio in a selected stable ceiling patch; descriptors are not whole-image or perceptual quality scores",
+    "source": {
+      "atFrame24EV": 0.0,
+      "maxAbsoluteAdjacentEV": 9.54498136707116e-06,
+      "p95AbsoluteAdjacentEV": 0.0
+    },
+    "earlierFastTiled": {
+      "atFrame24EV": 0.15176647901535034,
+      "maxAbsoluteAdjacentEV": 0.15176647901535034,
+      "p95AbsoluteAdjacentEV": 0.07795173153281208
+    },
+    "candidateContinuous": {
+      "atFrame24EV": 0.0,
+      "maxAbsoluteAdjacentEV": 0.0,
+      "p95AbsoluteAdjacentEV": 0.0
+    },
+    "sameLatentTiled": {
+      "atFrame24EV": 0.1303226351737976,
+      "maxAbsoluteAdjacentEV": 0.1303226351737976,
+      "p95AbsoluteAdjacentEV": 0.06105453148484221
+    }
+  },
+  "framing": {
+    "earlierFast": {
+      "samples": 5,
+      "headScaleMin": 0.9160237525205717,
+      "headScaleMax": 1.006079545642621,
+      "maxAbsoluteHorizontalOffsetFraction": 0.006597300737106293,
+      "maxAbsoluteVerticalOffsetFraction": 0.004199695587158159,
+      "allScaleAndPositionChecksPass": true
+    },
+    "candidateNatural": {
+      "samples": 5,
+      "headScaleMin": 0.927204575786393,
+      "headScaleMax": 1.0040379388128768,
+      "maxAbsoluteHorizontalOffsetFraction": 0.026324789462494058,
+      "maxAbsoluteVerticalOffsetFraction": 0.01874133745829265,
+      "allScaleAndPositionChecksPass": true
+    },
+    "measurementLimit": "Face boxes measure apparent head scale/center, not physical camera depth, whole-body pose, or identity similarity"
+  },
+  "visualReview": {
+    "observed": [
+      "Visible later exposure pulse removed with continuous decoding and recreated by same-latent tiled control",
+      "Less pronounced mid-shot smoothing in the combined candidate; individual sampler/relight contributions not isolated",
+      "Reference hair/outfit and broad appearance remain recognizable",
+      "Source deliberately holds an open-mouth expression and sideward gaze"
+    ],
+    "remainingIssues": [
+      "Candidate sometimes reduces mouth opening and increases brow furrowing relative to source",
+      "Partly lowered eyelids remain",
+      "Center positioning is less precise than earlier Fast control, though sampled checks pass",
+      "Background is regenerated; no pixel-exact preservation or general identity guarantee"
+    ]
+  },
+  "decision": {
+    "newJobs": "continuous-v1 native VAEDecode",
+    "historicalContinuations": "Previous decoder preserved for jobs without renderVersion",
+    "defaultPreset": "fast",
+    "naturalPreset": "optional experimental; not promoted based on mixed acting/framing result",
+    "savedDraftPreserved": true,
+    "sourcePerformanceShouldBePreserved": true
+  },
+  "memory": {
+    "samples": 115,
+    "maximumObservedUsedGiB": 21.040371233597398,
+    "limitation": "Sampled across primary render and decoder diagnostic; not a guaranteed peak or an isolated decoder memory benchmark"
+  },
+  "connectionRecovery": {
+    "transientReadInterruptedMonitor": true,
+    "sameNativePromptRecovered": true,
+    "duplicateDiffusionSubmissions": 0,
+    "fix": "Safe GETs: 45-second deadline, at most three attempts, abortable 500/1000ms backoff; POSTs never replayed automatically"
+  },
+  "lifecycle": {
+    "newRentals": 0,
+    "newDiffusionRenders": 1,
+    "decoderOnlyControls": 1,
+    "computeStoppedConfirmed": true,
+    "pausedAt": "2026-10-24T12:27:41.034244+00:00",
+    "libraryPlaybackVerifiedWhileGpuOffline": true
+  },
+  "limitations": [
+    "One short single-person shot, no long-shot/30fps quality proof",
+    "Lighting control isolates decoder effect; combined primary changes do not isolate relight vs sampler effect",
+    "No automated identity or expression-fidelity score",
+    "Native VAE may fall back to tiled decoding for other memory conditions"
+  ],
+  "artifacts": "Raw user media, graphs, history, latent, dense comparison sheets and telemetry retained only in ignored local storage",
+  "validation": {
+    "studioTests": {
+      "files": 9,
+      "passed": 99,
+      "failed": 0
+    },
+    "typescriptAndProductionBuild": "passed",
+    "standaloneWorkflowSchemaAndWiring": "passed",
+    "applicationRestartedWithReadRecoveryFix": true
+  }
+}
