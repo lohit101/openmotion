@@ -1,0 +1,109 @@
+{
+  "checkedUTC": "2026-10-24T19:27:21.597832+00:00",
+  "instanceId": 57550828,
+  "gpu": "NVIDIA RTX A6000",
+  "status": "SSH repaired; runtime installed; Recast connected",
+  "authorization": "User explicitly approved repair and resume of this existing rental, without a new rental or test render.",
+  "cause": "OpenSSH refused the attached key because /root/.ssh/authorized_keys ownership or permissions were unacceptable.",
+  "repair": {
+    "startupScriptUpdatedViaProviderAPI": true,
+    "normalStopStartAppliedChangedStartupScript": false,
+    "emptyContainerRecreatedInPlace": true,
+    "diskUsageGBBeforeRecreation": 0.0013000000035390258,
+    "projectOrModelInstallationHadStartedBeforeRecreation": false,
+    "sameRentalIdAndImageRetained": true,
+    "installedStartupScriptMatchesLocalSHA256": true,
+    "startupScriptSHA256": "0af42f29d455704af2deaa54343666b2d8ee494fbd7b96bc31d465ff155bc2b1",
+    "sshPermissions": {
+      "/root": {
+        "uid": 0,
+        "gid": 0,
+        "mode": "0700"
+      },
+      "/root/.ssh": {
+        "uid": 0,
+        "gid": 0,
+        "mode": "0700"
+      },
+      "/root/.ssh/authorized_keys": {
+        "uid": 0,
+        "gid": 0,
+        "mode": "0600"
+      }
+    },
+    "hostKeyChecking": "StrictHostKeyChecking=yes for verification; no saved host key removed or bypassed",
+    "strictModesDisabled": false,
+    "sshKeysAddedRemovedOrReplaced": false
+  },
+  "integration": {
+    "managedConnectionInstanceId": 57550828,
+    "dashboardPhase": "ready",
+    "dashboardConnection": "online",
+    "cudaDevices": [
+      {
+        "name": "cuda:0 NVIDIA RTX A6000 : cudaMallocAsync",
+        "type": "cuda",
+        "vram_total": 50891784192
+      }
+    ],
+    "pytorchVersion": "2.11.0+cu130",
+    "runtimeInstallerExit": "0",
+    "runtimeDoctorChecks": [
+      {
+        "check": "CUDA runtime",
+        "ok": true,
+        "detail": {
+          "name": "NVIDIA RTX A6000",
+          "torch": "2.11.0+cu130",
+          "cuda": "13.0",
+          "effective_system_RAM_GB": 183.23,
+          "vram_GB": 50.89
+        }
+      },
+      {
+        "check": "Video tools",
+        "ok": true,
+        "detail": "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers"
+      },
+      {
+        "check": "Live workflow schemas",
+        "ok": true,
+        "detail": "Runtime workflow schemas match; model downloads are manual"
+      }
+    ],
+    "modelAvailabilityError": null,
+    "modelStatuses": {
+      "missing": 9
+    },
+    "modelWeightOrPartialFiles": 0,
+    "modelWeightBytes": 0,
+    "downloadQueueBusy": false,
+    "comfyQueueRunning": 0,
+    "comfyQueuePending": 0,
+    "freshComfyHistoryEntries": 0
+  },
+  "scope": {
+    "newRentalRequests": 0,
+    "agentModelDownloadRequests": 0,
+    "agentRenderSubmissions": 0,
+    "automaticRecyclingAddedToApp": false,
+    "runtimeChecksAreNotAnInferenceBenchmark": true
+  },
+  "billing": {
+    "computeRunningAtCompletion": true,
+    "reportedRunningTotalHourlyUSD": 0.3511111111111111,
+    "reportedStorageHourlyUSD": 0.017777777777777778,
+    "reportedComputeHourlyUSD": 0.3333333333333333,
+    "ratesExcludeTransferFees": true
+  },
+  "priorCodeValidation": {
+    "sourceCommit": "bb85574",
+    "studioTestsPassed": 142,
+    "pythonPermissionRegressionTestsPassed": 4,
+    "pythonExistingToolsTestsPassed": 18,
+    "pythonModelProfileTestsPassed": 6,
+    "typescriptAndProductionBuild": "passed"
+  },
+  "diagnosisReport": "validation/ssh-permissions-57550828.json",
+  "rawArtifacts": "Ignored backups/ssh-failure-57550828/"
+}
