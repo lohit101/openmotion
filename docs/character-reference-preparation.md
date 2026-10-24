@@ -6,9 +6,19 @@ The downloaded SCAIL-2 INT8 checkpoint, Wan encoders/VAE, SAM tracker and speed/
 
 The DPO, LightX2V and relighting adapters modify SCAIL/Wan video inference. INT8 describes weight representation; it does not make those adapters compatible with Qwen, SDXL or FLUX. Keep each architecture's adapters on its own branch.
 
-## Smaller preparation branch to test first
+## Selection requirement: uncensored local models
 
-For the lowest-cost first experiment, use **FLUX.2 Klein 4B FP8**, its Qwen3 4B text encoder, and the FLUX.2 VAE. [Black Forest Labs documents multi-reference editing and consumer-GPU support](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B), and [ComfyUI provides native editing workflows](https://docs.comfy.org/tutorials/flux/flux-2-klein). The 4B model has an Apache-2.0 license; this should not be confused with the differently licensed 9B variant.
+The user explicitly requires uncensored models to reduce workflow friction, alongside identity consistency, low storage/VRAM and compatible LoRAs. The stock-model size comparisons below do not establish that requirement and are not a final model selection. In particular, [BFL's stock Klein model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B#responsible-ai-development) documents safety fine-tuning and filtering in its reference implementation. Stock Klein should not have been the first recommendation without resolving this mismatch. A local graph without filter nodes does not undo behavior learned by a checkpoint.
+
+The revised image-editor candidate is **Phr00t/Qwen-Image-Edit-Rapid-AIO's NSFW variant**, which the [publisher explicitly distinguishes from its SFW variant](https://huggingface.co/Phr00t/Qwen-Image-Edit-Rapid-AIO/raw/main/README.md). The publisher favors v19 for edit consistency and v23 for prompt adherence; both are comparison candidates. This is evidence of a purpose-built variant, not proof of unrestricted behavior or identity quality on our inputs. The AIO integrates encoders, VAE and acceleration; do not combine its storage estimate with the separate stock-Qwen bundle or stack our Wan speed/relight adapters onto it. Neither candidate has been downloaded or tested here.
+
+At publisher revision `691024f438640508f8aa86414863fc15edfb8a84`, v19 is 28,431,843,583 bytes and v23 is 28,431,840,023 bytes: approximately **28.432 GB for one AIO file**, including its bundled components. Inspect actual available disk before downloading; do not fetch both versions by default. v19's SHA256 is `ba71575515709c9912560d1176b2386eaa49294fedc6ce57b9734aa57e91e5ac`; v23's is `fdb919fc81bea63f13759967fc92c9118142e5c70d4e6795199233a35eefa233`. These are file-metadata checks, not GPU compatibility or quality results.
+
+Repositories labelled “uncensored text encoder” modify only one component. They do not establish the image transformer's behavior, a reliable face/body edit, or compatibility with the current loader. One smaller [GGUF image-edit candidate](https://huggingface.co/ChrisColeTech/qwen-image-edit-uncensored-GGUF) even states that editing is not its strength; its “uncensored” name is insufficient to select it for this task. Keep the video branch and optional image branch separate, and test face likeness, target-body preservation, lighting and requested edit adherence before choosing the default. Do not add prompt-blocking services to this workflow.
+
+## Stock Klein storage comparison
+
+The stock **FLUX.2 Klein 4B FP8** bundle uses its Qwen3 4B text encoder and FLUX.2 VAE. [Black Forest Labs documents multi-reference editing and consumer-GPU support](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B), and [ComfyUI provides native editing workflows](https://docs.comfy.org/tutorials/flux/flux-2-klein). The 4B model has an Apache-2.0 license; this should not be confused with the differently licensed 9B variant. These are size/capability facts, not an uncensored-model endorsement.
 
 | Additional file | Size, decimal GB | Source |
 |---|---:|---|
@@ -17,7 +27,7 @@ For the lowest-cost first experiment, use **FLUX.2 Klein 4B FP8**, its Qwen3 4B 
 | `flux2-vae.safetensors` | 0.336 | [Comfy-Org VAE](https://huggingface.co/Comfy-Org/Flux-2-Klein-4B/tree/main/split_files/vae) |
 | **Additional model storage** | **12.452** | One distilled editor, not both base and distilled weights |
 
-This is the more economical first face/body editing candidate. BFL reports roughly 13 GB VRAM for its 4B model; that is a publisher figure, not our measured peak for two-reference face editing. Our 24 GB RTX 3090/4090 target is reasonable, with offloading available if needed. The distilled variant uses four steps. Face likeness, neck blending and preservation of the target body still require our own comparison; fast inference or a small checkpoint does not prove high identity accuracy. Model-specific image LoRAs are separate from the existing Wan slots. A smaller FP4 encoder also exists, but the initial estimate retains the standard encoder to avoid introducing another quantization variable.
+BFL reports roughly 13 GB VRAM for its 4B model; that is a publisher figure, not our measured peak for two-reference face editing. Our 24 GB RTX 3090/4090 target is reasonable, with offloading available if needed. The distilled variant uses four steps. Face likeness, neck blending and preservation of the target body still require our own comparison; fast inference or a small checkpoint does not prove high identity accuracy. Model-specific image LoRAs are separate from the existing Wan slots. A smaller FP4 encoder also exists, but the initial estimate retains the standard encoder to avoid introducing another quantization variable.
 
 ## Larger comparison candidate
 

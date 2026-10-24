@@ -8,7 +8,7 @@ GPU cloud includes a **Check configuration · no rental** action, exact rental-a
 
 The prompt now has a reusable scene-preserving default. Leave it unchanged, clear it to use the same base automatically, or add a short refinement. Known old demo prompts are migrated without rewriting historical renders. See [prompt behavior](docs/prompt-harness.md) and the [captured realism review](docs/realism-review.md); improved framing still needs a controlled GPU comparison.
 
-Still-image face/body preparation needs an additional image editor. [The compatibility and handoff review](docs/character-reference-preparation.md) compares a smaller Klein 4B branch with Qwen Image Edit, their extra storage, and separate character views. Neither branch has been installed or GPU-validated.
+Still-image face/body preparation needs an additional image editor that meets the user's uncensored-model preference. [The compatibility and handoff review](docs/character-reference-preparation.md) records Phr00t's Qwen Edit Rapid AIO NSFW variants as revised candidates, retains stock-model storage comparisons, and explains separate character views. No image branch has been installed or GPU-validated.
 
 The generation has no added content-filter nodes or hosted generation API. Existing LoRAs can be loaded locally. Different model architectures need their own compatible branch; a Wan 2.2 I2V LoRA or checkpoint is not automatically interchangeable with SCAIL-2.
 
