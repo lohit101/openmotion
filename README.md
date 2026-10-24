@@ -8,6 +8,8 @@ GPU cloud includes a **Check configuration · no rental** action, exact rental-a
 
 The prompt now has a reusable scene-preserving default. Leave it unchanged, clear it to use the same base automatically, or add a short refinement. Known old demo prompts are migrated without rewriting historical renders. See [prompt behavior](docs/prompt-harness.md) and the [captured realism review](docs/realism-review.md); improved framing still needs a controlled GPU comparison.
 
+Still-image face/body preparation needs an additional image editor. [The compatibility and handoff review](docs/character-reference-preparation.md) compares a smaller Klein 4B branch with Qwen Image Edit, their extra storage, and separate character views. Neither branch has been installed or GPU-validated.
+
 The generation has no added content-filter nodes or hosted generation API. Existing LoRAs can be loaded locally. Different model architectures need their own compatible branch; a Wan 2.2 I2V LoRA or checkpoint is not automatically interchangeable with SCAIL-2.
 
 The initial validation passed local CPU checks and two real RTX 3090 generations: 3 seconds at 832 × 480, 16 fps and 6 steps. The first run took 130 seconds through the client; adding the SCAIL-2 relighting LoRA produced a better blended result in 105 seconds with cached conditioning. The demo still has clothing/detail variation, and the small face does not establish close-up identity fidelity. Long-video GPU continuity remains untested. See `validation/gpu-report.json` and `outputs/first-gpu-test/`. Consistency is a quality target; the graph cannot guarantee an indistinguishable result on every input.

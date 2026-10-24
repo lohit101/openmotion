@@ -16,10 +16,10 @@ The source mask selects the large foreground person, rather than a small backgro
 
 ## Changes to evaluate
 
-1. Replace the demo-specific default with instructions that assign identity/outfit to the reference and camera/background/position/scale to the source. Keep user prompts as optional refinements and avoid carrying an untouched demo prompt into new inputs.
+1. The demo-specific default is now replaced with descriptive text that assigns identity/outfit to the reference and camera/background/position/scale to the source. Empty and short user prompts are supported, and exact known demo text migrates without rewriting historical jobs. The implementation is committed and tested offline; its visual effect still needs the isolated comparison. See `docs/prompt-harness.md`.
 2. Prepare a source-relative reference using face/torso anchors and matching transforms for its image and identity mask. A whole-body bounding-box fit alone is insufficient when the source is cropped at the waist. Keep a fallback for unreliable detection and expose diagnostics before making this the default.
 3. Evaluate preservation of the original background and occlusion boundaries. Any compositing must handle the old subject's exposed regions and the replacement silhouette; a simple hard mask can leave ghosts or clipped clothing.
 
 Use the same inputs, seed, frame window and sampler for prompt-only and geometry comparisons. Measure normalized face/torso placement, scale, background changes, mask edge quality and temporal drift. Keep the current videos as controls. Additional LoRAs or more steps are not established fixes for these geometry errors.
 
-The queued still-image face/body preparation and character-profile workflow is a separate follow-up. The present capture/review does not claim that the installed video model is a validated face-swap editor.
+Still-image face/body preparation is documented in `docs/character-reference-preparation.md`. It needs an additional image model. Klein 4B is the smaller first-test candidate; Qwen Image Edit 2511 is a larger comparison candidate. No image weights or paid renders have been added. The present capture/review does not claim that the installed video model is a validated face-swap editor.
