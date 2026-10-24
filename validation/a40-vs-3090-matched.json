@@ -1,0 +1,193 @@
+{
+  "date": "2026-10-24",
+  "scope": "User-started matched-settings A40 follow-up against the historical RTX 3090 Natural baseline; observed without changing or resubmitting the render",
+  "settings": {
+    "mode": "swap",
+    "preset": "natural",
+    "resolution": "704",
+    "orientation": "source",
+    "fps": 24,
+    "seconds": 5,
+    "start": 0,
+    "seed": 20261024,
+    "relight": true,
+    "relightStrength": 1,
+    "dpoStrength": 1,
+    "framesPerPass": 81,
+    "loraA": "None",
+    "loraB": "None",
+    "width": 704,
+    "height": 1248,
+    "outputFrames": 120,
+    "stepsPerSection": 8,
+    "cfg": 1,
+    "sampler": "euler",
+    "shift": 5,
+    "speedAdapterStrength": 0.8,
+    "attention": "PyTorch SDPA"
+  },
+  "inputParity": {
+    "sameOriginalSource": true,
+    "sameOriginalReference": true,
+    "allSavedSettingsIdentical": true,
+    "promptAndNegativePromptIdentical": true,
+    "preparedSource": {
+      "sameBytes": true,
+      "sha256A40": "7b1cb84534dfb9513e7e3c5d2bc67b16995815fa7cb7b34180b97ce63266bc86",
+      "sha2563090": "7b1cb84534dfb9513e7e3c5d2bc67b16995815fa7cb7b34180b97ce63266bc86"
+    },
+    "alignedReference": {
+      "sameBytes": true,
+      "sha256A40": "0333d89dd4749f83601e9649d4099d7c59c13b4dce7b344ffb9d4b901d4a230e",
+      "sha2563090": "0333d89dd4749f83601e9649d4099d7c59c13b4dce7b344ffb9d4b901d4a230e"
+    },
+    "firstGraphInputDifferences": [
+      {
+        "node": "2",
+        "field": "video"
+      },
+      {
+        "node": "46",
+        "field": "filename_prefix"
+      },
+      {
+        "node": "4",
+        "field": "image"
+      }
+    ],
+    "graphDifferenceExplanation": "Only GPU upload filenames and export prefix differ; input content hashes match. Generation controls are unchanged."
+  },
+  "runs": {
+    "rtx3090": {
+      "gpu": "RTX 3090",
+      "elapsedSeconds": 2061.978,
+      "quotedRunningHourlyUSD": 0.19555555555555557,
+      "estimatedRenderUSD": 0.11200868148148149,
+      "sections": [
+        {
+          "frames": 81,
+          "seconds": 1479.542
+        },
+        {
+          "frames": 39,
+          "seconds": 558.514
+        }
+      ],
+      "framingCheck": "matched"
+    },
+    "a40": {
+      "gpu": "A40",
+      "elapsedSeconds": 1034.002,
+      "quotedRunningHourlyUSD": 0.41777777777777775,
+      "estimatedRenderUSD": 0.11999529382716048,
+      "sections": [
+        {
+          "frames": 81,
+          "seconds": 729.947
+        },
+        {
+          "frames": 39,
+          "seconds": 291.34
+        }
+      ],
+      "framingCheck": "matched"
+    }
+  },
+  "result": {
+    "a40SpeedMultiple": 1.9941721582743555,
+    "timeReductionPercent": 49.85387816940822,
+    "a40CostPremiumUSD": 0.00798661234567899,
+    "a40CostPremiumPercent": 7.130351183536976,
+    "a40BreakEvenHourlyUSDAtObservedTime": 0.3899714442847629,
+    "rtx3090BreakEvenHourlyUSDAtObservedTime": 0.20949935342558346,
+    "conclusion": "At these saved rental rates, A40 halves the wait but costs about 0.8 US cents (7.1%) more per five-second render. This matched run does not show per-render savings versus the old RTX 3090 contract."
+  },
+  "samplingObservation": {
+    "rtx3090SteadySecondsPerStep": {
+      "firstSection": 178.96,
+      "secondSection": 65.9
+    },
+    "a40SteadySecondsPerStep": {
+      "firstSection": 81.88,
+      "secondSection": 31.57
+    },
+    "source": "Native ComfyUI log excerpts; RTX 3090 excerpts were recorded earlier before that rental was destroyed; A40 raw logs retained in ignored backups"
+  },
+  "cacheAndHistory": {
+    "a40": [
+      {
+        "nativeExecutionSeconds": 725.743,
+        "cachedNodes": []
+      },
+      {
+        "nativeExecutionSeconds": 286.889,
+        "cachedNodes": [
+          "4",
+          "6",
+          "7",
+          "8",
+          "20",
+          "30",
+          "31",
+          "32",
+          "33",
+          "35",
+          "41"
+        ]
+      }
+    ],
+    "rtx3090": [
+      {
+        "nativeExecutionSeconds": 1477.114,
+        "cachedNodes": [
+          "6",
+          "7",
+          "8",
+          "20",
+          "30",
+          "31",
+          "32",
+          "33",
+          "35",
+          "41"
+        ]
+      },
+      {
+        "nativeExecutionSeconds": 554.745,
+        "cachedNodes": [
+          "4",
+          "6",
+          "7",
+          "8",
+          "20",
+          "30",
+          "31",
+          "32",
+          "33",
+          "35",
+          "41"
+        ]
+      }
+    ]
+  },
+  "limitations": [
+    "One observation per host, not a repeated statistical benchmark",
+    "GPU power limits, CPU/RAM allocation and cache state differ: first RTX 3090 section reused cached nodes, while the A40 first section reported no cached nodes",
+    "Results describe these rented hosts and workflow, not a universal A40-versus-3090 architecture comparison",
+    "No visual identity-quality score or accepted-output rate measured; sampled framing checks pass",
+    "Historical RTX 3090 hourly rate may not be available for a new rental"
+  ],
+  "billingMethod": "Measured client elapsed seconds / 3600 \u00d7 saved running quote. Includes allocated storage during rendering, excludes setup/transfer, idle compute, storage outside the render interval and taxes. Estimates are not reconciled invoices.",
+  "validation": {
+    "output": "FFprobe confirms 704\u00d71248, 24 fps, 120 frames, 5.000 seconds and audio",
+    "arithmetic": "Verified against saved elapsed times and running quotes",
+    "inputContent": "SHA256 equality checked for prepared source and aligned reference"
+  },
+  "lifecycle": {
+    "newPaidRendersSubmittedByAgent": 0,
+    "renderSettingsChangedByAgent": false,
+    "startStopDestroyActionsSentByAgent": 0,
+    "gpuLeftUnderUserControl": true
+  },
+  "rawArtifacts": "Ignored backups/a40-comparison-20261024/matched-24fps/"
+}

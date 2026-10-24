@@ -91,6 +91,8 @@ The local frontend, real GPU submission, completed-media download and offline li
 
 The first user-started A40 observation completed a five-second 704 × 1248 Natural / 8-step render at **16 fps in 12m22s**, estimated at **$0.086** using its $0.418/hour running quote. The previous RTX 3090 Natural run used **24 fps**, took **34m22s** and cost an estimated **$0.112** at $0.196/hour. These are different frame workloads, not a controlled hardware-only benchmark. Similar 81-frame sections were about twice as fast on the A40, with roughly similar/slightly higher section cost; fresh setup/transfer and idle charges are additional. See [the saved comparison](../validation/a40-vs-3090.json) for controls, telemetry and limitations. No extra paid benchmark was submitted.
 
+A follow-up with **identical settings and byte-identical prepared inputs** completed on A40 in **17m14s** at 704 × 1248, **24 fps**, five seconds and Natural / 8 steps, versus **34m22s** on the old RTX 3090. At the saved rates, estimated render cost was **$0.120 versus $0.112**: about half the wait for a 7.1% cost premium. This supersedes the mixed-fps observation as the relevant same-settings comparison. One run per host and differing cache/power/system conditions limit generalization; setup, idle and transfer costs remain extra. See [the matched comparison](../validation/a40-vs-3090-matched.json).
+
 ## Development
 
 ```bash
