@@ -93,6 +93,8 @@ The first user-started A40 observation completed a five-second 704 × 1248 Natur
 
 A follow-up with **identical settings and byte-identical prepared inputs** completed on A40 in **17m14s** at 704 × 1248, **24 fps**, five seconds and Natural / 8 steps, versus **34m22s** on the old RTX 3090. At the saved rates, estimated render cost was **$0.120 versus $0.112**: about half the wait for a 7.1% cost premium. This supersedes the mixed-fps observation as the relevant same-settings comparison. One run per host and differing cache/power/system conditions limit generalization; setup, idle and transfer costs remain extra. See [the matched comparison](../validation/a40-vs-3090-matched.json).
 
+See [the influencer LoRA research](../docs/influencer-lora-research.md) for publisher evidence and the limits of generic realism adapters. No additional adapters have been installed or promoted to default.
+
 ## Development
 
 ```bash
