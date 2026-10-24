@@ -12,4 +12,8 @@ finish() {
   mv "$RECAST_ROOT/state/managed-provision.exit.tmp" "$RECAST_ROOT/state/managed-provision.exit"
 }
 trap finish EXIT
+if [[ -s "$RECAST_ROOT/state/managed-provision.log" ]]; then
+  cp "$RECAST_ROOT/state/managed-provision.log" "$RECAST_ROOT/state/managed-provision.previous.log"
+  : > "$RECAST_ROOT/state/managed-provision.log"
+fi
 python3 -u "$RECAST_ROOT/scripts/setup_required.py"

@@ -1,0 +1,48 @@
+{
+  "checkedUTC": "2026-10-24T20:13:15.623629+00:00",
+  "featureCommit": "a5afd51",
+  "instanceId": 57550828,
+  "currentPhase": "installing",
+  "computeRunningForAuthorizedSetup": true,
+  "requiredFileCount": 8,
+  "requiredBundleBytes": 29738555883,
+  "receivedOrReusedBytes": 22192321147,
+  "verifiedFiles": 4,
+  "checkpointPartialBeforeMigrationBytes": 8610906112,
+  "checkpointBytesAfterResume": 11324620800,
+  "resumePreservedExistingCheckpointBytes": true,
+  "optionalFilesInAutomaticPlan": false,
+  "optionalLoraDownloadsRequestedByAgent": 0,
+  "renderSubmissionsByAgent": 0,
+  "actualRenderBenchmark": false,
+  "liveStorageDeletion": {
+    "fixtureCreatedByAgent": true,
+    "fixtureOnly": true,
+    "freedBytes": 131168,
+    "fileRemovedAndInventoryUpdated": true
+  },
+  "transportRepair": {
+    "onlyKnownTransientSshTransportErrorsRetry": true,
+    "authenticationAndHostIdentityFailuresRemainFatal": true,
+    "strictHostKeyCheckingWeakened": false,
+    "elapsedSetupTimeCutoffAdded": false,
+    "rawSshCommandInNewErrorToast": false,
+    "setupLogsRotatedForNewInstall": true
+  },
+  "validation": {
+    "studioTestsPassed": 146,
+    "productionBuild": "passed",
+    "pythonSshPermissionTestsPassed": 4,
+    "pythonSshTransportTestsPassed": 3,
+    "pythonModelProfileTestsPassed": 7,
+    "pythonStorageTestsPassed": 4,
+    "pythonConcurrentSetupTestsPassed": 2,
+    "pythonExistingToolsTestsPassed": 18,
+    "liveUi": "Chrome Settings \u2192 Extras: only optional rows; required models excluded; Preparing GPU header verified."
+  },
+  "limitations": [
+    "Required weights are still downloading at this snapshot; final readiness is gated by model integrity, CUDA and workflow checks.",
+    "Instagooner has matching layer dimensions and a publisher-matching pinned hash; its SCAIL-2 video results are unbenchmarked."
+  ],
+  "rawArtifacts": "Ignored backups/automatic-setup-extras/"
+}

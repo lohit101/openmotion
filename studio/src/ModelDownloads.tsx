@@ -3,7 +3,7 @@ import { ArrowClockwise, ArrowSquareOut, CaretDown, Check, CheckCircle, Download
 import { modelDefinitions, modelBytes, setupModelFiles, type ModelsState } from '../shared/models';
 import './models.css';
 
-export interface DownloadControls { state: ModelsState; online: boolean; blocked: boolean; download: (files: string[]) => void; remove: (name: string) => void; }
+export interface DownloadControls { state: ModelsState; online: boolean; blocked: boolean; settingUp?: boolean; download: (files: string[]) => void; remove: (name: string) => void; }
 export const modelSize = (bytes: number) => bytes >= 1e9 ? `${(bytes / 1e9).toFixed(2)} GB` : bytes >= 1e6 ? `${Math.round(bytes / 1e6)} MB` : bytes >= 1e3 ? `${Math.round(bytes / 1e3)} KB` : `${bytes} B`;
 export function DownloadButton({ files, controls, label, size = false }: { files: string[]; controls: DownloadControls; label: string; size?: boolean }) {
   files = files.filter(id => !setupModelFiles.includes(id));
@@ -15,7 +15,7 @@ export function DownloadButton({ files, controls, label, size = false }: { files
   const percent = states.find(file => file?.status === 'downloading')?.percent;
   const bytes = modelDefinitions.filter(file => needed.includes(file.id)).reduce((sum, file) => sum + file.size, 0);
   const ready = !needed.length;
-  const title = ready ? files.length ? `${label}: installed` : `${label}: no extra file needed` : !controls.online ? `Connect GPU to download ${label}` : active ? `${label}: download in progress` : `${failed ? 'Retry' : 'Download'} ${label} · ${modelSize(bytes)}`;
+  const title = ready ? files.length ? `${label}: installed` : `${label}: no extra file needed` : controls.settingUp ? `Finish GPU setup before downloading ${label}` : !controls.online ? `Connect GPU to download ${label}` : active ? `${label}: download in progress` : `${failed ? 'Retry' : 'Download'} ${label} · ${modelSize(bytes)}`;
   return <button type="button" className={`model-download ${ready ? 'installed' : active ? 'transferring' : failed ? 'failed' : ''}`}
     disabled={ready || active || !controls.online || controls.blocked || controls.state.refreshing || !!controls.state.deleting} title={title} aria-label={title}
     onClick={event => { event.stopPropagation(); controls.download(needed); }}>
@@ -57,7 +57,7 @@ export default function ModelsWorkspace({ controls, required, refresh, cancel, s
   const custom = optional.filter(file => !modelDefinitions.some(definition => definition.id === 'loras/' + file.name));
   const definitions = [...modelDefinitions.filter(file => !file.included), ...custom.map(file => ({ id: 'loras/' + file.name, filename: file.name, size: file.size + (file.partialSize || 0), label: file.name.split('/').at(-1)!, description: 'Your uploaded LoRA', group: 'adapter', included: false, experimental: false, trigger: '', source: '' }))];
   return <section className="models-workspace" aria-label="Optional extras"><div className="models-heading"><div><span className="workspace-overline">MAKE IT YOURS</span><h2>Extras</h2><p>Add styles and features when you need them.</p></div><button className="secondary-button" disabled={controls.state.refreshing || !controls.online} onClick={refresh}><ArrowClockwise size={14} />{controls.state.refreshing ? 'Checking storage…' : 'Refresh'}</button></div>
-    <div className="extras-storage"><HardDrives size={22} /><div><strong>{controls.online ? `${modelSize(used)} used by extras` : 'Connect your GPU to check storage'}</strong><p>{optional.length} extra {optional.length === 1 ? 'LoRA' : 'LoRAs'} on this GPU. Remove files here to make room for others.</p></div></div>
+    <div className="extras-storage"><HardDrives size={22} /><div><strong>{controls.settingUp ? 'Required setup is running' : controls.online ? `${modelSize(used)} used by extras` : 'Connect your GPU to check storage'}</strong><p>{controls.settingUp ? 'Extras become available when required setup finishes.' : controls.online ? `${optional.length} extra ${optional.length === 1 ? 'LoRA' : 'LoRAs'} on this GPU. Remove files here to make room for others.` : 'Installed extras and their storage sizes appear here after connecting.'}</p></div></div>
     <p className="extras-included">The core workflow, Natural acceleration, detail and relighting are included in setup ({modelSize(modelBytes(setupModelFiles))}). <button onClick={setup}>View GPU setup <ArrowSquareOut size={12} /></button></p>
     <p className="models-billing">Extras download to the connected GPU. Compute and transfer/storage rates apply. Downloading a LoRA does not enable it.</p>
     {controls.state.error && <p className="model-page-error" role="alert"><WarningCircle size={16} />{controls.state.error}</p>}

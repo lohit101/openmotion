@@ -43,5 +43,6 @@
     },
     "automaticSetupHandoff": "Existing SSH launch path failed on transient connection refusal; retry repair and live resumption follow in a separate fix."
   },
-  "rawArtifacts": "Ignored backups/automatic-setup-extras/ and backups/lora-research-20261025/"
+  "rawArtifacts": "Ignored backups/automatic-setup-extras/ and backups/lora-research-20261025/",
+  "followUpReport": "validation/required-setup-live-resume.json"
 }

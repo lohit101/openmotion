@@ -112,13 +112,13 @@ def close_tunnel(config):
         subprocess.run(ssh_arguments(config) + ["-S", control_path(config), "-O", "exit", destination(config)], check=True)
 
 
-def tunnel(config, browser=True):
+def tunnel(config, browser=True, capture_stderr=False):
     if not master_running(config):
         with socket.socket() as probe:
             if probe.connect_ex(("127.0.0.1", config["local_port"])) == 0:
                 raise SystemExit("Local port %d is occupied. Configure a different --local-port." % config["local_port"])
         forward = "127.0.0.1:%d:127.0.0.1:%d" % (config["local_port"], config["remote_port"])
-        subprocess.run(ssh_arguments(config) + ["-M", "-S", control_path(config), "-f", "-N", "-o", "ExitOnForwardFailure=yes", "-L", forward, destination(config)], check=True)
+        subprocess.run(ssh_arguments(config) + ["-M", "-S", control_path(config), "-f", "-N", "-o", "ExitOnForwardFailure=yes", "-L", forward, destination(config)], check=True, **({'stderr': subprocess.PIPE} if capture_stderr else {}))
     url = "http://127.0.0.1:%d" % config["local_port"]
     print("ComfyUI: " + url)
     if browser:
@@ -158,7 +158,7 @@ def bundle(path):
                     archive.add(file, arcname=str(file.relative_to(ROOT)), recursive=False)
 
 
-def upload_package(config):
+def upload_package(config, capture_stderr=False):
     LOCAL.mkdir(exist_ok=True)
     path = LOCAL / "deployment.tar.gz"
     bundle(path)
@@ -166,7 +166,7 @@ def upload_package(config):
     command = "mkdir -p %s && tar -xzf - -C %s" % (shlex.quote(root), shlex.quote(root))
     print("Uploading setup files (%.0f KB); model weights are downloaded directly on the GPU host." % (path.stat().st_size / 1024), flush=True)
     with path.open("rb") as stream:
-        subprocess.run(ssh_arguments(config) + ["-T", destination(config), command], stdin=stream, check=True)
+        subprocess.run(ssh_arguments(config) + ["-T", destination(config), command], stdin=stream, check=True, **({'stderr': subprocess.PIPE} if capture_stderr else {}))
 
 
 def setup(config, no_browser=False):

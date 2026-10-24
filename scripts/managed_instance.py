@@ -8,6 +8,7 @@ import socket
 from pathlib import Path
 import shlex
 import subprocess
+import sys
 import time
 from types import SimpleNamespace
 
@@ -22,6 +23,28 @@ def ssh_failure(detail):
         return ('SSH rejected the configured public key. Check the instance container log: if it reports bad ownership or modes for authorized_keys, '
                 'the host must repair /root/.ssh ownership and permissions. Adding the same key again will not fix that filesystem error.')
     return None
+
+
+def retry_ssh(operation, stage):
+    """Retry transport loss only, for operations safe to repeat on this rental."""
+    attempts = 0
+    while True:
+        try:
+            return operation()
+        except subprocess.CalledProcessError as error:
+            detail = error.stderr.decode(errors='replace') if isinstance(error.stderr, bytes) else str(error.stderr or '')
+            failure = ssh_failure(detail)
+            if failure:
+                raise SystemExit(failure) from error
+            transient = any(message in detail.lower() for message in (
+                'connection refused', 'connection timed out', 'operation timed out', 'connection reset',
+                'connection closed', 'connection unexpectedly closed', 'broken pipe', 'no route to host',
+                'network is unreachable'))
+            if error.returncode != 255 or not transient:
+                raise
+            attempts += 1
+            print('RECAST_WARNING SSH connection interrupted while %s. Retrying this existing instance; downloaded files are retained.' % stage, flush=True)
+            time.sleep(min(3 * attempts, 15))
 
 
 def check_local(identity):
@@ -94,7 +117,7 @@ def main():
     vast.configure(SimpleNamespace(ssh_command='ssh -p %d root@%s' % (args.port, args.host),
                                    identity=args.identity, local_port=8188, instance_id=args.instance_id))
     print('RECAST_STAGE Uploading the small deployment package', flush=True)
-    vast.upload_package(config)
+    retry_ssh(lambda: vast.upload_package(config, capture_stderr=True), 'uploading setup files')
     root = config['remote_root']
     print('RECAST_STAGE Preparing ComfyUI and the required model bundle; extras stay optional', flush=True)
     fast = ('python3 {r}/scripts/model_manifest.py --setup-output {r}/state/required-models.json && '
@@ -102,13 +125,17 @@ def main():
             'test "$(cat {r}/state/managed-provision.exit)" = 0 && '
             'bash {r}/scripts/server.sh start && '
             '{r}/.venv/bin/python {r}/scripts/doctor.py --manifest {r}/state/required-models.json').format(r=shlex.quote(root))
-    ready = subprocess.run(vast.ssh_arguments(config) + ['-T', vast.destination(config), shlex.join(['bash', '-lc', fast])],
-                           stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=120)
+    try:
+        ready = subprocess.run(vast.ssh_arguments(config) + ['-T', vast.destination(config), shlex.join(['bash', '-lc', fast])],
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=120)
+    except subprocess.TimeoutExpired:
+        print('RECAST_WARNING Cached setup verification is taking longer than usual. Following managed setup on this same instance.', flush=True)
+        ready = SimpleNamespace(returncode=1)
     if ready.returncode == 0:
         print('RECAST_STAGE Existing installation verified; reusing cached models', flush=True)
         for item in required_setup_manifest()['files']:
             print('RECAST_MODEL_PROGRESS ' + json.dumps({'destination': item['destination'], 'downloaded': item['size'], 'total': item['size'], 'phase': 'ready'}), flush=True)
-        vast.tunnel(config, browser=False)
+        retry_ssh(lambda: vast.tunnel(config, browser=False, capture_stderr=True), 'connecting ComfyUI')
         return
     # Keep installation on the host if this Mac or its network disconnects.
     launch = ('if ! command -v flock >/dev/null || ! command -v python3 >/dev/null; then '
@@ -117,7 +144,9 @@ def main():
               'rm -f {r}/state/managed-provision.exit; '
               'nohup bash {r}/scripts/managed_bootstrap.sh >> {r}/state/managed-provision.log 2>&1 < /dev/null & '
               'echo "Installation started"; else echo "Following the existing installation"; fi').format(r=shlex.quote(root))
-    vast.remote(config, ['bash', '-lc', launch])
+    started = retry_ssh(lambda: vast.remote(config, ['bash', '-lc', launch], stdout=subprocess.PIPE, stderr=subprocess.PIPE), 'starting setup')
+    if started.stdout:
+        print(started.stdout.decode(errors='replace'), end='', flush=True)
     offset, failures = 0, 0
     inspect = '''import fcntl,json,os,sys
 from pathlib import Path
@@ -153,11 +182,16 @@ print(json.dumps({'running':running,'offset':offset,'text':data.decode(errors='r
                 print('RECAST_WARNING Setup monitoring is temporarily unavailable. Reconnecting to the same remote installation.', flush=True)
         time.sleep(4)
     print('RECAST_STAGE Connecting the private ComfyUI tunnel', flush=True)
-    vast.tunnel(config, browser=False)
+    retry_ssh(lambda: vast.tunnel(config, browser=False, capture_stderr=True), 'connecting ComfyUI')
 
 
 if __name__ == '__main__':
     try:
         main()
+    except subprocess.CalledProcessError as error:
+        detail = error.stderr.decode(errors='replace') if isinstance(error.stderr, bytes) else str(error.stderr or '')
+        if detail:
+            print(detail.strip(), file=sys.stderr)
+        raise SystemExit('GPU setup command failed (exit %s). See the live setup log for details; downloaded files are retained.' % error.returncode) from error
     except (subprocess.SubprocessError, OSError, ValueError) as error:
         raise SystemExit(str(error)) from error
