@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { Store } from '../server/store';
-import { CloudManager, computeIsStopped, hasRegisteredSshKey, normalizeOffer, RENTAL_IMAGE, VastClient, VastError } from '../server/cloud';
+import { CloudManager, computeIsStopped, hasRegisteredSshKey, matchesGpuProbe, normalizeOffer, RENTAL_IMAGE, VastClient, VastError } from '../server/cloud';
 import { offerFiltersSchema } from '../shared/cloud';
 import type { ConnectionManager } from '../server/comfy';
 import type { Runner } from '../server/runner';
@@ -42,7 +42,7 @@ function provider() {
     else throw new Error('Unexpected fixture request ' + method + ' ' + url);
     return new Response(JSON.stringify(value), { headers: { 'Content-Type': 'application/json' } });
   });
-  return { fetcher, calls, setPrice(value: number) { offer = { ...offer, search: { ...offer.search, totalHour: value } }; }, setTransfer(value: number) { offer.inet_down_cost = value; }, setSshKeys(value: any) { sshKeys = value; }, failRegistration(error: typeof registrationError) { registrationError = error; }, loseCreateResponse() { loseCreate = true; }, loseStopResponse(value = true) { loseStop = value; }, acknowledgeStopOnly() { stopAckOnly = true; }, omitInstanceFromList() { omitList = true; }, invalidInstanceList() { invalidList = true; }, get createCount() { return createCount; } };
+  return { fetcher, calls, setGpu(name: string, memory: number) { offer.gpu_name = name; offer.gpu_ram = memory; }, setPrice(value: number) { offer = { ...offer, search: { ...offer.search, totalHour: value } }; }, setTransfer(value: number) { offer.inet_down_cost = value; }, setSshKeys(value: any) { sshKeys = value; }, failRegistration(error: typeof registrationError) { registrationError = error; }, loseCreateResponse() { loseCreate = true; }, loseStopResponse(value = true) { loseStop = value; }, acknowledgeStopOnly() { stopAckOnly = true; }, omitInstanceFromList() { omitList = true; }, invalidInstanceList() { invalidList = true; }, get createCount() { return createCount; } };
 }
 describe('Vast marketplace, billing and lifecycle', () => {
   let store: Store | undefined, root = '', tracked: CloudManager | undefined;
@@ -96,12 +96,54 @@ describe('Vast marketplace, billing and lifecycle', () => {
     const call = fixture.calls[0]; expect(call.auth).toBe('Bearer fixture-secret'); expect(call.url.toString()).not.toContain('fixture-secret');
     expect(call.body).toMatchObject({ allocated_storage: 128, cpu_ram: { gte: 64000 }, gpu_ram: { gte: 24000 }, driver_version: { gte: 580065006 }, type: 'on-demand' });
     expect(call.body.gpu_name.in).toContain('RTX 5090');
+    expect(call.body.gpu_name.in).toContain('A100 PCIE');
   });
   it('persists a checked API key in a private file and never exposes it in app state', async () => {
     const { cloud } = await manager(); vi.stubEnv('VAST_API_KEY', ''); await cloud.saveKey('fixture-key-to-store');
     expect(JSON.stringify(cloud.state)).not.toContain('fixture-key-to-store'); const file = path.join(root, 'private/vast-api-key');
     expect((await stat(file)).mode & 0o777).toBe(0o600); expect((await stat(path.dirname(file))).mode & 0o777).toBe(0o700); expect(await readFile(file, 'utf8')).toBe('fixture-key-to-store');
     await cloud.removeKey(); expect(cloud.state.configured).toBe(false);
+  });
+  it('searches the A-series family using provider model names and keeps the hardware constraints', async () => {
+    const fixture = provider(), client = new VastClient(async () => 'fixture-secret', fixture.fetcher);
+    await client.offers(offerFiltersSchema.parse({ gpu: 'a-series', disk: 96, ram: 64 }));
+    const query = fixture.calls[0].body;
+    expect(query.gpu_name.in).toEqual(expect.arrayContaining(['A10', 'A30', 'A40', 'A100 PCIE', 'A100 SXM4', 'A800 PCIE', 'RTX A6000']));
+    expect(query.gpu_name.in).not.toContain('RTX 5090');
+    expect(query).toMatchObject({ num_gpus: { eq: 1 }, allocated_storage: 96, cpu_ram: { gte: 64000 }, gpu_ram: { gte: 24000 }, cuda_max_good: { gte: 13 }, verified: { eq: true } });
+  });
+  it.each([
+    ['A10', 24576], ['A30', 24576], ['A40', 49152], ['A100 PCIE', 40960], ['A100 SXM4', 81920], ['A800 PCIE', 81920],
+  ])('admits compatible %s offers without requiring RTX branding', (gpu, memory) => {
+    const offer = normalizeOffer({ ...rawOffer(), gpu_name: gpu, gpu_ram: memory }, filters);
+    expect(offer.compatible).toBe(true);
+    expect(offer.gpu).toBe(gpu);
+    expect(offer.totalHourly).toBe(.23);
+  });
+  it('keeps unsupported cards, insufficient memory and old drivers out of A-series rentals', () => {
+    expect(normalizeOffer({ ...rawOffer(), gpu_name: 'Tesla V100', gpu_ram: 32768 }, filters).compatible).toBe(false);
+    expect(normalizeOffer({ ...rawOffer(), gpu_name: 'A40', gpu_ram: 16384 }, filters).compatible).toBe(false);
+    expect(normalizeOffer({ ...rawOffer(), gpu_name: 'A100 PCIE', driver_version: '570.195.03' }, filters).compatible).toBe(false);
+  });
+  it('recognizes nvidia-smi A100 naming while checking the selected model and memory class', () => {
+    const expected = { gpu_name: 'A100 PCIE', gpu_ram: 81920 };
+    expect(matchesGpuProbe(expected, 'NVIDIA A100 80GB PCIe, 81159\n')).toBe(true);
+    expect(matchesGpuProbe(expected, 'NVIDIA A100-PCIE-40GB, 40536\n')).toBe(false);
+    expect(matchesGpuProbe(expected, 'NVIDIA A100-SXM4-80GB, 81159\n')).toBe(false);
+    expect(matchesGpuProbe(expected, 'NVIDIA A40, 46068\n')).toBe(false);
+    expect(matchesGpuProbe(expected, 'NVIDIA A100 80GB PCIe MIG 1g.10gb, 81159\n')).toBe(false);
+    expect(matchesGpuProbe({ gpu_name: 'A100 SXM4', gpu_ram: 81920 }, 'NVIDIA A100-SXM4-80GB, 81159\n')).toBe(true);
+    expect(matchesGpuProbe({ gpu_name: 'RTX 5090', gpu_ram: 32768 }, 'NVIDIA GeForce RTX 5090, 32607\n')).toBe(true);
+    expect(matchesGpuProbe({ gpu_name: 'A10', gpu_ram: 24576 }, 'NVIDIA RTX A1000, 24576\n')).toBe(false);
+  });
+  it('returns and launches an A-series offer through the same single-rental lifecycle', async () => {
+    const { cloud, fixture, provision } = await manager(); fixture.setGpu('A100 PCIE', 81920);
+    const { offers } = await cloud.offers(offerFiltersSchema.parse({ gpu: 'a-series' }));
+    expect(offers).toHaveLength(1); expect(offers[0].gpu).toBe('A100 PCIE'); expect(fixture.createCount).toBe(0);
+    const launch = cloud.launch(offers[0].quote, .23, 'a-series-once');
+    await until(() => !cloud.state.busy);
+    expect(launch.phase).toBe('ready'); expect(fixture.createCount).toBe(1); expect(provision).toHaveBeenCalledTimes(1);
+    expect(fixture.calls.filter(call => call.url.pathname === '/api/v0/asks/123/')).toHaveLength(1);
   });
   it('creates once, provisions the pinned image, connects, stops and requires exact destroy confirmation', async () => {
     const { cloud, fixture, provision, connection } = await manager(); const { offers } = await cloud.offers(filters);

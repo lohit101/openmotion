@@ -1,0 +1,73 @@
+{
+  "date": "2026-10-24",
+  "scope": "Add Datacenter / A-series marketplace search and preserve rental compatibility/lifecycle checks",
+  "family": "a-series",
+  "uiLabel": "Datacenter / A-series",
+  "providerModelNames": [
+    "A10",
+    "A30",
+    "A40",
+    "A100 PCIE",
+    "A100 SXM4",
+    "A800 PCIE",
+    "RTX A5000",
+    "RTX A5500",
+    "RTX A6000"
+  ],
+  "providerCatalogChecked": "https://console.vast.ai/api/v0/gpu_names/unique/",
+  "changes": [
+    "Family filter and All GPUs search include compatible A-series offers",
+    "Non-RTX datacenter names are no longer discarded by the backend",
+    "GPU probe handles Vast A100 PCIe/SXM4 names versus nvidia-smi naming while checking model, interconnect and reported memory class",
+    "Price sorting, selected storage allocation, host verification and exact-ask preflight remain in the existing rental path",
+    "Filters wrap on narrow layouts; datacenter speed is explicitly unbenchmarked"
+  ],
+  "requirementsRetained": {
+    "gpus": 1,
+    "minimumReportedVramMiB": 24000,
+    "minimumSystemRamGB": "Selected 48/64/96 GB filter",
+    "cuda": 13,
+    "driver": "580.65.06 or newer",
+    "directSshPortRequired": true
+  },
+  "validation": {
+    "studioTests": {
+      "passed": 112,
+      "failed": 0,
+      "files": 10
+    },
+    "cloudTests": {
+      "passed": 53,
+      "failed": 0
+    },
+    "typescriptAndProductionBuild": "passed",
+    "liveReadOnlySearch": {
+      "aSeriesCompatibleOffers": 25,
+      "modelsReturned": [
+        "RTX A5000",
+        "A40",
+        "RTX A6000",
+        "A100 SXM4",
+        "A100 PCIE",
+        "A800 PCIE"
+      ],
+      "rtx5090CompatibleOffers": 38,
+      "priceSortingVerified": true,
+      "hardwareConstraintsVerified": true,
+      "availabilityCanChange": true
+    },
+    "browserUi": "Selected Datacenter / A-series in Safari; live A40, A100 PCIe/SXM4 and A800 offers and compatibility note visible in the accessibility tree; family filter layout visually inspected",
+    "gpuInference": "Not benchmarked on A-series hardware by this change"
+  },
+  "lifecycle": {
+    "agentCreatedRealRentals": 0,
+    "agentStartedPaidRenders": 0,
+    "agentSentGpuStopOrStartActions": 0,
+    "localServerUpdatedOnlyAfterNoActiveSetupOrRender": true
+  },
+  "limitations": [
+    "Cards below the existing reported memory or CUDA/driver requirements are excluded even if their family is listed",
+    "Hardware compatibility is not a speed or visual-quality benchmark",
+    "No changes to model weights, sampling settings or character reference conditioning"
+  ]
+}

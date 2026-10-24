@@ -9,7 +9,7 @@ import type { ConnectionManager } from './comfy';
 import type { Runner } from './runner';
 import { command } from './media';
 import type { CloudInstance, CloudLaunch, CloudState, GpuOffer, OfferFilters } from '../shared/cloud';
-import { canRetryRental, offerFiltersSchema } from '../shared/cloud';
+import { canRetryRental, offerFiltersSchema, offerGpuFilter, sameGpuModel, supportedGpuName } from '../shared/cloud';
 import baseModels from '../../config/models.lock.json';
 import relightModels from '../../config/optional-models.lock.json';
 import naturalModels from '../../config/natural-models.lock.json';
@@ -41,6 +41,13 @@ type CloudOptions = {
 export class PreflightError extends Error { constructor(message: string, public code: NonNullable<CloudLaunch['failureCode']>) { super(message); } }
 export function computeIsStopped(instance: any) {
   return instance.actual_status === 'stopped' || (instance.actual_status === 'exited' && [instance.intended_status, instance.cur_state, instance.next_state].includes('stopped'));
+}
+export function matchesGpuProbe(instance: { gpu_name?: string; gpu_ram?: number }, output: string) {
+  const minimumMemory = Math.max(24000, Number(instance.gpu_ram || 0) * 0.95);
+  return output.split('\n').some(line => {
+    const [name, memory] = line.split(',');
+    return !!instance.gpu_name && sameGpuModel(instance.gpu_name, name || '') && Number(memory?.trim()) >= minimumMemory;
+  });
 }
 export class VastClient {
   constructor(private key: () => Promise<string>, public fetcher: typeof fetch = fetch, public base = 'https://console.vast.ai') {}
@@ -85,7 +92,7 @@ export class VastClient {
       direct_port_count: { gte: 1 }, allocated_storage: filters.disk, order: [['dph_total', 'asc']], limit: 250 };
     // Vast's bundle-search `id` predicate does not target the rental ask ID.
     // Revalidate the exact ask that will be used by PUT /asks/{ask_contract_id}.
-    if (id) query.ask_contract_id = { eq: id }; else query.gpu_name = filters.gpu !== 'all' ? { eq: filters.gpu } : { in: ['RTX 3090', 'RTX 3090 Ti', 'RTX 4090', 'RTX 5090', 'RTX A5000', 'RTX A5500', 'RTX A6000', 'RTX 6000Ada', 'RTX 6000 Ada Generation', 'RTX PRO 6000 WS'] };
+    if (id) query.ask_contract_id = { eq: id }; else query.gpu_name = offerGpuFilter(filters.gpu);
     if (filters.verified) query.verified = { eq: true };
     const value = await this.request('/api/v0/bundles/', 'POST', query);
     if (!Array.isArray(value.offers)) throw new VastError('Vast returned an invalid offer list. No rental was requested.', 502);
@@ -96,7 +103,7 @@ export function normalizeOffer(raw: any, filters: OfferFilters): GpuOffer {
   const storageHourly = amount(raw.search?.diskHour, raw.storage_total_cost), totalHourly = amount(raw.search?.totalHour, raw.dph_total);
   const computeHourly = amount(raw.search?.gpuCostPerHour, raw.dph_base, totalHourly !== null && storageHourly !== null ? totalHourly - storageHourly : null);
   const reasons: string[] = [], gpu = String(raw.gpu_name || ''), ram = Number(raw.cpu_ram || 0) / 1000, vram = Number(raw.gpu_ram || 0) / 1024;
-  if (!/RTX/i.test(gpu)) reasons.push('Choose an RTX GPU.'); if (Number(raw.num_gpus) !== 1) reasons.push('This workflow uses one GPU.');
+  if (!supportedGpuName(gpu)) reasons.push('Choose a supported NVIDIA RTX or A-series GPU.'); if (Number(raw.num_gpus) !== 1) reasons.push('This workflow uses one GPU.');
   const askId = Number(raw.ask_contract_id ?? raw.id);
   if (!Number.isSafeInteger(askId) || askId <= 0) reasons.push('A valid rental ask ID is required.');
   if (!Number.isSafeInteger(Number(raw.machine_id)) || Number(raw.machine_id) <= 0) reasons.push('A valid host machine ID is required.');
@@ -241,7 +248,7 @@ export class CloudManager {
       createdAt: raw.start_date ? new Date(Number(raw.start_date) * 1000).toISOString() : null };
   }
   async offers(filters: OfferFilters) {
-    const rows = await this.client.offers(filters); const offers = rows.filter(raw => /RTX/i.test(raw.gpu_name || '')).map(raw => normalizeOffer(raw, filters)).filter(o => o.compatible);
+    const rows = await this.client.offers(filters); const offers = rows.map(raw => normalizeOffer(raw, filters)).filter(o => o.compatible);
     const value = (o: GpuOffer) => filters.sort === 'compute' ? o.computeHourly : filters.sort === 'setup' ? (o.totalHourly === null || o.modelDownloadCost === null ? null : o.totalHourly + o.modelDownloadCost) : o.totalHourly;
     offers.sort((a, b) => (value(a) ?? Infinity) - (value(b) ?? Infinity));
     for (const [key, value] of this.quotes) if (Date.parse(value.offer.expiresAt) + 10 * 60000 < Date.now()) this.quotes.delete(key);
@@ -437,7 +444,7 @@ export class CloudManager {
     if (!Number.isInteger(Number(instance.ssh_port)) || Number(instance.ssh_port) < 1 || Number(instance.ssh_port) > 65535 || !/^[a-zA-Z0-9.-]+$/.test(instance.ssh_host)) return false;
     try {
       const output = await command('ssh', ['-p', String(instance.ssh_port), '-i', identity, '-o', `HostKeyAlias=recast-instance-${instance.id}`, '-o', 'IdentitiesOnly=yes', '-o', 'StrictHostKeyChecking=accept-new', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=5', '-T', `root@${instance.ssh_host}`, 'nvidia-smi --query-gpu=name,memory.total --format=csv,noheader,nounits'], undefined, 10000);
-      return output.split('\n').some(line => { const parts = line.split(','); return !!instance.gpu_name && parts[0]?.includes(instance.gpu_name) && Number(parts[1]?.trim()) >= 24000; });
+      return matchesGpuProbe(instance, output);
     } catch { return false; }
   }
   private runProvision(instance: any, identity: string, log: (line: string) => void, signal: AbortSignal) {

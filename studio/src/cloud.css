@@ -17,9 +17,10 @@
 .onboarding-facts { display: flex; gap: 30px; flex-wrap: wrap; justify-content: center; margin-top: 42px; }
 .onboarding-facts span { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 11px; }
 .market-filters { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
-.gpu-family-filter { display: flex; gap: 6px; margin-right: auto; }
+.gpu-family-filter { display: flex; flex-wrap: wrap; gap: 6px; margin-right: auto; }
 .gpu-family-filter button { padding: 9px 13px; background: var(--surface); border: 1px solid var(--line); border-radius: 7px; color: var(--muted); font-size: 11px; }
 .gpu-family-filter button.active { color: var(--accent-text); border-color: #99ad6570; background: #a7bd6610; }
+.a-series-hint { color: var(--muted); font-size: 11px; line-height: 1.6; margin: 17px 0 0; }
 .market-filters > .select-trigger { width: 197px; }
 .market-layout { display: grid; grid-template-columns: minmax(0,1fr) 330px; gap: 26px; align-items: start; }
 .storage-config { border: 1px solid var(--line); border-radius: 10px; padding: 19px 19px 14px; background: var(--surface); margin-bottom: 22px; }
