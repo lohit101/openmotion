@@ -11,6 +11,29 @@ import type { Store } from './store';
 import { command } from './media';
 
 export class OfflineError extends Error {}
+const RETRYABLE_READ_STATUS = new Set([429, 500, 502, 503, 504]);
+const READ_ATTEMPTS = 3;
+
+function readBackoff(milliseconds: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const finish = () => { signal?.removeEventListener('abort', aborted); resolve(); };
+    const timer = setTimeout(finish, milliseconds);
+    const aborted = () => { clearTimeout(timer); signal?.removeEventListener('abort', aborted); reject(signal?.reason || new DOMException('Aborted', 'AbortError')); };
+    signal?.addEventListener('abort', aborted, { once: true });
+    if (signal?.aborted) aborted();
+  });
+}
+
+function responseMessage(value: unknown, status: number): string {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const error = (value as { error?: unknown }).error;
+    const message = typeof error === 'string' ? error : error && typeof error === 'object' && 'message' in error && typeof error.message === 'string' ? error.message : null;
+    // Do not stringify arbitrary provider payloads, request errors or HTML.
+    if (message?.trim() && !/<(?:html|script|body)\b/i.test(message)) return message.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').trim().slice(0, 1000);
+  }
+  return `ComfyUI returned HTTP ${status}.`;
+}
+
 export function localEndpoint(value: string) {
   const url = new URL(value);
   if (!['http:', 'https:'].includes(url.protocol) || !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) || url.username || url.password || url.search || url.hash || url.pathname !== '/') throw new Error('Use a local ComfyUI address, such as http://127.0.0.1:8188. Remote access goes through the SSH tunnel.');
@@ -19,12 +42,35 @@ export function localEndpoint(value: string) {
 export class ComfyClient {
   constructor(public endpoint: string) {}
   async json(route: string, body?: unknown, signal?: AbortSignal): Promise<any> {
-    let response: Response;
-    try { response = await fetch(this.endpoint + route, { method: body === undefined ? 'GET' : 'POST', headers: body === undefined ? {} : { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body), signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(12000)]) : AbortSignal.timeout(12000) }); }
-    catch (error) { if (signal?.aborted) throw error; throw new OfflineError('The GPU connection was lost. Reconnect to check the existing job before retrying.'); }
-    const value = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(value.error?.message || value.error || `ComfyUI returned HTTP ${response.status}.`);
-    return value;
+    const read = body === undefined, attempts = read ? READ_ATTEMPTS : 1;
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      signal?.throwIfAborted();
+      let response: Response, value: unknown;
+      try {
+        const deadline = AbortSignal.timeout(read ? 45000 : 12000);
+        response = await fetch(this.endpoint + route, { method: read ? 'GET' : 'POST', headers: read ? {} : { 'Content-Type': 'application/json' }, body: read ? undefined : JSON.stringify(body), signal: signal ? AbortSignal.any([signal, deadline]) : deadline });
+        try { value = await response.json(); }
+        catch (error) {
+          if (signal?.aborted) throw error;
+          if (response.ok) throw new OfflineError('ComfyUI returned an unreadable response. Reconnect to check the existing job before retrying.');
+        }
+        if (response.ok && (!value || typeof value !== 'object' || Array.isArray(value))) throw new OfflineError('ComfyUI returned an invalid response. Reconnect to check the existing job before retrying.');
+      } catch (error) {
+        if (signal?.aborted) throw signal.reason || error;
+        if (read && attempt + 1 < attempts) { await readBackoff(500 * (attempt + 1), signal); continue; }
+        if (error instanceof OfflineError) throw error;
+        throw new OfflineError('The GPU connection was lost. Reconnect to check the existing job before retrying.');
+      }
+      if (!response.ok) {
+        if (read && RETRYABLE_READ_STATUS.has(response.status)) {
+          if (attempt + 1 < attempts) { await readBackoff(500 * (attempt + 1), signal); continue; }
+          throw new OfflineError('GPU status is temporarily unavailable. The existing job may still be running; reconnect to check it before retrying.');
+        }
+        throw new Error(responseMessage(value, response.status));
+      }
+      return value;
+    }
+    throw new OfflineError('GPU status could not be checked. Reconnect before retrying the existing job.');
   }
   async upload(file: string, id: string, signal: AbortSignal) {
     const form = new FormData(); form.append('image', await openAsBlob(file), id + path.extname(file)); form.append('type', 'input');
