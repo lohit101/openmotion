@@ -6,7 +6,9 @@ The local **Recast Studio** dashboard provides paired uploads, prompt/settings c
 
 GPU cloud includes a **Check configuration · no rental** action, exact rental-ask and fee rechecks, duplicate-rental protection and live download progress. A long setup shows a yellow warning after 15 minutes and keeps going. Actual setup failures show red errors and request a compute stop while retaining the billable disk. Keep the local server open to receive status and handle failures. Healthy remote setup and ready instances remain running until stopped.
 
-The prompt now has a reusable scene-preserving default. Leave it unchanged, clear it to use the same base automatically, or add a short refinement. Known old demo prompts are migrated without rewriting historical renders. See [prompt behavior](docs/prompt-harness.md) and the [captured realism review](docs/realism-review.md); improved framing still needs a controlled GPU comparison.
+The prompt now has a reusable scene-preserving default. Leave it unchanged, clear it to use the same base automatically, or add a short refinement. Known old demo prompts are migrated without rewriting historical renders. See [prompt behavior](docs/prompt-harness.md) and the [captured realism review](docs/realism-review.md).
+
+New Studio character swaps also [align the reference to source framing](docs/source-framing.md) locally before GPU upload. This corrects the whole-body-reference/close-source mismatch without stretching the character. Completed renders receive a visible scale/position check, with warnings and no automatic rerender. CPU preparation is verified; the new conditioning still needs the user's GPU retry. Existing generation models and the pinned GPU runtime are retained.
 
 Still-image face/body preparation needs an additional image editor that meets the user's uncensored-model preference. [The compatibility and handoff review](docs/character-reference-preparation.md) records Phr00t's Qwen Edit Rapid AIO NSFW variants as revised candidates, retains stock-model storage comparisons, and explains separate character views. No image branch has been installed or GPU-validated.
 

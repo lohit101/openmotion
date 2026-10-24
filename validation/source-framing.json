@@ -1,0 +1,54 @@
+{
+  "date": "2026-10-24",
+  "scope": "Local source-framing correction and drift detection",
+  "version": "face-v1",
+  "gpu": {
+    "computeStoppedConfirmed": true,
+    "newRenders": 0,
+    "restartedForWork": false
+  },
+  "observedOutput": {
+    "settings": {
+      "width": 704,
+      "height": 1248,
+      "fps": 24,
+      "seconds": 1.5,
+      "preset": "fast",
+      "relight": false
+    },
+    "sampledFrames": 5,
+    "headScaleRange": [
+      0.6025912264817951,
+      0.6408244589171211
+    ],
+    "horizontalCenterOffsetRange": [
+      -0.16694233602263375,
+      -0.14603413514985386
+    ],
+    "checkerStatus": "warning"
+  },
+  "preparedReference": {
+    "width": 704,
+    "height": 1248,
+    "scale": 1.3943165912942115,
+    "translateX": -118.88180034808079,
+    "translateY": 47.535103909217355,
+    "previousLetterboxScale": 0.6881720430107527,
+    "aspectPreserved": true,
+    "immutableCacheVerified": true,
+    "originalRetained": true
+  },
+  "control": {
+    "identicalVideo": "matched",
+    "sampledFrames": 5
+  },
+  "checks": {
+    "studioTests": 72,
+    "pythonTests": 32,
+    "typescript": "passed",
+    "pinnedWorkflowSchema": "passed",
+    "productionBuild": "passed; pre-existing large frontend chunk advisory remains",
+    "interruptedPreparation": "passed: atomic replacement and partial-source recovery"
+  },
+  "limitation": "CPU geometry preparation and QA verified. No new SCAIL generation was run. Per-frame generative placement, anatomy, identity and occlusions still require the user retry; aligned conditioning is not a mathematical pixel/geometry lock."
+}

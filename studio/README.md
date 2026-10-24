@@ -8,7 +8,7 @@ From the project root:
 bash scripts/studio.sh
 ```
 
-Open **http://127.0.0.1:3000**. The launcher checks Node.js 24+, npm, Python 3, FFmpeg and FFprobe; installs the locked Node dependencies if missing; builds the app; and starts it on loopback. It never rents, starts or bills a Vast instance. Existing dependencies are already installed on this Mac.
+Open **http://127.0.0.1:3000**. The launcher checks Node.js 24+, npm, Python 3, FFmpeg and FFprobe; prepares a small local CPU geometry environment and verified face detector; installs the locked Node dependencies if missing; builds the app; and starts it on loopback. It never rents, starts or bills a Vast instance. Existing dependencies, including the geometry tool, are already installed on this Mac.
 
 ## Working offline
 
@@ -60,6 +60,10 @@ python3 scripts/vast.py configure --ssh-command 'ssh -p PORT root@HOST'
 The previously rented instance was destroyed by the user. Its workflow, inputs and outputs are backed up locally; GPU cloud creates its replacement. The manual connection helper is retained for existing instances. Verified models are reused when an instance retains its disk.
 
 ## What happens on Generate
+
+New Character swap jobs first align the complete reference image to the prepared source video's face size and location. This is a uniform scale/translation with no stretching; the original reference stays intact. Preparation runs locally before GPU upload and requires one clear face/actor index 0. It fails before submission if the face is missing or ambiguous. The same aligned reference is reused across all segments. Motion transfer and historical unfinished jobs retain their previous behavior. See [source-framing details and limitations](../docs/source-framing.md).
+
+After a new swap finishes, local checks compare sampled head size and placement. Drift or an unavailable check produces a yellow notice/toast and an amber result label; the completed video remains saved. **Compare source** and the aligned-reference link in Render details support review. Quality warnings never trigger an automatic paid retry or compute stop.
 
 The server validates the media and clip range, normalizes the selected source window without stretching it, transfers both inputs, and validates the compiled graph against the live ComfyUI node catalog before submission. It keeps the model and scheduler on the same LoRA-patched branch. Relighting has its own adapter, leaving two user LoRA slots available.
 
