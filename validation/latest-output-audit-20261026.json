@@ -102,5 +102,42 @@
   "outputSha256": "9bfca38f3f5274f244806ca35db5f5a1be55794a4f882daef13d4a6a8c7c3d81",
   "rawComparison": "Ignored backups/latest-output-review-20261026/comparison.jpg",
   "gpuStartedOrResumed": false,
-  "newPaidRendersSubmitted": 0
+  "newPaidRendersSubmitted": 0,
+  "executionTiming": {
+    "source": "Saved ComfyUI execution_start/execution_success timestamps, not a denoiser profiler",
+    "sections": [
+      {
+        "section": "history_0",
+        "seconds": 1772.936
+      },
+      {
+        "section": "history_1",
+        "seconds": 665.806
+      }
+    ],
+    "totalGraphSeconds": 2438.742,
+    "otherJobSeconds": 25.24599999999964,
+    "graphPercentOfElapsed": 98.97540085422494
+  },
+  "benchmarkComparison": {
+    "publisherModel": "Wan2.2-Animate-14B",
+    "publisherHardware": "B200",
+    "publisherWidth": 480,
+    "publisherHeight": 832,
+    "publisherFrames": 124,
+    "publisherSteps": 20,
+    "publisherCFG": 1,
+    "publisherChunks": 2,
+    "publisherVideoSeconds": 160,
+    "publisherSamplingSeconds": 140,
+    "publisherExcluded": [
+      "Weight loading",
+      "Wan source preprocessing"
+    ],
+    "source": "https://huggingface.co/Viggle/Viggle-Animate",
+    "ourPixelAreaRatio": 2.2,
+    "ourPixelFrameVolumeRatio": 2.129032258064516,
+    "wallTimeRatio": 15.399925,
+    "limits": "Different models, runtime, memory policy, windows and hardware. Pixel volume and pass counts do not predict wall time; no node or offload profiler was captured for the latest job."
+  }
 }

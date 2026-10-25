@@ -1,0 +1,96 @@
+{
+  "date": "2026-10-26",
+  "scope": "Read-only local/public research and revised plan; no runtime or GPU mutation",
+  "actualSCAILElapsedSeconds": 2463.988,
+  "actualComfyExecutionSeconds": 2438.742,
+  "actualSCAILHistoricalRenderUSD": 0.24933936181069957,
+  "scenarioCostsArePredictions": false,
+  "scenarioMeaning": "Cost arithmetic at ASSUMED total billed warm job durations, not measured model runtimes. Includes running256GB disk; excludes setup, transfers, retained idle disk, taxes, retries and idle GPU unless explicitly stated. Cold example assumes10min setup plus3min render and80GB ingress, not measured startup or a complete multi-model bundle.",
+  "scenarios": [
+    {
+      "askId": 52827234,
+      "gpu": "RTX 5090",
+      "location": "Nevada, US",
+      "hourlyUSDIncludingRunning256GB": 0.7614814814814814,
+      "warmAttemptUSDByAssumedSeconds": {
+        "60": 0.012691358024691356,
+        "120": 0.025382716049382713,
+        "180": 0.03807407407407407
+      },
+      "storageUSDPer30DayMonth": 68.26666666666665,
+      "ingressUSDForExample80GB": 3.125,
+      "coldExampleUSD10MinuteSetup3MinuteRender80GBIngress": 3.2899876543209876,
+      "source": "replacement-cost-market-20261026.json"
+    },
+    {
+      "askId": 57391366,
+      "gpu": "RTX PRO 6000 WS",
+      "location": "South Korea, KR",
+      "hourlyUSDIncludingRunning256GB": 1.499851851851852,
+      "warmAttemptUSDByAssumedSeconds": {
+        "60": 0.024997530864197533,
+        "120": 0.04999506172839507,
+        "180": 0.0749925925925926
+      },
+      "storageUSDPer30DayMonth": 23.89333333333333,
+      "ingressUSDForExample80GB": 0.20833333333333331,
+      "coldExampleUSD10MinuteSetup3MinuteRender80GBIngress": 0.5333012345679012,
+      "source": "replacement-cost-market-20261026.json"
+    },
+    {
+      "askId": 56663400,
+      "gpu": "RTX PRO 6000 WS",
+      "location": "Japan, JP",
+      "hourlyUSDIncludingRunning256GB": 2.0474074074074076,
+      "warmAttemptUSDByAssumedSeconds": {
+        "60": 0.034123456790123456,
+        "120": 0.06824691358024691,
+        "180": 0.10237037037037038
+      },
+      "storageUSDPer30DayMonth": 34.133333333333326,
+      "ingressUSDForExample80GB": 0.41666666666666663,
+      "coldExampleUSD10MinuteSetup3MinuteRender80GBIngress": 0.8602716049382716,
+      "source": "replacement-cost-market-20261026.json"
+    },
+    {
+      "askId": 47379025,
+      "gpu": "H200 NVL",
+      "location": "Japan, JP",
+      "hourlyUSDIncludingRunning256GB": 4.204444444444444,
+      "warmAttemptUSDByAssumedSeconds": {
+        "60": 0.07007407407407407,
+        "120": 0.14014814814814813,
+        "180": 0.2102222222222222
+      },
+      "storageUSDPer30DayMonth": 51.199999999999996,
+      "ingressUSDForExample80GB": 0.10416666666666666,
+      "coldExampleUSD10MinuteSetup3MinuteRender80GBIngress": 1.0151296296296297,
+      "source": "replacement-cost-market-20261026.json"
+    },
+    {
+      "askId": 51592609,
+      "gpu": "B200",
+      "location": "Oregon, US",
+      "hourlyUSDIncludingRunning256GB": 7.566666666666667,
+      "warmAttemptUSDByAssumedSeconds": {
+        "60": 0.12611111111111112,
+        "120": 0.25222222222222224,
+        "180": 0.3783333333333334
+      },
+      "storageUSDPer30DayMonth": 47.99999999999999,
+      "ingressUSDForExample80GB": 0.1953125,
+      "coldExampleUSD10MinuteSetup3MinuteRender80GBIngress": 1.8347569444444445,
+      "source": "replacement-cost-market-20261026.json"
+    }
+  ],
+  "warmLatencyBudgetSeconds": {
+    "sourcePreparationAndKeyframe": 35,
+    "videoReplacement": 100,
+    "temporalFinishing": 30,
+    "exportAndTransfer": 10,
+    "total": 175
+  },
+  "budgetStatus": "Unmeasured engineering acceptance budget for ready models and kernels, no queue or human review. Fresh provisioning/download/compile excluded and billed separately.",
+  "gpuStartedOrResumed": false,
+  "newPaidRendersSubmitted": 0
+}

@@ -2,6 +2,8 @@
 
 Research date: 26 October 2026. Scope: inspect the latest result, identify released open models and compatible adapters, and plan a faster production workflow. No model weights were downloaded, no workflow/runtime was changed, and no paid render or GPU resume was submitted. The user's current priority is realism and speed; ordinary stock models are acceptable.
 
+Updated after the user's latency/licence/cost questions: [the detailed follow-up audit](latency-cost-and-higgsfield-audit-2026-10-26.md) controls the implementation order and latency target. It adds actual server execution timing, public Higgsfield API/source analysis, fresh 256GB rental quotes, cold-session costs and a 175s **unmeasured acceptance budget**. Prefer an instrumented high-memory single-GPU fast-path comparison before a consumer quantization experiment; do not treat 160s on B200 as a forecast for the current graph.
+
 ## Decision
 
 Build a **scene-preserving replacement pipeline with an edited source keyframe**, model-specific few-step recipes and optional temporal upscaling.
@@ -40,9 +42,9 @@ The Wan publisher warns that generic Wan2.2 LoRAs may behave unexpectedly on Ani
 
 Viggle's publisher compares the released model with Wan-Animate on the same B200 and inputs: **26 seconds versus 160 seconds** for 124 frames at 24 fps and 480×832. This is a warm, BF16 video-generation result; repainting, model loading and Wan preprocessing are excluded. It is not a comparison with our 41-minute SCAIL job. [Publisher research](https://viggle.ai/research/viggle-animate-character-replacement-from-a-repainted-frame)
 
-The canonical recipe has four sigma boundaries but **three forward passes**, CFG1 and its own DMD adapter. Another bundled audio-conditioned example takes 51 seconds. The video stage consumes the driving video and a repainted source frame; its text conditioning is frozen. The official unoffloaded memory figure excludes a nominal 80GB card, and its author's optimized 5090 path is not released. [Actual checkpoint, requirements and examples](https://huggingface.co/Viggle/Viggle-Animate)
+The canonical recipe has four sigma boundaries but **three forward passes**, CFG1 and its own DMD adapter. Another bundled audio-conditioned example takes 51 seconds. The video stage consumes the driving video and a repainted source frame; its text conditioning is frozen. The official unoffloaded memory figure excludes a nominal 80GB card, and its author's optimized 5090 path is not released. Wan's 40 passes in the comparison are 20 steps × two chunks at CFG1. [Actual checkpoint, requirements and examples](https://huggingface.co/Viggle/Viggle-Animate)
 
-The [community ComfyUI wrapper](https://github.com/Saganaki22/ComfyUI-Viggle-Animate-H3) and [converted checkpoints](https://huggingface.co/drbaph/Viggle-Animate-ComfyUI) include a roughly 21GB pruned INT8 transformer, 0.94GB reduced-rank adapter and 3.17GB quantized VAE. This is a different experimental package; it does not establish the same quality or 26-second latency on a 5090. Extreme pose changes, re-entry and interactions remain documented failure cases. Newer teaser demonstrations must not be mistaken for these released weights.
+The [community ComfyUI wrapper](https://github.com/Saganaki22/ComfyUI-Viggle-Animate-H3) and [converted checkpoints](https://huggingface.co/drbaph/Viggle-Animate-ComfyUI) include a roughly 21GB pruned INT8 transformer, 0.94GB reduced-rank adapter and 3.17GB quantized VAE. This is a different experimental package; it does not establish the same quality or 26-second latency on a 5090. Complex interactions and cuts remain documented failure cases; source-audio conditioning is relevant to expression/lip timing. Newer teaser demonstrations must not be mistaken for these released weights.
 
 **Licence:** the checkpoint inherits MiniMax H3 Community terms, including excluded territories (US, EU, UK and South Korea), commercial attribution and restrictions involving outputs. An India-based user does not automatically clear a US/EU rental or global publication. Review these uses with the publisher before selecting this for commercial social posting. Apache2 on example code does not override the model terms. [Actual licence](https://huggingface.co/Viggle/Viggle-Animate/raw/main/LICENSE)
 
@@ -87,13 +89,13 @@ Its creator reports 6.63 GPU-seconds and 8.72GB peak for an 89-frame 1080p Turbo
 ## Hardware and storage
 
 - **Existing A100 PCIe40:** usable for initial Wan/SCAIL comparisons; memory/offload must be profiled. It cannot hold the published Viggle BF16 example unoffloaded.
-- **RTX5090 32GB:** preferred consumer-GPU test for supported quantized Wan recipes. Its Viggle community INT8 route is experimental.
-- **RTX PRO6000 Blackwell96GB:** a capacity starting point for full-precision comparisons and reduced offloading; compare a fresh rental quote with H200/B200 before choosing it. Capacity suitability does not establish B200-like latency or a cost advantage.
+- **RTX 5090 32GB:** preferred consumer-GPU test for supported quantized Wan recipes. Its Viggle community INT8 route is experimental.
+- **RTX PRO6000 Blackwell 96GB:** a capacity starting point for full-precision comparisons and reduced offloading; compare a fresh rental quote with H200/B200 before choosing it. Capacity suitability does not establish B200-like latency or a cost advantage.
 - **B200/H200:** speed/capacity trial if the selected engine and licence allow the deployment. Rent one GPU; our existing graph does not distribute a job across several cards.
 - Prefer 96–128GB system RAM for the large full-precision trial. Verify actual peak GPU/CPU allocation rather than relying on a model filename.
 - **256GB disk is a pragmatic multi-engine allocation**, not a minimum. Selected Viggle components are approximately 80GB; the entire 269GB H3 repository is unnecessary. Share compatible encoders/VAEs by exact hash, keep only the chosen precision and one upscaler, and retain individual download/delete controls. Smaller single-engine trials need less space.
 
-No new dollar quote is assumed here. Use a fresh full running/storage/transfer quote. For illustration, three warm minutes at $1.50/hour costs $0.075 before other charges. Measure cost per accepted clip including rejected attempts, not just the cheapest hourly rate. The last job's $0.249 render estimate is historical.
+Fresh running/storage/transfer quotes and costs are now in the [follow-up cost audit](latency-cost-and-higgsfield-audit-2026-10-26.md#current-costs-per-five-second-attempt). Three warm minutes on the observed Japan PRO96 is about$0.102 and Japan H200 NVL about$0.210, including 256GB running disk but excluding startup, transfer, idle retention and retries. These are cost calculations at assumed runtimes, not achieved performance. Measure cost per accepted clip including rejected attempts, not just the cheapest hourly rate. The last job's $0.249 render estimate is historical.
 
 ## Implementation and validation order
 
