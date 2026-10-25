@@ -115,6 +115,8 @@ def main():
         time.sleep(3)
     vast.configure(SimpleNamespace(ssh_command='ssh -p %d root@%s' % (args.port, args.host),
                                    identity=args.identity, local_port=8188, instance_id=args.instance_id))
+    print('RECAST_STAGE Preparing the reusable private SSH connection', flush=True)
+    retry_ssh(lambda: vast.tunnel(config, browser=False, capture_stderr=True), 'preparing the private connection')
     print('RECAST_STAGE Uploading the small deployment package', flush=True)
     retry_ssh(lambda: vast.upload_package(config, capture_stderr=True), 'uploading setup files')
     root = config['remote_root']
@@ -135,14 +137,13 @@ def main():
         return
     # Keep installation on the host if this Mac or its network disconnects.
     launch = ('if ! command -v flock >/dev/null || ! command -v python3 >/dev/null; then '
+              'echo "RECAST_STAGE Installing minimal container tools"; '
               'apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq python3 util-linux; fi; '
               'mkdir -p {r}/state; if flock -n {r}/state/managed-provision.lock true; then '
               'rm -f {r}/state/managed-provision.exit; '
               'nohup bash {r}/scripts/managed_bootstrap.sh >> {r}/state/managed-provision.log 2>&1 < /dev/null & '
               'echo "Installation started"; else echo "Following the existing installation"; fi').format(r=shlex.quote(root))
-    started = retry_ssh(lambda: vast.remote(config, ['bash', '-lc', launch], stdout=subprocess.PIPE, stderr=subprocess.PIPE), 'starting setup')
-    if started.stdout:
-        print(started.stdout.decode(errors='replace'), end='', flush=True)
+    retry_ssh(lambda: vast.remote(config, ['bash', '-lc', launch], stderr=subprocess.PIPE), 'starting setup')
     offset, failures = 0, 0
     inspect = '''import fcntl,json,os,sys
 from pathlib import Path

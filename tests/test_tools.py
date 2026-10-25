@@ -16,6 +16,7 @@ import unittest
 from unittest.mock import patch, Mock
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from types import SimpleNamespace
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -96,6 +97,27 @@ class VideoAssemblyTests(unittest.TestCase):
 
 
 class SSHTests(unittest.TestCase):
+    def test_identical_configuration_keeps_its_tunnel_and_another_instance_closes_the_old_one(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary); config = root/'connection.json'
+            args = SimpleNamespace(ssh_command='ssh -p 2222 root@fixture.invalid', identity=root/'key', local_port=8188, instance_id=123)
+            with patch.object(vast, 'CONFIG', config), patch.object(vast, 'LOCAL', root), patch.object(vast, 'close_tunnel') as close:
+                vast.configure(args); vast.configure(args)
+                close.assert_not_called()
+                args.instance_id = 456; vast.configure(args)
+                close.assert_called_once()
+                self.assertEqual(close.call_args.args[0]['instance_id'], 123)
+
+    def test_open_ssh_resolves_the_private_master_without_weakening_host_checks(self):
+        config = {'host':'fixture.invalid','port':2222,'user':'root','local_port':8188,'host_key_alias':'recast-instance-123'}
+        output = subprocess.check_output(vast.ssh_arguments(config)+['-G',vast.destination(config)], stderr=subprocess.DEVNULL, text=True)
+        options = dict(line.split(' ',1) for line in output.splitlines() if ' ' in line)
+        self.assertEqual(options['controlpath'], vast.control_path(config))
+        self.assertEqual(options['stricthostkeychecking'], 'accept-new')
+        self.assertEqual(options['hostkeyalias'], 'recast-instance-123')
+        self.assertEqual(options['identitiesonly'], 'yes')
+        self.assertNotEqual(vast.control_path(config), vast.control_path({**config,'host_key_alias':'recast-instance-456'}))
+
     def test_background_tunnel_does_not_hold_the_launchers_output_pipes_open(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

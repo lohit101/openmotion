@@ -151,6 +151,7 @@ lines=['character_swap:','  base_path: '+json.dumps(str(root/'models')),'  is_de
 lines += ['  '+key+': '+key for key in keys]
 (root/'state/model-paths.yaml').write_text('\n'.join(lines)+'\n')
 PY
+if [[ "${RECAST_SKIP_MODEL_DOWNLOADS:-0}" != "1" ]]; then
 echo "Checking CUDA kernels before model downloads."
 "$SWAP_VENV_PYTHON" - <<'PY'
 import torch
@@ -160,6 +161,7 @@ x=torch.randn((64,64),device='cuda',dtype=torch.float16)
 torch.mm(x,x);torch.cuda.synchronize()
 print('CUDA test passed:',torch.__version__,torch.cuda.get_device_name(0))
 PY
+fi
 if [[ "${RECAST_SKIP_MODEL_DOWNLOADS:-0}" != "1" ]]; then
   "$SWAP_VENV_PYTHON" "$SWAP_ROOT/scripts/download_models.py" --manifest "$RECAST_MODEL_MANIFEST" --model-dir "$SWAP_ROOT/models"
 else

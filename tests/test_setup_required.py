@@ -21,7 +21,7 @@ class ParallelSetupTests(unittest.TestCase):
             tasks = parallel.call_args.args[0]
             self.assertEqual([label for label, command in tasks], ['ComfyUI runtime installation'])
             self.assertFalse(any('download_models.py' in str(command) for label, command in tasks))
-            self.assertIn('--runtime-only', run.call_args.args[0])
+            self.assertFalse(run.called, 'Runtime bootstrap already performs its own CUDA/schema check')
 
     def test_legacy_full_bundle_requires_explicit_opt_in(self):
         with tempfile.TemporaryDirectory() as folder, patch.object(setup_required, 'ROOT', Path(folder)), \

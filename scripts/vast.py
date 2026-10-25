@@ -77,6 +77,9 @@ def ssh_arguments(config):
         args += ["-o", "HostKeyAlias=" + config["host_key_alias"], "-o", "IdentitiesOnly=yes"]
     if os.environ.get("RECAST_SSH_BATCH") == "1":
         args += ["-o", "BatchMode=yes", "-o", "ConnectTimeout=12"]
+    if config.get('local_port'):
+        # Short setup/model commands share this rental's private SSH master.
+        args += ['-S', control_path(config)]
     return args
 
 
@@ -143,14 +146,17 @@ def configure(args):
         config["identity"] = str(args.identity.expanduser().resolve())
     elif not config["identity"] and Path("~/.ssh/comfyui_vast").expanduser().exists():
         config["identity"] = str(Path("~/.ssh/comfyui_vast").expanduser())
-    if CONFIG.exists():
-        close_tunnel(json.loads(CONFIG.read_text()))
     config.update({"local_port": args.local_port,
                    "remote_port": json.loads((ROOT / "config/server.json").read_text())["port"],
                    "remote_root": "/workspace/character-swap"})
     if getattr(args, "instance_id", None):
         config["instance_id"] = int(args.instance_id)
         config["host_key_alias"] = "recast-instance-%d" % config["instance_id"]
+    if CONFIG.exists():
+        previous = json.loads(CONFIG.read_text())
+        connection_fields = ('host', 'port', 'user', 'identity', 'local_port', 'remote_port', 'remote_root', 'instance_id', 'host_key_alias')
+        if any(previous.get(field) != config.get(field) for field in connection_fields):
+            close_tunnel(previous)
     LOCAL.mkdir(mode=0o700, exist_ok=True)
     CONFIG.write_text(json.dumps(config, indent=2) + "\n")
     CONFIG.chmod(0o600)

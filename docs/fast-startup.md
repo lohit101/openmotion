@@ -22,3 +22,13 @@ Runtime logs are followed at one-second intervals. Download counters update abou
 An existing rental keeps the image it was created with. Updating the application cannot replace an in-progress image pull. Reconnecting a running/loading container now follows it without sending another start request. The current rental must be replaced explicitly to use a different image; no replacement rental is created by these changes.
 
 Sources checked 2026-10-25: [NVIDIA CUDA image metadata](https://hub.docker.com/v2/repositories/nvidia/cuda/tags/13.0.2-base-ubuntu24.04/), [previous image metadata](https://hub.docker.com/v2/repositories/nvidia/cuda/tags/13.0.2-cudnn-devel-ubuntu24.04/), [PyTorch binary installation](https://pytorch.org/get-started/locally/), [Vast loading-state documentation](https://github.com/vast-ai/docs/blob/main/guides/instances/manage-instances.mdx). Vast documents that compute is not charged during image loading; compute is charged for runtime/model installation once the container is running. The displayed accepted running quote is not an accrued-charge counter.
+
+## Live measurements
+
+A verified native ARM64 GB10 completed a fresh blank-engine setup in **about 142 seconds** on 2026-10-25. The container became available at about 59 seconds, followed by roughly 83 seconds for runtime installation, health checks and connection. CUDA matmul, video tools and live workflow schemas passed. The model directory contained **zero weights**. The rate was approximately **$0.392/hour** with 64 GB disk, excluding transfer fees.
+
+Reconnecting the same already-running engine initially took **20.43 seconds**. Preserving the unchanged SSH tunnel and reusing its master connection reduced that to **8.80 seconds**, with the same SSH master confirmed before and afterward. Cached reconnect does not run apt/pip or reinstall models. These are reconnect timings with the engine running; a paused Vast instance still needs the provider's container start and engine process startup.
+
+Cold setup now avoids duplicate CUDA-import/kernel checks while retaining the bootstrap's CUDA and live-schema checks. Setup opens the reusable private tunnel early, and initial tool-install stdout streams directly to the app. A literal fatal host-builder error is handled even if Vast leaves the instance labelled Loading. Healthy slow setup continues without a time cutoff.
+
+This was one successful host sample. A separate attempted host failed before SSH with `docker_build() error writing dockerfile`; that empty test rental was removed. The successful timing is not a universal host guarantee. See [the sanitized timing report](../validation/fast-startup-gpu.json).

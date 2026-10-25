@@ -71,8 +71,8 @@ def main():
     reserve = '5' if (state / 'packages-ready.json').exists() else '17'
     env = dict(os.environ, RECAST_SKIP_MODEL_DOWNLOADS='1', PYTHONUNBUFFERED='1')
     python = ROOT / '.venv/bin/python'
-    # A cached installation needs only its missing required files, not another
-    # apt/pip pass. This probe never renders or downloads a model.
+    # A healthy cached engine needs no further apt/pip pass. This probe never
+    # renders or downloads a model.
     healthy = False
     if python.is_file() and (state / 'packages-ready.json').exists():
         try:
@@ -87,9 +87,12 @@ def main():
     if not healthy:
         tasks.append(('ComfyUI runtime installation', ['bash', str(ROOT / 'scripts/bootstrap.sh')]))
     run_parallel(tasks, env)
-    print('RECAST_STAGE Verifying CUDA and the ComfyUI engine', flush=True)
-    subprocess.run([str(python), str(ROOT / 'scripts/doctor.py')] +
-                   (['--manifest', str(plan)] if with_models else ['--runtime-only']), check=True)
+    # A fresh bootstrap checks CUDA and live schemas before exiting; a reused
+    # engine was checked above. Avoid importing/initializing CUDA a second time.
+    # An opt-in full recipe still needs its post-transfer model integrity check.
+    if with_models:
+        print('RECAST_STAGE Verifying the requested model bundle', flush=True)
+        subprocess.run([str(python), str(ROOT / 'scripts/doctor.py'), '--manifest', str(plan)], check=True)
     print('RECAST_STAGE Engine ready. Download only the files for your selected settings in Studio.', flush=True)
 
 

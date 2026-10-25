@@ -71,7 +71,7 @@ class ModelProfileTests(unittest.TestCase):
             self.assertTrue(any('doctor.py' in command and '--runtime-only' in command for command in commands))
             self.assertFalse(any('required-models.json' in command for command in commands))
             self.assertFalse(any('download_models.py' in command for command in commands))
-            tunnel.assert_called_once()
+            self.assertTrue(tunnel.called)
 
     def test_required_bundle_covers_natural_recipe_but_never_optional_extras(self):
         manifest = required_setup_manifest()

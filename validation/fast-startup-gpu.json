@@ -1,0 +1,111 @@
+{
+  "date": "2026-10-25",
+  "hardware": "NVIDIA GB10, native ARM64, verified host",
+  "hourly_quote_USD": 0.3918518518518518,
+  "disk_GB": 64,
+  "host_download_rating_Mbps": 2954.7,
+  "cold_engine": {
+    "definition": "Paid rental request through connected, health-checked ComfyUI, no weights",
+    "observed_seconds": 141.9,
+    "container_available_seconds": 59.1,
+    "runtime_and_connection_seconds": 82.8,
+    "observation_interval_seconds": 2,
+    "stages": [
+      {
+        "phase": "waiting",
+        "detail": null,
+        "elapsed_seconds": 18.9
+      },
+      {
+        "phase": "installing",
+        "detail": "Waiting for the new instance SSH service",
+        "elapsed_seconds": 59.1
+      },
+      {
+        "phase": "installing",
+        "detail": "Uploading the small deployment package",
+        "elapsed_seconds": 61.1
+      },
+      {
+        "phase": "installing",
+        "detail": "Preparing the blank ComfyUI engine; models download only when requested",
+        "elapsed_seconds": 65.1
+      },
+      {
+        "phase": "installing",
+        "detail": "Installing OS dependencies",
+        "elapsed_seconds": 75.2
+      },
+      {
+        "phase": "installing",
+        "detail": "Installing pinned PyTorch binaries (no CUDA toolkit compilation)",
+        "elapsed_seconds": 99.7
+      },
+      {
+        "phase": "installing",
+        "detail": "Installing ComfyUI dependencies",
+        "elapsed_seconds": 111.7
+      },
+      {
+        "phase": "installing",
+        "detail": "Blank engine installed. Model weights stay on demand.",
+        "elapsed_seconds": 119.8
+      },
+      {
+        "phase": "installing",
+        "detail": "Connecting the private ComfyUI tunnel",
+        "elapsed_seconds": 131.8
+      },
+      {
+        "phase": "connecting",
+        "detail": "Connecting the private ComfyUI tunnel",
+        "elapsed_seconds": 133.8
+      },
+      {
+        "phase": "ready",
+        "detail": "Connecting the private ComfyUI tunnel",
+        "elapsed_seconds": 141.9
+      }
+    ]
+  },
+  "cached_reconnect": {
+    "definition": "Reconnect the same already-running engine; no GPU pause/start or package reinstall",
+    "before_seconds": 20.426,
+    "after_seconds": 8.798,
+    "same_SSH_master_preserved": true,
+    "observation_interval_seconds": 0.3
+  },
+  "health": {
+    "weights": 0,
+    "weightBytes": 0,
+    "healthChecks": [
+      {
+        "check": "CUDA runtime",
+        "ok": true
+      },
+      {
+        "check": "Video tools",
+        "ok": true
+      },
+      {
+        "check": "Live workflow schemas",
+        "ok": true
+      }
+    ],
+    "python": "3.12.3"
+  },
+  "changes": [
+    "Skip duplicate cold-start CUDA health checks; retain the final runtime and schema validation",
+    "Keep an unchanged rental connection instead of closing its healthy SSH tunnel",
+    "Reuse the private SSH master for setup, monitoring and model commands",
+    "Open the reusable tunnel before cold setup and stream initial OS-tool stdout"
+  ],
+  "validation": {
+    "python_tests": "33 passed across tools, model profiles and setup orchestration",
+    "typescript_and_frontend_build": "Passed",
+    "live_GPU": "CUDA matmul and runtime workflow schemas passed; no rendering or model-weight download",
+    "earlier_failed_attempt": "A different host failed in Vast container building; the empty test rental was destroyed. That failure is separate from the successful timing sample.",
+    "scope": "One successful cold-start sample and one before/after cached reconnect on this host. Other hosts can differ; model downloads and rendering are separate."
+  },
+  "end_state": "One healthy GB10 online; no failed test rental retained"
+}
