@@ -1,0 +1,36 @@
+{
+  "date": "2026-10-25",
+  "observations": {
+    "bottleneck": "Live GB10 was still loading its container, SSH refused connections, and all model byte counters were zero",
+    "provider_log": "The 28.86 MB Ubuntu image layer completed about 27 minutes after the pull began; multiple small layers took minutes",
+    "interpretation": "Poor image delivery on this host plus an unnecessarily large development image; network routing, retries and host I/O were not individually isolated",
+    "required_core_GB": 26.653985675,
+    "full_natural_GB": 29.738555883
+  },
+  "image_metadata": {
+    "previous": "nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04",
+    "replacement": "nvidia/cuda:13.0.2-base-ubuntu24.04",
+    "arm64_previous_compressed_bytes": 4343695524,
+    "arm64_replacement_compressed_bytes": 133135420,
+    "amd64_previous_compressed_bytes": 4323097381,
+    "amd64_replacement_compressed_bytes": 139444203,
+    "verified_using": "NVIDIA Docker Hub tag metadata and registry manifests"
+  },
+  "behavior": {
+    "startup": "Runtime only; no weights or sample media",
+    "model_downloads": "Explicit selected-recipe or individual-file actions only; selection and Generate do not download",
+    "transfers": "Up to four workers, resume, file locking, SHA256 validation, roughly one-second byte counters during active transfer",
+    "cached_runtime": "Verified and reused without apt/pip reinstallation",
+    "marketplace": "Default 1 Gbps host rating, adjustable minimum and clearly labeled theoretical transfer lower bound",
+    "existing_instance": "Local controller reloaded and monitoring resumed on the same still-loading rental; no GPU restart or replacement requested"
+  },
+  "validation": {
+    "typescript": "Passed",
+    "focused_typescript_tests": "108 passed across cloud, model delivery, setup notices and instance presentation",
+    "python_tests": "35 passed across tools, profiles, storage and setup orchestration",
+    "shell_syntax": "Passed",
+    "frontend_and_server_build": "Passed; existing frontend chunk-size advisory remains",
+    "lifecycle_checks": "Confirmed an already running rental is followed without another provider start request; no automatic paid render or new rental",
+    "limits": "New base image has not completed a GPU bootstrap benchmark. Docker daemon was unavailable locally. No universal sub-five-minute or render-ready claim. Current rental retains its original image. New UI controls were build checked; foreground browser was left on the user's active video."
+  }
+}

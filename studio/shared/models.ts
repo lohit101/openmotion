@@ -45,12 +45,13 @@ const descriptions: Record<string, [string, string, 'core' | 'adapter']> = {
 export const modelDefinitions = pinnedModels.map(file => {
   const [label, description, group] = descriptions[filename(file.destination)];
   return { id: file.destination, filename: filename(file.destination), size: file.size, label, description, group,
-    included: setupModelFiles.includes(file.destination), experimental: filename(file.destination) === SOCIAL_STYLE,
+    included: group === 'core', experimental: filename(file.destination) === SOCIAL_STYLE,
     trigger: filename(file.destination) === SOCIAL_STYLE ? 'instag00n' : '',
     source: filename(file.destination) === SOCIAL_STYLE ? extras.files[0].source : '' };
 });
 export type ModelStatus = 'unknown' | 'missing' | 'queued' | 'downloading' | 'installed' | 'failed';
-export interface ModelFileState { id: string; status: ModelStatus; percent: number | null; message: string; error: string | null; }
+export interface ModelTransfer { downloaded: number; total: number; bytesPerSecond?: number; }
+export interface ModelFileState { id: string; status: ModelStatus; percent: number | null; message: string; error: string | null; downloaded?: number; total?: number; bytesPerSecond?: number; }
 export interface InstalledLora { name: string; size: number; partialSize?: number; included: boolean; }
 export interface ModelsState { files: ModelFileState[]; busy: boolean; refreshing: boolean; error: string | null; checkedAt: string | null; installedLoras: InstalledLora[]; deleting: string | null; }
 export const emptyModels = (): ModelsState => ({ files: modelDefinitions.map(file => ({ id: file.id, status: 'unknown', percent: null, message: '', error: null })), busy: false, refreshing: false, error: null, checkedAt: null, installedLoras: [], deleting: null });

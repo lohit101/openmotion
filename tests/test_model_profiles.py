@@ -60,7 +60,7 @@ class ModelProfileTests(unittest.TestCase):
             with self.subTest(config=altered), self.assertRaises(ValueError):
                 check_connection(altered, 123)
 
-    def test_existing_setup_verifies_required_files_before_reusing_cached_installation(self):
+    def test_existing_setup_verifies_engine_without_requiring_model_weights(self):
         with patch.object(sys, 'argv', ['managed_instance.py', '--host', 'fixture.example', '--port', '23456', '--identity', '/tmp/fixture-key', '--instance-id', '123']), \
              patch.object(managed_instance, 'check_local', return_value={'ok': True}), \
              patch.object(managed_instance.vast, 'configure'), patch.object(managed_instance.vast, 'upload_package'), \
@@ -68,7 +68,8 @@ class ModelProfileTests(unittest.TestCase):
              patch.object(managed_instance.subprocess, 'run', return_value=SimpleNamespace(returncode=0, stdout=b'', stderr=b'')) as run:
             managed_instance.main()
             commands = [str(call.args[0]) for call in run.call_args_list]
-            self.assertTrue(any('required-models.json' in command and '--manifest' in command for command in commands))
+            self.assertTrue(any('doctor.py' in command and '--runtime-only' in command for command in commands))
+            self.assertFalse(any('required-models.json' in command for command in commands))
             self.assertFalse(any('download_models.py' in command for command in commands))
             tunnel.assert_called_once()
 

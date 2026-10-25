@@ -7,6 +7,7 @@ export RECAST_SKIP_MODEL_DOWNLOADS="${RECAST_SKIP_MODEL_DOWNLOADS:-1}"
 export RECAST_MODEL_MANIFEST="${RECAST_MODEL_MANIFEST:-$SWAP_ROOT/config/models.lock.json}"
 if ! command -v python3 >/dev/null || ! command -v flock >/dev/null; then
   if [[ "$(id -u)" == "0" ]] && command -v apt-get >/dev/null; then
+    echo 'RECAST_STAGE Installing the minimal OS tools'
     apt-get update -qq
     DEBIAN_FRONTEND=noninteractive apt-get install -y -qq python3 python3-pip util-linux
   else
@@ -59,8 +60,9 @@ else:
 PY
 
 if [[ "$(id -u)" == "0" ]] && command -v apt-get >/dev/null; then
+  echo 'RECAST_STAGE Installing OS dependencies'
   apt-get update -qq
-  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq git ffmpeg rsync python3-pip python3-venv libgl1 libglib2.0-0
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends git ffmpeg rsync python3-pip python3-venv python3-dev build-essential libgl1 libglib2.0-0 ca-certificates
 fi
 for SWAP_TOOL in git ffmpeg rsync; do
   command -v "$SWAP_TOOL" >/dev/null || { echo "Missing $SWAP_TOOL; use a root SSH Ubuntu CUDA/PyTorch template." >&2; exit 1; }
@@ -95,6 +97,7 @@ checkout() {
   if [[ "$(git -C "$SWAP_DIRECTORY" remote get-url origin)" != "$SWAP_REPOSITORY" ]]; then
     echo "Unexpected repository at $SWAP_DIRECTORY" >&2; exit 1
   fi
+  if [[ "$(git -C "$SWAP_DIRECTORY" rev-parse HEAD 2>/dev/null || true)" == "$SWAP_REVISION" ]]; then return; fi
   git -C "$SWAP_DIRECTORY" fetch -q --depth=1 origin "$SWAP_REVISION"
   git -C "$SWAP_DIRECTORY" checkout -q --detach "$SWAP_REVISION"
 }
@@ -111,12 +114,17 @@ import json,sys
 sys.exit(json.load(open(sys.argv[1])).get('key')!=sys.argv[2])
 PY
 then
-  "$SWAP_VENV_PYTHON" -m pip install --upgrade pip
-  "$SWAP_VENV_PYTHON" -m pip install "torch==$(cfg torch)" "torchvision==$(cfg torchvision)" "torchaudio==$(cfg torchaudio)" --index-url "$(cfg torch_index)"
-  printf 'torch==%s\ntorchvision==%s\ntorchaudio==%s\n' "$(cfg torch)" "$(cfg torchvision)" "$(cfg torchaudio)" > "$SWAP_ROOT/state/torch-constraints.txt"
-  mkdir -p "$SWAP_ROOT/state/wheels"
+  echo 'RECAST_STAGE Installing pinned PyTorch binaries (no CUDA toolkit compilation)'
   SWAP_UV="$(command -v uv || true)"
   if [[ -z "$SWAP_UV" && -x /venv/main/bin/uv ]]; then SWAP_UV=/venv/main/bin/uv; fi
+  if [[ -z "$SWAP_UV" ]]; then
+    "$SWAP_VENV_PYTHON" -m pip install --no-cache-dir --target "$SWAP_ROOT/.bootstrap-tools" uv==0.9.13
+    SWAP_UV="$SWAP_ROOT/.bootstrap-tools/bin/uv"
+  fi
+  "$SWAP_UV" pip install --no-cache --python "$SWAP_VENV_PYTHON" "torch==$(cfg torch)" "torchvision==$(cfg torchvision)" "torchaudio==$(cfg torchaudio)" --index-url "$(cfg torch_index)"
+  printf 'torch==%s\ntorchvision==%s\ntorchaudio==%s\n' "$(cfg torch)" "$(cfg torchvision)" "$(cfg torchaudio)" > "$SWAP_ROOT/state/torch-constraints.txt"
+  mkdir -p "$SWAP_ROOT/state/wheels"
+  echo 'RECAST_STAGE Installing ComfyUI dependencies'
   if [[ -n "$SWAP_UV" ]]; then
     "$SWAP_UV" pip install --no-cache --python "$SWAP_VENV_PYTHON" --find-links "$SWAP_ROOT/state/wheels" -r "$COMFY_ROOT/requirements.txt" -r "$COMFY_ROOT/custom_nodes/ComfyUI-VideoHelperSuite/requirements.txt" -c "$SWAP_ROOT/state/torch-constraints.txt"
   else
@@ -155,7 +163,7 @@ PY
 if [[ "${RECAST_SKIP_MODEL_DOWNLOADS:-0}" != "1" ]]; then
   "$SWAP_VENV_PYTHON" "$SWAP_ROOT/scripts/download_models.py" --manifest "$RECAST_MODEL_MANIFEST" --model-dir "$SWAP_ROOT/models"
 else
-  echo 'RECAST_STAGE Runtime installed. Choose model downloads explicitly in Studio.'
+  echo 'RECAST_STAGE Blank engine installed. Model weights stay on demand.'
 fi
 if [[ ! -f "$SWAP_ROOT/data/user/default/workflows/Character Swap/02 Character Swap INT8.json" ]]; then
   cp "$SWAP_ROOT/workflows/scail2_int8_swap.json" "$SWAP_ROOT/data/user/default/workflows/Character Swap/02 Character Swap INT8.json"
@@ -163,7 +171,9 @@ fi
 if [[ ! -f "$SWAP_ROOT/data/user/default/workflows/Character Swap/01 Check Masks.json" ]]; then
   cp "$SWAP_ROOT/workflows/scail2_int8_masks.json" "$SWAP_ROOT/data/user/default/workflows/Character Swap/01 Check Masks.json"
 fi
-"$SWAP_VENV_PYTHON" "$SWAP_ROOT/scripts/sample_inputs.py" --input-dir "$SWAP_ROOT/data/input"
+if [[ "${RECAST_DOWNLOAD_SAMPLES:-0}" == "1" ]]; then
+  "$SWAP_VENV_PYTHON" "$SWAP_ROOT/scripts/sample_inputs.py" --input-dir "$SWAP_ROOT/data/input"
+fi
 bash "$SWAP_ROOT/scripts/server.sh" start
 if [[ "${RECAST_SKIP_MODEL_DOWNLOADS:-0}" == "1" ]]; then
   "$SWAP_VENV_PYTHON" "$SWAP_ROOT/scripts/doctor.py" --runtime-only

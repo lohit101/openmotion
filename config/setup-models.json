@@ -1,5 +1,5 @@
 {
-  "description": "Required bundle for Natural 8-step character replacement with detail and relighting",
+  "description": "Opt-in Natural 8-step recipe with detail and relighting; engine startup does not download this bundle",
   "files": [
     "diffusion_models/wan2.1_14B_SCAIL_2_int8_convrot.safetensors",
     "text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors",

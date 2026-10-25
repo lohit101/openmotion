@@ -13,7 +13,6 @@ import time
 from types import SimpleNamespace
 
 import vast
-from model_manifest import required_setup_manifest
 
 
 def ssh_failure(detail):
@@ -119,12 +118,11 @@ def main():
     print('RECAST_STAGE Uploading the small deployment package', flush=True)
     retry_ssh(lambda: vast.upload_package(config, capture_stderr=True), 'uploading setup files')
     root = config['remote_root']
-    print('RECAST_STAGE Preparing ComfyUI and the required model bundle; extras stay optional', flush=True)
-    fast = ('python3 {r}/scripts/model_manifest.py --setup-output {r}/state/required-models.json && '
-            'test -f {r}/state/managed-provision.exit && '
+    print('RECAST_STAGE Preparing the blank ComfyUI engine; models download only when requested', flush=True)
+    fast = ('test -f {r}/state/managed-provision.exit && '
             'test "$(cat {r}/state/managed-provision.exit)" = 0 && '
             'bash {r}/scripts/server.sh start && '
-            '{r}/.venv/bin/python {r}/scripts/doctor.py --manifest {r}/state/required-models.json').format(r=shlex.quote(root))
+            '{r}/.venv/bin/python {r}/scripts/doctor.py --runtime-only').format(r=shlex.quote(root))
     try:
         ready = subprocess.run(vast.ssh_arguments(config) + ['-T', vast.destination(config), shlex.join(['bash', '-lc', fast])],
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=120)
@@ -132,9 +130,7 @@ def main():
         print('RECAST_WARNING Cached setup verification is taking longer than usual. Following managed setup on this same instance.', flush=True)
         ready = SimpleNamespace(returncode=1)
     if ready.returncode == 0:
-        print('RECAST_STAGE Existing installation verified; reusing cached models', flush=True)
-        for item in required_setup_manifest()['files']:
-            print('RECAST_MODEL_PROGRESS ' + json.dumps({'destination': item['destination'], 'downloaded': item['size'], 'total': item['size'], 'phase': 'ready'}), flush=True)
+        print('RECAST_STAGE Existing engine verified; installed models are retained', flush=True)
         retry_ssh(lambda: vast.tunnel(config, browser=False, capture_stderr=True), 'connecting ComfyUI')
         return
     # Keep installation on the host if this Mac or its network disconnects.
@@ -180,7 +176,7 @@ print(json.dumps({'running':running,'offset':offset,'text':data.decode(errors='r
             print('Setup connection interrupted; reconnecting to the existing installation.', flush=True)
             if failures >= 6:
                 print('RECAST_WARNING Setup monitoring is temporarily unavailable. Reconnecting to the same remote installation.', flush=True)
-        time.sleep(4)
+        time.sleep(1)
     print('RECAST_STAGE Connecting the private ComfyUI tunnel', flush=True)
     retry_ssh(lambda: vast.tunnel(config, browser=False, capture_stderr=True), 'connecting ComfyUI')
 

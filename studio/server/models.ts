@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import type { Catalog, Graph } from '../shared/types';
-import { emptyModels, modelDefinitions, pinnedModels, setupModelFiles, type InstalledLora, type ModelsState } from '../shared/models';
+import { emptyModels, modelDefinitions, pinnedModels, type InstalledLora, type ModelsState, type ModelTransfer } from '../shared/models';
 import type { Store } from './store';
 import { lorasFrom, type ConnectionManager } from './comfy';
 import { command } from './media';
@@ -29,7 +29,7 @@ export function missingPinnedAdapters(graph: Graph, catalog: Catalog): string[] 
 // No elapsed-time cutoff for a healthy transfer. The downloader provides
 // bounded retries, resumable partials and pinned SHA256 verification.
 export function downloadPinnedModels(repo: string, instanceId: number | null, endpoint: string, files: string[], signal: AbortSignal,
-  progress: (message: string, percent?: number | null) => void): Promise<void> {
+  progress: (message: string, percent?: number | null, transfer?: ModelTransfer) => void): Promise<void> {
   signal.throwIfAborted();
   if (!instanceId || endpoint !== 'http://127.0.0.1:8188') throw new Error('Connect the managed GPU through GPU cloud before downloading models.');
   return new Promise((resolve, reject) => {
@@ -45,9 +45,10 @@ export function downloadPinnedModels(repo: string, instanceId: number | null, en
         if (line.startsWith('RECAST_MODEL_PROGRESS ')) {
           try {
             const event = JSON.parse(line.slice(22));
-            if (!files.includes(event.destination) || !Number.isFinite(event.downloaded) || !(event.total > 0)) continue;
+            if (!files.includes(event.destination) || !Number.isFinite(event.downloaded) || event.downloaded < 0 || event.downloaded > event.total || event.total !== pinnedModels.find(file => file.destination === event.destination)?.size) continue;
             progress(event.phase === 'verifying' ? 'Verifying SHA256' : event.phase === 'ready' ? 'File verified' : 'Downloading model file',
-              event.phase === 'verifying' ? null : Math.min(100, Math.max(0, Math.floor(100 * event.downloaded / event.total))));
+              event.phase === 'verifying' ? null : Math.min(100, Math.max(0, Math.floor(100 * event.downloaded / event.total))),
+              { downloaded: event.downloaded, total: event.total, bytesPerSecond: Number.isFinite(event.bytesPerSecond) && event.bytesPerSecond >= 0 ? event.bytesPerSecond : undefined });
           } catch { /* Ignore malformed telemetry; normal process exit still decides success. */ }
           continue;
         }
@@ -140,9 +141,9 @@ export class ModelManager {
             Object.assign(file, { status: 'downloading', message: 'Connecting to download', percent: null }); this.emit();
             const warning = setTimeout(() => { file.message = 'Taking longer than usual. Download is still running.'; this.emit(); }, 15 * 60000);
             try {
-              await this.download(this.repo, instanceId, endpoint, [id], signal, (message, percent) => {
+              await this.download(this.repo, instanceId, endpoint, [id], signal, (message, percent, transfer) => {
                 if (signal.aborted) return;
-                file.message = message; if (percent !== undefined) file.percent = percent; this.emit();
+                file.message = message; if (percent !== undefined) file.percent = percent; if (transfer) Object.assign(file, transfer); this.emit();
               });
               Object.assign(file, { status: 'installed', percent: 100, message: 'Downloaded and SHA256 verified', error: null });
             } catch (error) {
@@ -151,7 +152,7 @@ export class ModelManager {
             } finally { clearTimeout(warning); this.emit(); }
           }
         };
-        this.work = Promise.all([worker(), worker()]).then(async () => {
+        this.work = Promise.all([worker(), worker(), worker(), worker()]).then(async () => {
           this.state.busy = this.preparing > 0; this.controller = null; this.work = null; await this.refresh();
         });
       }
@@ -166,7 +167,6 @@ export class ModelManager {
   }
   async remove(name: string) {
     if (this.state.busy) throw new Error('Finish or cancel active transfers before removing a LoRA.');
-    if (setupModelFiles.includes('loras/' + name)) throw new Error('This LoRA is included in required setup.');
     if (!name || name.length > 300 || /[\x00-\x1f\x7f]/.test(name) || name.startsWith('/') || name.includes('\\') || name.split('/').some(p => !p || p === '.' || p === '..') || !name.endsWith('.safetensors')) throw new Error('Choose a valid LoRA filename.');
     const instanceId = this.store.value<number | null>('cloud-connected-instance', null);
     if (!instanceId || this.connection.status.state !== 'online' || this.connection.status.endpoint !== 'http://127.0.0.1:8188') throw new Error('Connect the managed GPU before removing LoRAs.');

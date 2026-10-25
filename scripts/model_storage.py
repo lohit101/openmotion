@@ -7,7 +7,6 @@ import os
 from pathlib import Path, PurePosixPath
 import stat
 
-from model_manifest import required_setup_manifest
 
 
 def lora_parts(name):
@@ -23,7 +22,6 @@ def inventory(model_dir):
     if Path(model_dir).is_symlink():
         raise ValueError('The model directory must not be a symlink.')
     root = Path(model_dir) / 'loras'
-    required = {f['destination'][6:] for f in required_setup_manifest()['files'] if f['destination'].startswith('loras/')}
     if root.is_symlink():
         raise ValueError('The LoRA directory must not be a symlink.')
     files = {}
@@ -38,16 +36,13 @@ def inventory(model_dir):
                 partial = relative.endswith('.part')
                 if partial:
                     relative = relative[:-5]
-                entry = files.setdefault(relative, {'name': relative, 'size': 0, 'partialSize': 0, 'included': relative in required})
+                entry = files.setdefault(relative, {'name': relative, 'size': 0, 'partialSize': 0, 'included': False})
                 entry['partialSize' if partial else 'size'] = path.stat().st_size
     return {'loras': sorted(files.values(), key=lambda f: f['name'])}
 
 
 def remove_lora(model_dir, name):
     parts = lora_parts(name)
-    required = {f['destination'] for f in required_setup_manifest()['files']}
-    if 'loras/' + name in required:
-        raise ValueError('This LoRA is included in required setup and cannot be removed from Extras.')
     flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
     base = os.open(Path(model_dir), flags)
     try:

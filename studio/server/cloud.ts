@@ -14,7 +14,7 @@ import { modelBytes, pinnedModels, setupModelFiles } from '../shared/models';
 
 const MODEL_GB = modelBytes(setupModelFiles) / 1e9;
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-export const RENTAL_IMAGE = 'nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04';
+export const RENTAL_IMAGE = 'nvidia/cuda:13.0.2-base-ubuntu24.04';
 export const SSH_ONSTART = readFileSync(new URL('../../scripts/ssh_permissions.sh', import.meta.url), 'utf8');
 const number = (value: unknown): number | null => value !== null && value !== '' && value !== undefined && Number.isFinite(Number(value)) ? Number(value) : null;
 const amount = (...values: unknown[]) => values.map(number).find(v => v !== null && v >= 0) ?? null;
@@ -101,6 +101,7 @@ export class VastClient {
     // Revalidate the exact ask that will be used by PUT /asks/{ask_contract_id}.
     if (id) query.ask_contract_id = { eq: id }; else query.gpu_name = offerGpuFilter(filters.gpu);
     if (filters.verified) query.verified = { eq: true };
+    if (filters.minDownload > 0) query.inet_down = { gte: filters.minDownload };
     const value = await this.request('/api/v0/bundles/', 'POST', query);
     if (!Array.isArray(value.offers)) throw new VastError('Vast returned an invalid offer list. No rental was requested.', 502);
     return (id ? value.offers.filter((offer: any) => Number(offer.ask_contract_id ?? offer.id) === id) : value.offers) as any[];
@@ -128,6 +129,7 @@ export function normalizeOffer(raw: any, filters: OfferFilters, modelGB = MODEL_
   if (Number(raw.cuda_max_good || 0) < 13) reasons.push('CUDA 13 support is required.'); if (Number(raw.disk_space || 0) < filters.disk) reasons.push('The requested disk allocation is unavailable.');
   if (Number(raw.direct_port_count || 0) < 1) reasons.push('A direct SSH port is required.'); if (raw.rented || raw.rentable === false) reasons.push('This offer is no longer available.');
   if (filters.verified && raw.verification !== 'verified' && raw.verified !== true) reasons.push('A verified host is required.');
+  if (filters.minDownload > 0 && Number(raw.inet_down || 0) < filters.minDownload) reasons.push(`At least ${filters.minDownload} Mbps download is selected.`);
   if (totalHourly === null) reasons.push('An hourly quote is unavailable.');
   return { id: askId, machineId: Number(raw.machine_id), gpu, vram, ram, cpus: Number(raw.cpu_cores_effective || raw.cpu_cores || 0), cpu: String(raw.cpu_name || 'CPU details unavailable'),
     location: String(raw.geolocation || 'Location unavailable'), verified: raw.verification === 'verified' || raw.verified === true, reliability: Number(raw.reliability2 ?? raw.reliability ?? 0),
@@ -372,8 +374,12 @@ export class CloudManager {
     this.activeTask = (async () => { try {
       const identity = await this.ensureSshKey(); await this.localPreflight(identity);
       if (this.closing || this.stopped.has(launch.id)) return;
-      this.change(launch, 'requesting', 'Starting the existing rental. Billing resumes when compute starts.');
-      await this.client.request(`/api/v0/instances/${launch.instanceId}/`, 'PUT', { state: 'running' });
+      const current = this.rawInstances.find(instance => instance.id === launch.instanceId);
+      if (!current) throw new Error('The existing rental could not be confirmed. Refresh before reconnecting.');
+      if (!['running', 'loading', 'creating'].includes(current.actual_status)) {
+        this.change(launch, 'requesting', 'Starting the existing rental. Billing resumes when compute starts.');
+        await this.client.request(`/api/v0/instances/${launch.instanceId}/`, 'PUT', { state: 'running' });
+      } else this.change(launch, 'waiting', 'Following the existing rental without restarting its container.');
       if (this.closing) { launch.needsReconnect = true; this.change(launch, 'waiting', 'Rental started. Reconnect setup to follow this same instance.'); return; }
       if (this.stopped.has(launch.id)) { await this.stopRental(launch, 'Launch cancelled while the start request was in progress.'); return; }
       await this.prepareGuarded(launch, identity);
@@ -393,13 +399,14 @@ export class CloudManager {
   private async prepareGuarded(launch: CloudLaunch, identity: string) {
     const controller = new AbortController(); this.activeAbort = controller;
     const warningAfter = this.options.setupWarningMs ?? 15 * 60000;
-    launch.setupStartedAt = new Date().toISOString(); launch.setupWarningAt = new Date(Date.now() + warningAfter).toISOString(); launch.setupDeadline = null;
+    if (!launch.needsReconnect || !launch.setupStartedAt) launch.setupStartedAt = new Date().toISOString();
+    launch.setupWarningAt = new Date(Date.parse(launch.setupStartedAt) + warningAfter).toISOString(); launch.setupDeadline = null;
     launch.needsReconnect = false; launch.setupSlow = false; launch.warning = null; launch.safetyStatus = 'armed'; launch.autoStopOnFailure = true; launch.lastFailure = undefined; launch.failureCode = undefined;
-    launch.setupDownloads = pinnedModels.filter(file => setupModelFiles.includes(file.destination)).map(file => ({ id: file.destination, downloaded: 0, total: file.size, phase: 'queued' })); this.emit();
+    launch.setupDownloads = []; this.emit();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const aborted = new Promise<never>((_resolve, reject) => controller.signal.addEventListener('abort', () => reject(controller.signal.reason || new Error('GPU setup interrupted.')), { once: true }));
     try {
-      timer = setTimeout(() => { if (this.closing || controller.signal.aborted) return; launch.setupSlow = true; launch.warning = 'Taking longer than usual. Setup is still running; elapsed time will not stop this instance.'; this.emit(); }, warningAfter);
+      timer = setTimeout(() => { if (this.closing || controller.signal.aborted) return; launch.setupSlow = true; launch.warning = 'Taking longer than usual. Setup is still running; elapsed time will not stop this instance.'; this.emit(); }, Math.max(0, Date.parse(launch.setupWarningAt) - Date.now()));
       await Promise.race([this.prepare(launch, identity, controller.signal), aborted]);
     } finally { if (timer) clearTimeout(timer); if (this.activeAbort === controller) this.activeAbort = null; }
   }
@@ -447,9 +454,14 @@ export class CloudManager {
       if (instance.ssh_host && instance.ssh_port && await this.probeGpu(instance, identity)) {
         launch.warning = 'Vast’s status is delayed, but SSH and the selected GPU are reachable. Continuing setup.'; this.emit(); break;
       }
-      this.change(launch, 'waiting', String(instance.status_msg || 'Container status: ' + instance.actual_status)); await pause(this.options.pollMs ?? 5000);
+      const status = String(instance.status_msg || 'Container status: ' + instance.actual_status).trim();
+      if (status !== launch.message.trim()) {
+        launch.logs.push(`[${new Date().toISOString()}] Vast: ${status}`.slice(0, 800)); launch.logs = launch.logs.slice(-120);
+        launch.lastLogAt = new Date().toISOString();
+      }
+      this.change(launch, 'waiting', status); await pause(this.options.pollMs ?? 5000);
     }
-    this.change(launch, 'installing', 'Installing ComfyUI and required model files. Extras stay optional.');
+    this.change(launch, 'installing', 'Installing the blank ComfyUI engine. Model files download only when requested.');
     const log = (line: string) => {
       if (signal.aborted || this.stopped.has(launch.id)) return;
       if (line.startsWith('RECAST_MODEL_PROGRESS ')) {
@@ -460,15 +472,16 @@ export class CloudManager {
       }
       launch.logs.push(line.slice(0, 800)); launch.logs = launch.logs.slice(-120);
       if (line.startsWith('RECAST_WARNING ')) launch.warning = line.slice(15, 500);
+      if (line.startsWith('RECAST_STAGE ')) launch.stageDetail = line.slice(13, 500);
       if (/Downloading|Verified:|CUDA test|Setup complete|RECAST_STAGE/.test(line)) launch.message = line.replace('RECAST_STAGE ', '').slice(0, 250);
-      launch.updatedAt = new Date().toISOString(); this.emit();
+      launch.lastLogAt = launch.updatedAt = new Date().toISOString(); this.emit();
     };
     if (this.options.provision) await this.options.provision(instance, log, signal);
     else await this.runProvision(instance, identity, log, signal);
     check();
     this.change(launch, 'connecting', 'Checking the actual CUDA ComfyUI server');
     await this.connection.connect('http://127.0.0.1:8188', false); check(); if (this.connection.status.state !== 'online') throw new Error(this.connection.status.message);
-    launch.setupDeadline = null; launch.setupWarningAt = null; launch.setupSlow = false; launch.warning = null; launch.safetyStatus = 'disarmed'; this.store.set('cloud-connected-instance', launch.instanceId); this.change(launch, 'ready', 'GPU connected and required files verified. Optional LoRAs are in Settings → Extras.');
+    launch.setupDeadline = null; launch.setupWarningAt = null; launch.setupSlow = false; launch.warning = null; launch.safetyStatus = 'disarmed'; this.store.set('cloud-connected-instance', launch.instanceId); this.change(launch, 'ready', 'ComfyUI engine connected. Download the files needed by your selected settings before rendering.');
   }
   private async probeGpu(instance: any, identity: string) {
     if (this.options.probe) return this.options.probe(instance, identity);

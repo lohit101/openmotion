@@ -18,6 +18,7 @@ export const offerFiltersSchema = z.object({
   disk: z.number().int().min(64).max(2048).default(80),
   ram: z.union([z.literal(48), z.literal(64), z.literal(96)]).default(48),
   verified: z.boolean().default(true),
+  minDownload: z.number().int().min(0).max(100000).default(0),
   sort: z.enum(['price', 'compute', 'setup']).default('price'),
 });
 export type OfferFilters = z.infer<typeof offerFiltersSchema>;
@@ -80,6 +81,8 @@ export interface CloudLaunch {
   approvedTransfer?: { download: number | null; upload: number | null };
   setupTimeoutMinutes?: number; setupDeadline?: string | null; autoStopOnFailure?: boolean;
   setupStartedAt?: string; setupWarningAt?: string | null; setupSlow?: boolean; warning?: string | null; needsReconnect?: boolean;
+  lastLogAt?: string;
+  stageDetail?: string;
   safetyStatus?: 'armed' | 'stop_requested' | 'stopped' | 'unconfirmed' | 'disarmed';
   lastFailure?: string; failureCode?: 'offer-unavailable' | 'price-changed' | 'transfer-changed' | 'setup-failed' | 'request-unconfirmed';
   setupDownloads?: { id: string; downloaded: number; total: number; phase: 'queued' | 'downloading' | 'verifying' | 'ready' }[];

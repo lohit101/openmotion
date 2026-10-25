@@ -199,6 +199,7 @@
 .setup-embedded .setup-stages { margin-top: 20px; }
 .setup-elapsed { margin-left: auto; color: var(--quiet); font-size: 10px; font-variant-numeric: tabular-nums; }
 .setup-message { max-width: 760px; margin-top: 10px; }
+.setup-activity-hint { color: var(--quiet); font-size: 10px; line-height: 1.7; max-width: 760px; margin: 7px 0 0; }
 .setup-embedded .setup-tools { margin-top: 12px; }
 .instance-context { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 11px; line-height: 1.7; padding: 16px 23px 0; margin: 0; border-top: 1px solid var(--line-soft); }
 .instance-inspect { padding: 15px 23px 18px; }

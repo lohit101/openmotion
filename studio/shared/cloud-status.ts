@@ -3,7 +3,7 @@ import type { CloudLaunch } from './cloud';
 export function setupNotice(launch: CloudLaunch) {
   const attempt = launch.setupStartedAt || launch.createdAt;
   if (['failed', 'stopping', 'stopped', 'unknown'].includes(launch.phase) && launch.failureCode) return { key: `${launch.id}:${attempt}:error:${launch.lastFailure || launch.message}`, tone: 'error' as const, title: launch.phase === 'unknown' ? 'Rental request unconfirmed' : 'GPU setup failed', message: launch.lastFailure || launch.message };
-  if (launch.phase === 'ready') return { key: `${launch.id}:${attempt}:ready`, tone: 'success' as const, title: 'Your GPU is ready', message: 'ComfyUI is connected. You can generate now.' };
+  if (launch.phase === 'ready') return { key: `${launch.id}:${attempt}:ready`, tone: 'success' as const, title: 'ComfyUI engine is online', message: 'Download the files for your selected settings, or reuse models already on this GPU.' };
   if (['checking', 'requesting', 'waiting', 'installing', 'connecting'].includes(launch.phase) && (launch.warning || launch.setupSlow || launch.needsReconnect)) return { key: `${launch.id}:${attempt}:warning:${launch.warning || 'slow'}`, tone: 'warning' as const, title: launch.needsReconnect ? 'Reconnect to follow setup' : launch.setupSlow ? 'Taking longer than usual' : 'Connection update', message: launch.warning?.replace(/^Taking longer than usual\.\s*/, '') || 'Setup is still running. Elapsed time will not stop this instance.' };
   return null;
 }

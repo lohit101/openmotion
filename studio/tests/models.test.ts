@@ -121,7 +121,8 @@ describe('explicit file delivery', () => {
     const message = (downloaded: number, phase: string) => 'RECAST_MODEL_PROGRESS ' + JSON.stringify({ destination: file, downloaded, total: 630697104, phase }) + '\n';
     child.stdout.write(message(315348552, 'downloading') + message(630697104, 'verifying') + message(630697104, 'ready'));
     child.emit('close', 0); await pending;
-    expect(progress.mock.calls).toEqual([['Downloading model file', 50], ['Verifying SHA256', null], ['File verified', 100]]);
+    expect(progress.mock.calls.map(call => call.slice(0, 2))).toEqual([['Downloading model file', 50], ['Verifying SHA256', null], ['File verified', 100]]);
+    expect(progress.mock.calls[0][2]).toMatchObject({ downloaded: 315348552, total: 630697104 });
   });
 
   it('surfaces failed transfers without returning success or attempting a render', async () => {
@@ -171,20 +172,20 @@ describe('manual model queue', () => {
     expect(manager.state.files.filter(item => item.status === 'installed').map(item => item.id)).toEqual([file]);
     expect(spawn).not.toHaveBeenCalled();
   });
-  it('keeps at most two transfers active, exposes failures and retries only when requested', async () => {
-    const { manager, worker, controls, untilIdle } = await fixture(); const files = pinnedModels.slice(0, 3).map(file => file.destination);
-    await manager.start(files); expect(worker).toHaveBeenCalledTimes(2);
-    controls.get(files[0])!.resolve(); await new Promise(resolve => setTimeout(resolve, 0)); expect(worker).toHaveBeenCalledTimes(3);
-    controls.get(files[1])!.reject(new Error('Checksum mismatch')); controls.get(files[2])!.resolve(); await untilIdle();
+  it('keeps at most four transfers active, exposes failures and retries only when requested', async () => {
+    const { manager, worker, controls, untilIdle } = await fixture(); const files = pinnedModels.slice(0, 5).map(file => file.destination);
+    await manager.start(files); expect(worker).toHaveBeenCalledTimes(4);
+    controls.get(files[0])!.resolve(); await new Promise(resolve => setTimeout(resolve, 0)); expect(worker).toHaveBeenCalledTimes(5);
+    controls.get(files[1])!.reject(new Error('Checksum mismatch')); for (const file of files.slice(2)) controls.get(file)!.resolve(); await untilIdle();
     expect(manager.state.files.find(file => file.id === files[1])).toMatchObject({ status: 'failed', error: 'Checksum mismatch' });
-    await manager.refresh(); expect(worker).toHaveBeenCalledTimes(3);
-    await manager.start([files[1]]); expect(worker).toHaveBeenCalledTimes(4); controls.get(files[1])!.resolve(); await untilIdle();
+    await manager.refresh(); expect(worker).toHaveBeenCalledTimes(5);
+    await manager.start([files[1]]); expect(worker).toHaveBeenCalledTimes(6); controls.get(files[1])!.resolve(); await untilIdle();
     expect(manager.state.files.find(file => file.id === files[1])?.status).toBe('installed');
   });
   it('cancels active and queued transfers without an automatic retry or lifecycle action', async () => {
-    const { manager, worker } = await fixture(); const files = pinnedModels.slice(0, 3).map(file => file.destination);
+    const { manager, worker } = await fixture(); const files = pinnedModels.slice(0, 5).map(file => file.destination);
     await manager.start(files); await manager.cancel();
-    expect(worker).toHaveBeenCalledTimes(2); expect(manager.state.busy).toBe(false);
+    expect(worker).toHaveBeenCalledTimes(4); expect(manager.state.busy).toBe(false);
     expect(manager.state.files.every(file => !['queued', 'downloading', 'failed'].includes(file.status))).toBe(true);
     expect(spawn).not.toHaveBeenCalled();
   });
@@ -208,9 +209,9 @@ describe('manual model queue', () => {
     expect(result.freedBytes).toBe(123); expect(connection.status.loras).not.toContain(SOCIAL_STYLE);
     expect(store!.draft().settings.loraA).toBe('None'); expect(manager.state.files.find(f => f.id === 'loras/' + SOCIAL_STYLE)?.status).toBe('missing');
     expect(storage).toHaveBeenCalledWith(repo, 123, 'delete', SOCIAL_STYLE); expect(worker).not.toHaveBeenCalled(); expect(manager.state.busy).toBe(false);
-    await expect(manager.remove(NATURAL_SPEED)).rejects.toThrow('required setup');
+    choices.push(NATURAL_SPEED); await manager.remove(NATURAL_SPEED);
     await expect(manager.remove('../outside.safetensors')).rejects.toThrow('valid');
-    expect(storage.mock.calls.filter(c => c[2] === 'delete')).toHaveLength(1);
+    expect(storage.mock.calls.filter(c => c[2] === 'delete')).toHaveLength(2);
   });
   it('blocks deletion during a transfer and new downloads while deletion is pending', async () => {
     const { manager, choices, storage } = await fixture();

@@ -11,7 +11,7 @@ export function instancePresentation(instance: CloudInstance, launch?: CloudLaun
     : stopped ? failed ? 'Paused after error' : 'Paused'
     : connected ? 'Connected'
     : launch?.needsReconnect ? 'Reconnect setup'
-    : preparing ? launch?.phase === 'installing' ? 'Installing workflow' : launch?.phase === 'connecting' ? 'Connecting' : 'Starting container'
+    : preparing ? launch?.phase === 'installing' ? 'Installing engine' : launch?.phase === 'connecting' ? 'Connecting' : 'Starting container'
     : failed ? 'Needs attention' : instance.state === 'running' ? 'Ready to connect' : 'Status unavailable';
   const tone = failed ? 'error' : connected ? 'connected' : preparing || ending ? 'pending' : launch?.needsReconnect || instance.state === 'running' && !stopped ? 'warning' : 'neutral';
   const quoted = launch?.approvedHourly ?? launch?.offer.totalHourly ?? null;
@@ -27,9 +27,9 @@ export function setupDescription(launch: CloudLaunch) {
   if (launch.needsReconnect) return 'Reconnect to follow the existing setup. Downloaded files stay on this instance.';
   if (launch.phase === 'checking' || launch.phase === 'requesting') return 'Checking the offer and creating your rental.';
   if (launch.phase === 'waiting') return 'Vast is downloading and unpacking the container image. Workflow installation starts when the container is ready.';
-  if (launch.phase === 'installing') return 'Installing ComfyUI, dependencies and the required model files. Downloads resume from existing partial files.';
+  if (launch.phase === 'installing') return 'Installing ComfyUI and its runtime. Model weights stay on demand; existing files are retained.';
   if (launch.phase === 'connecting') return 'Checking ComfyUI and opening your connection to the GPU.';
-  if (launch.phase === 'ready') return 'ComfyUI is connected. Your GPU is ready to generate.';
+  if (launch.phase === 'ready') return 'The ComfyUI engine is online. Prepare only the model files required by your selected settings.';
   return launch.message;
 }
 

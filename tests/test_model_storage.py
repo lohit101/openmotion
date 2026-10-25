@@ -34,14 +34,15 @@ class ModelStorageTests(unittest.TestCase):
         self.assertEqual(other.read_bytes(), b'keep')
         self.assertEqual(remove_lora(self.root, name)['freedBytes'], 0)
 
-    def test_protects_required_adapters_and_rejects_traversal(self):
+    def test_all_adapters_are_optional_but_traversal_is_still_rejected(self):
         required = next(f['destination'][6:] for f in required_setup_manifest()['files'] if f['destination'].startswith('loras/'))
         file = self.root / 'loras' / required
         file.write_bytes(b'required')
-        for name in [required, '../outside.safetensors', '/outside.safetensors', 'styles//file.safetensors', 'styles/../file.safetensors', 'styles/file.pt', 'styles\\file.safetensors']:
+        for name in ['../outside.safetensors', '/outside.safetensors', 'styles//file.safetensors', 'styles/../file.safetensors', 'styles/file.pt', 'styles\\file.safetensors']:
             with self.subTest(name=name), self.assertRaises(ValueError):
                 remove_lora(self.root, name)
         self.assertEqual(file.read_bytes(), b'required')
+        self.assertEqual(remove_lora(self.root, required)['freedBytes'], 8)
 
     def test_refuses_file_directory_and_metadata_symlinks_without_touching_targets(self):
         outside = Path(self.temporary.name) / 'outside.safetensors'

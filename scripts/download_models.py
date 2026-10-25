@@ -41,9 +41,9 @@ def atomic_json(path, value):
     temporary.replace(path)
 
 
-def report_transfer(item, downloaded, phase):
+def report_transfer(item, downloaded, phase, bytes_per_second=None):
     print('RECAST_MODEL_PROGRESS ' + json.dumps({'destination': item['destination'], 'downloaded': downloaded,
-          'total': item['size'], 'phase': phase}), flush=True)
+          'total': item['size'], 'phase': phase, 'bytesPerSecond': bytes_per_second}), flush=True)
 
 
 def valid_file(path, item, rehash=False):
@@ -105,18 +105,20 @@ def download(item, model_dir, *, opener=None, base_url=None, rehash=False, retri
                         content_type = response.headers.get("Content-Type", "").lower()
                         if "text/html" in content_type:
                             raise ValueError("Received an HTML page instead of model data")
-                        last_report = time.monotonic()
+                        last_report = started = time.monotonic()
+                        initial_offset = offset
                         count = offset
                         print("Downloading %s (%.2f / %.2f GB)" % (final.name, count / 1e9, item["size"] / 1e9), flush=True)
                         report_transfer(item, count, 'downloading')
                         with part.open(mode) as output:
-                            for block in iter(lambda: response.read(4 * 1024 * 1024), b""):
+                            for block in iter(lambda: response.read(512 * 1024), b""):
                                 output.write(block)
                                 count += len(block)
                                 if count > item["size"]:
                                     raise ValueError("Download exceeded the pinned file size")
-                                if time.monotonic() - last_report > 15:
-                                    report_transfer(item, count, 'downloading')
+                                if time.monotonic() - last_report > 1:
+                                    speed = (count - initial_offset) / max(0.001, time.monotonic() - started)
+                                    report_transfer(item, count, 'downloading', speed)
                                     print("  %s: %.0f%%" % (final.name, 100 * count / item["size"]), flush=True)
                                     last_report = time.monotonic()
                 if part.stat().st_size != item["size"]:
@@ -148,7 +150,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model-dir", type=Path, default=ROOT / "models")
     parser.add_argument("--manifest", type=Path, default=ROOT / "config/models.lock.json")
-    parser.add_argument("--workers", type=int, choices=range(1, 5), default=2)
+    parser.add_argument("--workers", type=int, choices=range(1, 5), default=4)
     parser.add_argument("--reserve-gb", type=int, choices=range(5, 65), default=5)
     parser.add_argument("--verify-only", action="store_true")
     parser.add_argument("--rehash", action="store_true")

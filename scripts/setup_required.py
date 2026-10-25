@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install the runtime and required models concurrently; extras are never selected."""
+"""Start the engine without weights; the full Natural bundle remains opt-in."""
 import json
 import os
 from pathlib import Path
@@ -64,6 +64,7 @@ def run_parallel(tasks, env=None):
 def main():
     state = ROOT / 'state'
     state.mkdir(parents=True, exist_ok=True)
+    with_models = os.environ.get('RECAST_SETUP_MODE', 'runtime') == 'required'
     manifest = required_setup_manifest()
     plan = state / 'required-models.json'
     plan.write_text(json.dumps(manifest, indent=2) + '\n')
@@ -79,16 +80,17 @@ def main():
             healthy = subprocess.run([str(python), str(ROOT / 'scripts/doctor.py'), '--runtime-only'], timeout=120).returncode == 0
         except (OSError, subprocess.SubprocessError):
             pass
-    print('RECAST_STAGE %s; downloading required files (%.2f GB). Extras stay optional.' %
-          ('Reusing the installed runtime' if healthy else 'Installing ComfyUI', manifest['total_bytes'] / 1e9), flush=True)
+    print('RECAST_STAGE %s. %s' % ('Reusing the installed runtime' if healthy else 'Installing the blank ComfyUI engine',
+          'Downloading the explicitly requested Natural bundle.' if with_models else 'No model weights will download during startup.'), flush=True)
     tasks = [('Required model download', [sys.executable, '-u', str(ROOT / 'scripts/download_models.py'),
-              '--manifest', str(plan), '--model-dir', str(ROOT / 'models'), '--reserve-gb', reserve])]
+              '--manifest', str(plan), '--model-dir', str(ROOT / 'models'), '--reserve-gb', reserve])] if with_models else []
     if not healthy:
         tasks.append(('ComfyUI runtime installation', ['bash', str(ROOT / 'scripts/bootstrap.sh')]))
     run_parallel(tasks, env)
-    print('RECAST_STAGE Verifying required models, CUDA and ComfyUI', flush=True)
-    subprocess.run([str(python), str(ROOT / 'scripts/doctor.py'), '--manifest', str(plan)], check=True)
-    print('RECAST_STAGE ComfyUI and all required files are ready. Extras are available in Settings.', flush=True)
+    print('RECAST_STAGE Verifying CUDA and the ComfyUI engine', flush=True)
+    subprocess.run([str(python), str(ROOT / 'scripts/doctor.py')] +
+                   (['--manifest', str(plan)] if with_models else ['--runtime-only']), check=True)
+    print('RECAST_STAGE Engine ready. Download only the files for your selected settings in Studio.', flush=True)
 
 
 if __name__ == '__main__':

@@ -29,6 +29,11 @@
 .required-models-summary > button span { color: var(--quiet); font-size: 10px; }
 .required-models p { margin: 4px 0 0; color: var(--quiet); font-size: 10px; line-height: 1.6; }
 .required-models p button { color: var(--accent-text); padding: 0; font-size: inherit; }
+.required-file-details { margin-top: 10px; font-size: 10px; color: var(--muted); }
+.required-file-details > summary { cursor: pointer; padding-block: 3px; }
+.required-file-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line-soft); }
+.required-file-row > span { min-width: 0; line-height: 1.5; }
+.required-file-row small { display: block; color: var(--quiet); font-size: 9px; }
 .models-workspace { min-width: 0; }
 .models-heading { display: flex; justify-content: space-between; align-items: center; gap: 20px; max-width: 1050px; margin: 0 auto 30px; }
 .models-heading h2 { font-size: 21px; font-weight: 550; letter-spacing: -.5px; margin: 8px 0; }
@@ -58,6 +63,7 @@
 .model-file-copy > .model-file-error, .model-page-error { color: var(--error); overflow-wrap: anywhere; }
 .model-page-error { display: flex; gap: 8px; max-width: 1050px; margin: 20px auto; font-size: 12px; }
 .model-file-copy > .model-file-slow { color: var(--warning); }
+.model-file-copy > .model-file-transfer { font-size: 10px; color: var(--quiet); font-variant-numeric: tabular-nums; }
 .model-download-notice { display: flex; gap: 20px; align-items: center; justify-content: space-between; max-width: 1050px; margin: 20px auto; color: var(--muted); font-size: 11px; }
 .models-footer-note { border-top: 1px solid var(--line); padding-top: 18px; }
 .extras-storage { display: flex; align-items: center; gap: 16px; padding: 23px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); color: var(--muted); }

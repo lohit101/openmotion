@@ -92,6 +92,13 @@ describe('Vast marketplace, billing and lifecycle', () => {
     expect(offer.storageMonthly).toBeCloseTo(21.6); expect(offer.modelDownloadCost).toBeCloseTo(.029738555883); expect(offer.vram).toBe(24);
     const old = normalizeOffer({ ...rawOffer(), driver_version: '535.86.05', gpu_ram: 16384 }, filters); expect(old.compatible).toBe(false); expect(old.reasons.join()).toContain('580.65.06');
   });
+  it('allows a fast-network filter without treating a host rating as measured throughput', async () => {
+    const fixture = provider(), client = new VastClient(async () => 'fixture-secret', fixture.fetcher);
+    const fast = offerFiltersSchema.parse({ minDownload: 1000 }); await client.offers(fast);
+    expect(fixture.calls[0].body.inet_down).toEqual({ gte: 1000 });
+    expect(normalizeOffer({ ...rawOffer(), inet_down: 240 }, fast).compatible).toBe(false);
+    expect(normalizeOffer(rawOffer(), fast).compatible).toBe(true);
+  });
   it('queries compatible hardware with selected disk and authenticates only in the HTTPS header', async () => {
     const fixture = provider(), client = new VastClient(async () => 'fixture-secret', fixture.fetcher); await client.offers({ ...filters, disk: 128, ram: 64 });
     const call = fixture.calls[0]; expect(call.auth).toBe('Bearer fixture-secret'); expect(call.url.toString()).not.toContain('fixture-secret');
@@ -271,6 +278,15 @@ describe('Vast marketplace, billing and lifecycle', () => {
     const { offers } = await cloud.offers(filters); const launch = cloud.launch(offers[0].quote, .23, 'delayed-status'); await until(() => !cloud.state.busy);
     expect(launch.phase).toBe('ready'); expect(probe).toHaveBeenCalledOnce(); expect(provision).toHaveBeenCalledOnce(); expect(fixture.calls.some(c => c.body?.state === 'stopped')).toBe(false);
   });
+  it('follows an already running rental without sending another provider start request', async () => {
+    const { cloud, fixture } = await manager();
+    const { offers } = await cloud.offers(filters); const launch = cloud.launch(offers[0].quote, .23, 'follow-existing');
+    await until(() => !cloud.state.busy);
+    await cloud.action(777, 'connect'); await until(() => !cloud.state.busy);
+    expect(launch.phase).toBe('ready');
+    expect(fixture.calls.filter(call => call.url.pathname === '/api/v0/instances/777/' && call.method === 'PUT')).toHaveLength(0);
+    expect(fixture.createCount).toBe(1);
+  });
   it('warns about a long installer without stopping it or converting elapsed time to failure', async () => {
     let release!: () => void; const wait = new Promise<void>(resolve => { release = resolve; });
     const { cloud, fixture, provision } = await manager({ setupWarningMs: 25 }); provision.mockImplementationOnce(async () => wait);
@@ -280,7 +296,7 @@ describe('Vast marketplace, billing and lifecycle', () => {
     expect(fixture.calls.some(c => c.body?.state === 'stopped')).toBe(false); expect(fixture.createCount).toBe(1);
     release(); await until(() => !cloud.state.busy); expect(launch.phase).toBe('ready'); expect(launch.setupSlow).toBe(false);
   });
-  it('retains validated required-file counters across log trimming and waits for complete provisioning', async () => {
+  it('starts a blank engine without queuing weights and retains bounded setup logs', async () => {
     let release!: () => void; const wait = new Promise<void>(resolve => { release = resolve; });
     const { cloud, provision } = await manager();
     const file = pinnedModels.find(file => file.destination === setupModelFiles[0])!;
@@ -292,9 +308,9 @@ describe('Vast marketplace, billing and lifecycle', () => {
       await wait;
     });
     const { offers } = await cloud.offers(filters); const launch = cloud.launch(offers[0].quote, .23, 'setup-counters');
-    await until(() => launch.setupDownloads?.[0]?.downloaded === 1024);
+    await until(() => launch.logs.length === 120);
     expect(launch.phase).toBe('installing'); expect(launch.logs).toHaveLength(120);
-    expect(launch.setupDownloads).toHaveLength(8); expect(launch.setupDownloads?.[0]).toMatchObject({ downloaded: 1024, phase: 'downloading' });
+    expect(launch.setupDownloads).toEqual([]);
     expect(launch.setupDownloads?.some(file => file.id.includes('Instagoon'))).toBe(false);
     release(); await until(() => !cloud.state.busy); expect(launch.phase).toBe('ready');
   });
