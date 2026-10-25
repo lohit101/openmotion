@@ -93,7 +93,7 @@ export default function App() {
     for (const notice of framingWarnings.current.collect(data.jobs)) toast.warning(notice.title, { id: `framing-${notice.jobId}`, description: notice.message, duration: 12000 });
   }, [data?.jobs]);
   useEffect(() => {
-    const launch = data?.cloud.launches.find(l => l.phase !== 'destroyed'); if (!launch) return;
+    const launch = data?.cloud.launches.find(l => l.phase !== 'destroyed' || l.autoCleanup); if (!launch) return;
     const notice = setupNotice(launch); if (!notice || seenNotices.current.has(notice.key)) return;
     seenNotices.current.add(notice.key);
     toast[notice.tone](notice.title, { id: `setup-${launch.id}`, description: notice.message, duration: notice.tone === 'error' ? 14000 : 9000 });

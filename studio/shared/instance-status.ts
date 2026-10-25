@@ -24,6 +24,8 @@ export function instancePresentation(instance: CloudInstance, launch?: CloudLaun
 }
 
 export function setupDescription(launch: CloudLaunch) {
+  if (launch.autoCleanup) return launch.message;
+  if (launch.phase === 'waiting' && launch.hostWatch) return 'The host has not reported a container or assigned direct ports. Recast is checking reachability; five minutes of confirmed silence removes this empty rental automatically.';
   if (launch.needsReconnect) return 'Reconnect to follow the existing setup. Downloaded files stay on this instance.';
   if (launch.phase === 'checking' || launch.phase === 'requesting') return 'Checking the offer and creating your rental.';
   if (launch.phase === 'waiting') return 'Vast is downloading and unpacking the container image. Workflow installation starts when the container is ready.';

@@ -4,6 +4,8 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import path from 'node:path';
 import os from 'node:os';
 import { randomUUID } from 'node:crypto';
+import { createConnection } from 'node:net';
+import { EmptyHostError, hasNoContainerSignals, hostSilenceExpired, observeHostSilence } from './provisioning-health';
 import type { Store } from './store';
 import type { ConnectionManager } from './comfy';
 import type { Runner } from './runner';
@@ -35,6 +37,8 @@ type CloudOptions = {
   fetcher?: typeof fetch; base?: string; provision?: (instance: any, log: (line: string) => void, signal: AbortSignal) => Promise<void>;
   preflight?: (identity: string) => Promise<void>; sshIdentity?: string;
   probe?: (instance: any, identity: string) => Promise<boolean>;
+  sshReachable?: (instance: any) => Promise<boolean>;
+  hostSilenceMs?: number;
   setupWarningMs?: number; pollMs?: number; stopPollAttempts?: number; backgroundSafety?: boolean;
 };
 export class PreflightError extends Error { constructor(message: string, public code: NonNullable<CloudLaunch['failureCode']>) { super(message); } }
@@ -154,6 +158,7 @@ export class CloudManager {
   private activeTask: Promise<void> | null = null;
   private closing = false;
   private stopChecks = new Map<string, Promise<boolean>>();
+  private cleanupChecks = new Map<string, Promise<boolean>>();
   private resuming = new Set<string>();
   constructor(public store: Store, public connection: ConnectionManager, public runner: Runner, public repo: string, options: CloudOptions = {}) {
     this.options = options; this.keyFile = path.join(store.root, 'private', 'vast-api-key');
@@ -161,6 +166,15 @@ export class CloudManager {
     const launches = store.value<CloudLaunch[]>('cloud-launches', []);
     for (const launch of launches) {
       launch.setupDeadline = null; // Legacy deadlines never stop a healthy setup.
+      launch.hostWatch = undefined;
+      // Legacy rentals may contain models even when old log lines were trimmed.
+      // Only new rentals explicitly carry permission to discard an empty disk.
+      if (launch.emptyRental === undefined) launch.emptyRental = false;
+      if (launch.autoCleanup?.state === 'pending') {
+        launch.phase = 'failed'; launch.safetyStatus = 'unconfirmed';
+        launch.message = 'Rechecking automatic removal of the failed empty rental.';
+        continue;
+      }
       if (!['checking', 'requesting', 'waiting', 'installing', 'connecting', 'stopping', 'destroying'].includes(launch.phase)) continue;
       if (['stopping', 'destroying'].includes(launch.phase) || ['unconfirmed', 'stop_requested'].includes(launch.safetyStatus || '')) {
         launch.phase = launch.instanceId ? 'failed' : 'unknown'; launch.safetyStatus = 'unconfirmed';
@@ -196,25 +210,26 @@ export class CloudManager {
       launch.needsReconnect = true; launch.warning = 'The local app disconnected. Remote installation continues; reconnect to follow it.';
     }
     this.emit();
-    const pending = this.state.launches.filter(l => !['ready', 'stopped', 'destroyed'].includes(l.phase) && ['unconfirmed', 'stop_requested'].includes(l.safetyStatus || ''));
-    if (pending.length) { await this.refresh(); await Promise.allSettled(pending.filter(l => l.instanceId).map(l => this.stopRental(l, l.lastFailure || 'Completing the previously requested compute stop.'))); }
+    const pending = this.state.launches.filter(l => l.autoCleanup?.state === 'pending' || (!['ready', 'stopped', 'destroyed'].includes(l.phase) && ['unconfirmed', 'stop_requested'].includes(l.safetyStatus || '')));
+    if (pending.length) { await this.refresh(); await Promise.allSettled(pending.filter(l => l.instanceId).map(l => l.autoCleanup?.state === 'pending' ? this.cleanupEmptyRental(l) : this.stopRental(l, l.lastFailure || 'Completing the previously requested compute stop.'))); }
     this.dispose();
     if (pending.some(l => !['stopped', 'destroyed'].includes(l.phase))) throw new Error('Some rental stops remain unconfirmed. Check the Vast console; compute charges may continue.');
   }
   private monitorSafety() {
     if (this.closing || this.options.backgroundSafety === false) return;
-    const pending = this.state.launches.some(l => l.autoStopOnFailure !== false && !['ready', 'stopped', 'destroyed'].includes(l.phase) && (l.safetyStatus === 'unconfirmed' || l.safetyStatus === 'stop_requested'));
+    const pending = this.state.launches.some(l => l.autoCleanup?.state === 'pending' || (l.autoStopOnFailure !== false && !['ready', 'stopped', 'destroyed'].includes(l.phase) && (l.safetyStatus === 'unconfirmed' || l.safetyStatus === 'stop_requested')));
     if (pending && !this.safetyTimer) { this.safetyTimer = setInterval(() => void this.enforceSafety().catch(() => undefined), 15000); this.safetyTimer.unref(); }
     else if (!pending) this.dispose();
   }
   async enforceSafety() {
     if (this.safetyBusy) return; this.safetyBusy = true;
     try {
-      const due = this.state.launches.filter(l => l.autoStopOnFailure !== false && !['ready', 'stopped', 'destroyed'].includes(l.phase) &&
-        (l.safetyStatus === 'unconfirmed' || l.safetyStatus === 'stop_requested'));
+      const due = this.state.launches.filter(l => l.autoCleanup?.state === 'pending' || (l.autoStopOnFailure !== false && !['ready', 'stopped', 'destroyed'].includes(l.phase) &&
+        (l.safetyStatus === 'unconfirmed' || l.safetyStatus === 'stop_requested')));
       if (!due.length) return;
       await this.refresh(); if (this.state.error) return;
       for (const launch of due) {
+        if (launch.autoCleanup?.state === 'pending') { await this.cleanupEmptyRental(launch); continue; }
         if (this.resuming.has(launch.id) || !['unconfirmed', 'stop_requested'].includes(launch.safetyStatus || '') || ['stopped', 'destroyed', 'ready'].includes(launch.phase)) continue;
         launch.lastFailure ||= 'The previous instance request could not be confirmed.';
         if (this.activeLaunch === launch.id) { this.activeAbort?.abort(); this.stopProvision(); }
@@ -253,8 +268,12 @@ export class CloudManager {
         for (const launch of this.state.launches) {
           const instance = this.rawInstances.find(i => i.id === launch.instanceId || (!launch.instanceId && i.label === launch.label));
           if (instance && !launch.instanceId) { launch.instanceId = instance.id; if (this.activeLaunch !== launch.id) { launch.phase = 'failed'; launch.message = 'Rental recovered. Checking its compute safety before continuing.'; } }
-          if (!instance && launch.instanceId && this.activeLaunch !== launch.id && !['checking', 'requesting'].includes(launch.phase)) { launch.phase = 'destroyed'; launch.setupDeadline = null; launch.safetyStatus = 'disarmed'; launch.message = 'Instance no longer exists. Local inputs and completed results remain available.'; }
+          if (!instance && launch.instanceId && this.activeLaunch !== launch.id && !['checking', 'requesting'].includes(launch.phase)) {
+            if (launch.autoCleanup) this.markCleanupConfirmed(launch);
+            else { launch.phase = 'destroyed'; launch.setupDeadline = null; launch.safetyStatus = 'disarmed'; launch.message = 'Instance no longer exists. Local inputs and completed results remain available.'; }
+          }
           else if (instance && computeIsStopped(instance) && this.activeLaunch !== launch.id) {
+            if (launch.autoCleanup?.state === 'pending') continue;
             launch.phase = 'stopped'; launch.setupDeadline = null; launch.safetyStatus = 'stopped';
             launch.message = (launch.lastFailure ? launch.lastFailure + ' ' : '') + 'Compute is confirmed stopped. Retained storage is still billed.';
           }
@@ -275,7 +294,7 @@ export class CloudManager {
   }
   async offers(filters: OfferFilters) {
     const modelFiles = setupModelFiles;
-    const rows = await this.client.offers(filters); const offers = rows.map(raw => normalizeOffer(raw, filters, modelBytes(modelFiles) / 1e9)).filter(o => o.compatible);
+    const rows = await this.client.offers(filters); const offers = rows.map(raw => normalizeOffer(raw, filters, modelBytes(modelFiles) / 1e9)).filter(o => o.compatible && !this.hostCoolingDown(o.machineId));
     const value = (o: GpuOffer) => filters.sort === 'compute' ? o.computeHourly : filters.sort === 'setup' ? (o.totalHourly === null || o.modelDownloadCost === null ? null : o.totalHourly + o.modelDownloadCost) : o.totalHourly;
     offers.sort((a, b) => (value(a) ?? Infinity) - (value(b) ?? Infinity));
     for (const [key, value] of this.quotes) if (Date.parse(value.offer.expiresAt) + 10 * 60000 < Date.now()) this.quotes.delete(key);
@@ -284,6 +303,7 @@ export class CloudManager {
     return { offers, searchedAt: new Date().toISOString(), filters };
   }
   private async verifyOffer(offer: GpuOffer, filters: OfferFilters, ceiling: number, approved = { download: offer.downloadPerGB, upload: offer.uploadPerGB }) {
+    if (this.hostCoolingDown(offer.machineId)) throw new PreflightError('This host failed to start recently. It is excluded for 24 hours; choose another host.', 'host-unresponsive');
     const rows = await this.client.offers(filters, offer.id);
     if (!rows.length) throw new PreflightError('This exact offer is no longer listed with the selected resources. Choose a fresh offer from the marketplace.', 'offer-unavailable');
     const fresh = normalizeOffer(rows[0], filters, offer.modelDownloadGB);
@@ -335,7 +355,7 @@ export class CloudManager {
     const selected = this.quotes.get(quote); if (!selected) throw new Error('This quote is no longer cached. Refresh the marketplace before renting.');
     if (selected.offer.totalHourly === null || approvedHourly < selected.offer.totalHourly) throw new Error('Review the full hourly price before renting.');
     const id = randomUUID(), now = new Date().toISOString(); const launch: CloudLaunch = { id, requestKey, instanceId: null, label: 'recast-' + id, offer: selected.offer, phase: 'checking', message: 'Checking current availability and your SSH key', createdAt: now, updatedAt: now, logs: [], creationAttempted: false, approvedHourly, filters: selected.filters,
-      approvedTransfer: { download: selected.offer.downloadPerGB, upload: selected.offer.uploadPerGB }, autoStopOnFailure: true, safetyStatus: 'disarmed' };
+      approvedTransfer: { download: selected.offer.downloadPerGB, upload: selected.offer.uploadPerGB }, autoStopOnFailure: true, safetyStatus: 'disarmed', emptyRental: true };
     this.state.launches.unshift(launch); this.state.busy = true; this.activeLaunch = id; this.emit();
     this.activeTask = this.rent(launch, selected.filters, approvedHourly); return launch;
   }
@@ -361,6 +381,7 @@ export class CloudManager {
     finally { if (this.activeLaunch === launch.id) { this.state.busy = false; this.activeLaunch = null; this.emit(); } await this.refresh(); }
   }
   async continue(launch: CloudLaunch) {
+    if (launch.autoCleanup?.state === 'pending') throw new Error('Automatic removal of this failed rental is still being confirmed. Wait for confirmation before renting again.');
     this.assertIdle(); if (this.state.busy) throw new Error('Another setup is still active.');
     if (this.resuming.has(launch.id)) throw new Error('This rental is already reconnecting.');
     this.resuming.add(launch.id);
@@ -383,7 +404,7 @@ export class CloudManager {
       if (this.closing || this.stopped.has(launch.id)) return;
       const current = this.rawInstances.find(instance => instance.id === launch.instanceId);
       if (!current) throw new Error('The existing rental could not be confirmed. Refresh before reconnecting.');
-      if (!['running', 'loading', 'creating'].includes(current.actual_status)) {
+      if (!['running', 'loading', 'creating'].includes(current.actual_status) && current.intended_status !== 'running') {
         this.change(launch, 'requesting', 'Starting the existing rental. Billing resumes when compute starts.');
         await this.client.request(`/api/v0/instances/${launch.instanceId}/`, 'PUT', { state: 'running' });
       } else this.change(launch, 'waiting', 'Following the existing rental without restarting its container.');
@@ -397,10 +418,15 @@ export class CloudManager {
   }
   private async failedSetup(launch: CloudLaunch, error: unknown) {
     launch.lastFailure = (error instanceof Error ? error.message : String(error)).slice(0, 900);
-    launch.failureCode = error instanceof PreflightError ? error.code : launch.creationAttempted && !launch.instanceId && error instanceof VastError && error.ambiguous ? 'request-unconfirmed' : 'setup-failed';
+    launch.failureCode = error instanceof EmptyHostError ? 'host-unresponsive' : error instanceof PreflightError ? error.code : launch.creationAttempted && !launch.instanceId && error instanceof VastError && error.ambiguous ? 'request-unconfirmed' : 'setup-failed';
     const unknown = launch.failureCode === 'request-unconfirmed';
     launch.safetyStatus = unknown ? 'unconfirmed' : launch.instanceId ? 'armed' : 'disarmed';
     this.change(launch, unknown ? 'unknown' : 'failed', launch.lastFailure + (unknown ? ' Checking for the accepted rental; this request will not be sent again.' : ''));
+    if (error instanceof EmptyHostError && launch.instanceId && launch.emptyRental && !launch.engineSetupStartedAt) {
+      this.stopped.add(launch.id);
+      launch.autoCleanup = { state: 'pending', reason: launch.lastFailure, requestedAt: new Date().toISOString() };
+      await this.cleanupEmptyRental(launch); return;
+    }
     if (launch.instanceId && launch.autoStopOnFailure !== false) { this.stopped.add(launch.id); await this.stopRental(launch, launch.lastFailure); }
   }
   private async prepareGuarded(launch: CloudLaunch, identity: string) {
@@ -416,6 +442,56 @@ export class CloudManager {
       timer = setTimeout(() => { if (this.closing || controller.signal.aborted) return; launch.setupSlow = true; launch.warning = 'Taking longer than usual. Setup is still running; elapsed time will not stop this instance.'; this.emit(); }, Math.max(0, Date.parse(launch.setupWarningAt) - Date.now()));
       await Promise.race([this.prepare(launch, identity, controller.signal), aborted]);
     } finally { if (timer) clearTimeout(timer); if (this.activeAbort === controller) this.activeAbort = null; }
+  }
+  private hostCoolingDown(machineId: number) {
+    return this.state.launches.some(launch => launch.offer.machineId === machineId && launch.autoCleanup && Date.now() - Date.parse(launch.autoCleanup.requestedAt) < 24 * 60 * 60_000);
+  }
+  private markCleanupConfirmed(launch: CloudLaunch) {
+    if (launch.autoCleanup) { launch.autoCleanup.state = 'confirmed'; launch.autoCleanup.confirmedAt ||= new Date().toISOString(); launch.autoCleanup.lastError = undefined; }
+    launch.phase = 'destroyed'; launch.safetyStatus = 'disarmed'; launch.setupDeadline = null; launch.warning = null; launch.needsReconnect = false;
+    launch.message = 'Failed host removed automatically. Rental and remote disk deletion confirmed.';
+    launch.updatedAt = new Date().toISOString();
+  }
+  private cleanupEmptyRental(launch: CloudLaunch): Promise<boolean> {
+    const existing = this.cleanupChecks.get(launch.id); if (existing) return existing;
+    const task = this.confirmEmptyRentalCleanup(launch).finally(() => this.cleanupChecks.delete(launch.id));
+    this.cleanupChecks.set(launch.id, task); return task;
+  }
+  private async confirmEmptyRentalCleanup(launch: CloudLaunch) {
+    if (!launch.instanceId || !launch.autoCleanup || !launch.emptyRental || launch.engineSetupStartedAt) return false;
+    const id = launch.instanceId;
+    launch.safetyStatus = 'unconfirmed';
+    this.change(launch, 'destroying', 'Provisioning failed. Cancelling and removing this empty rental; checking Vast for confirmation.');
+    try {
+      const current = await this.client.instance(id);
+      if (!current) { this.markCleanupConfirmed(launch); this.emit(); return true; }
+      if (current.actual_status === 'running' && !fatalContainerStatus(current.status_msg)) {
+        launch.autoCleanup = undefined; launch.safetyStatus = 'disarmed'; this.stopped.delete(launch.id);
+        this.change(launch, 'failed', 'The host began running during the final check. Automatic deletion was cancelled; connect again to finish setup.'); return false;
+      }
+      // A stop failure must not prevent deletion of a confirmed empty rental.
+      await this.client.request(`/api/v0/instances/${id}/`, 'PUT', { state: 'stopped' }).catch(() => undefined);
+      let requestError = '';
+      try { await this.client.request(`/api/v0/instances/${id}/`, 'DELETE'); }
+      catch (error) { requestError = (error as Error).message; }
+      for (let attempt = 0; attempt < (this.options.stopPollAttempts ?? 3); attempt++) {
+        if (!await this.client.instance(id)) { this.markCleanupConfirmed(launch); this.emit(); return true; }
+        if (attempt + 1 < (this.options.stopPollAttempts ?? 3)) await pause(this.options.pollMs ?? 5000);
+      }
+      throw new Error(requestError || 'Vast still reports this rental.');
+    } catch (error) {
+      if (launch.autoCleanup) launch.autoCleanup.lastError = (error as Error).message.slice(0, 500); launch.safetyStatus = 'unconfirmed';
+      this.change(launch, 'failed', 'Automatic deletion is not yet confirmed. Recast will keep checking and retrying cleanup. Check Vast if this persists.'); return false;
+    }
+  }
+  private async sshServiceReachable(instance: any) {
+    if (this.options.sshReachable) return this.options.sshReachable(instance);
+    if (!/^[a-zA-Z0-9.-]+$/.test(instance.ssh_host || '') || !Number.isInteger(Number(instance.ssh_port)) || Number(instance.ssh_port) < 1 || Number(instance.ssh_port) > 65535) return true;
+    return new Promise<boolean>(resolve => {
+      const socket = createConnection({ host: instance.ssh_host, port: Number(instance.ssh_port) });
+      const finish = (reachable: boolean) => { socket.destroy(); resolve(reachable); };
+      socket.setTimeout(3000); socket.once('connect', () => finish(true)); socket.once('error', () => finish(false)); socket.once('timeout', () => finish(false));
+    });
   }
   private stopRental(launch: CloudLaunch, reason: string): Promise<boolean> {
     const existing = this.stopChecks.get(launch.id); if (existing) return existing;
@@ -453,23 +529,35 @@ export class CloudManager {
     for (let attempt = 0; ; attempt++) {
       check();
       try { instance = await this.client.instance(launch.instanceId!); }
-      catch (error) { if (!(error instanceof VastError) || error.status < 429) throw error; launch.warning = 'Vast status is temporarily unavailable. Retrying the existing rental.'; this.emit(); await pause(this.options.pollMs ?? 5000); continue; }
+      catch (error) { launch.hostWatch = undefined; if (!(error instanceof VastError) || error.status < 429) throw error; launch.warning = 'Vast status is temporarily unavailable. Retrying the existing rental.'; this.emit(); await pause(this.options.pollMs ?? 5000); continue; }
       check();
       if (!instance) { if (attempt < 12) { await pause(this.options.pollMs ?? 5000); continue; } throw new Error('The rental no longer exists.'); }
       if (instance.actual_status === 'running' && instance.ssh_host && instance.ssh_port) break;
-      if (instance.actual_status === 'error') throw new Error('Vast reports an instance error: ' + (instance.status_msg || 'unknown host error'));
+      if (instance.actual_status === 'error') throw new EmptyHostError('Vast reports a container error before setup: ' + (instance.status_msg || 'unknown host error'));
       const containerError = fatalContainerStatus(instance.status_msg);
-      if (containerError) throw new Error('Vast’s container builder failed before ComfyUI could start: ' + containerError + '. Choose another host.');
+      if (containerError) throw new EmptyHostError('Vast’s container builder failed before ComfyUI could start: ' + containerError + '. Choose another host.');
       if (instance.ssh_host && instance.ssh_port && await this.probeGpu(instance, identity)) {
         launch.warning = 'Vast’s status is delayed, but SSH and the selected GPU are reachable. Continuing setup.'; this.emit(); break;
       }
-      const status = String(instance.status_msg || 'Container status: ' + instance.actual_status).trim();
+      if (launch.emptyRental && !launch.engineSetupStartedAt && hasNoContainerSignals(instance)) {
+        launch.hostWatch = observeHostSilence(launch.hostWatch);
+        if (hostSilenceExpired(launch.hostWatch, Date.now(), this.options.hostSilenceMs)) {
+          if (await this.sshServiceReachable(instance)) launch.hostWatch = undefined;
+          else {
+            const confirmed = await this.client.instance(launch.instanceId!); check();
+            if (confirmed && hasNoContainerSignals(confirmed) && !await this.sshServiceReachable(confirmed)) throw new EmptyHostError('Host provisioning stalled: repeated checks found no container status, no assigned direct ports and unreachable SSH for five minutes.');
+            launch.hostWatch = undefined;
+          }
+        }
+      } else launch.hostWatch = undefined;
+      const status = String(instance.status_msg || (hasNoContainerSignals(instance) ? 'Waiting for host response. Container status and direct ports are missing; automatic host checks are active.' : 'Container status: ' + (instance.actual_status || 'not reported'))).trim();
       if (status !== launch.message.trim()) {
         launch.logs.push(`[${new Date().toISOString()}] Vast: ${status}`.slice(0, 800)); launch.logs = launch.logs.slice(-120);
         launch.lastLogAt = new Date().toISOString();
       }
       this.change(launch, 'waiting', status); await pause(this.options.pollMs ?? 5000);
     }
+    launch.emptyRental = false; launch.hostWatch = undefined; launch.engineSetupStartedAt ||= new Date().toISOString();
     this.change(launch, 'installing', 'Installing the blank ComfyUI engine. Model files download only when requested.');
     const log = (line: string) => {
       if (signal.aborted || this.stopped.has(launch.id)) return;

@@ -17,6 +17,7 @@ const rawOffer = () => ({ id: 123, ask_contract_id: 123, bundle_id: 987654321, m
   search: { gpuCostPerHour: .2, diskHour: .03, totalHour: .23 }, dph_total: .23, storage_total_cost: .03, storage_cost: .27, rentable: true, rented: false });
 async function until(predicate: () => boolean, timeout = 4000) { const start = Date.now(); while (!predicate()) { if (Date.now() - start > timeout) throw new Error('Cloud fixture timed out'); await new Promise(r => setTimeout(r, 10)); } }
 function provider() {
+  let creationState: any = {}, deleteAckOnly = false;
   let offer = rawOffer(), instance: any = null, loseCreate = false, loseStop = false, stopAckOnly = false, omitList = false, invalidList = false, createCount = 0, sshKeys: any = [{ id: 51, public_key: publicKey, deleted_at: null }], registrationError: { status: number; msg: string; registerMatching?: boolean } | null = null; const calls: { url: URL; method: string; body: any; auth: string | null }[] = [];
   const fetcher = vi.fn<typeof fetch>(async (input, init) => {
     const url = new URL(String(input)), method = init?.method || 'GET', body = init?.body ? JSON.parse(String(init.body)) : undefined;
@@ -35,15 +36,15 @@ function provider() {
     // ask_contract_id predicate must match the same ID sent to PUT /asks/.
     else if (url.pathname === '/api/v0/bundles/') value = { offers: body.id || (body.ask_contract_id && body.ask_contract_id.eq !== offer.ask_contract_id) ? [] : [offer] };
     else if (url.pathname === '/api/v0/asks/123/' && method === 'PUT') {
-      createCount++; instance = { ...offer, id: 777, label: body.label, actual_status: 'running', intended_status: 'running', ssh_host: '127.0.0.1', ssh_port: 2222, disk_space: body.disk };
+      createCount++; instance = { ...offer, id: 777, label: body.label, actual_status: 'running', intended_status: 'running', ssh_host: '127.0.0.1', ssh_port: 2222, disk_space: body.disk, ...creationState };
       if (loseCreate) throw new Error('response lost after acceptance'); value = { success: true, new_contract: 777 };
     } else if (url.pathname === '/api/v0/instances/777/' && method === 'GET') value = { instances: instance };
     else if (url.pathname === '/api/v0/instances/777/' && method === 'PUT') { if (body.state === 'stopped' && loseStop) throw new Error('Unconfirmed stop'); if (!(body.state === 'stopped' && stopAckOnly)) instance.actual_status = body.state; instance.intended_status = body.state; value = { success: true }; }
-    else if (url.pathname === '/api/v0/instances/777/' && method === 'DELETE') { instance = null; value = { success: true }; }
+    else if (url.pathname === '/api/v0/instances/777/' && method === 'DELETE') { if (!deleteAckOnly) instance = null; value = { success: true }; }
     else throw new Error('Unexpected fixture request ' + method + ' ' + url);
     return new Response(JSON.stringify(value), { headers: { 'Content-Type': 'application/json' } });
   });
-  return { fetcher, calls, setGpu(name: string, memory: number) { offer.gpu_name = name; offer.gpu_ram = memory; }, setPrice(value: number) { offer = { ...offer, search: { ...offer.search, totalHour: value } }; }, setTransfer(value: number) { offer.inet_down_cost = value; }, setSshKeys(value: any) { sshKeys = value; }, failRegistration(error: typeof registrationError) { registrationError = error; }, loseCreateResponse() { loseCreate = true; }, loseStopResponse(value = true) { loseStop = value; }, acknowledgeStopOnly() { stopAckOnly = true; }, omitInstanceFromList() { omitList = true; }, invalidInstanceList() { invalidList = true; }, get createCount() { return createCount; } };
+  return { fetcher, calls, setCreationState(value: any) { creationState = value; }, updateInstance(value: any) { Object.assign(instance, value); }, acknowledgeDeleteOnly(value = true) { deleteAckOnly = value; }, setGpu(name: string, memory: number) { offer.gpu_name = name; offer.gpu_ram = memory; }, setPrice(value: number) { offer = { ...offer, search: { ...offer.search, totalHour: value } }; }, setTransfer(value: number) { offer.inet_down_cost = value; }, setSshKeys(value: any) { sshKeys = value; }, failRegistration(error: typeof registrationError) { registrationError = error; }, loseCreateResponse() { loseCreate = true; }, loseStopResponse(value = true) { loseStop = value; }, acknowledgeStopOnly() { stopAckOnly = true; }, omitInstanceFromList() { omitList = true; }, invalidInstanceList() { invalidList = true; }, get createCount() { return createCount; } };
 }
 describe('Vast marketplace, billing and lifecycle', () => {
   let store: Store | undefined, root = '', tracked: CloudManager | undefined;
@@ -278,16 +279,54 @@ describe('Vast marketplace, billing and lifecycle', () => {
     const { offers } = await cloud.offers(filters); const launch = cloud.launch(offers[0].quote, .23, 'delayed-status'); await until(() => !cloud.state.busy);
     expect(launch.phase).toBe('ready'); expect(probe).toHaveBeenCalledOnce(); expect(provision).toHaveBeenCalledOnce(); expect(fixture.calls.some(c => c.body?.state === 'stopped')).toBe(false);
   });
-  it('stops on an explicit host builder error even when Vast still labels it loading', async () => {
+  it('removes an explicit failed container before installation and confirms disk deletion', async () => {
     const { cloud, fixture, provision } = await manager();
-    vi.spyOn(cloud.client, 'instance').mockResolvedValueOnce({ ...rawOffer(), id: 777, actual_status: 'loading', status_msg: 'docker_build() error writing dockerfile', ssh_host: 'fixture', ssh_port: 2222 });
+    fixture.setCreationState({ actual_status: 'loading', status_msg: 'docker_build() error writing dockerfile' });
     const { offers } = await cloud.offers(filters); const launch = cloud.launch(offers[0].quote, .23, 'fatal-builder');
     await until(() => !cloud.state.busy);
-    expect(launch.phase).toBe('stopped'); expect(launch.failureCode).toBe('setup-failed');
-    expect(launch.lastFailure).toContain('container builder failed'); expect(provision).not.toHaveBeenCalled();
-    expect(fixture.calls.filter(call => call.body?.state === 'stopped')).toHaveLength(1);
+    expect(launch.phase).toBe('destroyed'); expect(launch.failureCode).toBe('host-unresponsive');
+    expect(launch.autoCleanup?.state).toBe('confirmed'); expect(provision).not.toHaveBeenCalled();
+    expect(fixture.calls.filter(call => call.method === 'DELETE')).toHaveLength(1);
     expect(fatalContainerStatus('Still pulling image; taking longer than usual')).toBeNull();
-    expect(fatalContainerStatus('Retrying a layer after a transient network error')).toBeNull();
+  });
+  it('removes a silent empty host only after repeated missing signals and independent SSH checks', async () => {
+    const sshReachable = vi.fn(async () => false);
+    const { cloud, fixture, provision } = await manager({ hostSilenceMs: 25, probe: async () => false, sshReachable });
+    fixture.setCreationState({ actual_status: null, status_msg: null, direct_port_start: -1, direct_port_end: -1 });
+    const { offers } = await cloud.offers(filters); const launch = cloud.launch(offers[0].quote, .23, 'silent-host');
+    await until(() => !cloud.state.busy);
+    expect(launch.phase).toBe('destroyed'); expect(launch.autoCleanup?.state).toBe('confirmed');
+    expect(sshReachable).toHaveBeenCalledTimes(2); expect(provision).not.toHaveBeenCalled();
+    expect(fixture.calls.filter(call => call.method === 'DELETE')).toHaveLength(1);
+    expect((await cloud.offers(filters)).offers).toHaveLength(0);
+  });
+  it('does not destroy a quiet image pull or an installed disk because time passes', async () => {
+    const { cloud, fixture } = await manager({ hostSilenceMs: 10, probe: async () => false });
+    fixture.setCreationState({ actual_status: 'loading', status_msg: '', direct_port_start: -1, direct_port_end: -1 });
+    const { offers } = await cloud.offers(filters); const launch = cloud.launch(offers[0].quote, .23, 'quiet-pull');
+    await until(() => launch.phase === 'waiting'); await new Promise(resolve => setTimeout(resolve, 35));
+    expect(fixture.calls.some(call => call.method === 'DELETE')).toBe(false); expect(launch.hostWatch).toBeUndefined();
+    launch.emptyRental = false; launch.engineSetupStartedAt = new Date().toISOString(); fixture.updateInstance({ actual_status: null });
+    await new Promise(resolve => setTimeout(resolve, 35)); expect(fixture.calls.some(call => call.method === 'DELETE')).toBe(false);
+    fixture.updateInstance({ actual_status: 'running' }); await until(() => !cloud.state.busy); expect(launch.phase).toBe('ready');
+  });
+  it('does not remove a host if its SSH service is reachable despite missing provider status', async () => {
+    const { cloud, fixture } = await manager({ hostSilenceMs: 10, probe: async () => false, sshReachable: async () => true });
+    fixture.setCreationState({ actual_status: null, status_msg: null, direct_port_start: -1, direct_port_end: -1 });
+    const { offers } = await cloud.offers(filters); const launch = cloud.launch(offers[0].quote, .23, 'reachable-ssh');
+    await until(() => launch.phase === 'waiting'); await new Promise(resolve => setTimeout(resolve, 35));
+    expect(fixture.calls.some(call => call.method === 'DELETE')).toBe(false);
+    fixture.updateInstance({ actual_status: 'running' }); await until(() => !cloud.state.busy); expect(launch.phase).toBe('ready');
+  });
+  it('keeps unconfirmed deletion pending and retries cleanup even after compute stops', async () => {
+    const { cloud, fixture } = await manager({ hostSilenceMs: 10, probe: async () => false, sshReachable: async () => false });
+    fixture.setCreationState({ actual_status: null, status_msg: null, direct_port_start: -1, direct_port_end: -1 }); fixture.acknowledgeDeleteOnly();
+    const { offers } = await cloud.offers(filters); const launch = cloud.launch(offers[0].quote, .23, 'delete-pending');
+    await until(() => !cloud.state.busy);
+    expect(launch.autoCleanup?.state).toBe('pending'); expect(launch.phase).toBe('failed'); expect(launch.safetyStatus).toBe('unconfirmed');
+    await expect(cloud.continue(launch)).rejects.toThrow('removal');
+    fixture.acknowledgeDeleteOnly(false); await cloud.enforceSafety();
+    expect(launch.phase).toBe('destroyed'); expect(launch.autoCleanup?.state).toBe('confirmed');
   });
   it('follows an already running rental without sending another provider start request', async () => {
     const { cloud, fixture } = await manager();

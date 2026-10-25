@@ -21,4 +21,8 @@ describe('GPU setup status', () => {
     expect(setupNotice(launch({ phase: 'stopped' }))).toBeNull();
     expect(setupNotice(launch({ phase: 'ready', setupSlow: true }))?.tone).toBe('success');
   });
+  it('keeps automatic cleanup visible as an error after confirmed deletion', () => {
+    const state = launch({ phase: 'destroyed', autoCleanup: { state: 'confirmed', reason: 'Host did not respond', requestedAt: '2026-10-25T18:00:00Z' } });
+    expect(setupNotice(state)?.title).toBe('Failed host removed'); expect(setupNotice(state)?.tone).toBe('error');
+  });
 });
