@@ -105,7 +105,7 @@ export class VastClient {
       direct_port_count: { gte: 1 }, allocated_storage: filters.disk, order: [['dph_total', 'asc']], limit: 250 };
     // GB10 can omit gpu_ram because CPU/GPU share the same pool. Capacity is
     // still checked below; dedicated-family searches retain the VRAM predicate.
-    if (filters.gpu === 'dgx' || filters.gpu === 'all' || isDgxSpark(filters.gpu)) delete query.gpu_ram;
+    if (['datacenter', 'dgx', 'all'].includes(filters.gpu) || isDgxSpark(filters.gpu)) delete query.gpu_ram;
     // Vast defaults to amd64 if omitted, silently hiding Grace ARM hosts.
     query.cpu_arch = { in: ['amd64', 'arm64'] };
     // Vast's bundle-search `id` predicate does not target the rental ask ID.

@@ -2,19 +2,27 @@ import { z } from 'zod';
 
 // Provider model names, checked against Vast's /gpu_names/unique/ catalog.
 export const aSeriesGpuNames = ['A10', 'A30', 'A40', 'A100 PCIE', 'A100 SXM4', 'A800 PCIE', 'RTX A5000', 'RTX A5500', 'RTX A6000'];
-const rtxGpuNames = ['RTX 3090', 'RTX 3090 Ti', 'RTX 4090', 'RTX 5090', 'RTX A5000', 'RTX A5500', 'RTX A6000', 'RTX 6000Ada', 'RTX 6000 Ada Generation', 'RTX PRO 6000 WS'];
+const rtxGpuNames = ['RTX 3090', 'RTX 3090 Ti', 'RTX 4090', 'RTX 5090'];
 export const dgxGpuNames = ['GB10', 'GB200', 'GB300', 'B200', 'B300', 'B300 PC', 'H100 NVL', 'H100 PCIE', 'H100 SXM', 'H200', 'H200 NVL', 'A100 PCIE', 'A100 SXM4', 'A800 PCIE'] as const;
+export const datacenterGpuNames = [
+  'RTX PRO 5000', 'RTX PRO 6000 WS', 'RTX PRO 6000 S', 'RTX PRO 6000 Max-Q', 'RTX PRO 4500', 'RTX PRO 4000',
+  'RTX 6000Ada', 'RTX 5880Ada', 'RTX 5000Ada', 'RTX A6000', 'RTX A5000',
+  'L40S', 'L40', 'L4', 'A40', 'A30', 'A10',
+  ...dgxGpuNames,
+] as const;
+const legacyGpuNames = ['RTX A5500', 'RTX 6000 Ada Generation'] as const;
 export function isDgxSpark(name: string) { return /^(?:NVIDIA\s+)?GB10$/i.test(name.trim()); }
 export function isGraceBlackwell(name: string) { return /^(?:NVIDIA\s+)?GB(?:10|200|300)$/i.test(name.trim()); }
 export function isDgxGpu(name: string) { return dgxGpuNames.some(gpu => gpu === name.replace(/^NVIDIA\s+/i, '')); }
-export function isDgxFilter(value: string) { return value === 'dgx' || isDgxGpu(value); }
+export function isDatacenterGpu(name: string) { return datacenterGpuNames.some(gpu => gpu === name.replace(/^NVIDIA\s+/i, '')) || legacyGpuNames.some(gpu => gpu === name); }
+export function isDatacenterFilter(value: string) { return ['datacenter', 'dgx', 'a-series'].includes(value) || isDatacenterGpu(value); }
 export function gpuDisplayName(name: string) { return isDgxSpark(name) ? 'DGX Spark / GB10' : name; }
 export function gpuMemorySummary(device: { gpu: string; vram: number; ram: number }) {
   return isDgxSpark(device.gpu) ? `${device.vram.toFixed(0)} GB shared memory` : `${device.vram.toFixed(0)} GB VRAM · ${device.ram.toFixed(0)} GB RAM`;
 }
 
 export const offerFiltersSchema = z.object({
-  gpu: z.enum(['all', 'RTX 3090', 'RTX 4090', 'RTX 5090', 'a-series', 'dgx', ...dgxGpuNames]).default('all'),
+  gpu: z.enum(['all', 'RTX 3090', 'RTX 4090', 'RTX 5090', 'datacenter', 'a-series', 'dgx', ...datacenterGpuNames, ...legacyGpuNames]).default('all'),
   disk: z.number().int().min(64).max(2048).default(80),
   ram: z.union([z.literal(48), z.literal(64), z.literal(96)]).default(48),
   verified: z.boolean().default(true),
@@ -27,16 +35,16 @@ export const gpuFilterOptions: { value: OfferFilters['gpu']; label: string }[] =
   { value: 'RTX 3090', label: '3090' },
   { value: 'RTX 4090', label: '4090' },
   { value: 'RTX 5090', label: '5090' },
-  { value: 'a-series', label: 'Datacenter / A-series' },
-  { value: 'dgx', label: 'DGX / Datacenter' },
+  { value: 'datacenter', label: 'Datacenter' },
 ];
 export function offerGpuFilter(gpu: OfferFilters['gpu']) {
   if (gpu === 'a-series') return { in: [...aSeriesGpuNames] };
   if (gpu === 'dgx') return { in: [...dgxGpuNames] };
-  if (gpu === 'all') return { in: [...new Set([...rtxGpuNames, ...aSeriesGpuNames, ...dgxGpuNames])] };
+  if (gpu === 'datacenter') return { in: [...datacenterGpuNames] };
+  if (gpu === 'all') return { in: [...new Set([...rtxGpuNames, ...datacenterGpuNames, ...legacyGpuNames])] };
   return { eq: gpu };
 }
-export function supportedGpuName(name: string) { return /RTX/i.test(name) || aSeriesGpuNames.includes(name) || isDgxGpu(name); }
+export function supportedGpuName(name: string) { return /RTX/i.test(name) || isDatacenterGpu(name); }
 
 export function sameGpuModel(expected: string, reported: string) {
   const compact = (value: string) => value.toUpperCase().replace(/NVIDIA|GEFORCE|TESLA|QUADRO|GENERATION/g, '').replace(/[^A-Z0-9]/g, '');
@@ -45,6 +53,13 @@ export function sameGpuModel(expected: string, reported: string) {
   if (isDgxSpark(expected)) return isDgxSpark(reported);
   if (isGraceBlackwell(expected)) return wanted === actual;
   if (wanted === 'B300PC') return actual === 'B300' || actual === 'B300PC';
+  if (/^L(?:4|40|40S)$/.test(wanted)) return wanted === actual;
+  if (wanted.startsWith('RTXPRO6000')) {
+    if (!actual.startsWith('RTXPRO6000')) return false;
+    if (wanted.endsWith('MAXQ')) return actual.includes('MAXQ');
+    if (wanted.endsWith('WS')) return /WORKSTATION|WS$/.test(actual) && !/MAXQ|SERVER/.test(actual);
+    if (wanted.endsWith('S')) return /SERVER|RTXPRO6000S$/.test(actual);
+  }
   if (/^H(?:100|200)/.test(wanted)) {
     if (wanted.startsWith('H100')) {
       const sxm = actual.includes('SXM') || actual.includes('HBM3');

@@ -150,6 +150,33 @@ describe('Vast marketplace, billing and lifecycle', () => {
     expect(query.gpu_name.in).not.toContain('RTX 5090');
     expect(query).toMatchObject({ num_gpus: { eq: 1 }, allocated_storage: 96, cpu_ram: { gte: 64000 }, gpu_ram: { gte: 24000 }, cuda_max_good: { gte: 13 }, verified: { eq: true } });
   });
+  it('searches one datacenter family including PRO, Ada, L, A and DGX without hiding shared-memory hosts', async () => {
+    const fixture = provider(), client = new VastClient(async () => 'fixture-secret', fixture.fetcher);
+    await client.offers(offerFiltersSchema.parse({ gpu: 'datacenter', disk: 128, ram: 64 }));
+    const query = fixture.calls[0].body;
+    expect(query.gpu_name.in).toEqual(expect.arrayContaining(['RTX PRO 5000', 'RTX PRO 6000 S', 'RTX PRO 6000 Max-Q', 'RTX A6000', 'RTX 5000Ada', 'L40S', 'L4', 'A40', 'A100 PCIE', 'H200 NVL', 'B200', 'GB10']));
+    expect(query.gpu_name.in).not.toContain('RTX 5090');
+    expect(query).toMatchObject({ allocated_storage: 128, cpu_ram: { gte: 64000 }, num_gpus: { eq: 1 }, cpu_arch: { in: ['amd64', 'arm64'] } });
+    expect(query.gpu_ram).toBeUndefined();
+  });
+  it.each(['RTX PRO 5000', 'L4', 'L40', 'L40S'])('can search and verify %s while retaining discrete VRAM checks', async gpu => {
+    const fixture = provider(), client = new VastClient(async () => 'fixture-secret', fixture.fetcher);
+    const settings = offerFiltersSchema.parse({ gpu }); await client.offers(settings);
+    expect(fixture.calls[0].body).toMatchObject({ gpu_name: { eq: gpu }, gpu_ram: { gte: 24000 } });
+    const raw = { ...rawOffer(), gpu_name: gpu, gpu_ram: 49152 };
+    expect(normalizeOffer(raw, settings).compatible).toBe(true);
+    expect(normalizeOffer({ ...raw, gpu_ram: 16384 }, settings).compatible).toBe(false);
+    expect(matchesGpuProbe(raw, `NVIDIA ${gpu}${gpu.startsWith('RTX PRO') ? ' Blackwell' : ''}, 49000\n`)).toBe(true);
+  });
+  it('distinguishes L-series and PRO 6000 variants in the setup hardware probe', () => {
+    expect(matchesGpuProbe({ gpu_name: 'L4', gpu_ram: 24576 }, 'NVIDIA L40S, 46068\n')).toBe(false);
+    expect(matchesGpuProbe({ gpu_name: 'L40', gpu_ram: 49152 }, 'NVIDIA L40S, 49000\n')).toBe(false);
+    expect(matchesGpuProbe({ gpu_name: 'RTX PRO 6000 WS', gpu_ram: 98304 }, 'NVIDIA RTX PRO 6000 Blackwell Workstation Edition, 97800\n')).toBe(true);
+    expect(matchesGpuProbe({ gpu_name: 'RTX PRO 6000 S', gpu_ram: 98304 }, 'NVIDIA RTX PRO 6000 Blackwell Server Edition, 97800\n')).toBe(true);
+    expect(matchesGpuProbe({ gpu_name: 'RTX PRO 6000 Max-Q', gpu_ram: 98304 }, 'NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition, 97800\n')).toBe(true);
+    expect(matchesGpuProbe({ gpu_name: 'RTX PRO 6000 WS', gpu_ram: 98304 }, 'NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition, 97800\n')).toBe(false);
+    expect(matchesGpuProbe({ gpu_name: 'RTX PRO 6000 S', gpu_ram: 98304 }, 'NVIDIA RTX PRO 6000 Blackwell Workstation Edition, 97800\n')).toBe(false);
+  });
   it.each([
     ['A10', 24576], ['A30', 24576], ['A40', 49152], ['A100 PCIE', 40960], ['A100 SXM4', 81920], ['A800 PCIE', 81920],
   ])('admits compatible %s offers without requiring RTX branding', (gpu, memory) => {

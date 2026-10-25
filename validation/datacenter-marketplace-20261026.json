@@ -1,0 +1,72 @@
+{
+  "date": "2026-10-26",
+  "change": "One Datacenter chip and model picker replaces duplicated A-series / DGX categories; RTX PRO 5000 and other current compatible professional NVIDIA families added.",
+  "visibleChips": [
+    {
+      "value": "all",
+      "label": "All GPUs"
+    },
+    {
+      "value": "RTX 3090",
+      "label": "3090"
+    },
+    {
+      "value": "RTX 4090",
+      "label": "4090"
+    },
+    {
+      "value": "RTX 5090",
+      "label": "5090"
+    },
+    {
+      "value": "datacenter",
+      "label": "Datacenter"
+    }
+  ],
+  "datacenterModels": [
+    "RTX PRO 5000",
+    "RTX PRO 6000 WS",
+    "RTX PRO 6000 S",
+    "RTX PRO 6000 Max-Q",
+    "RTX PRO 4500",
+    "RTX PRO 4000",
+    "RTX 6000Ada",
+    "RTX 5880Ada",
+    "RTX 5000Ada",
+    "RTX A6000",
+    "RTX A5000",
+    "L40S",
+    "L40",
+    "L4",
+    "A40",
+    "A30",
+    "A10",
+    "GB10",
+    "GB200",
+    "GB300",
+    "B200",
+    "B300",
+    "B300 PC",
+    "H100 NVL",
+    "H100 PCIE",
+    "H100 SXM",
+    "H200",
+    "H200 NVL",
+    "A100 PCIE",
+    "A100 SXM4",
+    "A800 PCIE"
+  ],
+  "catalogSource": "https://console.vast.ai/api/v0/gpu_names/unique/",
+  "catalogChecked": true,
+  "checks": {
+    "cloudTestsPassed": 79,
+    "productionBuild": "passed, including TypeScript",
+    "browser": "Chrome confirmed one Datacenter chip, all model choices, selected RTX PRO 5000 and nine live compatible offers with host-reported48/72GB VRAM.",
+    "api": "Direct read-only RTX PRO 5000 offer search accepted.",
+    "hardwareProbe": "PRO 5000 naming, PRO 6000 WS/Server/Max-Q distinctions, L4/L40/L40S distinctions and discrete VRAM checks verified.",
+    "compatibility": "Legacy a-series and dgx API filters retained for saved rental state."
+  },
+  "gpuStartedOrResumed": false,
+  "paidRendersSubmitted": 0,
+  "planChanged": false
+}
