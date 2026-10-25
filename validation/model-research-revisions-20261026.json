@@ -1,0 +1,37 @@
+{
+  "checkedAt": "2026-10-25T20:33:27.074179+00:00",
+  "source": "Public Hugging Face model metadata; no weights downloaded",
+  "revisions": [
+    {
+      "repo": "Viggle/Viggle-Animate",
+      "revision": "c09398730222a1eb9b7bf9e4141d439ebef91a68",
+      "license": "other"
+    },
+    {
+      "repo": "Wan-AI/Wan2.2-Animate-14B",
+      "revision": "cb93a225fbaf1ca100f54e79da8f994995b689b3",
+      "license": "apache-2.0"
+    },
+    {
+      "repo": "Orange-3DV-Team/MoCha",
+      "revision": "ad0c06c6df79634d6a4d5eec862a35125ed26173",
+      "license": "agpl-3.0"
+    },
+    {
+      "repo": "FireRedTeam/FireRed-Image-Edit-1.1",
+      "revision": "3bc3f2a12722fd9883eb6357500de191d56baaf5",
+      "license": "apache-2.0"
+    },
+    {
+      "repo": "black-forest-labs/FLUX.2-klein-4B",
+      "revision": "e7b7dc27f91deacad38e78976d1f2b499d76a294",
+      "license": "apache-2.0"
+    },
+    {
+      "repo": "ruchangyao/FlashVSR_plus",
+      "revision": "46b79520946ac67dec94d1566490690953c7debc",
+      "license": "apache-2.0"
+    }
+  ],
+  "licenseNote": "Viggle other is its custom H3 Community license. Per-model license text and dependent components still govern use; metadata is not a commercial clearance."
+}

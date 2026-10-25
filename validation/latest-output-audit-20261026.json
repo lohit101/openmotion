@@ -1,0 +1,106 @@
+{
+  "date": "2026-10-26",
+  "jobId": "f8fd21ad-46cd-4348-ba2c-62f265aa0b03",
+  "task": "Read-only audit of the last completed user render",
+  "settings": {
+    "mode": "motion",
+    "prompt": "Photorealistic live-action footage of the character shown in the reference image, with the same facial identity, hairstyle, outfit, clothing details and individual body proportions throughout the shot. The character performs the source person's movements with matching timing, gestures, expressions and gaze. The reference image provides the character's setting and visual appearance. The character's pose, perspective and contact with surrounding surfaces remain physically coherent within that setting. Light direction, exposure, color temperature, highlights, contact shadows and reflected light remain consistent with the reference environment. Natural skin texture, coherent anatomy, grounded movement, realistic fabric folds and motion blur, stable facial features and continuous organic motion form one coherent camera recording.",
+    "negativePrompt": "identity drift, changing face, changing clothes, duplicate person, flicker, warped hands, extra fingers, deformed limbs, waxy skin, oversharpening, blurry face, floating feet",
+    "preset": "quality16",
+    "resolution": "704",
+    "orientation": "source",
+    "fps": 24,
+    "seconds": 5,
+    "start": 0,
+    "seed": 20261024,
+    "randomSeed": false,
+    "relight": true,
+    "relightStrength": 1.15,
+    "dpoStrength": 1,
+    "sourcePerson": "person",
+    "referencePerson": "person",
+    "objectIndices": "0",
+    "framesPerPass": 81,
+    "loraA": "None",
+    "loraAStrength": 0.8,
+    "loraB": "None",
+    "loraBStrength": 0.8
+  },
+  "renderSeconds": 2463.988,
+  "renderMinutes": 41.06646666666666,
+  "hardware": "A100-PCIE-40GB; confirmed by saved rental and current connection metadata",
+  "quotedRunningHourlyUSD": 0.3642962962962963,
+  "estimatedRenderUSD": 0.24933936181069957,
+  "costExclusions": "Startup, model downloads, idle time, transfer fees and billing adjustments",
+  "segments": [
+    {
+      "file": "segment_0000.mp4",
+      "promptId": "7ef0afd2-25ae-4126-a697-50d386d093ac",
+      "frames": 81,
+      "seconds": 1778.958
+    },
+    {
+      "file": "segment_0001.mp4",
+      "promptId": "beddc8de-718c-43aa-ad2c-20e58f566ed3",
+      "frames": 39,
+      "seconds": 671.028
+    }
+  ],
+  "sourceVideo": {
+    "width": 720,
+    "height": 1280,
+    "fps": 30,
+    "videoStreamSeconds": 5.666666666666667,
+    "frames": 170
+  },
+  "outputVideo": {
+    "width": 704,
+    "height": 1248,
+    "fps": 24,
+    "seconds": 5,
+    "frames": 120,
+    "videoBitrate": 8237100
+  },
+  "sampledTimestamps": [
+    0,
+    0.5,
+    1.5,
+    3.25,
+    3.42,
+    4.5
+  ],
+  "sceneDetection": {
+    "sourceCutSeconds": 3.333333,
+    "outputCutSeconds": 3.458333,
+    "method": "FFmpeg scene score threshold 0.12; detects a framing/shot change, not ground-truth motion alignment",
+    "firstChunkEndSeconds": 3.375
+  },
+  "confirmedControls": {
+    "mode": "motion",
+    "cfg": 5,
+    "stepsPerSection": 16,
+    "speedAdapter": false,
+    "dpoStrength": 1,
+    "relightRequested": true,
+    "relightApplied": false,
+    "genericLoraA": "None",
+    "genericLoraB": "None"
+  },
+  "visualObservations": [
+    "The output keeps the reference hallway rather than the source train scene, consistent with Motion transfer semantics. This is not an evaluation of replacement-mode background preservation.",
+    "Sampled output retains much of the reference appearance, but skin is very smooth and clothing/jewellery detail looks reconstructed. No numerical identity score was measured.",
+    "The reference itself has strong warm lighting and a smooth skin presentation. Its treatment affects the target appearance.",
+    "The source has a framing/shot change near the generation chunk boundary. Evaluate this separately from generation seam artifacts."
+  ],
+  "limits": [
+    "Synchronized frames were inspected; no automatic metric establishes undetectable AI or a universal model quality score.",
+    "No causal BF16-versus-INT8 ablation was run.",
+    "Mode correction alone does not establish photorealism."
+  ],
+  "sourceSha256": "adf21c08b9853516b49fada326024d6b712d0421d6b7d1210d03f39d4eb2c053",
+  "referenceSha256": "172fc060e7926cd0cb96b027d82e35a2fbf05aba1ada00e6adbb174ab39d0f7a",
+  "outputSha256": "9bfca38f3f5274f244806ca35db5f5a1be55794a4f882daef13d4a6a8c7c3d81",
+  "rawComparison": "Ignored backups/latest-output-review-20261026/comparison.jpg",
+  "gpuStartedOrResumed": false,
+  "newPaidRendersSubmitted": 0
+}
