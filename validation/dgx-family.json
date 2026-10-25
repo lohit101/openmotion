@@ -1,0 +1,50 @@
+{
+  "date": "2026-10-25",
+  "feature": "Full DGX/datacenter family and ARM offer search",
+  "fixedCause": "Vast bundle search defaults to amd64; explicit amd64/arm64 query restores ARM offers.",
+  "supportedModels": [
+    "GB10",
+    "GB200",
+    "GB300",
+    "B200",
+    "B300",
+    "B300 PC",
+    "H100 NVL",
+    "H100 PCIE",
+    "H100 SXM",
+    "H200",
+    "H200 NVL",
+    "A100 PCIE",
+    "A100 SXM4",
+    "A800 PCIE"
+  ],
+  "individualModelPicker": true,
+  "sharedPoolFallback": "GB10 only; GB200/GB300 retain separate GPU capacity",
+  "focusedCloudTestsPassed": 60,
+  "productionBuild": "passed",
+  "bootstrapSyntax": "passed",
+  "liveReadOnlySearches": [
+    {
+      "filter": "GB10",
+      "count": 16,
+      "models": [
+        "GB10"
+      ],
+      "minimumRunningHourly": 0.2518518518518519
+    },
+    {
+      "filter": "GB200",
+      "count": 0,
+      "models": [],
+      "minimumRunningHourly": null
+    },
+    {
+      "filter": "GB300",
+      "count": 0,
+      "models": [],
+      "minimumRunningHourly": null
+    }
+  ],
+  "rentalsStarted": 0,
+  "gpuRendersSubmitted": 0
+}

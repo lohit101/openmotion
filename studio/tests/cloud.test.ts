@@ -104,7 +104,7 @@ describe('Vast marketplace, billing and lifecycle', () => {
   it('searches DGX Spark by GB10 and validates the shared pool without assuming dedicated VRAM', async () => {
     const fixture = provider(), client = new VastClient(async () => 'fixture-secret', fixture.fetcher);
     const settings = offerFiltersSchema.parse({ gpu: 'dgx', disk: 128 }); await client.offers(settings);
-    expect(fixture.calls[0].body).toMatchObject({ gpu_name: { in: ['GB10'] }, cpu_ram: { gte: 64000 }, allocated_storage: 128, num_gpus: { eq: 1 } });
+    expect(fixture.calls[0].body).toMatchObject({ gpu_name: { in: expect.arrayContaining(['GB10', 'GB200', 'GB300', 'B200', 'H200']) }, cpu_arch: { in: ['amd64', 'arm64'] }, cpu_ram: { gte: 48000 }, allocated_storage: 128, num_gpus: { eq: 1 } });
     expect(fixture.calls[0].body.gpu_ram).toBeUndefined();
     const raw = { ...rawOffer(), gpu_name: 'GB10', gpu_ram: null, cpu_ram: 128000, cpu_arch: 'arm64' };
     expect(normalizeOffer(raw, settings)).toMatchObject({ compatible: true, vram: 128, ram: 128 });
@@ -120,6 +120,19 @@ describe('Vast marketplace, billing and lifecycle', () => {
     expect(JSON.stringify(cloud.state)).not.toContain('fixture-key-to-store'); const file = path.join(root, 'private/vast-api-key');
     expect((await stat(file)).mode & 0o777).toBe(0o600); expect((await stat(path.dirname(file))).mode & 0o777).toBe(0o700); expect(await readFile(file, 'utf8')).toBe('fixture-key-to-store');
     await cloud.removeKey(); expect(cloud.state.configured).toBe(false);
+  });
+  it.each(['GB200', 'GB300'])('includes %s as ARM hardware with separate GPU memory capacity', gpu => {
+    const settings = offerFiltersSchema.parse({ gpu: 'dgx' });
+    const raw = { ...rawOffer(), gpu_name: gpu, gpu_ram: 180*1024, cpu_ram: 480000, cpu_arch: 'arm64' };
+    expect(normalizeOffer(raw, settings)).toMatchObject({ compatible: true, vram: 180, ram: 480 });
+    expect(normalizeOffer({ ...raw, gpu_ram: null }, settings).compatible).toBe(false);
+    expect(normalizeOffer({ ...raw, cpu_arch: 'amd64' }, settings).compatible).toBe(false);
+    expect(matchesGpuProbe(raw, `NVIDIA ${gpu}, 184320\n`)).toBe(true);
+  });
+  it.each(['GB10', 'GB200', 'GB300'] as const)('can select %s directly without the API default hiding ARM offers', async gpu => {
+    const fixture = provider(), client = new VastClient(async () => 'fixture-secret', fixture.fetcher);
+    await client.offers(offerFiltersSchema.parse({ gpu }));
+    expect(fixture.calls[0].body).toMatchObject({ gpu_name: { eq: gpu }, cpu_arch: { in: ['amd64', 'arm64'] } });
   });
   it('searches the A-series family using provider model names and keeps the hardware constraints', async () => {
     const fixture = provider(), client = new VastClient(async () => 'fixture-secret', fixture.fetcher);

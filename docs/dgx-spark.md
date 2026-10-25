@@ -1,8 +1,10 @@
-# DGX Spark / GB10 rentals
+# DGX / datacenter rentals
 
-GPU cloud includes **DGX Spark / GB10** and includes the provider's `GB10` model in **All GPUs**. The existing disk adjustment, price sorting, offer revalidation and instance start/stop/destroy controls apply to this family. Selecting the filter or refreshing availability does not rent hardware.
+GPU cloud includes **DGX / Datacenter** and includes these provider names in **All GPUs**: GB10, GB200, GB300, B200, B300, B300 PC, H100 NVL, H100 PCIE, H100 SXM, H200, H200 NVL, A100 PCIE, A100 SXM4 and A800 PCIE. The existing disk adjustment, price sorting, offer revalidation and instance start/stop/destroy controls apply. The workflow rents one GPU; available multi-GPU-only asks are excluded. Selecting the filter or refreshing availability does not rent hardware.
 
-Spark shares memory between its ARM CPU and GPU. Offer cards and the instance manager show one shared pool instead of adding CPU RAM and VRAM together. DGX searches require a 64 GB-class shared allocation or the higher selected memory minimum. Hosts explicitly reporting an incompatible CPU architecture are rejected before renting. Ordinary discrete GPUs retain their separate RAM/VRAM checks.
+Vast's bundle search silently defaults to amd64 when architecture is absent. Searches now explicitly include both amd64 and arm64; this fixes empty GB10 results when ARM hosts are available in Vast's console. GB200/GB300 require ARM64 but retain reported GPU memory separately from CPU RAM. Only GB10 uses the shared-pool fallback. No combined rack memory is presented as one GPU's memory.
+
+Spark shares memory between its ARM CPU and GPU. Offer cards and the instance manager show one shared pool instead of adding CPU RAM and VRAM together. GB10 offers require a 64 GB-class shared allocation or the higher selected memory minimum. Hosts explicitly reporting an incompatible CPU architecture are rejected before renting. Ordinary discrete GPUs retain their separate RAM/VRAM checks.
 
 GB10 can report `[N/A]` from `nvidia-smi` for dedicated memory. The initial SSH probe recognizes that only for an exact GB10 device match; bootstrap then verifies the actual container-limited shared pool and native ARM64 environment. Missing discrete GPU memory remains an error. The existing required model bundle and generation graph are unchanged.
 

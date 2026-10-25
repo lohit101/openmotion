@@ -47,9 +47,11 @@ for f in ([] if os.environ.get('RECAST_SKIP_MODEL_DOWNLOADS') == '1' else manife
 need=pending+5*1024**3+(0 if (root/'state/packages-ready.json').exists() else 12*1024**3)
 free=shutil.disk_usage(root).free
 if free<need:raise SystemExit('Need approximately %.1f GB free for this installation; %.1f GB available.'%(need/1e9,free/1e9))
-if 'GB10' in name.upper():
+import re
+if re.fullmatch(r'(?:NVIDIA\s+)?GB(?:10|200|300)',name,re.I):
     import platform
-    if platform.machine().lower() not in ('aarch64','arm64'):raise SystemExit('DGX Spark requires a native ARM64 container.')
+    if platform.machine().lower() not in ('aarch64','arm64'):raise SystemExit('Grace Blackwell requires a native ARM64 container.')
+if 'GB10' in name.upper():
     if ram < 60*10**9:raise SystemExit('Choose a 64 GB-class or larger shared-memory allocation for DGX Spark.')
     print('%s, %.1f GB shared memory, driver %s, %.1f GB free'%(name,memory/1024,driver,free/1e9))
 else:

@@ -9,7 +9,7 @@ import type { ConnectionManager } from './comfy';
 import type { Runner } from './runner';
 import { command } from './media';
 import type { CloudInstance, CloudLaunch, CloudState, GpuOffer, OfferFilters } from '../shared/cloud';
-import { canRetryRental, isDgxSpark, offerFiltersSchema, offerGpuFilter, sameGpuModel, supportedGpuName } from '../shared/cloud';
+import { canRetryRental, isDgxSpark, isGraceBlackwell, offerFiltersSchema, offerGpuFilter, sameGpuModel, supportedGpuName } from '../shared/cloud';
 import { modelBytes, pinnedModels, setupModelFiles } from '../shared/models';
 
 const MODEL_GB = modelBytes(setupModelFiles) / 1e9;
@@ -94,8 +94,9 @@ export class VastClient {
       direct_port_count: { gte: 1 }, allocated_storage: filters.disk, order: [['dph_total', 'asc']], limit: 250 };
     // GB10 can omit gpu_ram because CPU/GPU share the same pool. Capacity is
     // still checked below; dedicated-family searches retain the VRAM predicate.
-    if (filters.gpu === 'dgx' || filters.gpu === 'all') delete query.gpu_ram;
-    if (filters.gpu === 'dgx') query.cpu_ram = { gte: Math.max(64, filters.ram) * 1000 };
+    if (filters.gpu === 'dgx' || filters.gpu === 'all' || isDgxSpark(filters.gpu)) delete query.gpu_ram;
+    // Vast defaults to amd64 if omitted, silently hiding Grace ARM hosts.
+    query.cpu_arch = { in: ['amd64', 'arm64'] };
     // Vast's bundle-search `id` predicate does not target the rental ask ID.
     // Revalidate the exact ask that will be used by PUT /asks/{ask_contract_id}.
     if (id) query.ask_contract_id = { eq: id }; else query.gpu_name = offerGpuFilter(filters.gpu);
@@ -110,7 +111,7 @@ export function normalizeOffer(raw: any, filters: OfferFilters, modelGB = MODEL_
   const computeHourly = amount(raw.search?.gpuCostPerHour, raw.dph_base, totalHourly !== null && storageHourly !== null ? totalHourly - storageHourly : null);
   const reasons: string[] = [], gpu = String(raw.gpu_name || ''), ram = Number(raw.cpu_ram || 0) / 1000, unified = isDgxSpark(gpu);
   const reportedVram = number(raw.gpu_ram), vram = reportedVram && reportedVram > 0 ? reportedVram / 1024 : unified ? ram : 0;
-  if (!supportedGpuName(gpu)) reasons.push('Choose a supported NVIDIA RTX, A-series or DGX Spark GPU.'); if (Number(raw.num_gpus) !== 1) reasons.push('This workflow uses one GPU.');
+  if (!supportedGpuName(gpu)) reasons.push('Choose a supported NVIDIA RTX, A-series or DGX/datacenter GPU.'); if (Number(raw.num_gpus) !== 1) reasons.push('This workflow uses one GPU.');
   const askId = Number(raw.ask_contract_id ?? raw.id);
   if (!Number.isSafeInteger(askId) || askId <= 0) reasons.push('A valid rental ask ID is required.');
   if (!Number.isSafeInteger(Number(raw.machine_id)) || Number(raw.machine_id) <= 0) reasons.push('A valid host machine ID is required.');
@@ -122,6 +123,7 @@ export function normalizeOffer(raw: any, filters: OfferFilters, modelGB = MODEL_
     if (Number(raw.gpu_ram || 0) < 24000) reasons.push('This setup requires a 24 GB-class GPU with at least 24,000 MiB reported memory.');
     if (ram < filters.ram) reasons.push(`At least ${filters.ram} GB system RAM is required.`);
   }
+  if (isGraceBlackwell(gpu) && raw.cpu_arch && !/^(?:arm64|aarch64)$/i.test(raw.cpu_arch)) reasons.push('Grace Blackwell requires a native ARM64 host.');
   if (driverNumber(raw.driver_version) < 580065006 || !raw.driver_version) reasons.push('CUDA 13 needs NVIDIA driver 580.65.06 or newer.');
   if (Number(raw.cuda_max_good || 0) < 13) reasons.push('CUDA 13 support is required.'); if (Number(raw.disk_space || 0) < filters.disk) reasons.push('The requested disk allocation is unavailable.');
   if (Number(raw.direct_port_count || 0) < 1) reasons.push('A direct SSH port is required.'); if (raw.rented || raw.rentable === false) reasons.push('This offer is no longer available.');
