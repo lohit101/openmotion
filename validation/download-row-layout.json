@@ -1,0 +1,40 @@
+{
+  "date": "2026-10-26",
+  "scenario": "Online GPU with all six required files missing; UI-only network fixture",
+  "sizes": [
+    {
+      "viewport": 1440,
+      "panelWidth": 307,
+      "scrollWidth": 307,
+      "rowRight": 501,
+      "buttonRight": 501,
+      "sizeRight": 494,
+      "sizeText": "27.88 GB",
+      "heading": "Files for these settings0 / 6 ready27.88 GB"
+    },
+    {
+      "viewport": 390,
+      "panelWidth": 298,
+      "scrollWidth": 298,
+      "rowRight": 370,
+      "buttonRight": 370,
+      "sizeRight": 363,
+      "sizeText": "27.88 GB",
+      "heading": "Files for these settings0 / 6 ready27.88 GB"
+    },
+    {
+      "viewport": 320,
+      "panelWidth": 268,
+      "scrollWidth": 268,
+      "rowRight": 320,
+      "buttonRight": 320,
+      "sizeRight": 313,
+      "sizeText": "27.88 GB",
+      "heading": "Files for these settings0 / 6 ready27.88 GB"
+    }
+  ],
+  "expanded": true,
+  "errors": [],
+  "downloadRequests": 0,
+  "validation": "Production build passed; visually checked the exact 0/6 ready, 27.88 GB state at desktop and narrow widths."
+}
