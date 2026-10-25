@@ -1,0 +1,143 @@
+{
+  "date": "2026-10-25",
+  "scope": "Read-only tracking of a user-started GB10 quality16 run, which was cancelled before its first segment finished",
+  "current_run": {
+    "gpu": "NVIDIA GB10",
+    "status": "cancelled",
+    "cancellationConfirmed": true,
+    "mode": "motion",
+    "preset": "quality16",
+    "steps_per_section": 16,
+    "cfg": 5,
+    "sampler": "uni_pc",
+    "dimensions": [
+      704,
+      1248
+    ],
+    "fps": 24,
+    "target_seconds": 4,
+    "target_frames": 96,
+    "sections": 2,
+    "detail_strength": 1,
+    "speed_adapter": false,
+    "last_completed_sampler_step": 4,
+    "completed_output_frames": 0,
+    "quoted_running_hourly_USD": 0.3918518518518518
+  },
+  "observations": {
+    "first_step_native_seconds": 177.75,
+    "subsequent_step_intervals_seconds": [
+      227.356,
+      227.723,
+      227.437
+    ],
+    "subsequent_step_mean_seconds": 227.50533333333334,
+    "GPU_utilization_percent_observed": "about 96%",
+    "sampled_clocks": {
+      "performance_state": "P0",
+      "SM_MHz": 2457,
+      "temperature_C": 80,
+      "thermal_and_power_slowdown_flags": "Not Active at the sampled check"
+    },
+    "GPU_memory": "GB10 uses shared system/GPU memory; nvidia-smi reported dedicated memory as N/A"
+  },
+  "billing_estimate": {
+    "window": "Job start through confirmed rental deletion; upper bound rather than exact cancellation instant",
+    "seconds": 1136.564,
+    "estimated_USD_at_quoted_rate": 0.12371241893004113,
+    "excludes": "Pre-job setup, idle time, model downloads, transfer fees and any provider billing adjustments"
+  },
+  "closest_completed_run": {
+    "same_source": true,
+    "same_reference": true,
+    "same_prompt_and_seed": true,
+    "changed_settings": {
+      "preset": {
+        "previous": "quality12",
+        "gb10": "quality16"
+      },
+      "resolution": {
+        "previous": "480",
+        "gb10": "704"
+      }
+    },
+    "dimensions": [
+      480,
+      864
+    ],
+    "mode": "motion",
+    "preset": "quality12",
+    "cfg": 5,
+    "sampler": "uni_pc",
+    "seconds": 4,
+    "fps": 24,
+    "elapsed_seconds": 904.321,
+    "hardware": "RTX A6000 inferred from the saved active rental window; hardware was not stored directly on the historical job",
+    "quoted_running_hourly_USD": 0.33185185185185184,
+    "estimated_render_USD": 0.08336127736625513,
+    "pixel_step_work_ratio": 2.8246913580246913
+  },
+  "older_matched_baselines": {
+    "note": "These two runs match one another; they differ from the current motion-transfer/quality16 job",
+    "mode": "swap",
+    "preset": "natural",
+    "steps_per_section": 8,
+    "cfg": 1,
+    "dimensions": [
+      704,
+      1248
+    ],
+    "fps": 24,
+    "seconds": 5,
+    "rtx3090": {
+      "gpu": "RTX 3090",
+      "elapsedSeconds": 2061.978,
+      "quotedRunningHourlyUSD": 0.19555555555555557,
+      "estimatedRenderUSD": 0.11200868148148149,
+      "sections": [
+        {
+          "frames": 81,
+          "seconds": 1479.542
+        },
+        {
+          "frames": 39,
+          "seconds": 558.514
+        }
+      ],
+      "framingCheck": "matched"
+    },
+    "a40": {
+      "gpu": "A40",
+      "elapsedSeconds": 1034.002,
+      "quotedRunningHourlyUSD": 0.41777777777777775,
+      "estimatedRenderUSD": 0.11999529382716048,
+      "sections": [
+        {
+          "frames": 81,
+          "seconds": 729.947
+        },
+        {
+          "frames": 39,
+          "seconds": 291.34
+        }
+      ],
+      "framingCheck": "matched"
+    }
+  },
+  "hardware_context": {
+    "GB10_bandwidth_GB_s": 273,
+    "RTX5090_bandwidth_GB_s": 1792,
+    "sources": [
+      "https://www.nvidia.com/en-us/products/workstations/dgx-spark/",
+      "https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5090/"
+    ],
+    "interpretation": "More memory capacity does not establish lower render latency; bandwidth specifications are not a measured speed multiplier"
+  },
+  "limitations": [
+    "Cancelled sample: no completed GB10 runtime, accepted-output rate or visual-quality score",
+    "Higher resolution and more steps confound a direct GPU comparison",
+    "Pixel-times-steps is a workload proxy; attention, CFG, sampler, cache and offloading affect actual scaling",
+    "Early total estimates were provisional because the shorter second section never ran",
+    "The cancelled job was not resubmitted and the running workflow/settings were not changed by monitoring"
+  ]
+}
