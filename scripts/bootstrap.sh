@@ -27,7 +27,7 @@ import csv,json,os,shutil,subprocess,sys
 from pathlib import Path
 root=Path(sys.argv[1]); lock=json.loads((root/'config/runtime.lock.json').read_text())
 sys.path.insert(0,str(root/'scripts'))
-from resources import effective_ram_bytes
+from resources import effective_ram_bytes,gpu_memory_mib
 try:
     rows=list(csv.reader(subprocess.check_output(['nvidia-smi','--query-gpu=name,memory.total,driver_version','--format=csv,noheader,nounits'],text=True).splitlines()))
 except (OSError,subprocess.CalledProcessError):
@@ -35,8 +35,9 @@ except (OSError,subprocess.CalledProcessError):
 name,memory,driver=[x.strip() for x in rows[0]]
 if tuple(map(int,driver.split('.'))) < tuple(map(int,lock['minimum_driver'].split('.'))):
     raise SystemExit('This CUDA 13 INT8 setup requires driver '+lock['minimum_driver']+' or newer; choose a compatible host.')
-if int(memory)<23000: raise SystemExit('This package targets a 24 GB or larger GPU.')
 ram=effective_ram_bytes()
+memory=gpu_memory_mib(name,memory,ram)
+if memory<23000: raise SystemExit('This package targets a 24 GB or larger GPU.')
 if ram<29*1024**3: raise SystemExit('Choose at least 32 GB system RAM for this native INT8 package.')
 manifest=json.loads(Path(os.environ['RECAST_MODEL_MANIFEST']).read_text()); pending=0
 for f in ([] if os.environ.get('RECAST_SKIP_MODEL_DOWNLOADS') == '1' else manifest['files']):
@@ -46,7 +47,13 @@ for f in ([] if os.environ.get('RECAST_SKIP_MODEL_DOWNLOADS') == '1' else manife
 need=pending+5*1024**3+(0 if (root/'state/packages-ready.json').exists() else 12*1024**3)
 free=shutil.disk_usage(root).free
 if free<need:raise SystemExit('Need approximately %.1f GB free for this installation; %.1f GB available.'%(need/1e9,free/1e9))
-print('%s, %.1f GB VRAM, %.1f GB RAM, driver %s, %.1f GB free'%(name,int(memory)/1024,ram/1e9,driver,free/1e9))
+if 'GB10' in name.upper():
+    import platform
+    if platform.machine().lower() not in ('aarch64','arm64'):raise SystemExit('DGX Spark requires a native ARM64 container.')
+    if ram < 60*10**9:raise SystemExit('Choose a 64 GB-class or larger shared-memory allocation for DGX Spark.')
+    print('%s, %.1f GB shared memory, driver %s, %.1f GB free'%(name,memory/1024,driver,free/1e9))
+else:
+    print('%s, %.1f GB VRAM, %.1f GB RAM, driver %s, %.1f GB free'%(name,memory/1024,ram/1e9,driver,free/1e9))
 PY
 
 if [[ "$(id -u)" == "0" ]] && command -v apt-get >/dev/null; then

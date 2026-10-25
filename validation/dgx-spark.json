@@ -1,0 +1,25 @@
+{
+  "date": "2026-10-25",
+  "feature": "DGX Spark / GB10 marketplace and shared-memory setup support",
+  "providerGpuName": "GB10",
+  "filterIncludedInAllGpus": true,
+  "minimumSharedMemoryGB": 64,
+  "storageAndPricingControlsPreserved": true,
+  "singleSharedPoolDisplayed": true,
+  "nvidiaSmiUnavailableMemoryHandledForGb10Only": true,
+  "nativeArm64Required": true,
+  "packaging": {
+    "cudaImage": "nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04",
+    "imageArchitecturesChecked": ["amd64", "arm64"],
+    "python312Arm64WheelsFound": ["torch==2.11.0", "torchvision==0.26.0", "torchaudio==2.11.0"]
+  },
+  "validation": {
+    "cloudTestsPassed": 55,
+    "sharedMemoryParserExamples": "passed",
+    "bootstrapShellSyntax": "passed",
+    "typescriptAndProductionBuild": "passed",
+    "liveGpuGeneration": "not tested; experimental platform",
+    "paidRentalsCreated": 0,
+    "paidRendersSubmitted": 0
+  }
+}

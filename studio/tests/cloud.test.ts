@@ -95,9 +95,25 @@ describe('Vast marketplace, billing and lifecycle', () => {
   it('queries compatible hardware with selected disk and authenticates only in the HTTPS header', async () => {
     const fixture = provider(), client = new VastClient(async () => 'fixture-secret', fixture.fetcher); await client.offers({ ...filters, disk: 128, ram: 64 });
     const call = fixture.calls[0]; expect(call.auth).toBe('Bearer fixture-secret'); expect(call.url.toString()).not.toContain('fixture-secret');
-    expect(call.body).toMatchObject({ allocated_storage: 128, cpu_ram: { gte: 64000 }, gpu_ram: { gte: 24000 }, driver_version: { gte: 580065006 }, type: 'on-demand' });
+    expect(call.body).toMatchObject({ allocated_storage: 128, cpu_ram: { gte: 64000 }, driver_version: { gte: 580065006 }, type: 'on-demand' });
+    expect(call.body.gpu_ram).toBeUndefined();
     expect(call.body.gpu_name.in).toContain('RTX 5090');
     expect(call.body.gpu_name.in).toContain('A100 PCIE');
+    expect(call.body.gpu_name.in).toContain('GB10');
+  });
+  it('searches DGX Spark by GB10 and validates the shared pool without assuming dedicated VRAM', async () => {
+    const fixture = provider(), client = new VastClient(async () => 'fixture-secret', fixture.fetcher);
+    const settings = offerFiltersSchema.parse({ gpu: 'dgx', disk: 128 }); await client.offers(settings);
+    expect(fixture.calls[0].body).toMatchObject({ gpu_name: { in: ['GB10'] }, cpu_ram: { gte: 64000 }, allocated_storage: 128, num_gpus: { eq: 1 } });
+    expect(fixture.calls[0].body.gpu_ram).toBeUndefined();
+    const raw = { ...rawOffer(), gpu_name: 'GB10', gpu_ram: null, cpu_ram: 128000, cpu_arch: 'arm64' };
+    expect(normalizeOffer(raw, settings)).toMatchObject({ compatible: true, vram: 128, ram: 128 });
+    expect(normalizeOffer({ ...raw, cpu_arch: 'amd64' }, settings).compatible).toBe(false);
+    expect(normalizeOffer({ ...raw, cpu_ram: 32000 }, settings).compatible).toBe(false);
+    expect(matchesGpuProbe(raw, 'NVIDIA GB10, [N/A]\n')).toBe(true);
+    expect(matchesGpuProbe(raw, 'NVIDIA GB100, [N/A]\n')).toBe(false);
+    expect(matchesGpuProbe(raw, 'NVIDIA GeForce RTX 5090, 32607\n')).toBe(false);
+    expect(matchesGpuProbe({ gpu_name: 'RTX 3090', gpu_ram: 24576 }, 'NVIDIA GeForce RTX 3090, [N/A]\n')).toBe(false);
   });
   it('persists a checked API key in a private file and never exposes it in app state', async () => {
     const { cloud } = await manager(); vi.stubEnv('VAST_API_KEY', ''); await cloud.saveKey('fixture-key-to-store');
