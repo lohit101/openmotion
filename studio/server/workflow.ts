@@ -1,5 +1,6 @@
 import type { Asset, Catalog, Graph, Job } from '../shared/types';
 import { nextSegment } from '../shared/types';
+import { samplingSteps, usesSpeedAdapter } from '../shared/sampling';
 import { renderPrompt } from '../shared/prompts';
 import { RELIGHT, NATURAL_SPEED, I2V_SPEED } from '../shared/models';
 export { RELIGHT, NATURAL_SPEED, I2V_SPEED };
@@ -9,7 +10,7 @@ export function compileWorkflow(template: Graph, job: Job): Graph {
   const graph = structuredClone(template), s = job.settings;
   const plan = nextSegment(job.progress.completedFrames, job.progress.targetFrames, s.framesPerPass);
   Object.assign(graph['1'].inputs, { width: job.width, height: job.height, fps: s.fps, frame_cap: plan.cap, skip_frames: plan.skip,
-    seed: s.seed, dpo_strength: s.dpoStrength, preset: s.preset === 'quality' ? 'undistilled_40_steps' : 'fast_6_steps' });
+    seed: s.seed, dpo_strength: s.dpoStrength, preset: usesSpeedAdapter(s.preset) ? 'fast_6_steps' : 'undistilled_40_steps' });
   graph['2'].inputs.video = job.uploads.source; graph['4'].inputs.image = job.uploads.reference;
   graph['7'].inputs.text = s.sourcePerson; graph['8'].inputs.text = s.referencePerson;
   graph['11'].inputs.object_indices = s.objectIndices; graph['11'].inputs.replacement_mode = s.mode === 'swap';
@@ -25,7 +26,7 @@ export function compileWorkflow(template: Graph, job: Job): Graph {
   if (!relighting) delete graph['50'];
   Object.assign(graph['22'].inputs, { lora_name: s.loraA, strength_model: s.loraAStrength });
   Object.assign(graph['23'].inputs, { lora_name: s.loraB, strength_model: s.loraBStrength });
-  if (s.preset === 'quality') { graph['42'].inputs.steps = 20; graph['43'].inputs.cfg = 5; graph['24'].inputs.strength_model = 0; graph['25'].inputs.shift = 3; graph['41'].inputs.sampler_name = 'uni_pc'; }
+  if (!usesSpeedAdapter(s.preset)) { graph['42'].inputs.steps = samplingSteps(s.preset); graph['43'].inputs.cfg = 5; graph['25'].inputs.shift = 3; graph['41'].inputs.sampler_name = 'uni_pc'; }
   if (s.preset === 'natural') {
     graph['42'].inputs.steps = 8; graph['43'].inputs.cfg = 1;
     graph['24'].inputs.lora_name = s.mode === 'swap' ? NATURAL_SPEED : I2V_SPEED;
@@ -34,7 +35,7 @@ export function compileWorkflow(template: Graph, job: Job): Graph {
   }
   // Even a zero-strength native loader validates its filename. Remove the
   // inactive speed node so Quality needs neither acceleration download.
-  if (s.preset === 'quality') { graph['25'].inputs.model = ['23', 0]; delete graph['24']; }
+  if (!usesSpeedAdapter(s.preset)) { graph['25'].inputs.model = ['23', 0]; delete graph['24']; }
   if (job.renderVersion === 'continuous-v1') {
     // Native decode shares temporal/spatial context for the whole shot. The VAE
     // owns its memory handling and automatic fallback rather than this graph
@@ -47,6 +48,10 @@ export function compileWorkflow(template: Graph, job: Job): Graph {
   }
   const prefix = `recast/${job.id}/segment_${String(job.segments.length).padStart(4, '0')}`;
   graph['46'].inputs.filename_prefix = prefix;
+  if (job.outputSize) {
+    graph['52'] = { class_type: 'ImageScale', inputs: { image: ['45', 0], upscale_method: 'lanczos', width: job.outputSize.width, height: job.outputSize.height, crop: 'disabled' }, _meta: { title: 'Export HD dimensions without cropping the shot' } };
+    graph['46'].inputs.images = ['52', 0];
+  } else delete graph['52'];
   if (job.saveDiagnosticLatent) graph['51'] = { class_type: 'SaveLatent', inputs: { samples: ['43', 0], filename_prefix: prefix + '_samples' }, _meta: { title: 'Retain sampled latent for decoder comparisons' } };
   else delete graph['51'];
   return graph;

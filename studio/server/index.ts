@@ -16,7 +16,7 @@ import { CloudManager } from './cloud';
 import { ModelManager } from './models';
 import { modelDefinitions, modelFilesForSettings } from '../shared/models';
 import { offerFiltersSchema } from '../shared/cloud';
-import { defaults, geometry, segmentCount, settingsSchema } from '../shared/types';
+import { defaults, geometry, renderGeometry, segmentCount, settingsSchema } from '../shared/types';
 import type { Asset, Catalog, Graph, Job } from '../shared/types';
 import { migrateDemoPrompt, PROMPT_VERSION } from '../shared/prompts';
 import { FRAMING_VERSION, type ReferenceGeometry } from './framing';
@@ -140,9 +140,9 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     const source = store.asset(value.sourceId), reference = store.asset(value.referenceId); if (!source || !reference) throw new Error('Upload both inputs before generating.');
     validateSelection(source, reference, value.settings.start, value.settings.seconds, value.settings.fps);
     const settings = { ...value.settings, prompt: migrateDemoPrompt(value.settings.prompt, value.settings.mode) }; if (settings.randomSeed) settings.seed = randomInt(0, 0xffffffff);
-    const [width, height] = geometry(settings, source), target = Math.ceil(settings.seconds * settings.fps);
+    const [width, height] = renderGeometry(settings, source), [outputWidth, outputHeight] = geometry(settings, source), target = Math.ceil(settings.seconds * settings.fps);
     const job: Job = { id: randomUUID(), title: source.name.replace(/\.[^.]+$/, '') + (settings.mode === 'swap' ? ' / character swap' : ' / motion transfer'), status: 'queued', sourceId: source.id, referenceId: reference.id, settings, promptVersion: PROMPT_VERSION, renderVersion: 'continuous-v1', saveDiagnosticLatent: value.saveDiagnosticLatent, ...(settings.mode === 'swap' ? { framingVersion: FRAMING_VERSION } : {}),
-      createdAt: new Date().toISOString(), favorite: false, deleted: false, width, height,
+      createdAt: new Date().toISOString(), favorite: false, deleted: false, width, height, ...(settings.resolution === '720' ? { outputSize: { width: outputWidth, height: outputHeight } } : {}),
       progress: { stage: 'Queued', node: null, value: null, max: null, unit: 'steps', segment: 1, segments: segmentCount(target, settings.framesPerPass), completedFrames: 0, targetFrames: target, updatedAt: Date.now() },
       segments: [], context: '', pendingPrompt: null, uploads: null, error: null, output: null, poster: null, cancelRequested: false, elapsedSeconds: null, origin: 'render', workflow: null };
     store.addJob(job, key); res.status(201).json(publicJob(job)); void runner.kick();

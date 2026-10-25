@@ -28,7 +28,7 @@ const withLoras = (names: string[]) => {
 
 afterEach(() => vi.clearAllMocks());
 describe('selected-recipe model provisioning', () => {
-  for (const preset of ['fast', 'natural', 'quality'] as const) for (const mode of ['swap', 'motion'] as const)
+  for (const preset of ['fast', 'natural', 'quality12', 'quality16', 'quality'] as const) for (const mode of ['swap', 'motion'] as const)
     for (const relight of [false, true]) it(`covers every active adapter for ${preset}/${mode}/relight=${relight}`, () => {
       const settings = { ...defaults, preset, mode, relight };
       const files = modelFilesForSettings(settings), graph = compileWorkflow(template, makeJob(settings));
@@ -36,7 +36,7 @@ describe('selected-recipe model provisioning', () => {
       expect(files.filter(name => name.startsWith('loras/')).sort()).toEqual(adapters.map(name => 'loras/' + name).sort());
       expect(new Set(files).size).toBe(files.length);
       expect(files.filter(name => !name.startsWith('loras/'))).toHaveLength(5);
-      if (preset === 'quality') { expect(graph['24']).toBeUndefined(); expect(graph['25'].inputs.model).toEqual(['23', 0]); }
+      if (preset.startsWith('quality')) { expect(graph['24']).toBeUndefined(); expect(graph['25'].inputs.model).toEqual(['23', 0]); }
     });
 
   it('saves exactly the inactive acceleration file, retaining the measured recipe', () => {

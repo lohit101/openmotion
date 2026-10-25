@@ -4,6 +4,7 @@ import natural from '../../config/natural-models.lock.json';
 import extras from '../../config/extra-models.lock.json';
 import setup from '../../config/setup-models.json';
 import type { Settings } from './types';
+import { usesSpeedAdapter } from './sampling';
 
 export const RELIGHT = 'wan2.1_SCAIL_2_relight_lora_bf16.safetensors';
 export const NATURAL_SPEED = 'lightx2v_T2V_14B_cfg_step_distill_v2_lora_rank64_bf16.safetensors';
@@ -18,7 +19,7 @@ const filename = (destination: string) => destination.split('/').at(-1)!;
 export function modelFilesForSettings(s: Settings): string[] {
   const adapters = new Set<string>();
   if (s.dpoStrength > 0) adapters.add(DPO);
-  if (s.preset !== 'quality') adapters.add(s.preset === 'natural' && s.mode === 'swap' ? NATURAL_SPEED : I2V_SPEED);
+  if (usesSpeedAdapter(s.preset)) adapters.add(s.preset === 'natural' && s.mode === 'swap' ? NATURAL_SPEED : I2V_SPEED);
   if (s.relight && s.mode === 'swap' && s.relightStrength > 0) adapters.add(RELIGHT);
   for (const name of [s.loraA, s.loraB]) if (name !== 'None') adapters.add(name);
   return pinnedModels.filter(file => !file.destination.startsWith('loras/') || adapters.has(filename(file.destination)))
@@ -26,7 +27,7 @@ export function modelFilesForSettings(s: Settings): string[] {
 }
 
 export function presetModelFiles(preset: Settings['preset'], mode: Settings['mode']): string[] {
-  return preset === 'quality' ? [] : ['loras/' + (preset === 'natural' && mode === 'swap' ? NATURAL_SPEED : I2V_SPEED)];
+  return usesSpeedAdapter(preset) ? ['loras/' + (preset === 'natural' && mode === 'swap' ? NATURAL_SPEED : I2V_SPEED)] : [];
 }
 
 const descriptions: Record<string, [string, string, 'core' | 'adapter']> = {

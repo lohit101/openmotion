@@ -65,7 +65,8 @@ async function mockComfy() {
     const entry = pending.get(id); if (!entry) return;
     const graph = entry[2] as Graph, controls = graph['1'].inputs, fps = Number(controls.fps), cap = Number(controls.frame_cap), skip = Number(controls.skip_frames), overlap = skip ? 5 : 0;
     const filename = id + '.mp4', file = path.join(fixtures, filename);
-    await command('ffmpeg', ['-v', 'error', '-y', '-ss', String((skip + overlap) / fps), '-i', uploads.get(String(graph['2'].inputs.video))!, '-frames:v', String(cap - overlap), '-an', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', file]);
+    const scale = graph['52'] ? ['-vf', `scale=${graph['52'].inputs.width}:${graph['52'].inputs.height}:flags=lanczos`] : [];
+    await command('ffmpeg', ['-v', 'error', '-y', '-ss', String((skip + overlap) / fps), '-i', uploads.get(String(graph['2'].inputs.video))!, '-frames:v', String(cap - overlap), ...scale, '-an', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', file]);
     files.set(filename, file); history[id] = { prompt: entry, status: { status_str: 'success', completed: true, messages: [] }, outputs: {
       '46': { gifs: [{ filename, subfolder: 'recast', type: 'output' }] }, '47': { context: [{ path: '/gpu/output/context-' + id + '.safetensors', source_count: cap, source_end_frame: skip + cap, fps }] }
     } };
@@ -158,7 +159,7 @@ describe('local app with the captured ComfyUI protocol', () => {
   }
   async function inputs(agent: ReturnType<typeof request>) {
     const source = await agent.post('/api/assets/video').attach('file', video).expect(201); const ref = await agent.post('/api/assets/image').attach('file', image).expect(201);
-    return { sourceId: source.body.id, referenceId: ref.body.id, settings: { ...defaults, preset: 'fast' as Settings['preset'], seconds: 3 } };
+    return { sourceId: source.body.id, referenceId: ref.body.id, settings: { ...defaults, preset: 'fast' as Settings['preset'], fps: 16 as Settings['fps'], seconds: 3 } };
   }
   async function connect(agent: ReturnType<typeof request>) {
     await agent.post('/api/connection/connect').send({ endpoint: mock!.endpoint, useSSH: false }).expect(202);
@@ -174,6 +175,26 @@ describe('local app with the captured ComfyUI protocol', () => {
     const media = await agent.get(`/api/assets/${values.sourceId}/original`).set('Range', 'bytes=0-99').expect(206); expect(media.body.length).toBe(100);
     expect(mock!.calls).toEqual([]);
   });
+  it.each([['quality12', 12], ['quality16', 16]] as const)('exports %s at 720p and 24 fps without changing motion duration or continuity geometry', async (preset, steps) => {
+    const agent = await setup(), values = await inputs(agent);
+    Object.assign(values.settings, { preset, resolution: '720', orientation: 'portrait', fps: 24, seconds: 0.5 });
+    await connect(agent);
+    const response = await agent.post('/api/jobs').set('Idempotency-Key', 'hd-' + preset).send(values).expect(201);
+    const job = await until(() => local!.store.job(response.body.id)!, job => ['completed', 'failed', 'interrupted'].includes(job.status));
+    expect(job.error).toBeNull(); expect(job.status).toBe('completed'); expect(job.outputSize).toEqual({ width: 720, height: 1280 });
+    expect([job.width, job.height]).toEqual([736, 1312]); expect(job.progress.completedFrames).toBe(12);
+    expect(mock!.submissions).toHaveLength(1);
+    const graph = mock!.submissions[0].prompt;
+    expect(graph['42'].inputs.steps).toBe(steps); expect(graph['24']).toBeUndefined();
+    expect(graph['1'].inputs).toMatchObject({ fps: 24, width: 736, height: 1312 });
+    expect(graph['46'].inputs.images).toEqual(['52', 0]); expect(graph['47'].inputs.images).toEqual(['45', 2]);
+    const meta = await probe(job.output!);
+    expect([meta.width, meta.height]).toEqual([720, 1280]); expect(meta.fps).toBe(24); expect(meta.hasAudio).toBe(true);
+    // MP4's audio duration can include the final AAC packet. Check actual
+    // video timing/frame count rather than requiring an exact container duration.
+    const timing = JSON.parse(await command('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-count_frames', '-show_entries', 'stream=nb_read_frames,duration', '-of', 'json', job.output!])).streams[0];
+    expect(timing.nb_read_frames).toBe('12'); expect(Number(timing.duration)).toBeCloseTo(0.5, 5);
+  }, 20000);
   it('exposes manual files offline and never downloads from a selection or missing-model generate request', async () => {
     const agent = await setup(), values = await inputs(agent);
     const offline = await agent.get('/api/models').expect(200);

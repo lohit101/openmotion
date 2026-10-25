@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { compileWorkflow, I2V_SPEED, NATURAL_SPEED, validateGraph } from '../server/workflow';
-import { defaults } from '../shared/types';
+import { defaults, geometry, outputDimensions, renderGeometry, settingsSchema } from '../shared/types';
+import { modelFilesForSettings, presetModelFiles } from '../shared/models';
 import type { Catalog, Graph, Job } from '../shared/types';
 
 const repo = path.resolve(import.meta.dirname, '../..');
@@ -18,6 +19,46 @@ function fixture(): Job {
 }
 
 describe('versioned temporal rendering', () => {
+  it.each([['quality12', 12], ['quality16', 16]] as const)('uses the undistilled recipe for %s without requiring an acceleration download', (preset, steps) => {
+    const job = fixture(); job.settings = { ...job.settings, preset };
+    const graph = compileWorkflow(template, job);
+    expect(graph['42'].inputs.steps).toBe(steps); expect(graph['43'].inputs.cfg).toBe(5);
+    expect(graph['41'].inputs.sampler_name).toBe('uni_pc'); expect(graph['25'].inputs.shift).toBe(3);
+    expect(graph['24']).toBeUndefined(); expect(graph['25'].inputs.model).toEqual(['23', 0]);
+    expect(graph['42'].inputs.model).toEqual(graph['43'].inputs.model);
+    expect(graph['40'].inputs).toEqual(template['40'].inputs); expect(graph['21'].inputs).toEqual(template['21'].inputs);
+    expect(presetModelFiles(preset, 'swap')).toEqual([]);
+    expect(modelFilesForSettings(job.settings).some(name => name.includes('lightx2v'))).toBe(false);
+  });
+
+  it('defaults new settings to 24 fps and preserves an explicitly saved 16 fps setting', () => {
+    expect(settingsSchema.parse({}).fps).toBe(24); expect(settingsSchema.parse({ fps: 16 }).fps).toBe(16);
+  });
+
+  it('keeps the 720p export on its own branch while native source and continuation retain aligned dimensions', () => {
+    const job = fixture(); job.outputSize = { width: 720, height: 1280 }; job.width = 736; job.height = 1312;
+    const graph = compileWorkflow(template, job);
+    expect(graph['52'].inputs).toEqual({ image: ['45', 0], upscale_method: 'lanczos', width: 720, height: 1280, crop: 'disabled' });
+    expect(graph['46'].inputs.images).toEqual(['52', 0]);
+    expect(graph['47'].inputs.images).toEqual(['45', 2]); expect(graph['40'].inputs.previous_frames).toEqual(template['40'].inputs.previous_frames);
+    expect(graph['1'].inputs).toMatchObject({ width: 736, height: 1312 });
+    expect(compileWorkflow(template, fixture())['52']).toBeUndefined();
+    expect(outputDimensions(job)).toEqual([720, 1280]); expect(outputDimensions(fixture())).toEqual([704, 1248]);
+  });
+
+  it('offers exact HD exports and preserves existing render sizes and source aspect ratios', () => {
+    for (const [source, expected] of [[{ width: 1920, height: 1080 }, [1280, 720]], [{ width: 1080, height: 1920 }, [720, 1280]], [{ width: 1000, height: 1000 }, [720, 720]]] as const) {
+      const settings = { ...defaults, resolution: '720' as const };
+      expect(geometry(settings, source)).toEqual(expected);
+      const native = renderGeometry(settings, source);
+      expect(native.every(value => value % 32 === 0)).toBe(true);
+      expect(native.every((value, axis) => value >= expected[axis])).toBe(true);
+    }
+    for (const resolution of ['480', '704'] as const) {
+      const settings = { ...defaults, resolution };
+      expect(renderGeometry(settings, { width: 1080, height: 1920 })).toEqual(geometry(settings, { width: 1080, height: 1920 }));
+    }
+  });
   it('uses native whole-shot decoding only for new rendering-version jobs', () => {
     const old = fixture(), legacy = compileWorkflow(template, old);
     expect(legacy['44'].class_type).toBe('VAEDecodeTiled');

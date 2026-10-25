@@ -1,0 +1,31 @@
+{
+  "date": "2026-10-25",
+  "feature": "12/16-step quality presets, HD export and 24-fps defaults",
+  "isolation": {
+    "worktree": "codex/quality-controls",
+    "productionSourceChanged": false,
+    "productionAppRestarted": false,
+    "gpuConnectionChanged": false,
+    "paidTestRendersSubmitted": 0
+  },
+  "behavior": {
+    "presets": [6, 8, 12, 16, 20],
+    "newPresets": { "steps": [12, 16], "sampler": "uni_pc", "cfg": 5, "shift": 3, "speedAdapter": false },
+    "portrait720p": { "generation": [736, 1312], "export": [720, 1280], "resize": "lanczos", "crop": false },
+    "existingResolutionOptionsPreserved": true,
+    "continuationRetainsGenerationDimensions": true,
+    "fpsChoices": [16, 24, 30],
+    "newSettingsDefaultFps": 24,
+    "savedJobAndDraftFpsPreserved": true,
+    "additionalModelDownloads": 0
+  },
+  "validation": {
+    "typescriptAndIsolatedProductionBuild": "passed",
+    "initialFocusedTestsPassed": 74,
+    "initialFocusedTestsFailed": 2,
+    "failure": "Two HD protocol assertions expected exactly 0.500 s container duration; AAC packet padding produced 0.512 s. Both exports had the expected dimensions and 24 fps.",
+    "followup": "Replaced container-duration assertion with video stream duration and frame-count checks. Not rerun: user requested no further tests.",
+    "gpuQualityAndSpeed": "not benchmarked",
+    "activation": "deferred until the existing render finishes"
+  }
+}

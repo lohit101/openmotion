@@ -7,10 +7,10 @@ export const settingsSchema = z.object({
   mode: z.enum(['swap', 'motion']).default('swap'),
   prompt: z.string().trim().max(8000).default(''),
   negativePrompt: z.string().max(4000).default(defaultNegativePrompt),
-  preset: z.enum(['fast', 'natural', 'quality']).default('natural'),
-  resolution: z.enum(['480', '704']).default('480'),
+  preset: z.enum(['fast', 'natural', 'quality12', 'quality16', 'quality']).default('natural'),
+  resolution: z.enum(['480', '704', '720']).default('480'),
   orientation: z.enum(['source', 'portrait', 'landscape', 'square']).default('source'),
-  fps: z.union([z.literal(16), z.literal(24), z.literal(30)]).default(16),
+  fps: z.union([z.literal(16), z.literal(24), z.literal(30)]).default(24),
   seconds: z.number().min(0.2).max(30).default(3),
   start: z.number().min(0).default(0),
   seed: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).default(20261024),
@@ -43,7 +43,7 @@ export interface FramingCheck {
 export interface Job {
   id: string; title: string; status: JobStatus; settings: Settings; sourceId: string; referenceId: string;
   createdAt: string; startedAt?: string; finishedAt?: string; favorite: boolean; deleted: boolean;
-  width: number; height: number; progress: Progress; segments: Segment[]; context: string;
+  width: number; height: number; outputSize?: { width: number; height: number }; progress: Progress; segments: Segment[]; context: string;
   pendingPrompt: string | null; uploads: { source: string; reference: string } | null;
   error: string | null; output: string | null; poster: string | null; cancelRequested: boolean;
   cancellationConfirmed?: boolean; submitting?: boolean; retryRequired?: boolean;
@@ -59,14 +59,24 @@ export interface Connection { state: 'offline' | 'connecting' | 'online'; endpoi
 export interface Draft { sourceId: string | null; referenceId: string | null; settings: Settings; }
 export interface Bootstrap { assets: Asset[]; jobs: Job[]; draft: Draft; connection: Connection; cloud: CloudState; models: ModelsState; }
 
-export function geometry(settings: Settings, source: Pick<Asset, 'width' | 'height'>): [number, number] {
-  const short = Number(settings.resolution);
+function dimensionsAt(settings: Settings, source: Pick<Asset, 'width' | 'height'>, short: number, grid: number): [number, number] {
   let ratio = source.width / source.height;
   if (settings.orientation === 'portrait') ratio = 9 / 16;
   if (settings.orientation === 'landscape') ratio = 16 / 9;
   if (settings.orientation === 'square') ratio = 1;
   ratio = Math.max(0.5, Math.min(2, ratio));
-  return ratio >= 1 ? [Math.round(short * ratio / 32) * 32, short] : [short, Math.round(short / ratio / 32) * 32];
+  return ratio >= 1 ? [Math.round(short * ratio / grid) * grid, short] : [short, Math.round(short / ratio / grid) * grid];
+}
+export function geometry(settings: Settings, source: Pick<Asset, 'width' | 'height'>): [number, number] {
+  return dimensionsAt(settings, source, Number(settings.resolution), settings.resolution === '720' ? 2 : 32);
+}
+export function renderGeometry(settings: Settings, source: Pick<Asset, 'width' | 'height'>): [number, number] {
+  // SCAIL's half-resolution motion conditioning also needs patch alignment.
+  // Render 720p exports above the target and downsample the whole frame once.
+  return settings.resolution === '720' ? dimensionsAt(settings, source, 736, 32) : geometry(settings, source);
+}
+export function outputDimensions(job: Pick<Job, 'width' | 'height' | 'outputSize'>): [number, number] {
+  return job.outputSize ? [job.outputSize.width, job.outputSize.height] : [job.width, job.height];
 }
 export function nextSegment(completed: number, target: number, cap = 81) {
   const overlap = completed ? 5 : 0;
@@ -81,4 +91,5 @@ export const stageNames: Record<string, string> = {
   '30': 'Loading text encoder', '31': 'Encoding prompt', '32': 'Encoding negative prompt', '33': 'Loading vision encoder', '34': 'Encoding character',
   '35': 'Loading video decoder', '36': 'Loading continuity', '40': 'Encoding motion', '41': 'Preparing sampler', '42': 'Preparing schedule',
   '43': 'Generating video', '44': 'Decoding video', '45': 'Aligning frames and audio', '46': 'Exporting segment', '47': 'Saving continuity', '48': 'Finishing segment', '50': 'Applying relighting', '51': 'Saving diagnostic sample',
+  '52': 'Preparing 720p export',
 };
