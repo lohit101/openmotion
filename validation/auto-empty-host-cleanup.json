@@ -1,0 +1,24 @@
+{
+  "observedAt": "2026-10-25T18:50:24.762095+00:00",
+  "instanceId": 57706658,
+  "gpu": "RTX 5090",
+  "machineId": 150365,
+  "cleanup": {
+    "state": "confirmed",
+    "reason": "Host provisioning stalled: repeated checks found no container status, no assigned direct ports and unreachable SSH for five minutes.",
+    "requestedAt": "2026-10-25T18:47:57.105Z",
+    "confirmedAt": "2026-10-25T18:47:58.597Z"
+  },
+  "phase": "destroyed",
+  "absentFromRefreshedInstances": true,
+  "emptyRental": true,
+  "engineSetupStartedAt": null,
+  "independentHostChecks": {
+    "since": "2026-10-25T18:42:52.779Z",
+    "lastCheckedAt": "2026-10-25T18:47:56.242Z",
+    "checks": 47
+  },
+  "newRentalsCreatedByAgent": 0,
+  "paidTestRendersSubmittedByAgent": 0,
+  "scope": "Current user-created, independently verified never-installed rental; automatic cleanup was explicitly authorized by the user. Existing legacy disks otherwise default to ineligible for automatic destruction."
+}
