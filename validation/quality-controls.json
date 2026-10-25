@@ -1,7 +1,7 @@
 {
   "date": "2026-10-25",
   "feature": "12/16-step quality presets, HD export and 24-fps defaults",
-  "isolation": {
+  "preparation": {
     "worktree": "codex/quality-controls",
     "productionSourceChanged": false,
     "productionAppRestarted": false,
@@ -26,6 +26,16 @@
     "failure": "Two HD protocol assertions expected exactly 0.500 s container duration; AAC packet padding produced 0.512 s. Both exports had the expected dimensions and 24 fps.",
     "followup": "Replaced container-duration assertion with video stream duration and frame-count checks. Not rerun: user requested no further tests.",
     "gpuQualityAndSpeed": "not benchmarked",
-    "activation": "deferred until the existing render finishes"
+    "activation": "activated after the existing render completed successfully"
+  },
+  "activation": {
+    "previousRenderCompleted": true,
+    "previousOutputSaved": true,
+    "previousRenderElapsedSeconds": 1682.253,
+    "localAppRestartedAfterRender": true,
+    "gpuServerRestarted": false,
+    "sshTunnelRestarted": false,
+    "existingComfyConnection": "checked using HTTP only",
+    "newRenderSubmitted": false
   }
 }

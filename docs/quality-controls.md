@@ -8,4 +8,4 @@ SCAIL's pinned conditioning node uses a 32-pixel size step and encodes driving v
 
 Frame-rate choices remain 16, 24 and 30 fps. New settings default to 24 fps; explicitly saved drafts and previous jobs retain their chosen frame rate. The frame count, source preparation, ComfyUI export and final audio assembly use that same setting. Changing fps does not mean replaying the same frames at a different speed. The running job and the latest completed five-second output were already 24 fps when checked.
 
-This change was prepared in an isolated Git worktree to leave the active render, local production app and GPU connection untouched. It requires activation after the current render finishes. No paid GPU test was submitted.
+This change was prepared in an isolated Git worktree while the render continued. After that job completed successfully and its output was saved, the update was activated by restarting the idle local app and checking the existing ComfyUI HTTP connection. The GPU server and SSH tunnel were not restarted. No paid GPU test was submitted. Further tests were skipped at the user's request.
