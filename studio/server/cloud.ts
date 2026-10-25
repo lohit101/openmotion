@@ -10,7 +10,7 @@ import type { Store } from './store';
 import type { ConnectionManager } from './comfy';
 import type { Runner } from './runner';
 import { command } from './media';
-import type { CloudInstance, CloudLaunch, CloudState, GpuOffer, OfferFilters } from '../shared/cloud';
+import type { CloudInstance, CloudLaunch, CloudState, GpuOffer, GpuFavourite, OfferFilters } from '../shared/cloud';
 import { canRetryRental, isDgxSpark, isGraceBlackwell, offerFiltersSchema, offerGpuFilter, sameGpuModel, supportedGpuName } from '../shared/cloud';
 import { modelBytes, pinnedModels, setupModelFiles } from '../shared/models';
 
@@ -99,7 +99,7 @@ export class VastClient {
       return { ...row, id };
     } catch (error) { if (error instanceof VastError && error.status === 404) return null; throw error; }
   }
-  async offers(filters: OfferFilters, id?: number) {
+  async offers(filters: OfferFilters, id?: number, host?: { machineId: number; gpu: string }) {
     const query: any = { type: 'on-demand', rentable: { eq: true }, rented: { eq: false }, external: { eq: false }, num_gpus: { eq: 1 },
       gpu_ram: { gte: 24000 }, cpu_ram: { gte: filters.ram * 1000 }, disk_space: { gte: filters.disk }, cuda_max_good: { gte: 13 }, driver_version: { gte: 580065006 },
       direct_port_count: { gte: 1 }, allocated_storage: filters.disk, order: [['dph_total', 'asc']], limit: 250 };
@@ -111,6 +111,7 @@ export class VastClient {
     // Vast's bundle-search `id` predicate does not target the rental ask ID.
     // Revalidate the exact ask that will be used by PUT /asks/{ask_contract_id}.
     if (id) query.ask_contract_id = { eq: id }; else query.gpu_name = offerGpuFilter(filters.gpu);
+    if (host) { query.machine_id = { eq: host.machineId }; query.gpu_name = { eq: host.gpu }; }
     if (filters.verified) query.verified = { eq: true };
     if (filters.minDownload > 0) query.inet_down = { gte: filters.minDownload };
     const value = await this.request('/api/v0/bundles/', 'POST', query);
@@ -159,6 +160,7 @@ export class CloudManager {
   private closing = false;
   private stopChecks = new Map<string, Promise<boolean>>();
   private cleanupChecks = new Map<string, Promise<boolean>>();
+  private favouriteChecks = new Map<string, string>();
   private resuming = new Set<string>();
   constructor(public store: Store, public connection: ConnectionManager, public runner: Runner, public repo: string, options: CloudOptions = {}) {
     this.options = options; this.keyFile = path.join(store.root, 'private', 'vast-api-key');
@@ -195,12 +197,17 @@ export class CloudManager {
       launch.creationAttempted = false; launch.failureCode = 'offer-unavailable'; launch.lastFailure ||= launch.message;
       launch.message = 'This earlier attempt stopped before renting. The availability check has been corrected. Choose a fresh marketplace offer to try again.';
     }
-    this.state = { configured: !!process.env.VAST_API_KEY || existsSync(this.keyFile), keySource: process.env.VAST_API_KEY ? 'environment' : existsSync(this.keyFile) ? 'local' : null, instances: [], launches, refreshedAt: null, error: null, busy: false };
+    const favourites = store.value<GpuFavourite[]>('cloud-favourites', []).map(favourite => ({ ...favourite, status: 'unchecked' as const, checkedAt: null, offer: null, message: undefined }));
+    this.state = { configured: !!process.env.VAST_API_KEY || existsSync(this.keyFile), keySource: process.env.VAST_API_KEY ? 'environment' : existsSync(this.keyFile) ? 'local' : null, instances: [], launches, favourites, refreshedAt: null, error: null, busy: false };
     this.monitorSafety();
   }
   private options: CloudOptions;
   async key() { const key = process.env.VAST_API_KEY || await readFile(this.keyFile, 'utf8').catch(() => ''); if (!key.trim()) throw new Error('Connect your Vast account with an API key first.'); return key.trim(); }
-  emit() { this.store.set('cloud-launches', this.state.launches); this.store.emit('event', { type: 'cloud', data: this.state }); this.monitorSafety(); }
+  emit() {
+    this.store.set('cloud-launches', this.state.launches);
+    this.store.set('cloud-favourites', (this.state.favourites || []).map(({ offer: _offer, status: _status, checkedAt: _checked, message: _message, ...saved }) => saved));
+    this.store.emit('event', { type: 'cloud', data: this.state }); this.monitorSafety();
+  }
   dispose() { if (this.safetyTimer) clearInterval(this.safetyTimer); this.safetyTimer = null; }
   async shutdown() {
     this.closing = true; this.dispose();
@@ -297,10 +304,53 @@ export class CloudManager {
     const rows = await this.client.offers(filters); const offers = rows.map(raw => normalizeOffer(raw, filters, modelBytes(modelFiles) / 1e9)).filter(o => o.compatible && !this.hostCoolingDown(o.machineId));
     const value = (o: GpuOffer) => filters.sort === 'compute' ? o.computeHourly : filters.sort === 'setup' ? (o.totalHourly === null || o.modelDownloadCost === null ? null : o.totalHourly + o.modelDownloadCost) : o.totalHourly;
     offers.sort((a, b) => (value(a) ?? Infinity) - (value(b) ?? Infinity));
+    this.rememberOffers(offers, filters);
+    return { offers, searchedAt: new Date().toISOString(), filters };
+  }
+  private rememberOffers(offers: GpuOffer[], filters: OfferFilters) {
     for (const [key, value] of this.quotes) if (Date.parse(value.offer.expiresAt) + 10 * 60000 < Date.now()) this.quotes.delete(key);
     for (const offer of offers) this.quotes.set(offer.quote, { offer, filters });
     while (this.quotes.size > 2000) this.quotes.delete(this.quotes.keys().next().value!);
-    return { offers, searchedAt: new Date().toISOString(), filters };
+  }
+  saveFavourite(source: { launchId?: string; quote?: string }) {
+    const launch = source.launchId ? this.state.launches.find(item => item.id === source.launchId && item.instanceId) : undefined;
+    const offer = launch?.offer || (source.quote ? this.quotes.get(source.quote)?.offer : undefined);
+    if (!offer || !Number.isSafeInteger(offer.machineId) || offer.machineId <= 0) throw new Error('Choose a current offer or a previous Recast rental to save this host.');
+    const favourites = this.state.favourites ||= [];
+    if (favourites.some(item => item.machineId === offer.machineId && item.gpu === offer.gpu)) return this.state;
+    if (favourites.length >= 50) throw new Error('Remove a saved host before adding more than 50 favourites.');
+    favourites.unshift({ id: randomUUID(), machineId: offer.machineId, gpu: offer.gpu, location: offer.location, savedAt: new Date().toISOString(), sourceLaunchId: launch?.id, lastHourly: offer.totalHourly, status: 'unchecked', checkedAt: null, offer: null });
+    this.emit(); return this.state;
+  }
+  removeFavourite(id: string) {
+    this.favouriteChecks.delete(id); this.state.favourites = (this.state.favourites || []).filter(item => item.id !== id);
+    this.emit(); return this.state;
+  }
+  async checkFavourites(filters: OfferFilters, id?: string) {
+    const selected = (this.state.favourites || []).filter(item => !id || item.id === id);
+    if (id && !selected.length) throw new Error('This favourite no longer exists.');
+    const token = randomUUID(), scopedFilters = { ...filters, gpu: 'all' as const };
+    for (const item of selected) { this.favouriteChecks.set(item.id, token); item.status = 'checking'; item.offer = null; item.message = undefined; }
+    this.emit();
+    const queue = [...selected];
+    await Promise.all(Array.from({ length: Math.min(3, queue.length) }, async () => {
+      for (let item = queue.shift(); item; item = queue.shift()) {
+        let result: Partial<GpuFavourite>;
+        try {
+          if (this.hostCoolingDown(item.machineId)) result = { status: 'cooldown', message: 'Startup failed on this host. It is excluded for 24 hours.' };
+          else {
+            const rows = await this.client.offers(scopedFilters, undefined, { machineId: item.machineId, gpu: item.gpu });
+            const offers = rows.map(raw => normalizeOffer(raw, scopedFilters)).filter(offer => offer.compatible && offer.machineId === item!.machineId && offer.gpu === item!.gpu).sort((a, b) => (a.totalHourly ?? Infinity) - (b.totalHourly ?? Infinity));
+            this.rememberOffers(offers, scopedFilters);
+            result = offers.length ? { status: 'available', offer: offers[0], lastHourly: offers[0].totalHourly } : { status: 'unavailable', message: 'No rentable single-GPU offer matches this host and the selected storage, RAM, network and verification settings.' };
+          }
+        } catch (error) { result = { status: 'error', message: (error as Error).message }; }
+        if (this.favouriteChecks.get(item.id) === token && this.state.favourites?.some(saved => saved.id === item!.id)) {
+          Object.assign(item, result, { checkedAt: new Date().toISOString() }); this.favouriteChecks.delete(item.id); this.emit();
+        }
+      }
+    }));
+    return this.state;
   }
   private async verifyOffer(offer: GpuOffer, filters: OfferFilters, ceiling: number, approved = { download: offer.downloadPerGB, upload: offer.uploadPerGB }) {
     if (this.hostCoolingDown(offer.machineId)) throw new PreflightError('This host failed to start recently. It is excluded for 24 hours; choose another host.', 'host-unresponsive');

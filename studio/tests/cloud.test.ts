@@ -464,4 +464,47 @@ describe('Vast marketplace, billing and lifecycle', () => {
     const next = cloud.launch(offers[0].quote, .23, 'new-request'); await until(() => !cloud.state.busy);
     expect(next.message).toContain('still unconfirmed'); expect(next.creationAttempted).toBe(false); expect(fixture.createCount).toBe(1);
   });
+  it('saves a host from a trusted quote once and persists it without stale availability or quote tokens', async () => {
+    const { cloud, fixture, connection } = await manager(); const { offers } = await cloud.offers(filters);
+    cloud.saveFavourite({ quote: offers[0].quote }); cloud.saveFavourite({ quote: offers[0].quote });
+    expect(cloud.state.favourites).toHaveLength(1); expect(cloud.state.favourites![0].machineId).toBe(99);
+    expect(() => cloud.saveFavourite({ quote: 'invented' })).toThrow('current offer');
+    const saved = store!.value<any[]>('cloud-favourites', []); expect(saved[0].offer).toBeUndefined(); expect(saved[0].quote).toBeUndefined();
+    const restored = new CloudManager(store!, connection as unknown as ConnectionManager, { active: null } as Runner, process.cwd(), { fetcher: fixture.fetcher, backgroundSafety: false });
+    expect(restored.state.favourites![0]).toMatchObject({ machineId: 99, status: 'unchecked', checkedAt: null, offer: null }); restored.dispose();
+  });
+  it('finds a fresh offer on the same saved machine and GPU using the selected resources', async () => {
+    const { cloud, fixture } = await manager(); const { offers } = await cloud.offers(filters); cloud.saveFavourite({ quote: offers[0].quote });
+    fixture.setPrice(.21); await cloud.checkFavourites({ ...filters, disk: 128, ram: 64 });
+    const saved = cloud.state.favourites![0]; expect(saved.status).toBe('available'); expect(saved.offer?.machineId).toBe(99); expect(saved.offer?.totalHourly).toBe(.21); expect(saved.offer?.disk).toBe(128);
+    const search = fixture.calls.filter(call => call.url.pathname === '/api/v0/bundles/').at(-1)!;
+    expect(search.body.machine_id).toEqual({ eq: 99 }); expect(search.body.gpu_name).toEqual({ eq: 'RTX 3090' }); expect(search.body.cpu_ram).toEqual({ gte: 64000 });
+    expect(fixture.createCount).toBe(0); expect(fixture.calls.some(call => call.method === 'DELETE')).toBe(false);
+    const launch = cloud.launch(saved.offer!.quote, .21, 'favourite-rental'); await until(() => !cloud.state.busy); expect(launch.phase).toBe('ready');
+  });
+  it('does not replace a saved machine with a cheaper offer from another host', async () => {
+    const { cloud } = await manager(); const { offers } = await cloud.offers(filters); cloud.saveFavourite({ quote: offers[0].quote });
+    vi.spyOn(cloud.client, 'offers').mockResolvedValueOnce([{ ...rawOffer(), machine_id: 100 }]);
+    await cloud.checkFavourites(filters); expect(cloud.state.favourites![0]).toMatchObject({ status: 'unavailable', offer: null });
+  });
+  it('distinguishes a failed availability request from an unavailable host', async () => {
+    const { cloud } = await manager(); const { offers } = await cloud.offers(filters); cloud.saveFavourite({ quote: offers[0].quote });
+    const query = vi.spyOn(cloud.client, 'offers').mockResolvedValueOnce([]); await cloud.checkFavourites(filters); expect(cloud.state.favourites![0].status).toBe('unavailable');
+    query.mockRejectedValueOnce(new VastError('Provider unavailable', 503)); await cloud.checkFavourites(filters); expect(cloud.state.favourites![0].status).toBe('error');
+    query.mockRestore(); await cloud.checkFavourites(filters); expect(cloud.state.favourites![0].status).toBe('available');
+  });
+  it('retains favourites after a rental is destroyed and removes only the bookmark on unfavourite', async () => {
+    const { cloud, fixture } = await manager(); const { offers } = await cloud.offers(filters); const launch = cloud.launch(offers[0].quote, .23, 'past-rental'); await until(() => !cloud.state.busy);
+    await cloud.action(777, 'destroy', '777'); cloud.saveFavourite({ launchId: launch.id }); expect(cloud.state.favourites![0].machineId).toBe(99);
+    const deletes = fixture.calls.filter(call => call.method === 'DELETE').length;
+    cloud.removeFavourite(cloud.state.favourites![0].id); expect(cloud.state.favourites).toHaveLength(0); expect(fixture.calls.filter(call => call.method === 'DELETE')).toHaveLength(deletes);
+  });
+  it('ignores stale availability responses when a newer settings check finishes first', async () => {
+    const { cloud } = await manager(); const { offers } = await cloud.offers(filters); cloud.saveFavourite({ quote: offers[0].quote });
+    let release!: () => void; const wait = new Promise<void>(resolve => { release = resolve; });
+    const query = vi.spyOn(cloud.client, 'offers').mockImplementationOnce(async () => { await wait; return [rawOffer()]; });
+    const older = cloud.checkFavourites(filters); await cloud.checkFavourites({ ...filters, disk: 128 }); release(); await older;
+    expect(cloud.state.favourites![0].offer?.disk).toBe(128); query.mockRestore();
+  });
+
 });

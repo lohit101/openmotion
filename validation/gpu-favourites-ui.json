@@ -1,0 +1,41 @@
+{
+  "date": "2026-10-26",
+  "suite": {
+    "testFiles": 13,
+    "passed": 197,
+    "failed": 0
+  },
+  "build": "TypeScript and production build passed",
+  "ui": {
+    "source": "Isolated local fixture. No account credentials or live rental calls.",
+    "viewports": [
+      "1440x1050",
+      "390x844"
+    ],
+    "flows": [
+      "Check availability",
+      "Review full offer",
+      "Save previous rental",
+      "Remove favourite",
+      "Save current marketplace host"
+    ],
+    "manualAvailabilityChecks": 1,
+    "paidRentalRequests": 0,
+    "browserErrors": [],
+    "mobile": {
+      "width": 390,
+      "scroll": 390
+    }
+  },
+  "serverCoverage": [
+    "Host-and-GPU scoped availability queries",
+    "Fresh price and selected disk/RAM constraints",
+    "Favourite persistence without stale quote tokens",
+    "No substitution of another machine",
+    "Unavailable versus API failure",
+    "Bookmarks survive rental destruction",
+    "Removing a bookmark does not destroy a rental",
+    "Stale request responses cannot overwrite newer settings"
+  ],
+  "rawScreenshots": "Ignored backups/favourites-ui-20261026/"
+}

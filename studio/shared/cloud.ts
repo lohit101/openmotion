@@ -73,6 +73,12 @@ export interface CloudInstance {
   disk: number; diskUsed: number | null; location: string; totalHourly: number | null; storageHourly: number | null; storageMonthly: number | null;
   managed: boolean; connected: boolean; createdAt: string | null; computeStopped?: boolean;
 }
+export interface GpuFavourite {
+  id: string; machineId: number; gpu: string; location: string; savedAt: string;
+  sourceLaunchId?: string; lastHourly: number | null;
+  status: 'unchecked' | 'checking' | 'available' | 'unavailable' | 'error' | 'cooldown';
+  checkedAt: string | null; message?: string; offer?: GpuOffer | null;
+}
 export type LaunchPhase = 'checking' | 'requesting' | 'waiting' | 'installing' | 'connecting' | 'stopping' | 'destroying' | 'ready' | 'failed' | 'unknown' | 'stopped' | 'destroyed';
 export interface CloudLaunch {
   id: string; requestKey: string; instanceId: number | null; label: string; offer: GpuOffer; phase: LaunchPhase; message: string;
@@ -95,4 +101,4 @@ export function canRetryRental(launch: CloudLaunch) {
   return !launch.instanceId && launch.phase !== 'destroyed' && (launch.creationAttempted === false ||
     (launch.creationAttempted === undefined && launch.phase === 'failed' && /SSH key already exists|offer was rented by someone else|hourly price increased/i.test(launch.message)));
 }
-export interface CloudState { configured: boolean; keySource: 'environment' | 'local' | null; instances: CloudInstance[]; launches: CloudLaunch[]; refreshedAt: string | null; error: string | null; busy: boolean; }
+export interface CloudState { configured: boolean; keySource: 'environment' | 'local' | null; instances: CloudInstance[]; launches: CloudLaunch[]; favourites?: GpuFavourite[]; refreshedAt: string | null; error: string | null; busy: boolean; }

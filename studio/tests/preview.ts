@@ -13,9 +13,10 @@ const rows = [
   { id: 103, gpu_name: 'RTX 5090', gpu_ram: 32768, dph_base: .47, geolocation: 'Finland, EU', reliability2: .999 },
 ];
 local.cloud.client = new VastClient(async () => 'unused-fixture', async (input, init) => {
+  if (process.env.RECAST_QA_SCENARIO === 'favourites' && String(input).includes('/instances/') && (!init?.method || init.method === 'GET')) return new Response(JSON.stringify({ instances: [] }), { headers: { 'Content-Type': 'application/json' } });
   if (String(input).includes('/instances/')) return new Response(JSON.stringify({ error: 'LOCAL QA FIXTURE: example prices and hardware. No live rentals can be created.' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   const filters = JSON.parse(String(init?.body)); const disk = filters.allocated_storage;
-  const offers = rows.filter(row => !filters.gpu_name.eq || row.gpu_name === filters.gpu_name.eq).map(row => ({ ...row, machine_id: row.id + 10, num_gpus: 1, cpu_ram: 96000, cpu_name: 'AMD EPYC 7443P 24-Core Processor', cpu_cores_effective: 12,
+  const offers = rows.filter(row => (!filters.gpu_name.eq || row.gpu_name === filters.gpu_name.eq) && (!filters.machine_id?.eq || row.id + 10 === filters.machine_id.eq)).map(row => ({ ...row, machine_id: row.id + 10, num_gpus: 1, cpu_ram: 96000, cpu_name: 'AMD EPYC 7443P 24-Core Processor', cpu_cores_effective: 12,
     driver_version: '595.84.0', cuda_max_good: 13, verification: 'verified', disk_space: 1000, disk_bw: 1800, direct_port_count: 8, pcie_bw: 25,
     inet_down: 1300, inet_up: 800, inet_down_cost: .001, inet_up_cost: .005, storage_cost: .12, rentable: true, rented: false,
     search: { gpuCostPerHour: row.dph_base, diskHour: .12 * disk / 720, totalHour: row.dph_base + .12 * disk / 720 } }));
@@ -29,6 +30,14 @@ local.cloud.state.instances = [
 ];
 local.cloud.launch = () => { throw new Error('Paid operations are disabled in this isolated visual fixture.'); };
 const scenario = process.env.RECAST_QA_SCENARIO;
+if (scenario === 'favourites') {
+  local.cloud.state.instances = []; local.cloud.state.error = null;
+  const offers = (await local.cloud.offers(offerFiltersSchema.parse({}))).offers;
+  local.cloud.saveFavourite({ quote: offers[0].quote }); local.cloud.saveFavourite({ quote: offers[2].quote });
+  await local.cloud.checkFavourites(offerFiltersSchema.parse({}));
+  const now = new Date().toISOString();
+  local.cloud.state.launches = [{ id: 'qa-previous-host', requestKey: 'qa-only', instanceId: 801, label: 'recast-fixture', offer: offers[1], phase: 'destroyed', createdAt: now, updatedAt: now, message: 'LOCAL QA: previous rental', logs: [] }];
+}
 if (scenario === 'warning' || scenario === 'error') {
   const offer = (await local.cloud.offers(offerFiltersSchema.parse({}))).offers[0];
   const failed = scenario === 'error', now = new Date().toISOString();
