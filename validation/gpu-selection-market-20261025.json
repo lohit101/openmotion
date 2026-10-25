@@ -1,0 +1,374 @@
+{
+  "capturedAt": "2026-10-25T17:47:31.446116+00:00",
+  "source": "Read-only POST https://console.vast.ai/api/v0/bundles/; current account quote, not an invoice or guaranteed future price",
+  "criteria": {
+    "singleGPU": true,
+    "allocatedDiskGB": 64,
+    "minimumCpuRamGB": 48,
+    "minimumDownloadMbps": 1000,
+    "minimumReliability": 0.98,
+    "minimumCuda": 13,
+    "minimumNvidiaDriver": "580.65.06",
+    "directSshPortRequired": true,
+    "rentableAndUnrented": true,
+    "architectures": [
+      "amd64",
+      "arm64"
+    ]
+  },
+  "results": [
+    {
+      "gpu": "RTX 5090",
+      "observedAt": "2026-10-25T17:47:28.750210+00:00",
+      "matchingReliableOffers": 29,
+      "cheapestReliable": {
+        "gpu": "RTX 5090",
+        "totalHourly": 0.5330370370370371,
+        "computeHourly": 0.52,
+        "storageHourly": 0.01303703703703704,
+        "vramGiB": 31.8427734375,
+        "ramGB": 64.439,
+        "verified": false,
+        "reliability": 0.9924552,
+        "downloadMbps": 8098.7,
+        "pcieGBps": 27.0,
+        "location": "Sweden, SE",
+        "cpuArch": "amd64"
+      },
+      "cheapestVerifiedReliable": {
+        "gpu": "RTX 5090",
+        "totalHourly": 0.8355555555555555,
+        "computeHourly": 0.7999999999999999,
+        "storageHourly": 0.035555555555555556,
+        "vramGiB": 31.8427734375,
+        "ramGB": 95.148,
+        "verified": true,
+        "reliability": 0.9951361,
+        "downloadMbps": 1646.9,
+        "pcieGBps": 53.8,
+        "location": "Texas, US",
+        "cpuArch": "amd64"
+      }
+    },
+    {
+      "gpu": "RTX PRO 6000 WS",
+      "observedAt": "2026-10-25T17:47:28.278535+00:00",
+      "matchingReliableOffers": 12,
+      "cheapestReliable": {
+        "gpu": "RTX PRO 6000 WS",
+        "totalHourly": 1.151111111111111,
+        "computeHourly": 1.1333333333333333,
+        "storageHourly": 0.017777777777777778,
+        "vramGiB": 95.5927734375,
+        "ramGB": 257.145,
+        "verified": true,
+        "reliability": 0.9914962,
+        "downloadMbps": 8992.7,
+        "pcieGBps": 55.1,
+        "location": "Spain, ES",
+        "cpuArch": "amd64"
+      },
+      "cheapestVerifiedReliable": {
+        "gpu": "RTX PRO 6000 WS",
+        "totalHourly": 1.151111111111111,
+        "computeHourly": 1.1333333333333333,
+        "storageHourly": 0.017777777777777778,
+        "vramGiB": 95.5927734375,
+        "ramGB": 257.145,
+        "verified": true,
+        "reliability": 0.9914962,
+        "downloadMbps": 8992.7,
+        "pcieGBps": 55.1,
+        "location": "Spain, ES",
+        "cpuArch": "amd64"
+      }
+    },
+    {
+      "gpu": "RTX PRO 6000 S",
+      "observedAt": "2026-10-25T17:47:28.262187+00:00",
+      "matchingReliableOffers": 3,
+      "cheapestReliable": {
+        "gpu": "RTX PRO 6000 S",
+        "totalHourly": 1.5022222222222223,
+        "computeHourly": 1.4666666666666668,
+        "storageHourly": 0.035555555555555556,
+        "vramGiB": 95.5927734375,
+        "ramGB": 289.882,
+        "verified": true,
+        "reliability": 0.9944693,
+        "downloadMbps": 6524.7,
+        "pcieGBps": 54.3,
+        "location": "France, FR",
+        "cpuArch": "amd64"
+      },
+      "cheapestVerifiedReliable": {
+        "gpu": "RTX PRO 6000 S",
+        "totalHourly": 1.5022222222222223,
+        "computeHourly": 1.4666666666666668,
+        "storageHourly": 0.035555555555555556,
+        "vramGiB": 95.5927734375,
+        "ramGB": 289.882,
+        "verified": true,
+        "reliability": 0.9944693,
+        "downloadMbps": 6524.7,
+        "pcieGBps": 54.3,
+        "location": "France, FR",
+        "cpuArch": "amd64"
+      }
+    },
+    {
+      "gpu": "RTX PRO 6000 Max-Q",
+      "observedAt": "2026-10-25T17:47:28.261824+00:00",
+      "matchingReliableOffers": 8,
+      "cheapestReliable": {
+        "gpu": "RTX PRO 6000 Max-Q",
+        "totalHourly": 1.2562962962962965,
+        "computeHourly": 1.2266666666666668,
+        "storageHourly": 0.029629629629629627,
+        "vramGiB": 95.5927734375,
+        "ramGB": 96.383,
+        "verified": false,
+        "reliability": 0.9984239,
+        "downloadMbps": 1552.1,
+        "pcieGBps": 24.8,
+        "location": "Japan, JP",
+        "cpuArch": "amd64"
+      },
+      "cheapestVerifiedReliable": {
+        "gpu": "RTX PRO 6000 Max-Q",
+        "totalHourly": 1.6237037037037036,
+        "computeHourly": 1.5999999999999999,
+        "storageHourly": 0.0237037037037037,
+        "vramGiB": 95.5927734375,
+        "ramGB": 128.9,
+        "verified": true,
+        "reliability": 0.9961332,
+        "downloadMbps": 4725.8,
+        "pcieGBps": 26.6,
+        "location": "France, FR",
+        "cpuArch": "amd64"
+      }
+    },
+    {
+      "gpu": "H100 SXM",
+      "observedAt": "2026-10-25T17:47:29.308156+00:00",
+      "matchingReliableOffers": 1,
+      "cheapestReliable": {
+        "gpu": "H100 SXM",
+        "totalHourly": 8.79111111111111,
+        "computeHourly": 8.773333333333333,
+        "storageHourly": 0.01777777777777778,
+        "vramGiB": 79.6474609375,
+        "ramGB": 226.775,
+        "verified": true,
+        "reliability": 0.9985633,
+        "downloadMbps": 3554.1,
+        "pcieGBps": 52.8,
+        "location": ", US",
+        "cpuArch": "amd64"
+      },
+      "cheapestVerifiedReliable": {
+        "gpu": "H100 SXM",
+        "totalHourly": 8.79111111111111,
+        "computeHourly": 8.773333333333333,
+        "storageHourly": 0.01777777777777778,
+        "vramGiB": 79.6474609375,
+        "ramGB": 226.775,
+        "verified": true,
+        "reliability": 0.9985633,
+        "downloadMbps": 3554.1,
+        "pcieGBps": 52.8,
+        "location": ", US",
+        "cpuArch": "amd64"
+      }
+    },
+    {
+      "gpu": "H100 PCIE",
+      "observedAt": "2026-10-25T17:47:29.317044+00:00",
+      "matchingReliableOffers": 0,
+      "cheapestReliable": null,
+      "cheapestVerifiedReliable": null
+    },
+    {
+      "gpu": "H200",
+      "observedAt": "2026-10-25T17:47:29.349433+00:00",
+      "matchingReliableOffers": 2,
+      "cheapestReliable": {
+        "gpu": "H200",
+        "totalHourly": 4.462719298245615,
+        "computeHourly": 4.406578947368422,
+        "storageHourly": 0.05614035087719298,
+        "vramGiB": 140.4013671875,
+        "ramGB": 257.991,
+        "verified": true,
+        "reliability": 0.9911599,
+        "downloadMbps": 7753.6,
+        "pcieGBps": 52.7,
+        "location": "Czechia, CZ",
+        "cpuArch": "amd64"
+      },
+      "cheapestVerifiedReliable": {
+        "gpu": "H200",
+        "totalHourly": 4.462719298245615,
+        "computeHourly": 4.406578947368422,
+        "storageHourly": 0.05614035087719298,
+        "vramGiB": 140.4013671875,
+        "ramGB": 257.991,
+        "verified": true,
+        "reliability": 0.9911599,
+        "downloadMbps": 7753.6,
+        "pcieGBps": 52.7,
+        "location": "Czechia, CZ",
+        "cpuArch": "amd64"
+      }
+    },
+    {
+      "gpu": "H200 NVL",
+      "observedAt": "2026-10-25T17:47:30.080784+00:00",
+      "matchingReliableOffers": 5,
+      "cheapestReliable": {
+        "gpu": "H200 NVL",
+        "totalHourly": 4.0414814814814815,
+        "computeHourly": 4.0,
+        "storageHourly": 0.04148148148148149,
+        "vramGiB": 140.4013671875,
+        "ramGB": 171.973,
+        "verified": true,
+        "reliability": 0.9974004,
+        "downloadMbps": 5005.7,
+        "pcieGBps": 26.6,
+        "location": "Spain, ES",
+        "cpuArch": "amd64"
+      },
+      "cheapestVerifiedReliable": {
+        "gpu": "H200 NVL",
+        "totalHourly": 4.0414814814814815,
+        "computeHourly": 4.0,
+        "storageHourly": 0.04148148148148149,
+        "vramGiB": 140.4013671875,
+        "ramGB": 171.973,
+        "verified": true,
+        "reliability": 0.9974004,
+        "downloadMbps": 5005.7,
+        "pcieGBps": 26.6,
+        "location": "Spain, ES",
+        "cpuArch": "amd64"
+      }
+    },
+    {
+      "gpu": "B200",
+      "observedAt": "2026-10-25T17:47:30.325207+00:00",
+      "matchingReliableOffers": 2,
+      "cheapestReliable": {
+        "gpu": "B200",
+        "totalHourly": 7.5166666666666675,
+        "computeHourly": 7.500000000000001,
+        "storageHourly": 0.016666666666666663,
+        "vramGiB": 179.0615234375,
+        "ramGB": 255.489,
+        "verified": true,
+        "reliability": 0.9976156,
+        "downloadMbps": 47928.1,
+        "pcieGBps": 53.0,
+        "location": "Oregon, US",
+        "cpuArch": "amd64"
+      },
+      "cheapestVerifiedReliable": {
+        "gpu": "B200",
+        "totalHourly": 7.5166666666666675,
+        "computeHourly": 7.500000000000001,
+        "storageHourly": 0.016666666666666663,
+        "vramGiB": 179.0615234375,
+        "ramGB": 255.489,
+        "verified": true,
+        "reliability": 0.9976156,
+        "downloadMbps": 47928.1,
+        "pcieGBps": 53.0,
+        "location": "Oregon, US",
+        "cpuArch": "amd64"
+      }
+    },
+    {
+      "gpu": "B300",
+      "observedAt": "2026-10-25T17:47:30.331389+00:00",
+      "matchingReliableOffers": 0,
+      "cheapestReliable": null,
+      "cheapestVerifiedReliable": null
+    },
+    {
+      "gpu": "B300 PC",
+      "observedAt": "2026-10-25T17:47:30.312564+00:00",
+      "matchingReliableOffers": 0,
+      "cheapestReliable": null,
+      "cheapestVerifiedReliable": null
+    },
+    {
+      "gpu": "GB200",
+      "observedAt": "2026-10-25T17:47:31.187930+00:00",
+      "matchingReliableOffers": 0,
+      "cheapestReliable": null,
+      "cheapestVerifiedReliable": null
+    },
+    {
+      "gpu": "GB300",
+      "observedAt": "2026-10-25T17:47:31.440882+00:00",
+      "matchingReliableOffers": 0,
+      "cheapestReliable": null,
+      "cheapestVerifiedReliable": null
+    },
+    {
+      "gpu": "L40S",
+      "observedAt": "2026-10-25T17:47:31.445846+00:00",
+      "matchingReliableOffers": 1,
+      "cheapestReliable": {
+        "gpu": "L40S",
+        "totalHourly": 0.7511111111111112,
+        "computeHourly": 0.7333333333333334,
+        "storageHourly": 0.017777777777777778,
+        "vramGiB": 44.98828125,
+        "ramGB": 128.919,
+        "verified": true,
+        "reliability": 0.9866101,
+        "downloadMbps": 4669.0,
+        "pcieGBps": 25.5,
+        "location": "Texas, US",
+        "cpuArch": "amd64"
+      },
+      "cheapestVerifiedReliable": {
+        "gpu": "L40S",
+        "totalHourly": 0.7511111111111112,
+        "computeHourly": 0.7333333333333334,
+        "storageHourly": 0.017777777777777778,
+        "vramGiB": 44.98828125,
+        "ramGB": 128.919,
+        "verified": true,
+        "reliability": 0.9866101,
+        "downloadMbps": 4669.0,
+        "pcieGBps": 25.5,
+        "location": "Texas, US",
+        "cpuArch": "amd64"
+      }
+    }
+  ],
+  "currentAcceptedRtx5090HourlyUSD": 0.41777777777777775,
+  "interpretation": [
+    "A missing offer means no match to these criteria at the snapshot time; it does not establish hardware incompatibility or overall provider unavailability.",
+    "Rates include allocated disk while running; transfer fees, idle/setup time, taxes and stopped-storage charges are additional.",
+    "Snapshots can change within minutes. Provider verification/reliability and advertised link speed do not guarantee an uninterrupted session or actual download throughput."
+  ],
+  "externalBenchmark": {
+    "source": "https://www.runpod.io/articles/guides/best-gpu-for-ai-video",
+    "publisherTest": "Wan 2.2 official ComfyUI template, fp16, 1280x704, 81 frames, 16 fps, 20 steps",
+    "seconds": {
+      "B300": 509,
+      "B200": 538,
+      "H100 SXM": 652,
+      "RTX PRO 6000 96GB": 734,
+      "RTX 5090": 1297
+    },
+    "limitation": "Different checkpoint, precision, model architecture, settings and memory policy from our single-denoiser SCAIL-2 INT8 graph. These are screening evidence, not SCAIL latency forecasts."
+  },
+  "researchOnly": true,
+  "newPaidRendersSubmitted": 0,
+  "newRentalsCreated": 0
+}
