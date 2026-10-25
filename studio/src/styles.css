@@ -45,7 +45,7 @@ svg { flex-shrink: 0; }
 .rail-bottom { margin-top: auto; display: grid; gap: 7px; padding: 16px 0; }
 .rail-utilities { display: grid; gap: 7px; }
 .rail-settings { margin-top: 3px; border-top: 1px solid var(--line); padding-top: 10px; }
-.topbar { grid-column: 1 / -1; grid-row: 1; display: flex; align-items: center; padding: 0 23px; gap: 23px; background: var(--surface); border-bottom: 1px solid var(--line-soft); }
+.topbar { grid-column: 1 / -1; grid-row: 1; position: sticky; top: 0; z-index: 30; display: flex; align-items: center; padding: 0 23px; gap: 23px; background: var(--surface); border-bottom: 1px solid var(--line-soft); }
 .topbar-controls { margin-left: auto; display: flex; align-items: center; gap: 9px; min-width: 0; }
 .topbar-controls > .connection-button { margin-left: 0; min-width: 0; }
 .theme-button { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border-radius: 6px; color: var(--muted); flex-shrink: 0; }
@@ -314,7 +314,7 @@ svg { flex-shrink: 0; }
 @media(max-width: 760px) {
   .app-shell { --sidebar-width: 52px; grid-template-rows: 61px auto; }
   .nav-rail { top: 61px; padding-inline: 5px; }
-  .topbar { height: 61px; padding: 0 14px; gap: 14px; position: sticky; top: 0; z-index: 10; }
+  .topbar { height: 61px; padding: 0 14px; gap: 14px; }
   .wordmark { font-size: 22px; }
   .wordmark > span { display: none; }
   .connection-button { font-size: 0; padding: 8px; gap: 0; width: 29px; height: 29px; display: grid; place-items: center; }

@@ -20,21 +20,21 @@
 .gpu-family-filter { display: flex; flex-wrap: wrap; gap: 6px; margin-right: auto; }
 .gpu-family-filter button { padding: 9px 13px; background: var(--surface); border: 1px solid var(--line); border-radius: 7px; color: var(--muted); font-size: 11px; }
 .gpu-family-filter button.active { color: var(--accent-text); border-color: #99ad6570; background: #a7bd6610; }
-.a-series-hint { color: var(--muted); font-size: 11px; line-height: 1.6; margin: 17px 0 0; }
+.gpu-family-note { display: flex; align-items: flex-start; gap: 8px; color: var(--muted); font-size: 10px; line-height: 1.6; margin: -5px 0 20px; }
+.gpu-family-note > svg { margin-top: 1px; }
 .market-filters > .select-trigger { width: 197px; }
 .market-layout { display: grid; grid-template-columns: minmax(0,1fr) 330px; gap: 26px; align-items: start; }
-.storage-config { border: 1px solid var(--line); border-radius: 10px; padding: 19px 19px 14px; background: var(--surface); margin-bottom: 22px; }
-.storage-title { display: flex; align-items: center; gap: 11px; color: var(--muted); }
-.storage-title > div { display: grid; gap: 4px; }
-.storage-title strong { color: var(--text); font-size: 12px; font-weight: 500; }
-.storage-title small { font-size: 9px; color: var(--quiet); }
-.storage-title > label { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 10px; }
-.storage-title input { width: 66px; height: 31px; font-size: 12px; text-align: right; }
-.storage-config > input { margin-top: 16px; }
-.market-extra-filters { margin-top: 14px; display: flex; align-items: center; gap: 24px; border-top: 1px solid var(--line-soft); padding-top: 14px; }
-.market-extra-filters > label:first-child { display: flex; gap: 10px; align-items: center; font-size: 10px; color: var(--muted); }
-.market-extra-filters .select-trigger { width: 135px; height: 30px; font-size: 10px; }
-.market-extra-filters > .toggle-row { margin-left: auto; gap: 13px; padding: 0; font-size: 10px; }
+.rental-config { display: grid; grid-template-columns: minmax(240px,1.5fr) minmax(160px,1fr) minmax(150px,1fr); align-items: start; gap: 24px; padding: 18px 20px; margin-bottom: 22px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.rental-config.has-model { grid-template-columns: minmax(230px,1.35fr) minmax(215px,1.2fr) minmax(150px,.9fr) minmax(145px,.85fr); }
+.rental-filter, .rental-storage { display: grid; gap: 8px; min-width: 0; }
+.rental-filter-label { display: flex; align-items: center; gap: 7px; font-size: 10px; font-weight: 500; line-height: 14px; color: var(--muted); }
+.rental-filter > small, .rental-storage > small { font-size: 9px; line-height: 14px; color: var(--quiet); }
+.rental-filter .select-trigger { height: 36px; width: 100%; font-size: 11px; }
+.rental-storage-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 29px; }
+.storage-value { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 10px; }
+.storage-value input { width: 64px; height: 29px; padding-inline: 7px; font-size: 11px; text-align: right; }
+.rental-storage > input[type='range'] { height: 21px; margin: 0; }
+.rental-verification .toggle-row { min-height: 36px; padding: 0 10px; margin: 0; gap: 10px; border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--input); font-size: 11px; }
 .offer-list-heading { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin-bottom: 12px; }
 .offer-list-heading > span { font-size: 11px; font-weight: 500; }
 .offer-list-heading small { font-size: 9px; color: var(--quiet); }
@@ -54,7 +54,7 @@
 .offer-rate strong { font-size: 21px; font-weight: 520; letter-spacing: -.8px; font-variant-numeric: tabular-nums; }
 .offer-rate strong > small { font-size: 10px; color: var(--muted); letter-spacing: 0; margin-left: 4px; font-weight: 400; }
 .offer-rate > span { font-size: 9px; color: var(--quiet); }
-.offer-details { border: 1px solid var(--line); border-radius: 11px; background: var(--surface); padding: 23px; position: sticky; top: 25px; max-height: calc(100dvh - 50px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+.offer-details { border: 1px solid var(--line); border-radius: 11px; background: var(--surface); padding: 23px; position: sticky; top: 85px; max-height: calc(100dvh - 105px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
 .offer-detail-title > svg { color: var(--accent-text); display: block; margin-bottom: 18px; }
 .offer-detail-title > span { font-size: 8px; color: var(--quiet); letter-spacing: 1.3px; }
 .offer-detail-title h2 { font-size: 25px; font-weight: 520; letter-spacing: -.7px; margin: 8px 0 9px; }
@@ -178,6 +178,8 @@
 .setup-transfer-summary > progress { display: block; width: 100%; height: 5px; margin: 10px 0; accent-color: var(--accent); }
 .setup-transfer-summary small { display: block; font-size: 11px; line-height: 1.6; color: var(--quiet); }
 @media(prefers-reduced-motion:no-preference) { .setup-working > svg { animation: spin 3s linear infinite; } }
-@media(max-width:1120px) { .gpu-workspace { padding: 28px 24px; } .market-layout { grid-template-columns: minmax(0,1fr) 292px; gap: 17px; } .offer-details { padding: 19px; } .offer-row { padding: 16px 12px; gap: 10px; } .offer-rate strong { font-size: 19px; } .offer-model > strong { font-size: 12px; } .offer-model > span { max-width: 190px; } .market-extra-filters { gap: 10px; flex-wrap: wrap; } .instance-actions > small { width: 100%; } }
+@media(max-width:1080px) { .rental-config, .rental-config.has-model { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px 24px; } }
+@media(max-width:640px) { .rental-config, .rental-config.has-model { grid-template-columns: minmax(0,1fr); gap: 18px; padding: 17px 14px; } .offer-list-heading { align-items: flex-start; flex-direction: column; gap: 6px; } }
+@media(max-width:1120px) { .gpu-workspace { padding: 28px 24px; } .market-layout { grid-template-columns: minmax(0,1fr) 292px; gap: 17px; } .offer-details { padding: 19px; } .offer-row { padding: 16px 12px; gap: 10px; } .offer-rate strong { font-size: 19px; } .offer-model > strong { font-size: 12px; } .offer-model > span { max-width: 190px; } .instance-actions > small { width: 100%; } }
 @media(max-width:920px) { .cloud-heading { align-items: flex-start; } .cloud-account { font-size: 0; gap: 4px; } .cloud-account button { font-size: 10px; } .market-layout { grid-template-columns: minmax(0,1fr); } .offer-details { position: static; max-height: none; overflow: visible; } .offer-details .hardware-details { display: grid; grid-template-columns: 1fr 1fr; column-gap: 30px; } .offer-spec-grid { grid-template-columns: repeat(4,1fr); } .offer-detail-title > svg { display: none; } .offer-detail-title p span { display: inline; margin-left: 10px; } .offer-detail-empty { display: none; } .offer-list { max-height: 490px; overflow: auto; padding-right: 2px; } .offer-row { padding: 18px; } .offer-model > span { max-width: none; } }
-@media(max-width:760px) { .gpu-workspace { padding: 27px 18px; } .cloud-heading h1 { font-size: 27px; } .cloud-heading p { font-size: 11px; } .cloud-heading { gap: 10px; } .cloud-account .status-dot { display: none; } .cloud-account > button { padding: 8px; } .cloud-tabs { gap: 23px; } .cloud-tabs > small { display: none; } .market-filters { gap: 8px; flex-wrap: wrap; } .gpu-family-filter { width: 100%; margin-bottom: 4px; gap: 6px; } .gpu-family-filter button { padding: 8px 11px; font-size: 10px; } .market-filters > .select-trigger { margin-right: auto; height: 34px; font-size: 10px; } .storage-config { padding: 17px 14px; } .offer-row { padding: 17px 12px; gap: 9px; } .offer-model > small { font-size: 9px; } .offer-model > span { font-size: 8px; max-width: 195px; } .offer-rate strong { font-size: 20px; } .offer-rate > span { font-size: 8px; } .offer-list-heading small { font-size: 8px; } .offer-details .hardware-details { grid-template-columns: 1fr; } .offer-details { padding: 22px; } .offer-spec-grid strong { font-size: 14px; } .offer-spec-grid small { font-size: 8px; } .cloud-onboarding { padding: 40px 0; } .cloud-onboarding h2 { font-size: 22px; } .cloud-onboarding > p { font-size: 12px; } .onboarding-facts { flex-direction: column; gap: 18px; margin-top: 32px; } .setup-panel { padding: 18px; } .setup-heading { flex-wrap: wrap; gap: 9px; } .setup-heading h3 { font-size: 13px; } .setup-heading > button { font-size: 9px; padding: 6px; } .setup-stages li { font-size: 8px; gap: 4px; } .setup-stages li > span { width: 16px; height: 16px; font-size: 8px; } .instance-row { padding: 18px; } .instance-heading h3 { font-size: 14px; } .instance-specs { gap: 14px; } .instance-specs > span:last-child { margin-left: 0; } .instance-state { font-size: 9px; } }
+@media(max-width:760px) { .gpu-workspace { padding: 27px 18px; } .cloud-heading h1 { font-size: 27px; } .cloud-heading p { font-size: 11px; } .cloud-heading { gap: 10px; } .cloud-account .status-dot { display: none; } .cloud-account > button { padding: 8px; } .cloud-tabs { gap: 23px; } .cloud-tabs > small { display: none; } .market-filters { gap: 8px; flex-wrap: wrap; } .gpu-family-filter { width: 100%; margin-bottom: 4px; gap: 6px; } .gpu-family-filter button { padding: 8px 11px; font-size: 10px; } .market-filters > .select-trigger { margin-right: auto; height: 34px; font-size: 10px; } .offer-row { padding: 17px 12px; gap: 9px; } .offer-model > small { font-size: 9px; } .offer-model > span { font-size: 8px; max-width: 195px; } .offer-rate strong { font-size: 20px; } .offer-rate > span { font-size: 8px; } .offer-list-heading small { font-size: 8px; } .offer-details .hardware-details { grid-template-columns: 1fr; } .offer-details { padding: 22px; } .offer-spec-grid strong { font-size: 14px; } .offer-spec-grid small { font-size: 8px; } .cloud-onboarding { padding: 40px 0; } .cloud-onboarding h2 { font-size: 22px; } .cloud-onboarding > p { font-size: 12px; } .onboarding-facts { flex-direction: column; gap: 18px; margin-top: 32px; } .setup-panel { padding: 18px; } .setup-heading { flex-wrap: wrap; gap: 9px; } .setup-heading h3 { font-size: 13px; } .setup-heading > button { font-size: 9px; padding: 6px; } .setup-stages li { font-size: 8px; gap: 4px; } .setup-stages li > span { width: 16px; height: 16px; font-size: 8px; } .instance-row { padding: 18px; } .instance-heading h3 { font-size: 14px; } .instance-specs { gap: 14px; } .instance-specs > span:last-child { margin-left: 0; } .instance-state { font-size: 9px; } }

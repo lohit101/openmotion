@@ -1,0 +1,15 @@
+{
+  "date": "2026-10-25",
+  "change": "Compact GPU rental configuration and keep the global header visible during page scrolling",
+  "checks": {
+    "typescript": "npm run check passed",
+    "frontend_build": "npx vite build --emptyOutDir false passed; existing chunk-size advisory remains",
+    "diff_whitespace": "git diff --check passed",
+    "desktop_visual": "Verified in Chrome: storage, GPU model, host memory and verification share a compact configuration row with consistent labels; the DGX group name is fully visible",
+    "model_menu": "Verified the existing DGX model menu opens and includes GB10, GB200 and GB300",
+    "scrolling": "Verified the logo, GPU status and theme control remain visible after scrolling through offers; sticky offer details sit below the header",
+    "responsive": "CSS includes two-column and single-column layouts; narrower widths were not visually exercised in this quick check",
+    "runtime": "Frontend assets updated without restarting the backend or controlling the GPU; the existing setup remained active",
+    "paid_actions": "No rentals, instance controls or render submissions performed"
+  }
+}
