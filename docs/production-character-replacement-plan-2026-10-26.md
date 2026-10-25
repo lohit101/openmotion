@@ -2,7 +2,7 @@
 
 Research date: 26 October 2026. Scope: inspect the latest result, identify released open models and compatible adapters, and plan a faster production workflow. No model weights were downloaded, no workflow/runtime was changed, and no paid render or GPU resume was submitted. The user's current priority is realism and speed; ordinary stock models are acceptable.
 
-Updated after the user's latency/licence/cost questions: [the detailed follow-up audit](latency-cost-and-higgsfield-audit-2026-10-26.md) controls the implementation order and latency target. It adds actual server execution timing, public Higgsfield API/source analysis, fresh 256GB rental quotes, cold-session costs and a 175s **unmeasured acceptance budget**. Prefer an instrumented high-memory single-GPU fast-path comparison before a consumer quantization experiment; do not treat 160s on B200 as a forecast for the current graph.
+**Current budget decision:** the user has rejected the cost of the high-memory/multi-engine approach. The [budget-first plan](budget-character-replacement-plan-2026-10-26.md) now controls execution: one GPU near$0.70/hour,80GB disk if the exact selected bundle fits, one Wan-Animate stack, no always-on rental, and a proposed $2 first pilot requiring separate paid-run approval. The high-memory, multi-model and 175s budget below and in the [latency audit](latency-cost-and-higgsfield-audit-2026-10-26.md) remain research options, not the current deployment order or spending authorization.
 
 ## Decision
 
@@ -13,7 +13,7 @@ Build a **scene-preserving replacement pipeline with an edited source keyframe**
 - **Fidelity challenger:** MoCha. Its conditioning is relevant to preserving a shot, but its published many-step inference is not an established speed solution.
 - **Separate motion-transfer branch:** Wan-Animate-2 Distillation. Its documented interface animates a reference scene; a newer version number does not establish source-scene replacement support.
 
-None has demonstrated consistently invisible AI or Higgsfield parity on our inputs. Establish this with a small, controlled evaluation before choosing the default.
+None has demonstrated consistently invisible AI or Higgsfield parity on our inputs. Establish this with the small budget-controlled evaluation in the current plan before choosing the default. Viggle, MoCha, additional image editors, AI upscalers and high-memory GPU trials are deferred.
 
 ## What the latest result establishes
 
@@ -95,7 +95,7 @@ Its creator reports 6.63 GPU-seconds and 8.72GB peak for an 89-frame 1080p Turbo
 - Prefer 96–128GB system RAM for the large full-precision trial. Verify actual peak GPU/CPU allocation rather than relying on a model filename.
 - **256GB disk is a pragmatic multi-engine allocation**, not a minimum. Selected Viggle components are approximately 80GB; the entire 269GB H3 repository is unnecessary. Share compatible encoders/VAEs by exact hash, keep only the chosen precision and one upscaler, and retain individual download/delete controls. Smaller single-engine trials need less space.
 
-Fresh running/storage/transfer quotes and costs are now in the [follow-up cost audit](latency-cost-and-higgsfield-audit-2026-10-26.md#current-costs-per-five-second-attempt). Three warm minutes on the observed Japan PRO96 is about$0.102 and Japan H200 NVL about$0.210, including 256GB running disk but excluding startup, transfer, idle retention and retries. These are cost calculations at assumed runtimes, not achieved performance. Measure cost per accepted clip including rejected attempts, not just the cheapest hourly rate. The last job's $0.249 render estimate is historical.
+Fresh running/storage/transfer quotes and costs are now in the [follow-up cost audit](latency-cost-and-higgsfield-audit-2026-10-26.md#current-costs-per-five-second-attempt). Three warm minutes on the observed Japan PRO96 is about $0.102 and Japan H200 NVL about $0.210, including 256GB running disk but excluding startup, transfer, idle retention and retries. These are cost calculations at assumed runtimes, not achieved performance. Measure cost per accepted clip including rejected attempts, not just the cheapest hourly rate. The last job's $0.249 render estimate is historical.
 
 ## Implementation and validation order
 

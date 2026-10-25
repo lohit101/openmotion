@@ -1,0 +1,46 @@
+{
+  "date": "2026-10-26",
+  "scope": "Documentation-only budget revision, not rental authorization or an implemented billing cutoff",
+  "quoteSource": "budget-gpu-quotes-20261026.json",
+  "candidateAskId": 57660945,
+  "candidateGPU": "RTX PRO 5000",
+  "runningHourlyIncludingDiskUSD": 0.6962962962962963,
+  "diskGB": 80,
+  "maximumProposedHourlyUSD": 0.8,
+  "pilotBudgetUSD": 2,
+  "pilotAllowancesUSD": {
+    "90MinuteSession": 1.2,
+    "modelTransfer": 0.15,
+    "existingStorageDuringPilot": 0.05,
+    "contingency": 0.6
+  },
+  "pilotAllowanceEnforcedInCode": false,
+  "newTransferGBIllustrative": 40,
+  "newWeightBundleBytesVerified": false,
+  "warmCostsByAssumedMinutesUSD": {
+    "3": 0.03481481481481482,
+    "5": 0.05802469135802469,
+    "10": 0.11604938271604938,
+    "15": 0.17407407407407408,
+    "20": 0.23209876543209876
+  },
+  "exampleIngressUSD": 0.10416666666666666,
+  "example10MinuteSetup10MinuteRenderUSD": 0.3362654320987654,
+  "example10OutputsEach10MinutesPlus10MinuteSetupUSD": 1.38070987654321,
+  "exampleCostPerAcceptedWhen8Of10UsableUSD": 0.17258873456790125,
+  "example90MinutePilotPlusIngressUSD": 1.1486111111111112,
+  "existingDiskLastObserved": {
+    "instanceId": 57709189,
+    "state": "exited",
+    "intendedState": "stopped",
+    "computeStopped": true,
+    "diskGB": 64,
+    "quotedStorageHourlyUSD": 0.029629629629629627,
+    "quotedStorage30DaysUSD": 21.333333333333332,
+    "lastRefreshUTC": "2026-10-25T21:25:17.609Z",
+    "source": "Cached local Studio cloud state from account refresh; not a reconciled invoice",
+    "destroyedOrResumed": false
+  },
+  "newPaidActions": 0,
+  "tests": "JSON, local-link and arithmetic validation; no runtime changes to test"
+}

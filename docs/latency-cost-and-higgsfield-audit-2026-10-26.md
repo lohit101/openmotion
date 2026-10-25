@@ -2,6 +2,8 @@
 
 Checked 26 October 2026 IST. This supplements and updates the [production plan](production-character-replacement-plan-2026-10-26.md). Public documentation, public source code, saved local histories and read-only Vast marketplace quotes were inspected. No GPU was started, no paid API was invoked, and no runtime or generation graph was changed.
 
+**Superseded implementation order:** the user has requested a cheaper plan. The [budget-first plan](budget-character-replacement-plan-2026-10-26.md) now governs execution. The H200/B200/96GB and 256GB recommendations and 175s budget here are historical research scenarios, not current rental instructions or authorization. Start with one low-cost GPU and one video stack; paid validation requires separate approval.
+
 ## What the 160-second benchmark means
 
 The prior recommendation needed a clearer distinction: a published 160-second Wan-Animate render is not a forecast for the existing SCAIL configuration.
