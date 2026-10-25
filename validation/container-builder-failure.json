@@ -1,0 +1,13 @@
+{
+  "date": "2026-10-25",
+  "observed_failure": "Vast reported docker_build() error writing dockerfile while actual_status remained loading",
+  "fix": "Recognize explicit fatal container-builder reports independently of the loading label; route them through setup failure reporting and compute-stop handling",
+  "healthy_setup": "Quiet image pulls, ordinary network retry messages and elapsed time remain non-fatal",
+  "management": "A failed host-builder card offers Choose another GPU instead of restarting the same failed host",
+  "validation": {
+    "cloud_tests": "63 passed, including fatal-builder/loading and healthy transient status cases",
+    "typescript_and_frontend_build": "Passed",
+    "live_case": "The new detector surfaced the real host failure. The provider did not confirm its compute stop, so the empty test rental was destroyed and deletion confirmed",
+    "user_data": "The failed host never reached SSH or received the deployment package, model weights or media"
+  }
+}

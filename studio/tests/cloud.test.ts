@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { Store } from '../server/store';
-import { CloudManager, computeIsStopped, hasRegisteredSshKey, matchesGpuProbe, normalizeOffer, RENTAL_IMAGE, SSH_ONSTART, VastClient, VastError } from '../server/cloud';
+import { CloudManager, computeIsStopped, fatalContainerStatus, hasRegisteredSshKey, matchesGpuProbe, normalizeOffer, RENTAL_IMAGE, SSH_ONSTART, VastClient, VastError } from '../server/cloud';
 import { offerFiltersSchema } from '../shared/cloud';
 import type { ConnectionManager } from '../server/comfy';
 import type { Runner } from '../server/runner';
@@ -277,6 +277,17 @@ describe('Vast marketplace, billing and lifecycle', () => {
     vi.spyOn(cloud.client, 'instance').mockResolvedValueOnce({ ...rawOffer(), id: 777, actual_status: 'offline', intended_status: 'running', ssh_host: 'fixture', ssh_port: 2222 });
     const { offers } = await cloud.offers(filters); const launch = cloud.launch(offers[0].quote, .23, 'delayed-status'); await until(() => !cloud.state.busy);
     expect(launch.phase).toBe('ready'); expect(probe).toHaveBeenCalledOnce(); expect(provision).toHaveBeenCalledOnce(); expect(fixture.calls.some(c => c.body?.state === 'stopped')).toBe(false);
+  });
+  it('stops on an explicit host builder error even when Vast still labels it loading', async () => {
+    const { cloud, fixture, provision } = await manager();
+    vi.spyOn(cloud.client, 'instance').mockResolvedValueOnce({ ...rawOffer(), id: 777, actual_status: 'loading', status_msg: 'docker_build() error writing dockerfile', ssh_host: 'fixture', ssh_port: 2222 });
+    const { offers } = await cloud.offers(filters); const launch = cloud.launch(offers[0].quote, .23, 'fatal-builder');
+    await until(() => !cloud.state.busy);
+    expect(launch.phase).toBe('stopped'); expect(launch.failureCode).toBe('setup-failed');
+    expect(launch.lastFailure).toContain('container builder failed'); expect(provision).not.toHaveBeenCalled();
+    expect(fixture.calls.filter(call => call.body?.state === 'stopped')).toHaveLength(1);
+    expect(fatalContainerStatus('Still pulling image; taking longer than usual')).toBeNull();
+    expect(fatalContainerStatus('Retrying a layer after a transient network error')).toBeNull();
   });
   it('follows an already running rental without sending another provider start request', async () => {
     const { cloud, fixture } = await manager();

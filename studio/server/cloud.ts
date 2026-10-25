@@ -41,6 +41,13 @@ export class PreflightError extends Error { constructor(message: string, public 
 export function computeIsStopped(instance: any) {
   return instance.actual_status === 'stopped' || (instance.actual_status === 'exited' && [instance.intended_status, instance.cur_state, instance.next_state].includes('stopped'));
 }
+export function fatalContainerStatus(message: unknown) {
+  const value = String(message || '').trim();
+  // Some hosts leave actual_status=loading after their builder has failed.
+  // Match explicit fatal reports; elapsed time or quiet pull logs are not errors.
+  return /^docker_build\(\)\s+error writing dockerfile\b/i.test(value) ||
+    /^Error response from daemon:.*(?:no space left on device|pull access denied|manifest unknown|no matching manifest)/i.test(value) ? value.slice(0, 500) : null;
+}
 export function matchesGpuProbe(instance: { gpu_name?: string; gpu_ram?: number | null }, output: string) {
   const minimumMemory = Math.max(24000, Number(instance.gpu_ram || 0) * 0.95);
   return output.split('\n').some(line => {
@@ -451,6 +458,8 @@ export class CloudManager {
       if (!instance) { if (attempt < 12) { await pause(this.options.pollMs ?? 5000); continue; } throw new Error('The rental no longer exists.'); }
       if (instance.actual_status === 'running' && instance.ssh_host && instance.ssh_port) break;
       if (instance.actual_status === 'error') throw new Error('Vast reports an instance error: ' + (instance.status_msg || 'unknown host error'));
+      const containerError = fatalContainerStatus(instance.status_msg);
+      if (containerError) throw new Error('Vast’s container builder failed before ComfyUI could start: ' + containerError + '. Choose another host.');
       if (instance.ssh_host && instance.ssh_port && await this.probeGpu(instance, identity)) {
         launch.warning = 'Vast’s status is delayed, but SSH and the selected GPU are reachable. Continuing setup.'; this.emit(); break;
       }
