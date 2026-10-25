@@ -1,0 +1,252 @@
+{
+  "capturedAt": "2026-10-25T18:57:28.759333+00:00",
+  "source": "https://api.clore.ai/v1/marketplace",
+  "unitsSource": "https://docs.clore.ai/for-hosts/api#id-4-marketplace",
+  "calculation": "Quoted USD-equivalent daily on-demand price divided by 24, before fees. Currency availability is recorded per offer.",
+  "criteria": {
+    "singleDesktopGpu": true,
+    "unrented": true,
+    "minimumRamGB": 48,
+    "minimumReportedVramGB": 23.4,
+    "minimumReportedDiskGB": 64,
+    "minimumReportedCuda": 13,
+    "minimumReliability": 0.98
+  },
+  "byGpu": {
+    "RTX 3090": {
+      "eligibleCount": 13,
+      "lowestThree": [
+        {
+          "id": 115190,
+          "gpu": "RTX 3090",
+          "gpuCount": 1,
+          "ramGB": 64.0,
+          "vramGB": 24.0,
+          "diskReportedGB": 340.6024,
+          "cudaReported": 13.0,
+          "reliability": 1.0,
+          "country": "RU",
+          "networkDownReported": 88.18,
+          "usdPerDay": 3.4996000268388525,
+          "usdPerHour": 0.1458166677849522,
+          "lowestCurrencyQuote": "on_demand_clore",
+          "usdSettlementPerHour": null,
+          "paymentCurrencies": [
+            "CLORE-Blockchain"
+          ],
+          "rating": {
+            "avg": 4.67,
+            "cnt": 21
+          }
+        },
+        {
+          "id": 112817,
+          "gpu": "RTX 3090",
+          "gpuCount": 1,
+          "ramGB": 64.0,
+          "vramGB": 24.0,
+          "diskReportedGB": 629.9422,
+          "cudaReported": 13.2,
+          "reliability": 0.9822,
+          "country": "RU",
+          "networkDownReported": 186.28,
+          "usdPerDay": 3.848948514915707,
+          "usdPerHour": 0.16037285478815447,
+          "lowestCurrencyQuote": "on_demand_btc",
+          "usdSettlementPerHour": 0.16041666666666668,
+          "paymentCurrencies": [
+            "bitcoin",
+            "CLORE-Blockchain",
+            "USD-Blockchain"
+          ],
+          "rating": {
+            "avg": 4.65,
+            "cnt": 46
+          }
+        },
+        {
+          "id": 121311,
+          "gpu": "RTX 3090",
+          "gpuCount": 1,
+          "ramGB": 64.0,
+          "vramGB": 24.0,
+          "diskReportedGB": 381.0844,
+          "cudaReported": 13.0,
+          "reliability": 0.9922,
+          "country": "AR",
+          "networkDownReported": 349.53,
+          "usdPerDay": 4.023083674574485,
+          "usdPerHour": 0.16762848644060355,
+          "lowestCurrencyQuote": "on_demand_clore",
+          "usdSettlementPerHour": 0.20833333333333334,
+          "paymentCurrencies": [
+            "bitcoin",
+            "CLORE-Blockchain",
+            "USD-Blockchain"
+          ],
+          "rating": {
+            "avg": 2,
+            "cnt": 2
+          }
+        }
+      ]
+    },
+    "RTX 4090": {
+      "eligibleCount": 34,
+      "lowestThree": [
+        {
+          "id": 100123,
+          "gpu": "RTX 4090",
+          "gpuCount": 1,
+          "ramGB": 64.0,
+          "vramGB": 24.0,
+          "diskReportedGB": 1693.6398,
+          "cudaReported": 13.0,
+          "reliability": 0.994,
+          "country": "UA",
+          "networkDownReported": 95.58,
+          "usdPerDay": 8.99,
+          "usdPerHour": 0.3745833333333333,
+          "lowestCurrencyQuote": "on_demand_usd",
+          "usdSettlementPerHour": 0.3745833333333333,
+          "paymentCurrencies": [
+            "CLORE-Blockchain",
+            "USD-Blockchain"
+          ],
+          "rating": {
+            "avg": 4.71,
+            "cnt": 102
+          }
+        },
+        {
+          "id": 115224,
+          "gpu": "RTX 4090",
+          "gpuCount": 1,
+          "ramGB": 64.0,
+          "vramGB": 24.0,
+          "diskReportedGB": 1674.2999,
+          "cudaReported": 13.2,
+          "reliability": 0.9984,
+          "country": "CA",
+          "networkDownReported": 514.76,
+          "usdPerDay": 8.998978394300492,
+          "usdPerHour": 0.37495743309585383,
+          "lowestCurrencyQuote": "on_demand_clore",
+          "usdSettlementPerHour": 0.375,
+          "paymentCurrencies": [
+            "CLORE-Blockchain",
+            "USD-Blockchain"
+          ],
+          "rating": {
+            "avg": 4.87,
+            "cnt": 31
+          }
+        },
+        {
+          "id": 103705,
+          "gpu": "RTX 4090",
+          "gpuCount": 1,
+          "ramGB": 128.0,
+          "vramGB": 24.0,
+          "diskReportedGB": 3275.449,
+          "cudaReported": 13.0,
+          "reliability": 1.0,
+          "country": "PT",
+          "networkDownReported": 476.42,
+          "usdPerDay": 9.59890063185304,
+          "usdPerHour": 0.39995419299387663,
+          "lowestCurrencyQuote": "on_demand_clore",
+          "usdSettlementPerHour": 0.8333333333333334,
+          "paymentCurrencies": [
+            "CLORE-Blockchain",
+            "USD-Blockchain"
+          ],
+          "rating": {
+            "avg": 4.24,
+            "cnt": 37
+          }
+        }
+      ]
+    },
+    "RTX 5090": {
+      "eligibleCount": 27,
+      "lowestThree": [
+        {
+          "id": 106550,
+          "gpu": "RTX 5090",
+          "gpuCount": 1,
+          "ramGB": 64.0,
+          "vramGB": 32.0,
+          "diskReportedGB": 334.237,
+          "cudaReported": 13.2,
+          "reliability": 0.9998,
+          "country": "FI",
+          "networkDownReported": 67.58,
+          "usdPerDay": 10.998740642588581,
+          "usdPerHour": 0.45828086010785757,
+          "lowestCurrencyQuote": "on_demand_clore",
+          "usdSettlementPerHour": null,
+          "paymentCurrencies": [
+            "CLORE-Blockchain"
+          ],
+          "rating": {
+            "avg": 4.35,
+            "cnt": 20
+          }
+        },
+        {
+          "id": 106548,
+          "gpu": "RTX 5090",
+          "gpuCount": 1,
+          "ramGB": 64.0,
+          "vramGB": 32.0,
+          "diskReportedGB": 344.1258,
+          "cudaReported": 13.2,
+          "reliability": 0.9993,
+          "country": "FI",
+          "networkDownReported": 74.49,
+          "usdPerDay": 10.998740642588581,
+          "usdPerHour": 0.45828086010785757,
+          "lowestCurrencyQuote": "on_demand_clore",
+          "usdSettlementPerHour": null,
+          "paymentCurrencies": [
+            "CLORE-Blockchain"
+          ],
+          "rating": {
+            "avg": 4.15,
+            "cnt": 20
+          }
+        },
+        {
+          "id": 102627,
+          "gpu": "RTX 5090",
+          "gpuCount": 1,
+          "ramGB": 64.0,
+          "vramGB": 32.0,
+          "diskReportedGB": 711.2011,
+          "cudaReported": 13.3,
+          "reliability": 0.9993,
+          "country": "RU",
+          "networkDownReported": 90.98,
+          "usdPerDay": 13.8,
+          "usdPerHour": 0.5750000000000001,
+          "lowestCurrencyQuote": "on_demand_usd",
+          "usdSettlementPerHour": 0.5750000000000001,
+          "paymentCurrencies": [
+            "USD-Blockchain"
+          ],
+          "rating": {
+            "avg": 4.67,
+            "cnt": 57
+          }
+        }
+      ]
+    }
+  },
+  "limitations": [
+    "Reported host specifications and reliability have not been independently benchmarked.",
+    "Network performance and driver details need deployment verification; this is not an equal-network-filter comparison to the strict Vast search.",
+    "The lowest 3090 and 5090 quotes accept only CLORE at the snapshot; converted USD value can change.",
+    "No provider account, order or paid generation was created."
+  ]
+}
