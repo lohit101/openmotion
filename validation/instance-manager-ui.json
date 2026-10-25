@@ -1,0 +1,15 @@
+{
+  "date": "2026-10-25",
+  "change": "Combine instance status, billing, setup progress and management into one instance card",
+  "checks": {
+    "typescript": "npm run check passed",
+    "focused_tests": "8 tests passed across instance-status.test.ts and cloud-status.test.ts",
+    "rate_reporting": "Verified storage-only provider startup prices fall back to the accepted running quote; a confirmed stop displays retained-storage billing",
+    "state_handling": "Verified startup, stop, reconnect and error states; stale connection flags do not override provisioning or stop transitions",
+    "frontend_build": "npx vite build --emptyOutDir false passed; existing large-chunk advisory remains",
+    "desktop_visual": "Verified in Chrome: one instance card, readable state, accepted running quote, valid storage display, embedded setup stages, elapsed time, activity/details affordances and management controls",
+    "runtime": "Updated frontend assets without restarting the server or interrupting the existing setup",
+    "paid_controls": "Pause, start, destroy and render controls were not exercised against the live rental",
+    "limits": "Paused/error presentation checked through focused tests; mobile layout and lifecycle toast behavior were not visually exercised"
+  }
+}
