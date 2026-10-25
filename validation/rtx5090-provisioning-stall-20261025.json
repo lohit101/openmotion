@@ -1,0 +1,36 @@
+{
+  "observedAt": "2026-10-25T18:28:51.404692+00:00",
+  "instanceId": 57701996,
+  "gpu": "RTX 5090",
+  "location": "Sweden, SE",
+  "containerActualStatus": null,
+  "intendedStatus": "running",
+  "providerMessage": null,
+  "directPorts": [
+    -1,
+    -1
+  ],
+  "diskUsageReportedGB": -1,
+  "sshProbe": "Connection refused at the provider-assigned SSH proxy endpoint",
+  "daemonAndContainerLogs": "Provider accepted diagnostic requests, but both returned log URLs responded HTTP 403; no logs were delivered during this investigation",
+  "billedAmountsObservedUSD": {
+    "gpu": 0.0,
+    "storage": 0.008,
+    "total": 0.008
+  },
+  "chargeSnapshotLimitation": "Observed billing ledger can lag the live instance. Current instance pricing separately reported GPU zero and disk-only hourly cost.",
+  "currentPricing": {
+    "gpuCostPerHour": 0,
+    "diskHour": 0.01303703703703704,
+    "totalHour": 0.01303703703703704,
+    "discountTotalHour": 0,
+    "discountedTotalPerHour": 0.01303703703703704
+  },
+  "diagnosis": "Host/provider provisioning stalled before container readiness. Exact daemon/network/image-build cause is not established without delivered provider logs.",
+  "setupCodeReached": false,
+  "modelDownloadsStarted": false,
+  "newRentalsOrPaidRendersSubmitted": 0,
+  "instanceLifecycleActionsSent": 0,
+  "timeoutPolicy": "Kept existing no elapsed-time automatic stop policy; lack of status alone was not treated as a confirmed fatal error.",
+  "rawEvidence": "Ignored backups/startup-stuck-20261025/"
+}
