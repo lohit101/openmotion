@@ -9,6 +9,43 @@ import vast
 from model_manifest import selected_manifest, write_remote_manifest
 
 
+MODEL_PATCH_PATHS = '''
+import json, sys
+from pathlib import Path
+root = Path(sys.argv[1]).resolve()
+comfy = Path(json.loads((root / 'state/install.json').read_text())['comfy_root']).resolve()
+directory = comfy / 'models/model_patches'
+if directory.is_symlink():
+    raise ValueError('Refusing to register files through a symlinked model-patch directory.')
+directory.mkdir(parents=True, exist_ok=True)
+plans = []
+for name in json.loads(sys.argv[2]):
+    relative = Path(name)
+    if relative.parts != ('model_patches', relative.name) or not relative.name.endswith('.safetensors'):
+        raise ValueError('Unsafe model patch destination.')
+    target = root / 'models' / relative
+    if target.is_symlink() or target.parent.is_symlink() or not target.is_file():
+        raise ValueError('The verified model patch is not a regular managed file.')
+    alias = directory / relative.name
+    if alias.exists() or alias.is_symlink():
+        if alias.resolve() != target.resolve():
+            raise ValueError('An existing model patch has the same name; it was not overwritten.')
+    else:
+        plans.append((alias, target))
+for alias, target in plans:
+    alias.symlink_to(target)
+print('Registered model patches without restarting ComfyUI.')
+'''
+
+
+def register_download_paths(config, files):
+    patches = [item['destination'] for item in files if item['destination'].startswith('model_patches/')]
+    if patches:
+        # Cached engines may predate a newly added extra-model-path category.
+        # An owned file alias is discoverable immediately by the native loader.
+        vast.remote(config, ['python3', '-c', MODEL_PATCH_PATHS, config['remote_root'], json.dumps(patches)])
+
+
 def check_connection(config, instance_id):
     if config.get('instance_id') != instance_id or config.get('local_port') != 8188:
         raise ValueError('The saved SSH tunnel belongs to a different instance. Reconnect the selected GPU before downloading adapters.')
@@ -49,6 +86,7 @@ def main():
     target = write_remote_manifest(config, manifest)
     vast.remote(config, [str(root / '.venv/bin/python'), str(root / 'scripts/download_models.py'),
                          '--manifest', target, '--model-dir', str(root / 'models')])
+    register_download_paths(config, manifest['files'])
 
 
 if __name__ == '__main__':
