@@ -31,6 +31,8 @@ The 369,644,384-byte Klein adapter was explicitly downloaded on the existing ren
 
 ## Qwen whole-person implementation
 
+This section records the initial blocked preflight. The user subsequently authorized removing Klein; the completed installation and actual GPU results are in [the migration record](qwen-migration-20261027.md).
+
 The alternative uses native `TextEncodeQwenImage21`, scene-first/person-second conditioning, the native scene-sized latent, matching Qwen model/encoder/VAE, the official eight-step adapter and a trained BFS complete-person adapter. Its 18.41 GB pinned manifest and portable API/editable graphs are included. Native prompt validation passes without model inference. The alternative is explicitly labelled pending GPU quality evaluation.
 
 The existing rental reports 19,917,156,352 free bytes. The new stack plus 5 GiB working reserve requires 23,774,868,320 bytes. No Qwen download or inference was initiated. A larger disk is needed to evaluate it while keeping the installed video/Klein stacks. The new whole-plan preflight blocks an insufficient-space download before any worker starts and accounts for existing partial files.
