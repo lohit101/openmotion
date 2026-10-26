@@ -198,7 +198,7 @@ describe('local app with the captured ComfyUI protocol', () => {
   it('exposes manual files offline and never downloads from a selection or missing-model generate request', async () => {
     const agent = await setup(), values = await inputs(agent);
     const offline = await agent.get('/api/models').expect(200);
-    expect(offline.body.files).toHaveLength(10); expect(mock!.calls).toEqual([]);
+    expect(offline.body.files).toHaveLength(17); expect(mock!.calls).toEqual([]);
     await agent.post('/api/models/download').send({ files: ['loras/untrusted.safetensors'] }).expect(400);
     await connect(agent);
     const live = structuredClone(local!.connection.catalog);

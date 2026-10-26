@@ -1,0 +1,115 @@
+{
+  "ViggleTextCondLoader": {
+    "input": {
+      "required": {
+        "text_cond": [
+          [
+            "fixed_embed_fwd_anyframe.safetensors"
+          ],
+          {
+            "tooltip": "Frozen text conditioning in models/text_cond/ (fixed_embed_fwd_anyframe)."
+          }
+        ]
+      }
+    },
+    "output": [
+      "TEXT_COND"
+    ]
+  },
+  "ViggleAnimateConditioning": {
+    "input": {
+      "required": {
+        "cond_video": [
+          "IMAGE",
+          {
+            "tooltip": "Driving video frames at 24 fps (Load Video node). Supplies motion, camera, background, lighting."
+          }
+        ],
+        "ref_image": [
+          "IMAGE",
+          {
+            "tooltip": "Single still of the person to place in the video."
+          }
+        ],
+        "text_cond": [
+          "TEXT_COND",
+          {
+            "tooltip": "From the Load Text Conditioning node."
+          }
+        ],
+        "vae": [
+          "VAE",
+          {
+            "tooltip": "MiniMax-H3 video VAE (from the base model). Encodes the driving clip and the reference still."
+          }
+        ],
+        "width": [
+          "INT",
+          {
+            "default": 0,
+            "min": 0,
+            "max": 16384,
+            "step": 32,
+            "tooltip": "Target width. 0 = driving clip's own width (the evaluated configuration)."
+          }
+        ],
+        "height": [
+          "INT",
+          {
+            "default": 0,
+            "min": 0,
+            "max": 16384,
+            "step": 32,
+            "tooltip": "Target height. 0 = driving clip's own height."
+          }
+        ],
+        "length": [
+          "INT",
+          {
+            "default": 124,
+            "min": 5,
+            "max": 3600,
+            "step": 17,
+            "tooltip": "Maximum frames at 24 fps (124 = ~5.2 s). Shorter inputs automatically use a shorter 17k+5 generation length."
+          }
+        ]
+      }
+    },
+    "output": [
+      "CONDITIONING",
+      "LATENT"
+    ]
+  },
+  "RecastViggleSource": {
+    "input": {
+      "required": {
+        "images": [
+          "IMAGE"
+        ],
+        "width": [
+          "INT",
+          {
+            "default": 480,
+            "min": 32,
+            "max": 2048,
+            "step": 32
+          }
+        ],
+        "height": [
+          "INT",
+          {
+            "default": 864,
+            "min": 32,
+            "max": 2048,
+            "step": 32
+          }
+        ]
+      }
+    },
+    "output": [
+      "IMAGE",
+      "INT",
+      "IMAGE"
+    ]
+  }
+}

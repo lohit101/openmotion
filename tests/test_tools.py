@@ -36,6 +36,19 @@ spec.loader.exec_module(rules)
 
 
 class ContinuityTests(unittest.TestCase):
+    def test_viggle_grid_preserves_every_requested_frame_without_scail_chunks(self):
+        self.assertEqual(rules.viggle_length(120), 124)
+        self.assertEqual(rules.viggle_length(72), 73)
+        for count in range(5, 125):
+            length = rules.viggle_length(count)
+            self.assertGreaterEqual(length, count)
+            self.assertLess(length - count, 17)
+            self.assertEqual((length - 5) % 17, 0)
+            self.assertLessEqual(length, 124)
+        for count in (0, 4, 125, 240):
+            with self.assertRaises(ValueError):
+                rules.viggle_length(count)
+
     def test_thirty_seconds_have_no_gaps_or_duplicated_frames(self):
         completed, windows = 0, []
         while completed < 480:

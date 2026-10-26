@@ -1,0 +1,589 @@
+{
+  "2": {
+    "class_type": "VHS_LoadVideo",
+    "inputs": {
+      "video": "source.mp4",
+      "force_rate": 24,
+      "custom_width": 0,
+      "custom_height": 0,
+      "frame_load_cap": 120,
+      "skip_first_frames": 0,
+      "select_every_nth": 1,
+      "format": "None"
+    },
+    "_meta": {
+      "title": "Read the selected source shot at 24 fps"
+    }
+  },
+  "3": {
+    "class_type": "RecastViggleSource",
+    "inputs": {
+      "images": [
+        "2",
+        0
+      ],
+      "width": 480,
+      "height": 864
+    },
+    "_meta": {
+      "title": "Fit the source without cropping and pad the H3 frame grid"
+    }
+  },
+  "4": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "reference.png"
+    },
+    "_meta": {
+      "title": "Read character appearance"
+    }
+  },
+  "20": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "minimax_h3_ref2va_viggle_pruned_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": {
+      "title": "Load Viggle pruned INT8"
+    }
+  },
+  "24": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": {
+      "model": [
+        "20",
+        0
+      ],
+      "lora_name": "viggle_animate_dmd_lora.safetensors",
+      "strength_model": 1
+    },
+    "_meta": {
+      "title": "Apply Viggle’s matching full-rank distillation adapter"
+    }
+  },
+  "25": {
+    "class_type": "MiniMaxH3SigmaShift",
+    "inputs": {
+      "model": [
+        "24",
+        0
+      ],
+      "shift_video": 3,
+      "shift_audio": 3
+    },
+    "_meta": {
+      "title": "H3 video/audio shift 3"
+    }
+  },
+  "30": {
+    "class_type": "ViggleTextCondLoader",
+    "inputs": {
+      "text_cond": "fixed_embed_fwd_anyframe.safetensors"
+    },
+    "_meta": {
+      "title": "Load frozen video conditioning, without a text encoder"
+    }
+  },
+  "31": {
+    "class_type": "BasicGuider",
+    "inputs": {
+      "model": [
+        "25",
+        0
+      ],
+      "conditioning": [
+        "40",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "One model evaluation per sigma interval"
+    }
+  },
+  "35": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_video_vae_int8_convrot.safetensors"
+    },
+    "_meta": {
+      "title": "Load H3 video VAE"
+    }
+  },
+  "38": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 20261024
+    },
+    "_meta": {
+      "title": "Reproducible video noise"
+    }
+  },
+  "40": {
+    "class_type": "ViggleAnimateConditioning",
+    "inputs": {
+      "cond_video": [
+        "3",
+        0
+      ],
+      "ref_image": [
+        "121",
+        0
+      ],
+      "text_cond": [
+        "30",
+        0
+      ],
+      "vae": [
+        "35",
+        0
+      ],
+      "width": 480,
+      "height": 864,
+      "length": 124
+    },
+    "_meta": {
+      "title": "Video-first source-aligned conditioning"
+    }
+  },
+  "41": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "euler"
+    },
+    "_meta": {
+      "title": "Euler distilled video sampler"
+    }
+  },
+  "42": {
+    "class_type": "ManualSigmas",
+    "inputs": {
+      "sigmas": "1.0, 0.8571428571428571, 0.6, 0.0"
+    },
+    "_meta": {
+      "title": "Exact shifted sigma boundaries; do not shift again"
+    }
+  },
+  "43": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "38",
+        0
+      ],
+      "guider": [
+        "31",
+        0
+      ],
+      "sampler": [
+        "41",
+        0
+      ],
+      "sigmas": [
+        "42",
+        0
+      ],
+      "latent_image": [
+        "40",
+        1
+      ]
+    },
+    "_meta": {
+      "title": "Propagate replacement through the source motion"
+    }
+  },
+  "44": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "43",
+        0
+      ],
+      "vae": [
+        "35",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Decode the complete replacement shot"
+    }
+  },
+  "45": {
+    "class_type": "SwapFinalizeShot",
+    "inputs": {
+      "images": [
+        "44",
+        0
+      ],
+      "source_count": [
+        "3",
+        1
+      ],
+      "overlap": 0,
+      "fps": 24,
+      "audio": [
+        "2",
+        2
+      ]
+    },
+    "_meta": {
+      "title": "Trim grid padding and preserve exact source duration"
+    }
+  },
+  "46": {
+    "class_type": "VHS_VideoCombine",
+    "inputs": {
+      "images": [
+        "45",
+        0
+      ],
+      "audio": [
+        "45",
+        1
+      ],
+      "frame_rate": 24,
+      "loop_count": 0,
+      "filename_prefix": "recast/viggle-single-shot/segment_0000",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 16,
+      "save_metadata": true,
+      "trim_to_audio": false,
+      "pingpong": false,
+      "save_output": true
+    },
+    "_meta": {
+      "title": "Export the replacement at native 24 fps"
+    }
+  },
+  "47": {
+    "class_type": "SwapSaveContext",
+    "inputs": {
+      "images": [
+        "45",
+        2
+      ],
+      "fps": 24,
+      "skip_frames": 0
+    },
+    "_meta": {
+      "title": "Save completion receipt and source count"
+    }
+  },
+  "100": {
+    "class_type": "ImageScale",
+    "inputs": {
+      "image": [
+        "3",
+        2
+      ],
+      "upscale_method": "lanczos",
+      "width": 736,
+      "height": 1344,
+      "crop": "disabled"
+    },
+    "_meta": {
+      "title": "Source frame controls composition"
+    }
+  },
+  "101": {
+    "class_type": "ImageScaleToTotalPixels",
+    "inputs": {
+      "image": [
+        "4",
+        0
+      ],
+      "upscale_method": "lanczos",
+      "megapixels": 1,
+      "resolution_steps": 32
+    },
+    "_meta": {
+      "title": "Keep the appearance reference within one megapixel"
+    }
+  },
+  "102": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "flux-2-klein-4b-fp8.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": {
+      "title": "Load FLUX.2 Klein 4B distilled"
+    }
+  },
+  "103": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen_3_4b.safetensors",
+      "type": "flux2",
+      "device": "default"
+    },
+    "_meta": {
+      "title": "Load the image-edit instruction encoder"
+    }
+  },
+  "104": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "flux2-vae.safetensors"
+    },
+    "_meta": {
+      "title": "Load the image VAE"
+    }
+  },
+  "105": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": [
+        "103",
+        0
+      ],
+      "text": "Edit image 1, the source video frame. Replace only the main person with the adult character from image 2. Take the exact facial identity, hair, clothing and visible accessories from image 2. Keep the source person’s screen location, apparent height, head size, pose, body orientation, camera distance and framing from image 1. Preserve image 1’s background, objects, foreground occlusions, perspective and camera lens. Light the replacement with the same light direction, exposure, colour temperature, shadows and reflections as image 1. Use natural skin texture and ordinary camera detail. Keep the source expression; do not beautify, smooth skin or change the camera. Additional appearance guidance: Use the reference character’s face, hair and outfit. Preserve the person’s exact position, apparent size, pose and camera distance in the source video. Match the scene’s lighting and keep natural skin texture."
+    },
+    "_meta": {
+      "title": "Preserve source pose, geometry and lighting"
+    }
+  },
+  "106": {
+    "class_type": "ConditioningZeroOut",
+    "inputs": {
+      "conditioning": [
+        "105",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Klein zero conditioning"
+    }
+  },
+  "107": {
+    "class_type": "VAEEncode",
+    "inputs": {
+      "pixels": [
+        "100",
+        0
+      ],
+      "vae": [
+        "104",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Encode source frame as reference one"
+    }
+  },
+  "108": {
+    "class_type": "VAEEncode",
+    "inputs": {
+      "pixels": [
+        "101",
+        0
+      ],
+      "vae": [
+        "104",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Encode character as reference two"
+    }
+  },
+  "109": {
+    "class_type": "ReferenceLatent",
+    "inputs": {
+      "conditioning": [
+        "105",
+        0
+      ],
+      "latent": [
+        "107",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Source frame first"
+    }
+  },
+  "110": {
+    "class_type": "ReferenceLatent",
+    "inputs": {
+      "conditioning": [
+        "106",
+        0
+      ],
+      "latent": [
+        "107",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Source frame first, zero condition"
+    }
+  },
+  "111": {
+    "class_type": "ReferenceLatent",
+    "inputs": {
+      "conditioning": [
+        "109",
+        0
+      ],
+      "latent": [
+        "108",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Character appearance second"
+    }
+  },
+  "112": {
+    "class_type": "ReferenceLatent",
+    "inputs": {
+      "conditioning": [
+        "110",
+        0
+      ],
+      "latent": [
+        "108",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Character appearance second, zero condition"
+    }
+  },
+  "113": {
+    "class_type": "CFGGuider",
+    "inputs": {
+      "model": [
+        "102",
+        0
+      ],
+      "positive": [
+        "111",
+        0
+      ],
+      "negative": [
+        "112",
+        0
+      ],
+      "cfg": 1
+    },
+    "_meta": {
+      "title": "Distilled image guidance, CFG 1"
+    }
+  },
+  "114": {
+    "class_type": "EmptyFlux2LatentImage",
+    "inputs": {
+      "width": 736,
+      "height": 1344,
+      "batch_size": 1
+    },
+    "_meta": {
+      "title": "Replacement frame at source aspect ratio"
+    }
+  },
+  "115": {
+    "class_type": "Flux2Scheduler",
+    "inputs": {
+      "steps": 4,
+      "width": 736,
+      "height": 1344
+    },
+    "_meta": {
+      "title": "Four-step Klein schedule"
+    }
+  },
+  "116": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 20261024
+    },
+    "_meta": {
+      "title": "Reproducible replacement frame"
+    }
+  },
+  "117": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "euler"
+    },
+    "_meta": {
+      "title": "Euler image sampler"
+    }
+  },
+  "118": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "116",
+        0
+      ],
+      "guider": [
+        "113",
+        0
+      ],
+      "sampler": [
+        "117",
+        0
+      ],
+      "sigmas": [
+        "115",
+        0
+      ],
+      "latent_image": [
+        "114",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Repaint the source frame in four steps"
+    }
+  },
+  "119": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "118",
+        0
+      ],
+      "vae": [
+        "104",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Decode the replacement frame"
+    }
+  },
+  "120": {
+    "class_type": "ImageScale",
+    "inputs": {
+      "image": [
+        "119",
+        0
+      ],
+      "upscale_method": "lanczos",
+      "width": 480,
+      "height": 864,
+      "crop": "disabled"
+    },
+    "_meta": {
+      "title": "Return the reference to the exact source canvas"
+    }
+  },
+  "121": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "120",
+        0
+      ],
+      "filename_prefix": "recast/viggle-single-shot/segment_0000_keyframe"
+    },
+    "_meta": {
+      "title": "Save the actual conditioning frame for review"
+    }
+  }
+}

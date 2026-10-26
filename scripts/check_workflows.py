@@ -65,7 +65,7 @@ def check_api(graph, catalog, allow_missing_files=False):
                 if not isinstance(expected, list) and expected != "*" and actual not in expected.split(","):
                     errors.append("%s.%s: expected %s, linked %s" % (key, name, expected, actual))
             elif isinstance(expected, list):
-                if value not in expected and not (allow_missing_files and (not expected or name in ("video", "image", "clip_name", "unet_name", "vae_name", "ckpt_name", "lora_name"))):
+                if value not in expected and not (allow_missing_files and (not expected or name in ("video", "image", "clip_name", "unet_name", "vae_name", "ckpt_name", "lora_name", "text_cond"))):
                     errors.append("%s.%s: value not available: %s" % (key, name, value))
             elif expected in ("INT", "FLOAT"):
                 if isinstance(value, bool) or not isinstance(value, (int, float)) or (expected == "INT" and not isinstance(value, int)):

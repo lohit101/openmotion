@@ -10,6 +10,7 @@ import type { Graph, Job } from '../shared/types';
 import { nextSegment } from '../shared/types';
 import { exists, localReferenceGeometry, type ReferenceGeometry } from './framing';
 import { missingPinnedAdapters } from './models';
+import { isViggle, planForJob } from '../shared/engines';
 
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 export class Runner {
@@ -112,7 +113,7 @@ export class Runner {
         const reusable = job.framingVersion && await exists(path.join(folder, 'reference-framing.json')) && await exists(existingSource);
         const prepared = reusable ? existingSource : await prepareVideo(job, source, folder, signal); this.checkCancelled(job);
         let referenceFile = reference.path;
-        if (job.framingVersion && job.settings.mode === 'swap') {
+        if (job.framingVersion && job.settings.mode === 'swap' && !isViggle(job.settings)) {
           this.stage(job, 'Matching character to source framing');
           const aligned = await this.geometry.prepare(job, prepared, reference.path, folder, signal);
           referenceFile = aligned.file; job.referenceFraming = aligned.summary; this.save(job); this.checkCancelled(job);
@@ -124,7 +125,7 @@ export class Runner {
       while (job.progress.completedFrames < job.progress.targetFrames) {
         this.checkCancelled(job);
         job.progress.segment = job.segments.length + 1;
-        const plan = nextSegment(job.progress.completedFrames, job.progress.targetFrames, job.settings.framesPerPass);
+        const plan = planForJob(job.settings, job.progress.completedFrames, job.progress.targetFrames, nextSegment);
         const receive = (event: any) => { if (!signal.aborted && applyProgress(job, event)) this.save(job); };
         socket = await client.watch('recast-' + job.id, receive).catch(() => undefined);
         if (!job.pendingPrompt) {
@@ -158,6 +159,14 @@ export class Runner {
           await pause(1500);
         }
         socket?.close(); socket = undefined;
+        // The repainted frame is an auditable intermediate, including when a
+        // later sampler fails. Never generate another frame to recover it.
+        const keyframe = history.outputs?.['121']?.images?.[0];
+        if (isViggle(job.settings) && keyframe && !job.keyframe) {
+          const file = path.join(folder, 'keyframe.png');
+          try { if (!await exists(file)) await client.download(keyframe, file, signal); job.keyframe = file; this.save(job); }
+          catch (error) { if (signal.aborted) throw error; await writeFile(path.join(folder, 'keyframe-download-warning.json'), JSON.stringify({ warning: 'The reference preview could not be downloaded. The existing video run was not resubmitted.' })); }
+        }
         if (history.status?.status_str === 'error') {
           const event = history.status.messages?.find((m: any[]) => m[0] === 'execution_error');
           const text = event?.[1]?.exception_message || 'Generation failed on the GPU.';
@@ -198,7 +207,7 @@ export class Runner {
       const code = 'import json,sys;from pathlib import Path;sys.path.insert(0,sys.argv[1]);from render_clip import finish_video;p=Path(sys.argv[2]);finish_video(json.loads((p/"assembly.json").read_text()),p)';
       await command('python3', ['-c', code, path.join(this.repo, 'scripts'), folder], signal, 120000);
       job.output = path.join(folder, 'final.mp4'); job.poster = path.join(folder, 'poster.jpg'); await poster(job.output, job.poster);
-      if (job.framingVersion && job.settings.mode === 'swap') {
+      if ((job.framingVersion || isViggle(job.settings)) && job.settings.mode === 'swap') {
         this.stage(job, 'Checking subject scale and position');
         try { job.framingCheck = await this.geometry.check(job, path.join(folder, 'prepared-source.mp4'), job.output, folder, signal); }
         catch (error) {

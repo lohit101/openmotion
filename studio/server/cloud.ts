@@ -12,7 +12,7 @@ import type { Runner } from './runner';
 import { command } from './media';
 import type { CloudInstance, CloudLaunch, CloudState, GpuOffer, GpuFavourite, OfferFilters } from '../shared/cloud';
 import { canRetryRental, isDgxSpark, isGraceBlackwell, offerFiltersSchema, offerGpuFilter, sameGpuModel, supportedGpuName } from '../shared/cloud';
-import { modelBytes, pinnedModels, setupModelFiles } from '../shared/models';
+import { modelBytes, modelFilesForSettings, pinnedModels, setupModelFiles } from '../shared/models';
 
 const MODEL_GB = modelBytes(setupModelFiles) / 1e9;
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -300,7 +300,7 @@ export class CloudManager {
       createdAt: raw.start_date ? new Date(Number(raw.start_date) * 1000).toISOString() : null };
   }
   async offers(filters: OfferFilters) {
-    const modelFiles = setupModelFiles;
+    const modelFiles = modelFilesForSettings(this.store.draft().settings);
     const rows = await this.client.offers(filters); const offers = rows.map(raw => normalizeOffer(raw, filters, modelBytes(modelFiles) / 1e9)).filter(o => o.compatible && !this.hostCoolingDown(o.machineId));
     const value = (o: GpuOffer) => filters.sort === 'compute' ? o.computeHourly : filters.sort === 'setup' ? (o.totalHourly === null || o.modelDownloadCost === null ? null : o.totalHourly + o.modelDownloadCost) : o.totalHourly;
     offers.sort((a, b) => (value(a) ?? Infinity) - (value(b) ?? Infinity));
@@ -340,7 +340,8 @@ export class CloudManager {
           if (this.hostCoolingDown(item.machineId)) result = { status: 'cooldown', message: 'Startup failed on this host. It is excluded for 24 hours.' };
           else {
             const rows = await this.client.offers(scopedFilters, undefined, { machineId: item.machineId, gpu: item.gpu });
-            const offers = rows.map(raw => normalizeOffer(raw, scopedFilters)).filter(offer => offer.compatible && offer.machineId === item!.machineId && offer.gpu === item!.gpu).sort((a, b) => (a.totalHourly ?? Infinity) - (b.totalHourly ?? Infinity));
+            const modelGB = modelBytes(modelFilesForSettings(this.store.draft().settings)) / 1e9;
+            const offers = rows.map(raw => normalizeOffer(raw, scopedFilters, modelGB)).filter(offer => offer.compatible && offer.machineId === item!.machineId && offer.gpu === item!.gpu).sort((a, b) => (a.totalHourly ?? Infinity) - (b.totalHourly ?? Infinity));
             this.rememberOffers(offers, scopedFilters);
             result = offers.length ? { status: 'available', offer: offers[0], lastHourly: offers[0].totalHourly } : { status: 'unavailable', message: 'No rentable single-GPU offer matches this host and the selected storage, RAM, network and verification settings.' };
           }

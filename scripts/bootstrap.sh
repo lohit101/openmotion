@@ -103,6 +103,7 @@ checkout() {
 }
 checkout "$(cfg comfyui_repo)" "$COMFY_ROOT" "$(cfg comfyui_commit)"
 checkout "$(cfg video_helper_repo)" "$COMFY_ROOT/custom_nodes/ComfyUI-VideoHelperSuite" "$(cfg video_helper_commit)"
+checkout "$(cfg viggle_repo)" "$COMFY_ROOT/custom_nodes/ComfyUI-Viggle-Animate-H3" "$(cfg viggle_commit)"
 "$SWAP_PYTHON" "$SWAP_ROOT/scripts/patch_runtime.py" "$COMFY_ROOT" --state-dir "$SWAP_ROOT/state"
 if [[ ! -x "$SWAP_ROOT/.venv/bin/python" ]]; then
   "$SWAP_PYTHON" -m venv "$SWAP_ROOT/.venv"
@@ -146,7 +147,7 @@ import json,sys
 from pathlib import Path
 root=Path(sys.argv[1]); comfy=Path(sys.argv[2])
 (root/'state/install.json').write_text(json.dumps({'comfy_root':str(comfy),'swap_root':str(root)},indent=2))
-keys=['checkpoints','diffusion_models','text_encoders','clip_vision','vae','loras']
+keys=['checkpoints','diffusion_models','text_encoders','clip_vision','vae','loras','text_cond']
 lines=['character_swap:','  base_path: '+json.dumps(str(root/'models')),'  is_default: true']
 lines += ['  '+key+': '+key for key in keys]
 (root/'state/model-paths.yaml').write_text('\n'.join(lines)+'\n')
@@ -173,6 +174,13 @@ fi
 if [[ ! -f "$SWAP_ROOT/data/user/default/workflows/Character Swap/01 Check Masks.json" ]]; then
   cp "$SWAP_ROOT/workflows/scail2_int8_masks.json" "$SWAP_ROOT/data/user/default/workflows/Character Swap/01 Check Masks.json"
 fi
+for SWAP_WORKFLOW in "$SWAP_ROOT/workflows/experimental/"viggle*.json; do
+  [[ -f "$SWAP_WORKFLOW" ]] || continue
+  SWAP_WORKFLOW_NAME="$(basename "$SWAP_WORKFLOW")"
+  if [[ ! -f "$SWAP_ROOT/data/user/default/workflows/Character Swap/$SWAP_WORKFLOW_NAME" ]]; then
+    cp "$SWAP_WORKFLOW" "$SWAP_ROOT/data/user/default/workflows/Character Swap/$SWAP_WORKFLOW_NAME"
+  fi
+done
 if [[ "${RECAST_DOWNLOAD_SAMPLES:-0}" == "1" ]]; then
   "$SWAP_VENV_PYTHON" "$SWAP_ROOT/scripts/sample_inputs.py" --input-dir "$SWAP_ROOT/data/input"
 fi

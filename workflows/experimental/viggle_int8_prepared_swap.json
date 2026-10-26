@@ -1,0 +1,1128 @@
+{
+  "last_node_id": 122,
+  "last_link_id": 23,
+  "nodes": [
+    {
+      "id": 2,
+      "type": "VHS_LoadVideo",
+      "pos": [
+        0,
+        0
+      ],
+      "size": [
+        340,
+        560
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "meta_batch",
+          "type": "VHS_BatchManager",
+          "link": null,
+          "shape": 7
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": null,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            1
+          ]
+        },
+        {
+          "name": "frame_count",
+          "type": "INT",
+          "links": []
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "links": [
+            19
+          ]
+        },
+        {
+          "name": "video_info",
+          "type": "VHS_VIDEOINFO",
+          "links": []
+        }
+      ],
+      "title": "Read the selected source shot at 24 fps",
+      "properties": {
+        "Node name for S&R": "VHS_LoadVideo"
+      },
+      "widgets_values": {
+        "video": "source.mp4",
+        "force_rate": 24,
+        "custom_width": 0,
+        "custom_height": 0,
+        "frame_load_cap": 120,
+        "skip_first_frames": 0,
+        "select_every_nth": 1,
+        "format": "None",
+        "videopreview": {
+          "hidden": false,
+          "paused": true,
+          "params": {}
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "RecastViggleSource",
+      "pos": [
+        420,
+        0
+      ],
+      "size": [
+        320,
+        188
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            6
+          ]
+        },
+        {
+          "name": "INT",
+          "type": "INT",
+          "links": [
+            18
+          ]
+        },
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": []
+        }
+      ],
+      "title": "Fit the source without cropping and pad the H3 frame grid",
+      "properties": {
+        "Node name for S&R": "RecastViggleSource"
+      },
+      "widgets_values": [
+        480,
+        864
+      ]
+    },
+    {
+      "id": 4,
+      "type": "LoadImage",
+      "pos": [
+        0,
+        640
+      ],
+      "size": [
+        320,
+        440
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            23
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": []
+        }
+      ],
+      "title": "Read character appearance",
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "repainted-source-frame.png"
+      ]
+    },
+    {
+      "id": 20,
+      "type": "UNETLoader",
+      "pos": [
+        2100,
+        0
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            2
+          ]
+        }
+      ],
+      "title": "Load Viggle pruned INT8",
+      "properties": {
+        "Node name for S&R": "UNETLoader"
+      },
+      "widgets_values": [
+        "minimax_h3_ref2va_viggle_pruned_int8_convrot.safetensors",
+        "default"
+      ]
+    },
+    {
+      "id": 24,
+      "type": "LoraLoaderModelOnly",
+      "pos": [
+        2100,
+        360
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 2
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            3
+          ]
+        }
+      ],
+      "title": "Apply Viggle\u2019s matching full-rank distillation adapter",
+      "properties": {
+        "Node name for S&R": "LoraLoaderModelOnly"
+      },
+      "widgets_values": [
+        "viggle_animate_dmd_lora.safetensors",
+        1
+      ]
+    },
+    {
+      "id": 25,
+      "type": "MiniMaxH3SigmaShift",
+      "pos": [
+        2100,
+        720
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 3
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            4
+          ]
+        }
+      ],
+      "title": "H3 video/audio shift 3",
+      "properties": {
+        "Node name for S&R": "MiniMaxH3SigmaShift"
+      },
+      "widgets_values": [
+        3,
+        3
+      ]
+    },
+    {
+      "id": 30,
+      "type": "ViggleTextCondLoader",
+      "pos": [
+        2100,
+        1080
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "TEXT_COND",
+          "type": "TEXT_COND",
+          "links": [
+            8
+          ]
+        }
+      ],
+      "title": "Load frozen video conditioning, without a text encoder",
+      "properties": {
+        "Node name for S&R": "ViggleTextCondLoader"
+      },
+      "widgets_values": [
+        "fixed_embed_fwd_anyframe.safetensors"
+      ]
+    },
+    {
+      "id": 31,
+      "type": "BasicGuider",
+      "pos": [
+        2520,
+        0
+      ],
+      "size": [
+        360,
+        180
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 4
+        },
+        {
+          "name": "conditioning",
+          "type": "CONDITIONING",
+          "link": 5
+        }
+      ],
+      "outputs": [
+        {
+          "name": "GUIDER",
+          "type": "GUIDER",
+          "links": [
+            11
+          ]
+        }
+      ],
+      "title": "One model evaluation per sigma interval",
+      "properties": {
+        "Node name for S&R": "BasicGuider"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 35,
+      "type": "VAELoader",
+      "pos": [
+        2100,
+        1440
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            9,
+            16
+          ]
+        }
+      ],
+      "title": "Load H3 video VAE",
+      "properties": {
+        "Node name for S&R": "VAELoader"
+      },
+      "widgets_values": [
+        "minimax_h3_video_vae_int8_convrot.safetensors"
+      ]
+    },
+    {
+      "id": 38,
+      "type": "RandomNoise",
+      "pos": [
+        2520,
+        360
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "NOISE",
+          "type": "NOISE",
+          "links": [
+            10
+          ]
+        }
+      ],
+      "title": "Reproducible video noise",
+      "properties": {
+        "Node name for S&R": "RandomNoise"
+      },
+      "widgets_values": [
+        20261024,
+        "fixed"
+      ]
+    },
+    {
+      "id": 40,
+      "type": "ViggleAnimateConditioning",
+      "pos": [
+        2520,
+        720
+      ],
+      "size": [
+        360,
+        236
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "cond_video",
+          "type": "IMAGE",
+          "link": 6
+        },
+        {
+          "name": "ref_image",
+          "type": "IMAGE",
+          "link": 7
+        },
+        {
+          "name": "text_cond",
+          "type": "TEXT_COND",
+          "link": 8
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 9
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            5
+          ]
+        },
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            14
+          ]
+        }
+      ],
+      "title": "Video-first source-aligned conditioning",
+      "properties": {
+        "Node name for S&R": "ViggleAnimateConditioning"
+      },
+      "widgets_values": [
+        480,
+        864,
+        124
+      ]
+    },
+    {
+      "id": 41,
+      "type": "KSamplerSelect",
+      "pos": [
+        2520,
+        1080
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "SAMPLER",
+          "type": "SAMPLER",
+          "links": [
+            12
+          ]
+        }
+      ],
+      "title": "Euler distilled video sampler",
+      "properties": {
+        "Node name for S&R": "KSamplerSelect"
+      },
+      "widgets_values": [
+        "euler"
+      ]
+    },
+    {
+      "id": 42,
+      "type": "ManualSigmas",
+      "pos": [
+        2520,
+        1440
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "SIGMAS",
+          "type": "SIGMAS",
+          "links": [
+            13
+          ]
+        }
+      ],
+      "title": "Exact shifted sigma boundaries; do not shift again",
+      "properties": {
+        "Node name for S&R": "ManualSigmas"
+      },
+      "widgets_values": [
+        "1.0, 0.8571428571428571, 0.6, 0.0"
+      ]
+    },
+    {
+      "id": 43,
+      "type": "SamplerCustomAdvanced",
+      "pos": [
+        2940,
+        0
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "noise",
+          "type": "NOISE",
+          "link": 10
+        },
+        {
+          "name": "guider",
+          "type": "GUIDER",
+          "link": 11
+        },
+        {
+          "name": "sampler",
+          "type": "SAMPLER",
+          "link": 12
+        },
+        {
+          "name": "sigmas",
+          "type": "SIGMAS",
+          "link": 13
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 14
+        }
+      ],
+      "outputs": [
+        {
+          "name": "output",
+          "type": "LATENT",
+          "links": [
+            15
+          ]
+        },
+        {
+          "name": "denoised_output",
+          "type": "LATENT",
+          "links": []
+        }
+      ],
+      "title": "Propagate replacement through the source motion",
+      "properties": {
+        "Node name for S&R": "SamplerCustomAdvanced"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 44,
+      "type": "VAEDecode",
+      "pos": [
+        2940,
+        360
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 15
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 16
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            17
+          ]
+        }
+      ],
+      "title": "Decode the complete replacement shot",
+      "properties": {
+        "Node name for S&R": "VAEDecode"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 45,
+      "type": "SwapFinalizeShot",
+      "pos": [
+        3360,
+        0
+      ],
+      "size": [
+        320,
+        214
+      ],
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 17
+        },
+        {
+          "name": "source_count",
+          "type": "INT",
+          "link": 18,
+          "widget": {
+            "name": "source_count"
+          }
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "link": 19,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "new_frames",
+          "type": "IMAGE",
+          "links": [
+            20
+          ]
+        },
+        {
+          "name": "aligned_audio",
+          "type": "AUDIO",
+          "links": [
+            21
+          ]
+        },
+        {
+          "name": "context_frames",
+          "type": "IMAGE",
+          "links": [
+            22
+          ]
+        }
+      ],
+      "title": "Trim grid padding and preserve exact source duration",
+      "properties": {
+        "Node name for S&R": "SwapFinalizeShot"
+      },
+      "widgets_values": [
+        81,
+        0,
+        24
+      ]
+    },
+    {
+      "id": 46,
+      "type": "VHS_VideoCombine",
+      "pos": [
+        3360,
+        360
+      ],
+      "size": [
+        340,
+        560
+      ],
+      "flags": {},
+      "order": 16,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 20
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "link": 21,
+          "shape": 7
+        },
+        {
+          "name": "meta_batch",
+          "type": "VHS_BatchManager",
+          "link": null,
+          "shape": 7
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": null,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "Filenames",
+          "type": "VHS_FILENAMES",
+          "links": []
+        }
+      ],
+      "title": "Export the replacement at native 24 fps",
+      "properties": {
+        "Node name for S&R": "VHS_VideoCombine"
+      },
+      "widgets_values": {
+        "frame_rate": 24,
+        "loop_count": 0,
+        "filename_prefix": "recast/viggle-single-shot/segment_0000",
+        "format": "video/h264-mp4",
+        "pix_fmt": "yuv420p",
+        "crf": 16,
+        "save_metadata": true,
+        "trim_to_audio": false,
+        "pingpong": false,
+        "save_output": true,
+        "videopreview": {
+          "hidden": false,
+          "paused": true,
+          "params": {}
+        }
+      }
+    },
+    {
+      "id": 47,
+      "type": "SwapSaveContext",
+      "pos": [
+        3360,
+        1000
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 17,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 22
+        }
+      ],
+      "outputs": [
+        {
+          "name": "context_path",
+          "type": "STRING",
+          "links": []
+        },
+        {
+          "name": "continuation_details",
+          "type": "STRING",
+          "links": []
+        }
+      ],
+      "title": "Save completion receipt and source count",
+      "properties": {
+        "Node name for S&R": "SwapSaveContext"
+      },
+      "widgets_values": [
+        24,
+        0
+      ]
+    },
+    {
+      "id": 121,
+      "type": "SaveImage",
+      "pos": [
+        3360,
+        1260
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 18,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 23
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": [
+            7
+          ]
+        }
+      ],
+      "title": "Save the actual conditioning frame for review",
+      "properties": {
+        "Node name for S&R": "SaveImage"
+      },
+      "widgets_values": [
+        "recast/viggle-single-shot/segment_0000_keyframe"
+      ]
+    },
+    {
+      "id": 122,
+      "type": "MarkdownNote",
+      "pos": [
+        0,
+        1720
+      ],
+      "size": [
+        1000,
+        680
+      ],
+      "flags": {},
+      "order": 19,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {},
+      "title": "Start here",
+      "widgets_values": [
+        "# Viggle character replacement \u00b7 experimental\n\nTwo inputs: a continuous source shot and a character photo. The auto workflow\nrepaints the first source frame with FLUX.2 Klein 4B (4 image steps), then Viggle\npropagates the edit (3 video passes). The prepared workflow instead expects an\nalready edited frame from this exact shot and skips Klein entirely.\n\nStart with 480 \u00d7 864, 24 fps, 120 frames (5 seconds), one main subject, no cuts.\nSet the source frame cap in Load Video. Keep it between 5 and 124. Prepare Source\npads to H3's 17k+5 frame grid; Finalize trims padding back to the true duration.\nSet the same canvas dimensions in Prepare Source and Viggle Conditioning.\n\nUse Euler, BasicGuider / CFG 1, the full-rank Viggle DMD LoRA at 1, video/audio\nshift 3, and exact ManualSigmas: 1, 0.8571428571428571, 0.6, 0. No additional\nsigma transform. Four sigma points mean THREE forward passes. Do not attach\nSCAIL/Wan style, DPO, relighting or generic acceleration LoRAs to this model.\n\nReview the saved conditioning PNG: scale, screen position, face, clothing and\nlighting must already be right before temporal propagation can preserve them.\nThe image prompt acts on preparation; the video uses fixed conditioning.\n\nGPU validation and sub-three-minute performance are not yet established for\nthis quantized recipe. The publisher's 26 s result is BF16 on B200 and excludes\nimage editing; its optimized 5090 path is not publicly released. See\n docs/overnight-realism-plan-2026-10-26.md for the budget and validation protocol.\n"
+      ]
+    }
+  ],
+  "links": [
+    [
+      1,
+      2,
+      0,
+      3,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      20,
+      0,
+      24,
+      0,
+      "MODEL"
+    ],
+    [
+      3,
+      24,
+      0,
+      25,
+      0,
+      "MODEL"
+    ],
+    [
+      4,
+      25,
+      0,
+      31,
+      0,
+      "MODEL"
+    ],
+    [
+      5,
+      40,
+      0,
+      31,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      6,
+      3,
+      0,
+      40,
+      0,
+      "IMAGE"
+    ],
+    [
+      7,
+      121,
+      0,
+      40,
+      1,
+      "IMAGE"
+    ],
+    [
+      8,
+      30,
+      0,
+      40,
+      2,
+      "TEXT_COND"
+    ],
+    [
+      9,
+      35,
+      0,
+      40,
+      3,
+      "VAE"
+    ],
+    [
+      10,
+      38,
+      0,
+      43,
+      0,
+      "NOISE"
+    ],
+    [
+      11,
+      31,
+      0,
+      43,
+      1,
+      "GUIDER"
+    ],
+    [
+      12,
+      41,
+      0,
+      43,
+      2,
+      "SAMPLER"
+    ],
+    [
+      13,
+      42,
+      0,
+      43,
+      3,
+      "SIGMAS"
+    ],
+    [
+      14,
+      40,
+      1,
+      43,
+      4,
+      "LATENT"
+    ],
+    [
+      15,
+      43,
+      0,
+      44,
+      0,
+      "LATENT"
+    ],
+    [
+      16,
+      35,
+      0,
+      44,
+      1,
+      "VAE"
+    ],
+    [
+      17,
+      44,
+      0,
+      45,
+      0,
+      "IMAGE"
+    ],
+    [
+      18,
+      3,
+      1,
+      45,
+      1,
+      "INT"
+    ],
+    [
+      19,
+      2,
+      2,
+      45,
+      2,
+      "AUDIO"
+    ],
+    [
+      20,
+      45,
+      0,
+      46,
+      0,
+      "IMAGE"
+    ],
+    [
+      21,
+      45,
+      1,
+      46,
+      1,
+      "AUDIO"
+    ],
+    [
+      22,
+      45,
+      2,
+      47,
+      0,
+      "IMAGE"
+    ],
+    [
+      23,
+      4,
+      0,
+      121,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "title": "01 Source and character",
+      "bounding": [
+        -20,
+        -65,
+        780,
+        1170
+      ],
+      "color": "#35586e",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 2,
+      "title": "03 Viggle distilled video",
+      "bounding": [
+        2080,
+        -65,
+        1200,
+        1710
+      ],
+      "color": "#654a73",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 3,
+      "title": "04 Saved outputs and reference",
+      "bounding": [
+        3340,
+        -65,
+        380,
+        1530
+      ],
+      "color": "#4a6650",
+      "font_size": 24,
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.38,
+      "offset": [
+        90,
+        100
+      ]
+    },
+    "frontendVersion": "1.57.1",
+    "VHS_MetadataImage": true,
+    "VHS_KeepIntermediate": false,
+    "character_swap_version": 1,
+    "recast_engine": "viggle",
+    "recast_validation": "offline schemas only; live GPU benchmark pending"
+  },
+  "version": 0.4
+}

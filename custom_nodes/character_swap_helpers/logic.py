@@ -7,6 +7,13 @@ OVERLAP = 5
 MAX_SHOT_FRAMES = 81
 
 
+def viggle_length(count):
+    """H3 video VAE grid: 17k+5, preserving every requested source frame."""
+    if not 5 <= count <= 124:
+        raise ValueError("Viggle single-shot mode requires 5–124 frames at 24 fps.")
+    return count + (5 - count) % 17
+
+
 def dimensions(width, height):
     if min(width, height) < 32 or width % 32 or height % 32:
         raise ValueError("Width and height must be positive multiples of 32.")

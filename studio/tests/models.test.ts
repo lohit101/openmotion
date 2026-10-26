@@ -7,7 +7,7 @@ import { PassThrough } from 'node:stream';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { defaults, type Catalog, type Graph, type Job } from '../shared/types';
-import { I2V_SPEED, modelBytes, modelFilesForSettings, NATURAL_SPEED, pinnedModels, RELIGHT, setupModelFiles, SOCIAL_STYLE } from '../shared/models';
+import { I2V_SPEED, modelBytes, modelDefinitions, modelFilesForSettings, NATURAL_SPEED, pinnedModels, RELIGHT, setupModelFiles, SOCIAL_STYLE } from '../shared/models';
 import { compileWorkflow } from '../server/workflow';
 import { downloadPinnedModels, installedModelIds, missingPinnedAdapters, ModelManager } from '../server/models';
 import { Store } from '../server/store';
@@ -40,7 +40,7 @@ describe('selected-recipe model provisioning', () => {
     });
 
   it('saves exactly the inactive acceleration file, retaining the measured recipe', () => {
-    const full = pinnedModels.reduce((sum, file) => sum + file.size, 0);
+    const full = pinnedModels.filter(file => modelDefinitions.find(definition => definition.id === file.destination)?.engine === 'scail2').reduce((sum, file) => sum + file.size, 0);
     const natural = modelFilesForSettings({ ...defaults, preset: 'natural' });
     expect(full - modelBytes(natural)).toBe(738005744 + 613557448);
     expect(natural).toContain('loras/' + NATURAL_SPEED); expect(natural).toContain('loras/' + RELIGHT);

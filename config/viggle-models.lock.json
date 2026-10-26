@@ -1,0 +1,41 @@
+{
+  "total_bytes": 27976525336,
+  "files": [
+    {
+      "repo": "drbaph/Viggle-Animate-ComfyUI",
+      "revision": "cb3907d33a0ac57314135f86232fdaf4bdb23105",
+      "filename": "diffusion_models/minimax_h3_ref2va_viggle_pruned_int8_convrot.safetensors",
+      "destination": "diffusion_models/minimax_h3_ref2va_viggle_pruned_int8_convrot.safetensors",
+      "size": 21033720080,
+      "sha256": "c16db9a453461261b7270ed6fd9e435dde0524234ba4184253ba3876bc3d3540",
+      "license": "minimax-h3-community-license"
+    },
+    {
+      "repo": "drbaph/Viggle-Animate-ComfyUI",
+      "revision": "cb3907d33a0ac57314135f86232fdaf4bdb23105",
+      "filename": "loras/viggle_animate_dmd_lora.safetensors",
+      "destination": "loras/viggle_animate_dmd_lora.safetensors",
+      "size": 3767420888,
+      "sha256": "71361eb8c331cfbff8f193d4dd1d5353583aba10c7dcd3255c60cfdff8375930",
+      "license": "minimax-h3-community-license"
+    },
+    {
+      "repo": "drbaph/Viggle-Animate-ComfyUI",
+      "revision": "cb3907d33a0ac57314135f86232fdaf4bdb23105",
+      "filename": "text_cond/fixed_embed_fwd_anyframe.safetensors",
+      "destination": "text_cond/fixed_embed_fwd_anyframe.safetensors",
+      "size": 3713456,
+      "sha256": "86ae5987dda844cb80fa4d35d04dddc959f463d04259fbe727b41e80a07e0fde",
+      "license": "minimax-h3-community-license"
+    },
+    {
+      "repo": "Kijai/MiniMax-H3-experimental",
+      "revision": "382271aa8f5b97bc1b376d3f1f83f9a500c42a80",
+      "filename": "minimax_h3_video_vae_int8_convrot.safetensors",
+      "destination": "vae/minimax_h3_video_vae_int8_convrot.safetensors",
+      "size": 3171670912,
+      "sha256": "9bb2d96f218c76babd85e0611b85ca8fb330a90546c01a0005e8a58a59593410",
+      "license": "minimax-h3-community-license"
+    }
+  ]
+}

@@ -3,9 +3,12 @@ import { nextSegment } from '../shared/types';
 import { samplingSteps, usesSpeedAdapter } from '../shared/sampling';
 import { renderPrompt } from '../shared/prompts';
 import { RELIGHT, NATURAL_SPEED, I2V_SPEED } from '../shared/models';
+import { isViggle } from '../shared/engines';
+import { compileViggleWorkflow } from './viggle-workflow';
 export { RELIGHT, NATURAL_SPEED, I2V_SPEED };
 
 export function compileWorkflow(template: Graph, job: Job): Graph {
+  if (isViggle(job.settings)) return compileViggleWorkflow(job);
   if (!job.uploads) throw new Error('Inputs have not been transferred.');
   const graph = structuredClone(template), s = job.settings;
   const plan = nextSegment(job.progress.completedFrames, job.progress.targetFrames, s.framesPerPass);

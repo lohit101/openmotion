@@ -1,4 +1,6 @@
-# SCAIL 2 character replacement on Vast
+# Recast character replacement on Vast
+
+The new [Viggle source-frame replacement workflow](docs/viggle-workflow.md) combines a four-step FLUX.2 Klein edit with three-pass video propagation. It is available as a separate experimental Studio engine and editable ComfyUI graph. The [overnight plan](docs/overnight-realism-plan-2026-10-26.md) records the $0.70/hour compute ceiling, GPU quotes, storage costs and pending live validation. Existing SCAIL jobs remain on their original engine; no sub-three-minute or visual-quality result is claimed for the new stack yet.
 
 This project runs full-person video replacement in ComfyUI using the native SCAIL-2 INT8 model. It provides an editable graph, person-mask previews, optional model-matched LoRA slots, source audio, and five-frame continuation between short passes. Start with one person in a single continuous shot.
 
@@ -10,7 +12,7 @@ The prompt now has a reusable scene-preserving default. Leave it unchanged, clea
 
 New Studio character swaps also [align the reference to source framing](docs/source-framing.md) locally before GPU upload. This corrects the whole-body-reference/close-source mismatch without stretching the character. Completed renders receive a visible scale/position check, with warnings and no automatic rerender. A same-input RTX 3090 comparison now passes all five sampled framing checks, with a much closer upper-body crop and placement. It is one short-shot validation; hands, skin and exact scene preservation still need work. Existing generation models and the pinned GPU runtime are retained.
 
-Still-image face/body preparation needs an additional image editor that meets the user's uncensored-model preference. [The compatibility and handoff review](docs/character-reference-preparation.md) records Phr00t's Qwen Edit Rapid AIO NSFW variants as revised candidates, retains stock-model storage comparisons, and explains separate character views. No image branch has been installed or GPU-validated.
+The experimental Viggle path now includes source-frame preparation with stock FLUX.2 Klein 4B, following the latest preference for fidelity and speed. It saves the prepared frame for inspection; a general character-sheet editor remains separate work. [The earlier compatibility review](docs/character-reference-preparation.md) is historical research, not the current model selection. The new image/video path still needs a live GPU test.
 
 The generation has no added content-filter nodes or hosted generation API. Existing LoRAs can be loaded locally. Different model architectures need their own compatible branch; a Wan 2.2 I2V LoRA or checkpoint is not automatically interchangeable with SCAIL-2.
 

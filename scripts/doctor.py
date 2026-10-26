@@ -71,11 +71,26 @@ def main():
         with urllib.request.urlopen("http://127.0.0.1:%d/object_info" % port, timeout=30) as response:
             catalog = json.load(response)
         errors = []
-        for path in (ROOT / "workflows/api").glob("*.json"):
+        # This tiny pinned node pack has no extra pip dependencies or weights.
+        # Detect old cached engines before declaring the new recipe ready.
+        for name in ('ViggleAnimateConditioning', 'ViggleTextCondLoader', 'RecastViggleSource', 'MiniMaxH3SigmaShift', 'Flux2Scheduler'):
+            if name not in catalog:
+                errors.append('Missing pinned runtime node: ' + name)
+        paths = list((ROOT / 'workflows/api').glob('*.json'))
+        if args.manifest:
+            selected = {f['destination'] for f in json.loads(args.manifest.read_text())['files']}
+            if any('viggle' in name for name in selected):
+                preparation = 'auto' if any('flux-2-klein' in name for name in selected) else 'prepared'
+                paths = [ROOT / ('workflows/experimental/api/viggle_int8_%s_swap.json' % preparation)]
+        elif args.runtime_only:
+            paths.extend((ROOT / 'workflows/experimental/api').glob('viggle*.json'))
+        for path in paths:
             graph = json.loads(path.read_text())
-            if args.manifest:
+            if args.manifest and 'experimental' not in path.parts:
                 graph = profile_schema_graph(graph, json.loads(args.manifest.read_text()))
-            errors += check_api(graph, catalog, allow_missing_files=args.runtime_only)
+            # Model bytes/hashes are checked separately. Example input videos
+            # and images need not exist for an engine or recipe health check.
+            errors += check_api(graph, catalog, allow_missing_files=args.runtime_only or bool(args.manifest))
         if errors:
             raise RuntimeError("; ".join(errors))
         return ("Runtime workflow schemas match; model downloads are manual" if args.runtime_only else

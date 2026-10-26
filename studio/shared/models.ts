@@ -3,6 +3,9 @@ import relight from '../../config/optional-models.lock.json';
 import natural from '../../config/natural-models.lock.json';
 import extras from '../../config/extra-models.lock.json';
 import setup from '../../config/setup-models.json';
+import viggle from '../../config/viggle-models.lock.json';
+import repaint from '../../config/repaint-models.lock.json';
+import { isViggle } from './engines';
 import type { Settings } from './types';
 import { usesSpeedAdapter } from './sampling';
 
@@ -11,18 +14,20 @@ export const NATURAL_SPEED = 'lightx2v_T2V_14B_cfg_step_distill_v2_lora_rank64_b
 export const I2V_SPEED = 'lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors';
 export const DPO = 'wan2.1_SCAIL_2_DPO_lora_bf16.safetensors';
 export const SOCIAL_STYLE = 'Instagoon-v1-step00001400.safetensors';
-export const pinnedModels = [...base.files, ...relight.files, ...natural.files, ...extras.files];
+const scailModels = [...base.files, ...relight.files, ...natural.files, ...extras.files];
+export const pinnedModels = [...scailModels, ...viggle.files, ...repaint.files];
 export const setupModelFiles: string[] = setup.files;
 const filename = (destination: string) => destination.split('/').at(-1)!;
 
 // Describe requirements only. Selection never initiates a download.
 export function modelFilesForSettings(s: Settings): string[] {
+  if (isViggle(s)) return [...viggle.files, ...(s.referencePreparation === 'prepared' ? [] : repaint.files)].map(file => file.destination);
   const adapters = new Set<string>();
   if (s.dpoStrength > 0) adapters.add(DPO);
   if (usesSpeedAdapter(s.preset)) adapters.add(s.preset === 'natural' && s.mode === 'swap' ? NATURAL_SPEED : I2V_SPEED);
   if (s.relight && s.mode === 'swap' && s.relightStrength > 0) adapters.add(RELIGHT);
   for (const name of [s.loraA, s.loraB]) if (name !== 'None') adapters.add(name);
-  return pinnedModels.filter(file => !file.destination.startsWith('loras/') || adapters.has(filename(file.destination)))
+  return scailModels.filter(file => !file.destination.startsWith('loras/') || adapters.has(filename(file.destination)))
     .map(file => file.destination);
 }
 
@@ -31,6 +36,13 @@ export function presetModelFiles(preset: Settings['preset'], mode: Settings['mod
 }
 
 const descriptions: Record<string, [string, string, 'core' | 'adapter']> = {
+  'minimax_h3_ref2va_viggle_pruned_int8_convrot.safetensors': ['Viggle Animate INT8', 'Propagates a source-aligned character edit through the video', 'core'],
+  'viggle_animate_dmd_lora.safetensors': ['Viggle distillation adapter', 'Required matching accelerator for the three-pass video recipe', 'adapter'],
+  'fixed_embed_fwd_anyframe.safetensors': ['Viggle fixed conditioning', 'Tiny precomputed video conditioning; no video text encoder download', 'core'],
+  'minimax_h3_video_vae_int8_convrot.safetensors': ['H3 video encoder / decoder', 'Encodes the source video and decodes the replacement', 'core'],
+  'flux-2-klein-4b-fp8.safetensors': ['FLUX.2 Klein 4B', 'Four-step source-frame character replacement before animation', 'core'],
+  'qwen_3_4b.safetensors': ['Klein text encoder', 'Reads the instruction used to prepare the replacement frame', 'core'],
+  'flux2-vae.safetensors': ['Klein image encoder / decoder', 'Image encoding for the source frame and character reference', 'core'],
   'wan2.1_14B_SCAIL_2_int8_convrot.safetensors': ['SCAIL-2 INT8', 'Character replacement and motion generation', 'core'],
   'umt5_xxl_fp8_e4m3fn_scaled.safetensors': ['Text encoder', 'Reads the positive and negative prompts', 'core'],
   'clip_vision_h.safetensors': ['Reference encoder', 'Reads your character reference image', 'core'],
@@ -44,8 +56,9 @@ const descriptions: Record<string, [string, string, 'core' | 'adapter']> = {
 };
 export const modelDefinitions = pinnedModels.map(file => {
   const [label, description, group] = descriptions[filename(file.destination)];
+  const engine = viggle.files.some(item => item.destination === file.destination) ? 'viggle' : repaint.files.some(item => item.destination === file.destination) ? 'repaint' : 'scail2';
   return { id: file.destination, filename: filename(file.destination), size: file.size, label, description, group,
-    included: group === 'core', experimental: filename(file.destination) === SOCIAL_STYLE,
+    engine, included: group === 'core' || engine === 'viggle', experimental: filename(file.destination) === SOCIAL_STYLE,
     trigger: filename(file.destination) === SOCIAL_STYLE ? 'instag00n' : '',
     source: filename(file.destination) === SOCIAL_STYLE ? extras.files[0].source : '' };
 });

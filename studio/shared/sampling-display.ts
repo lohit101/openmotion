@@ -11,7 +11,7 @@ export const samplingOptions: { value: Settings['preset']; label: string }[] = [
 ];
 
 export function samplingNote(preset: Settings['preset']): string {
-  if (preset === 'natural') return 'Natural uses 8 steps and is included in setup. In our short comparison it changed some mouth and brow expressions. Relighting is a separate switch in Advanced settings. More steps take longer; compare the result with your source.';
+  if (preset === 'natural') return 'Natural uses 8 steps with its matching acceleration download. In our short comparison it changed some mouth and brow expressions. Relighting is a separate switch in Advanced settings. More steps take longer; compare the result with your source.';
   if (!usesSpeedAdapter(preset)) return `Quality uses ${samplingSteps(preset)} steps with the speed adapter disabled. It takes longer and does not guarantee a better result. Relighting is controlled separately in Advanced settings.`;
   return 'Higher resolution takes more time and memory. Relighting is controlled separately in Advanced settings.';
 }

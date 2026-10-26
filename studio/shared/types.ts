@@ -4,6 +4,9 @@ import { defaultNegativePrompt, defaultPrompt } from './prompts';
 import type { ModelsState } from './models';
 
 export const settingsSchema = z.object({
+  engine: z.enum(['scail2', 'viggle']).default('scail2'),
+  referencePreparation: z.enum(['auto', 'prepared']).default('auto'),
+  viggleQuality: z.enum(['fast', 'balanced']).default('fast'),
   mode: z.enum(['swap', 'motion']).default('swap'),
   prompt: z.string().trim().max(8000).default(''),
   negativePrompt: z.string().max(4000).default(defaultNegativePrompt),
@@ -51,6 +54,7 @@ export interface Job {
   promptVersion?: 'scene-v1';
   framingVersion?: 'face-v1'; referenceFraming?: ReferenceFraming; framingCheck?: FramingCheck;
   renderVersion?: 'continuous-v1'; saveDiagnosticLatent?: boolean;
+  keyframe?: string; timings?: { node: string; stage: string; seconds: number }[];
 }
 export interface GraphNode { class_type: string; inputs: Record<string, unknown>; _meta?: { title: string }; }
 export type Graph = Record<string, GraphNode>;

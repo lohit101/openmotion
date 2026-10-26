@@ -3,6 +3,8 @@
   "comfyui_commit": "fb3befd168731438f88bc96e0920a538e8649878",
   "video_helper_repo": "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git",
   "video_helper_commit": "4d907bee61e92c2e65af3bd6383a4e4d356126d1",
+  "viggle_repo": "https://github.com/Saganaki22/ComfyUI-Viggle-Animate-H3.git",
+  "viggle_commit": "6ae081af5b3175f99ef7cddebd5dfaf93390ab70",
   "torch": "2.11.0",
   "torchvision": "0.26.0",
   "torchaudio": "2.11.0",

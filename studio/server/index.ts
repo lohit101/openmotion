@@ -20,6 +20,7 @@ import { defaults, geometry, renderGeometry, segmentCount, settingsSchema } from
 import type { Asset, Catalog, Graph, Job } from '../shared/types';
 import { migrateDemoPrompt, PROMPT_VERSION } from '../shared/prompts';
 import { FRAMING_VERSION, type ReferenceGeometry } from './framing';
+import { engineIssue, isViggle } from '../shared/engines';
 
 const STUDIO = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const REPO = path.dirname(STUDIO);
@@ -135,6 +136,8 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   app.post('/api/jobs', async (req, res) => {
     if (cloud.state.busy || cloud.state.launches.some(l => ['stopping', 'destroying'].includes(l.phase) || (l.instanceId && l.safetyStatus === 'unconfirmed'))) return void res.status(503).json({ error: 'The GPU setup or stop status is not settled. Your draft is saved; check GPU cloud before generating.' });
     const value = z.object({ sourceId: z.string(), referenceId: z.string(), settings: settingsSchema, saveDiagnosticLatent: z.boolean().default(false) }).parse(req.body);
+    const issue = engineIssue(value.settings); if (issue) return void res.status(400).json({ error: issue });
+    if (isViggle(value.settings) && value.saveDiagnosticLatent) return void res.status(400).json({ error: 'Viggle exports its conditioning frame and video; SCAIL latent diagnostics are not available.' });
     const key = req.get('Idempotency-Key'); if (!key || key.length > 120) return void res.status(400).json({ error: 'A request ID is required.' });
     const existing = store.byKey(key); if (existing) return void res.json(publicJob(existing));
     if (connection.status.state !== 'online') return void res.status(503).json({ error: 'Connect the GPU before generating. Your draft is saved locally.' });
@@ -148,11 +151,12 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     for (const name of [value.settings.loraA, value.settings.loraB]) if (name !== 'None' && !connection.status.loras.includes(name)) return void res.status(409).json({ error: 'Upload the selected custom LoRA before generating: ' + name });
     const source = store.asset(value.sourceId), reference = store.asset(value.referenceId); if (!source || !reference) throw new Error('Upload both inputs before generating.');
     validateSelection(source, reference, value.settings.start, value.settings.seconds, value.settings.fps);
+    if (isViggle(value.settings) && value.settings.referencePreparation === 'prepared' && Math.abs((reference.width / reference.height) / (source.width / source.height) - 1) > 0.05) return void res.status(400).json({ error: 'An already edited source frame must keep the source video’s aspect ratio. Use automatic reference preparation for a standalone character photo.' });
     const settings = { ...value.settings, prompt: migrateDemoPrompt(value.settings.prompt, value.settings.mode) }; if (settings.randomSeed) settings.seed = randomInt(0, 0xffffffff);
     const [width, height] = renderGeometry(settings, source), [outputWidth, outputHeight] = geometry(settings, source), target = Math.ceil(settings.seconds * settings.fps);
-    const job: Job = { id: randomUUID(), title: source.name.replace(/\.[^.]+$/, '') + (settings.mode === 'swap' ? ' / character swap' : ' / motion transfer'), status: 'queued', sourceId: source.id, referenceId: reference.id, settings, promptVersion: PROMPT_VERSION, renderVersion: 'continuous-v1', saveDiagnosticLatent: value.saveDiagnosticLatent, ...(settings.mode === 'swap' ? { framingVersion: FRAMING_VERSION } : {}),
+    const job: Job = { id: randomUUID(), title: source.name.replace(/\.[^.]+$/, '') + (isViggle(settings) ? ' / Viggle swap' : settings.mode === 'swap' ? ' / character swap' : ' / motion transfer'), status: 'queued', sourceId: source.id, referenceId: reference.id, settings, promptVersion: PROMPT_VERSION, renderVersion: 'continuous-v1', saveDiagnosticLatent: value.saveDiagnosticLatent, ...(settings.mode === 'swap' && !isViggle(settings) ? { framingVersion: FRAMING_VERSION } : {}),
       createdAt: new Date().toISOString(), favorite: false, deleted: false, width, height, ...(settings.resolution === '720' ? { outputSize: { width: outputWidth, height: outputHeight } } : {}),
-      progress: { stage: 'Queued', node: null, value: null, max: null, unit: 'steps', segment: 1, segments: segmentCount(target, settings.framesPerPass), completedFrames: 0, targetFrames: target, updatedAt: Date.now() },
+      progress: { stage: 'Queued', node: null, value: null, max: null, unit: 'steps', segment: 1, segments: isViggle(settings) ? 1 : segmentCount(target, settings.framesPerPass), completedFrames: 0, targetFrames: target, updatedAt: Date.now() },
       segments: [], context: '', pendingPrompt: null, uploads: null, error: null, output: null, poster: null, cancelRequested: false, elapsedSeconds: null, origin: 'render', workflow: null };
     store.addJob(job, key); res.status(201).json(publicJob(job)); void runner.kick();
   });
@@ -176,6 +180,10 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   });
   app.get('/api/jobs/:id/:type', (req, res) => {
     const job = store.job(String(req.params.id)); if (!job) return void res.sendStatus(404);
+    if (req.params.type === 'keyframe') {
+      if (!job.keyframe) return void res.sendStatus(404);
+      return void res.sendFile(path.join(store.root, 'jobs', job.id, 'keyframe.png'));
+    }
     if (req.params.type === 'aligned-reference') {
       if (!job.referenceFraming) return void res.sendStatus(404);
       return void res.sendFile(path.join(store.root, 'jobs', job.id, 'aligned-reference.png'));

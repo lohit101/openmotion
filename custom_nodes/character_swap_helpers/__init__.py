@@ -11,7 +11,7 @@ import nodes
 from safetensors import safe_open
 from safetensors.torch import load_file, save_file
 
-from .logic import OVERLAP, context_matches, dimensions, padded_length
+from .logic import OVERLAP, context_matches, dimensions, padded_length, viggle_length
 
 
 class SwapControls:
@@ -84,6 +84,26 @@ def fit_images(images, width, height):
     left, top = (width - resized_width) // 2, (height - resized_height) // 2
     output[:, top:top + resized_height, left:left + resized_width] = resized
     return output
+
+
+class RecastViggleSource:
+    """Pad only the generation grid; retain the actual count for exact export."""
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {"required": {"images": ("IMAGE",), "width": ("INT", {"default": 480, "min": 32, "max": 2048, "step": 32}), "height": ("INT", {"default": 864, "min": 32, "max": 2048, "step": 32})}}
+
+    RETURN_TYPES = ("IMAGE", "INT", "IMAGE")
+    RETURN_NAMES = ("padded_video", "source_count", "source_frame")
+    FUNCTION = "prepare"
+    CATEGORY = "Character Swap/Viggle"
+
+    def prepare(self, images, width, height):
+        images = fit_images(images, width, height)
+        count = len(images)
+        length = viggle_length(count)
+        if length > count:
+            images = torch.cat([images, images[-1:].repeat(length - count, 1, 1, 1)])
+        return images, count, images[:1]
 
 
 class SwapFitReference:
@@ -218,6 +238,7 @@ class SwapSaveContext:
 
 
 NODE_CLASS_MAPPINGS = {
+    "RecastViggleSource": RecastViggleSource,
     "SwapControls": SwapControls,
     "SwapPrepareShot": SwapPrepareShot,
     "SwapFitReference": SwapFitReference,
@@ -227,6 +248,7 @@ NODE_CLASS_MAPPINGS = {
     "SwapSaveContext": SwapSaveContext,
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
+    "RecastViggleSource": "Prepare Viggle Source and Anchor Frame",
     "SwapControls": "Shot Settings",
     "SwapPrepareShot": "Prepare Source Window",
     "SwapFitReference": "Fit Reference Without Cropping",
