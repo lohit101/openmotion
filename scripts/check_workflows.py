@@ -38,12 +38,21 @@ def check_api(graph, catalog, allow_missing_files=False):
             continue
         required = schema["input"].get("required", {})
         fields = dict(required, **schema["input"].get("optional", {}))
+        growing = set()
+        for name, definition in list(fields.items()):
+            if definition[0] == "COMFY_AUTOGROW_V3":
+                template = definition[1].get("template", {})
+                definitions = list(template.get("input", {}).get("required", {}).values())
+                if len(definitions) == 1:
+                    growing.add(name)
+                    for child in template.get("names", []):
+                        fields[name + "." + child] = definitions[0]
         if kind == "VHS_VideoCombine":
             formats = required["format"][1]["formats"]
             for entry in formats.get(node["inputs"].get("format"), []):
                 fields[entry[0]] = entry[1:]
         for name in required:
-            if name not in node["inputs"]:
+            if name not in node["inputs"] and name not in growing:
                 errors.append("%s: missing %s" % (key, name))
         for name, value in node["inputs"].items():
             if name not in fields:

@@ -45,7 +45,7 @@ async def validate(comfy_root):
         (fixtures / "output").mkdir()
         Image.new("RGB", (64, 96), (100, 120, 140)).save(fixtures / "input/reference.png")
         Image.new("RGB", (64, 96), (100, 120, 140)).save(fixtures / "input/repainted-source-frame.png")
-        for name in ['target.png', 'identity.png', 'edit-mask.png']:
+        for name in ['target.png', 'identity.png', 'edit-mask.png', 'face.png', 'face-refine-mask.png']:
             Image.new("RGB", (1024, 1024), (100, 120, 140)).save(fixtures / 'input' / name)
         (fixtures / "input/source.mp4").write_bytes(b"filename-validation-only")
         for item in selected_manifest()['files']:

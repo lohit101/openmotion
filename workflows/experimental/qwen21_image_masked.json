@@ -1,0 +1,1059 @@
+{
+  "last_node_id": 132,
+  "last_link_id": 21,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "LoadImage",
+      "pos": [
+        0,
+        0
+      ],
+      "size": [
+        320,
+        440
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            6
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": []
+        }
+      ],
+      "title": "Image one \u00b7 base scene, camera and pose",
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "target.png"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "LoadImage",
+      "pos": [
+        0,
+        520
+      ],
+      "size": [
+        320,
+        440
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            7
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": []
+        }
+      ],
+      "title": "Image two \u00b7 entire replacement person and outfit",
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "identity.png"
+      ]
+    },
+    {
+      "id": 46,
+      "type": "SaveImage",
+      "pos": [
+        2520,
+        0
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": []
+        }
+      ],
+      "title": "Save one lossless whole-person replacement",
+      "properties": {
+        "Node name for S&R": "SaveImage"
+      },
+      "widgets_values": [
+        "recast/klein-image-replacement/segment_0000"
+      ]
+    },
+    {
+      "id": 102,
+      "type": "UNETLoader",
+      "pos": [
+        420,
+        0
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            2
+          ]
+        }
+      ],
+      "title": "Qwen Image 2.1 INT8",
+      "properties": {
+        "Node name for S&R": "UNETLoader"
+      },
+      "widgets_values": [
+        "qwen_image_2.1_int8_convrot.safetensors",
+        "default"
+      ]
+    },
+    {
+      "id": 103,
+      "type": "CLIPLoader",
+      "pos": [
+        420,
+        420
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            5
+          ]
+        }
+      ],
+      "title": "Matching Qwen 2.1 visual text encoder",
+      "properties": {
+        "Node name for S&R": "CLIPLoader"
+      },
+      "widgets_values": [
+        "qwen3vl_8b_int8_convrot.safetensors",
+        "qwen_image",
+        "default"
+      ]
+    },
+    {
+      "id": 104,
+      "type": "VAELoader",
+      "pos": [
+        420,
+        840
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            8,
+            14
+          ]
+        }
+      ],
+      "title": "Matching Qwen image VAE",
+      "properties": {
+        "Node name for S&R": "VAELoader"
+      },
+      "widgets_values": [
+        "qwen_image_2.1_vae_bf16.safetensors"
+      ]
+    },
+    {
+      "id": 105,
+      "type": "LoraLoaderModelOnly",
+      "pos": [
+        840,
+        0
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 2
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            3
+          ]
+        }
+      ],
+      "title": "Matching official eight-step acceleration",
+      "properties": {
+        "Node name for S&R": "LoraLoaderModelOnly"
+      },
+      "widgets_values": [
+        "qwen_image_2.1_turbo_lora_avg_rank_178_bf16.safetensors",
+        1
+      ]
+    },
+    {
+      "id": 106,
+      "type": "LoraLoaderModelOnly",
+      "pos": [
+        840,
+        420
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 3
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            4
+          ]
+        }
+      ],
+      "title": "Trained whole-person swap, not a general style adapter",
+      "properties": {
+        "Node name for S&R": "LoraLoaderModelOnly"
+      },
+      "widgets_values": [
+        "bfs_body_swap_v1.0_qwen_2.1.safetensors",
+        1
+      ]
+    },
+    {
+      "id": 107,
+      "type": "QwenImage21Cache",
+      "pos": [
+        840,
+        840
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 4
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            9
+          ]
+        }
+      ],
+      "title": "Reuse reference prefix without lossy cache quantization",
+      "properties": {
+        "Node name for S&R": "QwenImage21Cache"
+      },
+      "widgets_values": [
+        "auto",
+        "default"
+      ]
+    },
+    {
+      "id": 108,
+      "type": "TextEncodeQwenImage21",
+      "pos": [
+        840,
+        1260
+      ],
+      "size": [
+        320,
+        438
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 5
+        },
+        {
+          "name": "images.image_1",
+          "type": "IMAGE",
+          "shape": 7,
+          "link": 6
+        },
+        {
+          "name": "images.image_2",
+          "type": "IMAGE",
+          "shape": 7,
+          "link": 7
+        },
+        {
+          "name": "images.image_3",
+          "type": "IMAGE",
+          "shape": 7,
+          "link": null
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 8,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "links": [
+            10
+          ]
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "links": [
+            11
+          ]
+        },
+        {
+          "name": "latent",
+          "type": "LATENT",
+          "links": [
+            12
+          ]
+        }
+      ],
+      "title": "Scene first, replacement person second; keep the scene-sized native latent",
+      "properties": {
+        "Node name for S&R": "TextEncodeQwenImage21"
+      },
+      "widgets_values": [
+        "body_swap: start with <image1> as the base image, keeping its lighting, environment and background. Replace its entire person with the person from <image2>, preserving <image2> facial identity, hair, complete clothing, accessories, body shape and proportions. Match <image1> exact pose, head rotation, gaze, expression, apparent head size, camera distance, framing and screen position. Fit the replacement outfit to that pose and illuminate the person with <image1> light direction, exposure, color temperature and contact shadows.",
+        "",
+        0
+      ]
+    },
+    {
+      "id": 118,
+      "type": "KSampler",
+      "pos": [
+        2100,
+        0
+      ],
+      "size": [
+        320,
+        340
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 9
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 10
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 11
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 12
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            13
+          ]
+        }
+      ],
+      "title": "Replace the complete person \u00b7 eight steps",
+      "properties": {
+        "Node name for S&R": "KSampler"
+      },
+      "widgets_values": [
+        20261027,
+        "fixed",
+        8,
+        1,
+        "euler",
+        "simple",
+        1
+      ]
+    },
+    {
+      "id": 119,
+      "type": "VAEDecode",
+      "pos": [
+        2100,
+        420
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 13
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 14
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            15
+          ]
+        }
+      ],
+      "title": "Decode the Qwen replacement",
+      "properties": {
+        "Node name for S&R": "VAEDecode"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 120,
+      "type": "SplitImageWithAlpha",
+      "pos": [
+        2520,
+        420
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 15
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            16
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": []
+        }
+      ],
+      "title": "Use RGB explicitly from the RGBA decoder",
+      "properties": {
+        "Node name for S&R": "SplitImageWithAlpha"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 126,
+      "type": "ImageCrop",
+      "pos": [
+        2520,
+        840
+      ],
+      "size": [
+        320,
+        196
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 16
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            17
+          ]
+        }
+      ],
+      "title": "Remove only grid padding",
+      "properties": {
+        "Node name for S&R": "ImageCrop"
+      },
+      "widgets_values": [
+        1024,
+        1024,
+        0,
+        0
+      ]
+    },
+    {
+      "id": 127,
+      "type": "ImageScale",
+      "pos": [
+        2520,
+        1260
+      ],
+      "size": [
+        320,
+        196
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 17
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            20
+          ]
+        }
+      ],
+      "title": "Restore the exact base photograph dimensions",
+      "properties": {
+        "Node name for S&R": "ImageScale"
+      },
+      "widgets_values": [
+        "lanczos",
+        1024,
+        1024,
+        "disabled"
+      ]
+    },
+    {
+      "id": 128,
+      "type": "LoadImage",
+      "pos": [
+        0,
+        1040
+      ],
+      "size": [
+        320,
+        440
+      ],
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            19
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": []
+        }
+      ],
+      "title": "Keep original scene pixels",
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "target.png"
+      ]
+    },
+    {
+      "id": 129,
+      "type": "LoadImage",
+      "pos": [
+        0,
+        1560
+      ],
+      "size": [
+        320,
+        440
+      ],
+      "flags": {},
+      "order": 16,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            18
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": []
+        }
+      ],
+      "title": "Target-bound replacement area",
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "edit-mask.png"
+      ]
+    },
+    {
+      "id": 130,
+      "type": "ImageToMask",
+      "pos": [
+        2520,
+        1680
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 17,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 18
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [
+            21
+          ]
+        }
+      ],
+      "title": "White edits, black preserves",
+      "properties": {
+        "Node name for S&R": "ImageToMask"
+      },
+      "widgets_values": [
+        "red"
+      ]
+    },
+    {
+      "id": 131,
+      "type": "ImageCompositeMasked",
+      "pos": [
+        2520,
+        2100
+      ],
+      "size": [
+        320,
+        214
+      ],
+      "flags": {},
+      "order": 18,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "destination",
+          "type": "IMAGE",
+          "link": 19
+        },
+        {
+          "name": "source",
+          "type": "IMAGE",
+          "link": 20
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "link": 21,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            1
+          ]
+        }
+      ],
+      "title": "Protect the original outside the edit area",
+      "properties": {
+        "Node name for S&R": "ImageCompositeMasked"
+      },
+      "widgets_values": [
+        0,
+        0,
+        false
+      ]
+    },
+    {
+      "id": 132,
+      "type": "MarkdownNote",
+      "pos": [
+        0,
+        2414
+      ],
+      "size": [
+        1000,
+        680
+      ],
+      "flags": {},
+      "order": 19,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {},
+      "title": "Start here",
+      "widgets_values": [
+        "# Qwen Image 2.1 whole-person replacement \u00b7 evaluation candidate\n\nImage one is the base photograph: scene, pose, lighting, camera distance and framing.\nImage two supplies the complete replacement person, facial identity and outfit.\nThe matching BFS body adapter and official eight-step accelerator are required.\nUse Qwen 2.1 INT8, its Qwen3-VL 8B encoder and matching RGBA VAE; Klein files\nare incompatible. The complete image stack is 18.41 GB. No prompt enhancer is required.\n\nEight steps, Euler/simple, CFG 1, native reference-prefix cache with default precision.\nUse a clear full-body reference on a plain light background, about 0.59 MP.\nThe base scene stays first and its native latent output sizes the generation.\nSplit RGBA to RGB before compositing. Paint the person and preserve occlusions.\nReview identity, pose and scene lighting; GPU quality and timing are not yet measured.\nBase Qwen components use the Qwen Research License; the BFS adapter is MIT.\n"
+      ]
+    }
+  ],
+  "links": [
+    [
+      1,
+      131,
+      0,
+      46,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      102,
+      0,
+      105,
+      0,
+      "MODEL"
+    ],
+    [
+      3,
+      105,
+      0,
+      106,
+      0,
+      "MODEL"
+    ],
+    [
+      4,
+      106,
+      0,
+      107,
+      0,
+      "MODEL"
+    ],
+    [
+      5,
+      103,
+      0,
+      108,
+      0,
+      "CLIP"
+    ],
+    [
+      6,
+      1,
+      0,
+      108,
+      1,
+      "IMAGE"
+    ],
+    [
+      7,
+      4,
+      0,
+      108,
+      2,
+      "IMAGE"
+    ],
+    [
+      8,
+      104,
+      0,
+      108,
+      4,
+      "VAE"
+    ],
+    [
+      9,
+      107,
+      0,
+      118,
+      0,
+      "MODEL"
+    ],
+    [
+      10,
+      108,
+      0,
+      118,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      11,
+      108,
+      1,
+      118,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      12,
+      108,
+      2,
+      118,
+      3,
+      "LATENT"
+    ],
+    [
+      13,
+      118,
+      0,
+      119,
+      0,
+      "LATENT"
+    ],
+    [
+      14,
+      104,
+      0,
+      119,
+      1,
+      "VAE"
+    ],
+    [
+      15,
+      119,
+      0,
+      120,
+      0,
+      "IMAGE"
+    ],
+    [
+      16,
+      120,
+      0,
+      126,
+      0,
+      "IMAGE"
+    ],
+    [
+      17,
+      126,
+      0,
+      127,
+      0,
+      "IMAGE"
+    ],
+    [
+      18,
+      129,
+      0,
+      130,
+      0,
+      "IMAGE"
+    ],
+    [
+      19,
+      128,
+      0,
+      131,
+      0,
+      "IMAGE"
+    ],
+    [
+      20,
+      127,
+      0,
+      131,
+      1,
+      "IMAGE"
+    ],
+    [
+      21,
+      130,
+      0,
+      131,
+      2,
+      "MASK"
+    ]
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "title": "01 Inputs",
+      "bounding": [
+        -20,
+        -65,
+        780,
+        2090
+      ],
+      "color": "#35586e",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 2,
+      "title": "02 Person tracking and masks",
+      "bounding": [
+        820,
+        -65,
+        360,
+        1788
+      ],
+      "color": "#546741",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 4,
+      "title": "04 Identity and text",
+      "bounding": [
+        2080,
+        -65,
+        360,
+        690
+      ],
+      "color": "#654a73",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 5,
+      "title": "05 Native replacement",
+      "bounding": [
+        2500,
+        -65,
+        360,
+        2404
+      ],
+      "color": "#41686b",
+      "font_size": 24,
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.38,
+      "offset": [
+        90,
+        100
+      ]
+    },
+    "frontendVersion": "1.57.1",
+    "VHS_MetadataImage": true,
+    "VHS_KeepIntermediate": false,
+    "character_swap_version": 1,
+    "recast_engine": "qwen21-image"
+  },
+  "version": 0.4
+}

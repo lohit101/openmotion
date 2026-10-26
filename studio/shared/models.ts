@@ -5,8 +5,11 @@ import extras from '../../config/extra-models.lock.json';
 import setup from '../../config/setup-models.json';
 import viggle from '../../config/viggle-models.lock.json';
 import repaint from '../../config/repaint-models.lock.json';
+import imageAdapters from '../../config/image-adapters.lock.json';
+import qwenImage from '../../config/qwen-image-models.lock.json';
 import { isViggle } from './engines';
 import type { Settings } from './types';
+import type { ImageSettings } from './image-replacement';
 import { usesSpeedAdapter } from './sampling';
 
 export const RELIGHT = 'wan2.1_SCAIL_2_relight_lora_bf16.safetensors';
@@ -15,9 +18,12 @@ export const I2V_SPEED = 'lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.saf
 export const DPO = 'wan2.1_SCAIL_2_DPO_lora_bf16.safetensors';
 export const SOCIAL_STYLE = 'Instagoon-v1-step00001400.safetensors';
 const scailModels = [...base.files, ...relight.files, ...natural.files, ...extras.files];
-export const pinnedModels = [...scailModels, ...viggle.files, ...repaint.files];
+export const pinnedModels = [...scailModels, ...viggle.files, ...repaint.files, ...imageAdapters.files, ...qwenImage.files];
 export const setupModelFiles: string[] = setup.files;
 export const imageModelFiles = repaint.files.map(file => file.destination);
+export const IMAGE_IDENTITY = 'bfs_head_v1_flux-klein_4b.safetensors';
+export const qwenImageModelFiles = qwenImage.files.map(file => file.destination);
+export const imageFilesForSettings = (settings: ImageSettings): string[] => settings.model === 'qwen21' ? qwenImageModelFiles : [...imageModelFiles, ...(settings.identityRefine ? ['loras/' + IMAGE_IDENTITY] : [])];
 const filename = (destination: string) => destination.split('/').at(-1)!;
 
 // Describe requirements only. Selection never initiates a download.
@@ -43,6 +49,12 @@ const descriptions: Record<string, [string, string, 'core' | 'adapter']> = {
   'minimax_h3_video_vae_int8_convrot.safetensors': ['H3 video encoder / decoder', 'Encodes the source video and decodes the replacement', 'core'],
   'flux-2-klein-4b-fp8.safetensors': ['FLUX.2 Klein 4B', 'Four-step source-frame character replacement before animation', 'core'],
   'qwen_3_4b.safetensors': ['Klein text encoder', 'Reads the instruction used to prepare the replacement frame', 'core'],
+  [IMAGE_IDENTITY]: ['Klein identity refinement · BFS', 'Trained head-swap adapter for a separate four-step facial identity pass. Klein 4B only.', 'adapter'],
+  'qwen_image_2.1_int8_convrot.safetensors': ['Qwen Image 2.1 INT8', 'Alternative image editor for the trained whole-person swap recipe. GPU quality comparison pending.', 'core'],
+  'qwen3vl_8b_int8_convrot.safetensors': ['Qwen 2.1 vision-language encoder', 'Reads both the scene and replacement person for the Qwen image recipe', 'core'],
+  'qwen_image_2.1_vae_bf16.safetensors': ['Qwen 2.1 image encoder / decoder', 'Matching Qwen image latent and RGB/alpha decoder', 'core'],
+  'qwen_image_2.1_turbo_lora_avg_rank_178_bf16.safetensors': ['Qwen 2.1 eight-step adapter', 'Matching official accelerator for the Qwen image recipe', 'adapter'],
+  'bfs_body_swap_v1.0_qwen_2.1.safetensors': ['Qwen whole-person swap · BFS', 'Trained body, outfit and identity transfer with scene-first and person-second inputs. Quality test pending.', 'adapter'],
   'flux2-vae.safetensors': ['Klein image encoder / decoder', 'Image encoding for the source frame and character reference', 'core'],
   'wan2.1_14B_SCAIL_2_int8_convrot.safetensors': ['SCAIL-2 INT8', 'Character replacement and motion generation', 'core'],
   'umt5_xxl_fp8_e4m3fn_scaled.safetensors': ['Text encoder', 'Reads the positive and negative prompts', 'core'],
@@ -57,7 +69,7 @@ const descriptions: Record<string, [string, string, 'core' | 'adapter']> = {
 };
 export const modelDefinitions = pinnedModels.map(file => {
   const [label, description, group] = descriptions[filename(file.destination)];
-  const engine = viggle.files.some(item => item.destination === file.destination) ? 'viggle' : repaint.files.some(item => item.destination === file.destination) ? 'repaint' : 'scail2';
+  const engine = viggle.files.some(item => item.destination === file.destination) ? 'viggle' : [...repaint.files, ...imageAdapters.files, ...qwenImage.files].some(item => item.destination === file.destination) ? 'repaint' : 'scail2';
   return { id: file.destination, filename: filename(file.destination), size: file.size, label, description, group,
     engine, included: group === 'core', experimental: filename(file.destination) === SOCIAL_STYLE,
     trigger: filename(file.destination) === SOCIAL_STYLE ? 'instag00n' : '',
@@ -67,7 +79,7 @@ export type ModelStatus = 'unknown' | 'missing' | 'queued' | 'downloading' | 'in
 export interface ModelTransfer { downloaded: number; total: number; bytesPerSecond?: number; }
 export interface ModelFileState { id: string; status: ModelStatus; percent: number | null; message: string; error: string | null; downloaded?: number; total?: number; bytesPerSecond?: number; }
 export interface InstalledLora { name: string; size: number; partialSize?: number; included: boolean; }
-export interface ModelsState { files: ModelFileState[]; busy: boolean; refreshing: boolean; error: string | null; checkedAt: string | null; installedLoras: InstalledLora[]; deleting: string | null; }
+export interface ModelsState { files: ModelFileState[]; busy: boolean; refreshing: boolean; error: string | null; checkedAt: string | null; installedLoras: InstalledLora[]; deleting: string | null; diskFreeBytes?: number; }
 export const emptyModels = (): ModelsState => ({ files: modelDefinitions.map(file => ({ id: file.id, status: 'unknown', percent: null, message: '', error: null })), busy: false, refreshing: false, error: null, checkedAt: null, installedLoras: [], deleting: null });
 
 export function modelBytes(files: string[]): number {

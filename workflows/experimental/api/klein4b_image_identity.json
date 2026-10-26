@@ -1,0 +1,691 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "target.png"
+    },
+    "_meta": {
+      "title": "Target photo controls pose and framing"
+    }
+  },
+  "4": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "identity.png"
+    },
+    "_meta": {
+      "title": "Identity reference controls face, hair and outfit"
+    }
+  },
+  "46": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "131",
+        0
+      ],
+      "filename_prefix": "recast/klein-image-replacement/segment_0000"
+    },
+    "_meta": {
+      "title": "Save one lossless replacement image"
+    }
+  },
+  "102": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "flux-2-klein-4b-fp8.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": {
+      "title": "Load the shared Klein 4B editor"
+    }
+  },
+  "103": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen_3_4b.safetensors",
+      "type": "flux2",
+      "device": "default"
+    },
+    "_meta": {
+      "title": "Read the photographic replacement instructions"
+    }
+  },
+  "104": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "flux2-vae.safetensors"
+    },
+    "_meta": {
+      "title": "Load the shared image encoder"
+    }
+  },
+  "105": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": [
+        "103",
+        0
+      ],
+      "text": "IMAGE 1 supplies the scene and pose; IMAGE 2 supplies the entire replacement person and outfit. Replace the entire person in IMAGE 1 with the person from IMAGE 2, including their recognizable face, hair, body appearance, complete outfit and accessories. Dress them entirely in IMAGE 2's garments, preserving the neckline, sleeves, fabric, colors and garment length, fitted naturally to the target pose. Replace every original garment and accessory rather than combining the two outfits. Match IMAGE 1's exact pose, head size, screen position, camera distance, expression and framing. Preserve its room, objects and occlusions. Illuminate the replacement with the target scene's light direction, exposure, color temperature, reflected light and contact shadows. Match the photograph's focus, grain and natural skin texture."
+    },
+    "_meta": {
+      "title": "Separate target composition from replacement identity"
+    }
+  },
+  "106": {
+    "class_type": "ConditioningZeroOut",
+    "inputs": {
+      "conditioning": [
+        "105",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Distilled zero conditioning"
+    }
+  },
+  "107": {
+    "class_type": "VAEEncode",
+    "inputs": {
+      "pixels": [
+        "1",
+        0
+      ],
+      "vae": [
+        "104",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Encode target composition as image one"
+    }
+  },
+  "108": {
+    "class_type": "VAEEncode",
+    "inputs": {
+      "pixels": [
+        "4",
+        0
+      ],
+      "vae": [
+        "104",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Encode replacement identity as image two"
+    }
+  },
+  "109": {
+    "class_type": "ReferenceLatent",
+    "inputs": {
+      "conditioning": [
+        "105",
+        0
+      ],
+      "latent": [
+        "107",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Target is the first reference"
+    }
+  },
+  "110": {
+    "class_type": "ReferenceLatent",
+    "inputs": {
+      "conditioning": [
+        "106",
+        0
+      ],
+      "latent": [
+        "107",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Target is the first zero reference"
+    }
+  },
+  "111": {
+    "class_type": "ReferenceLatent",
+    "inputs": {
+      "conditioning": [
+        "109",
+        0
+      ],
+      "latent": [
+        "108",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Identity is the second reference"
+    }
+  },
+  "112": {
+    "class_type": "ReferenceLatent",
+    "inputs": {
+      "conditioning": [
+        "110",
+        0
+      ],
+      "latent": [
+        "108",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Identity is the second zero reference"
+    }
+  },
+  "113": {
+    "class_type": "CFGGuider",
+    "inputs": {
+      "model": [
+        "102",
+        0
+      ],
+      "positive": [
+        "111",
+        0
+      ],
+      "negative": [
+        "112",
+        0
+      ],
+      "cfg": 1
+    },
+    "_meta": {
+      "title": "Native distilled guidance"
+    }
+  },
+  "115": {
+    "class_type": "Flux2Scheduler",
+    "inputs": {
+      "steps": 4,
+      "width": 1024,
+      "height": 1024
+    },
+    "_meta": {
+      "title": "Four-step Klein schedule"
+    }
+  },
+  "116": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 20261027
+    },
+    "_meta": {
+      "title": "Save a reproducible image seed"
+    }
+  },
+  "117": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "euler"
+    },
+    "_meta": {
+      "title": "Euler image sampler"
+    }
+  },
+  "118": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "116",
+        0
+      ],
+      "guider": [
+        "113",
+        0
+      ],
+      "sampler": [
+        "117",
+        0
+      ],
+      "sigmas": [
+        "115",
+        0
+      ],
+      "latent_image": [
+        "134",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Replace the character in four image steps"
+    }
+  },
+  "119": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "118",
+        0
+      ],
+      "vae": [
+        "104",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Decode the replacement photograph"
+    }
+  },
+  "122": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "face.png"
+    },
+    "_meta": {
+      "title": "Close-up of the same replacement identity"
+    }
+  },
+  "123": {
+    "class_type": "VAEEncode",
+    "inputs": {
+      "pixels": [
+        "221",
+        0
+      ],
+      "vae": [
+        "104",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Encode facial detail without borrowing its framing"
+    }
+  },
+  "126": {
+    "class_type": "ImageCrop",
+    "inputs": {
+      "image": [
+        "220",
+        0
+      ],
+      "width": 1024,
+      "height": 1024,
+      "x": 0,
+      "y": 0
+    },
+    "_meta": {
+      "title": "Remove grid padding without changing camera framing"
+    }
+  },
+  "127": {
+    "class_type": "ImageScale",
+    "inputs": {
+      "image": [
+        "126",
+        0
+      ],
+      "upscale_method": "lanczos",
+      "width": 1024,
+      "height": 1024,
+      "crop": "disabled"
+    },
+    "_meta": {
+      "title": "Restore the exact original image dimensions"
+    }
+  },
+  "128": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "target.png"
+    },
+    "_meta": {
+      "title": "Keep original scene pixels"
+    }
+  },
+  "129": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "edit-mask.png"
+    },
+    "_meta": {
+      "title": "Read the selected replacement area"
+    }
+  },
+  "130": {
+    "class_type": "ImageToMask",
+    "inputs": {
+      "image": [
+        "129",
+        0
+      ],
+      "channel": "red"
+    },
+    "_meta": {
+      "title": "White replaces; black preserves"
+    }
+  },
+  "131": {
+    "class_type": "ImageCompositeMasked",
+    "inputs": {
+      "destination": [
+        "128",
+        0
+      ],
+      "source": [
+        "127",
+        0
+      ],
+      "x": 0,
+      "y": 0,
+      "resize_source": false,
+      "mask": [
+        "130",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Replace only the painted area"
+    }
+  },
+  "132": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "edit-mask.png"
+    },
+    "_meta": {
+      "title": "Keep the sampling mask aligned with the target canvas"
+    }
+  },
+  "133": {
+    "class_type": "ImageToMask",
+    "inputs": {
+      "image": [
+        "132",
+        0
+      ],
+      "channel": "red"
+    },
+    "_meta": {
+      "title": "Denoise only the selected area"
+    }
+  },
+  "134": {
+    "class_type": "SetLatentNoiseMask",
+    "inputs": {
+      "samples": [
+        "107",
+        0
+      ],
+      "mask": [
+        "133",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Retain target scene context during masked sampling"
+    }
+  },
+  "201": {
+    "class_type": "VAEEncode",
+    "inputs": {
+      "pixels": [
+        "119",
+        0
+      ],
+      "vae": [
+        "104",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Keep the completed outfit and scene as the facial-edit base"
+    }
+  },
+  "202": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": [
+        "103",
+        0
+      ],
+      "text": "head_swap: start with Picture 1 as the base image, keeping its lighting, environment, and background. Replace its head with the head from Picture 2, preserving Picture 2 facial identity, hair, eyes, nose, lips and jaw. Match Picture 1 head rotation, gaze and expression. Keep Picture 1 body, clothing, pose, framing, exposure, light direction and skin illumination."
+    },
+    "_meta": {
+      "title": "Use the trained adapter body-first face-second contract"
+    }
+  },
+  "203": {
+    "class_type": "ConditioningZeroOut",
+    "inputs": {
+      "conditioning": [
+        "202",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Distilled facial-edit zero conditioning"
+    }
+  },
+  "204": {
+    "class_type": "ReferenceLatent",
+    "inputs": {
+      "conditioning": [
+        "202",
+        0
+      ],
+      "latent": [
+        "201",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Completed outfit and scene are facial-pass image one"
+    }
+  },
+  "205": {
+    "class_type": "ReferenceLatent",
+    "inputs": {
+      "conditioning": [
+        "203",
+        0
+      ],
+      "latent": [
+        "201",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Facial-pass zero image one"
+    }
+  },
+  "206": {
+    "class_type": "ReferenceLatent",
+    "inputs": {
+      "conditioning": [
+        "204",
+        0
+      ],
+      "latent": [
+        "123",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Clear identity face is facial-pass image two"
+    }
+  },
+  "207": {
+    "class_type": "ReferenceLatent",
+    "inputs": {
+      "conditioning": [
+        "205",
+        0
+      ],
+      "latent": [
+        "123",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Facial-pass zero image two"
+    }
+  },
+  "208": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": {
+      "model": [
+        "102",
+        0
+      ],
+      "lora_name": "bfs_head_v1_flux-klein_4b.safetensors",
+      "strength_model": 1
+    },
+    "_meta": {
+      "title": "Load the matching trained Klein 4B BFS identity adapter"
+    }
+  },
+  "209": {
+    "class_type": "CFGGuider",
+    "inputs": {
+      "model": [
+        "208",
+        0
+      ],
+      "positive": [
+        "206",
+        0
+      ],
+      "negative": [
+        "207",
+        0
+      ],
+      "cfg": 1
+    },
+    "_meta": {
+      "title": "Native distilled identity guidance"
+    }
+  },
+  "210": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "face-refine-mask.png"
+    },
+    "_meta": {
+      "title": "Read the source-aligned facial edit area"
+    }
+  },
+  "211": {
+    "class_type": "ImageToMask",
+    "inputs": {
+      "image": [
+        "210",
+        0
+      ],
+      "channel": "red"
+    },
+    "_meta": {
+      "title": "Restrict identity refinement to the facial area"
+    }
+  },
+  "214": {
+    "class_type": "EmptyFlux2LatentImage",
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "batch_size": 1
+    },
+    "_meta": {
+      "title": "Use the published head-swap fresh-latent recipe"
+    }
+  },
+  "216": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 20261028
+    },
+    "_meta": {
+      "title": "Independent reproducible facial-pass seed"
+    }
+  },
+  "218": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "216",
+        0
+      ],
+      "guider": [
+        "209",
+        0
+      ],
+      "sampler": [
+        "117",
+        0
+      ],
+      "sigmas": [
+        "115",
+        0
+      ],
+      "latent_image": [
+        "214",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Refine facial identity · four steps"
+    }
+  },
+  "219": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "218",
+        0
+      ],
+      "vae": [
+        "104",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Decode the identity refinement"
+    }
+  },
+  "220": {
+    "class_type": "ImageCompositeMasked",
+    "inputs": {
+      "destination": [
+        "119",
+        0
+      ],
+      "source": [
+        "219",
+        0
+      ],
+      "x": 0,
+      "y": 0,
+      "resize_source": false,
+      "mask": [
+        "211",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Keep the completed outfit and scene outside the facial edit"
+    }
+  },
+  "221": {
+    "class_type": "ImageScaleToTotalPixels",
+    "inputs": {
+      "image": [
+        "122",
+        0
+      ],
+      "upscale_method": "lanczos",
+      "megapixels": 1,
+      "resolution_steps": 16
+    },
+    "_meta": {
+      "title": "Give the identity reference a full reference-token budget"
+    }
+  }
+}

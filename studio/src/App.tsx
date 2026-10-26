@@ -10,7 +10,7 @@ import { setupNotice } from '../shared/cloud-status';
 import { framingNotice, FramingWarningTracker } from '../shared/framing-status';
 import { samplingNote, samplingOptions, samplingSteps } from '../shared/sampling-display';
 import { defaultVigglePrompt, engineIssue, engineLabel, isViggle, repaintPrompt, vigglePasses } from '../shared/engines';
-import { DPO, emptyModels, modelDefinitions, modelFilesForSettings, presetModelFiles, RELIGHT as RELIGHT_MODEL, SOCIAL_STYLE, type ModelsState } from '../shared/models';
+import { DPO, emptyModels, IMAGE_IDENTITY, modelDefinitions, modelFilesForSettings, presetModelFiles, RELIGHT as RELIGHT_MODEL, SOCIAL_STYLE, type ModelsState } from '../shared/models';
 import ModelsWorkspace, { DownloadButton, DownloadSelect, RequiredFiles, modelSize, type DownloadControls } from './ModelDownloads';
 import FramingNotice from './FramingNotice';
 import SettingsWorkspace, { type SettingsTab } from './SettingsWorkspace';
@@ -122,7 +122,7 @@ export default function App() {
       else if (e.type === 'connection') setData(old => old ? { ...old, connection: e.data } : old);
       else if (e.type === 'cloud') setData(old => old ? { ...old, cloud: e.data } : old);
       else if (e.type === 'models') setData(old => old ? { ...old, models: e.data } : old);
-      else if (e.type === 'lora-removed') setDraft(old => ({ ...old, settings: { ...old.settings, ...(old.settings.loraA === e.data.name ? { loraA: 'None' } : {}), ...(old.settings.loraB === e.data.name ? { loraB: 'None' } : {}) } }));
+      else if (e.type === 'lora-removed') { setDraft(old => ({ ...old, settings: { ...old.settings, ...(old.settings.loraA === e.data.name ? { loraA: 'None' } : {}), ...(old.settings.loraB === e.data.name ? { loraB: 'None' } : {}) } })); if (e.data.name === IMAGE_IDENTITY) setImageDraft(old => ({ ...old, settings: { ...old.settings, identityRefine: false } })); }
     };
     return () => { disposed = true; stream.close(); };
   }, [receiveBootstrap]);

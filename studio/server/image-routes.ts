@@ -12,7 +12,7 @@ import type { CloudManager } from './cloud';
 import type { ModelManager } from './models';
 import { command, ingest, probe } from './media';
 import { imageDraftSchema, imageGeometry, isImageJob } from '../shared/image-replacement';
-import { imageModelFiles } from '../shared/models';
+import { imageFilesForSettings } from '../shared/models';
 import { defaults, type Asset, type Job } from '../shared/types';
 
 const publicAsset = (asset: Asset) => ({ ...asset, path: '', poster: 'ready' });
@@ -52,9 +52,10 @@ export function registerImageRoutes(app: Express, store: Store, connection: Conn
     if (!key || key.length > 120) return void res.status(400).json({ error: 'An image request ID is required.' });
     const previous = store.byKey(key); if (previous) return void res.status(isImageJob(previous) ? 200 : 409).json(isImageJob(previous) ? publicJob(previous) : { error: 'This request ID was used for another workflow.' });
     if (!value.sourceId || !value.referenceId) throw new Error('Add a target image and an identity reference.');
-    inputs([value.sourceId, value.referenceId, value.settings.faceDetail ? value.faceId : null, value.settings.protectBackground ? value.maskId : null]);
+    if (value.settings.model === 'qwen21') { value.settings.faceDetail = false; value.settings.identityRefine = false; }
+    inputs([value.sourceId, value.referenceId, value.settings.faceDetail || value.settings.identityRefine ? value.faceId : null, value.settings.protectBackground ? value.maskId : null]);
     if (value.settings.protectBackground && (!value.maskId || store.asset(value.maskId)?.maskFor !== value.sourceId)) throw new Error('Paint the replacement area on this target, or turn off background protection.');
-    const source = store.asset(value.sourceId)!, geometry = imageGeometry(source, value.settings.megapixels);
+    const source = store.asset(value.sourceId)!, geometry = imageGeometry(source, value.settings.megapixels, value.settings.model);
     if (cloud.state.busy || cloud.state.launches.some(l => ['stopping', 'destroying'].includes(l.phase) || (l.instanceId && l.safetyStatus === 'unconfirmed'))) return void res.status(503).json({ error: 'Wait for GPU setup or instance actions to settle before generating.' });
     if (connection.status.state !== 'online') return void res.status(503).json({ error: 'Connect the GPU before generating. Your image draft stays local.' });
     if (models.state.busy) return void res.status(409).json({ error: 'Finish model downloads before generating.' });
@@ -62,12 +63,13 @@ export function registerImageRoutes(app: Express, store: Store, connection: Conn
     const accepted = store.byKey(key); if (accepted) return void res.json(publicJob(accepted));
     if (models.state.busy || cloud.state.busy || connection.status.state !== 'online') return void res.status(409).json({ error: 'GPU readiness changed during the check. Nothing was queued.' });
     if (models.state.error) return void res.status(503).json({ error: models.state.error });
-    const missing = imageModelFiles.filter(id => models.state.files.find(file => file.id === id)?.status !== 'installed');
-    if (missing.length) return void res.status(409).json({ error: 'Download the three Klein image files first. No video models are needed.', missingModels: missing });
+    const missing = imageFilesForSettings(value.settings).filter(id => models.state.files.find(file => file.id === id)?.status !== 'installed');
+    if (missing.length) return void res.status(409).json({ error: 'Download the selected image files first. No video models are needed.', missingModels: missing });
     const settings = { ...value.settings }; if (settings.randomSeed) settings.seed = randomInt(0, 0xffffffff);
-    const job: Job = { id: randomUUID(), title: source.name.replace(/\.[^.]+$/, '') + ' / image replacement', status: 'queued', mediaType: 'image',
+    const title = source.sourceFrame ? `Frame ${source.sourceFrame.time.toFixed(2)}s / image replacement` : source.name.replace(/\.[^.]+$/, '').slice(0, 80) + ' / image replacement';
+    const job: Job = { id: randomUUID(), title, status: 'queued', mediaType: 'image',
       sourceId: value.sourceId, referenceId: value.referenceId, settings: { ...defaults, prompt: settings.prompt, seed: settings.seed, randomSeed: settings.randomSeed },
-      image: { version: 'masked-latent-v2', settings, faceId: value.faceId, maskId: value.maskId, geometry }, width: geometry.width, height: geometry.height, outputSize: { width: source.width, height: source.height },
+      image: { version: 'masked-latent-v4', settings, faceId: value.faceId, maskId: value.maskId, geometry }, width: geometry.width, height: geometry.height, outputSize: { width: source.width, height: source.height },
       createdAt: new Date().toISOString(), favorite: false, deleted: false, progress: { stage: 'Queued for image replacement', node: null, value: null, max: null, unit: 'steps', segment: 1, segments: 1, completedFrames: 0, targetFrames: 1, updatedAt: Date.now() },
       segments: [], context: '', pendingPrompt: null, uploads: null, error: null, output: null, poster: null, cancelRequested: false, elapsedSeconds: null, origin: 'render', workflow: null };
     store.addJob(job, key); res.status(201).json(publicJob(job)); void runner.kick();

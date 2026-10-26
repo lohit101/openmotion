@@ -68,7 +68,15 @@ export function validateGraph(graph: Graph, catalog: Catalog) {
     const schema = catalog[node.class_type]; if (!schema) { issues.push(`Missing ComfyUI node: ${node.class_type}. Run the pinned setup.`); continue; }
     const fields = { ...schema.input.required, ...schema.input.optional };
     for (const [name, value] of Object.entries(node.inputs)) {
-      const rule = fields[name]; if (!rule) { if (node.class_type !== 'VHS_VideoCombine') issues.push(`Unsupported input ${id}.${name}.`); continue; }
+      let rule = fields[name];
+      if (!rule) {
+        const [root, child, ...rest] = name.split('.'), growing = fields[root];
+        if (!rest.length && growing?.[0] === 'COMFY_AUTOGROW_V3') {
+          const template = (growing[1] as { template?: { names?: string[]; input?: { required?: Record<string, typeof rule> } } } | undefined)?.template, definitions = Object.values(template?.input?.required || {});
+          if (template?.names?.includes(child) && definitions.length === 1) rule = definitions[0] as typeof rule;
+        }
+      }
+      if (!rule) { if (node.class_type !== 'VHS_VideoCombine') issues.push(`Unsupported input ${id}.${name}.`); continue; }
       const linked = Array.isArray(value) && value.length === 2 && typeof value[0] === 'string' && typeof value[1] === 'number';
       if (linked) { const parent = graph[value[0] as string]; if (!parent || !catalog[parent.class_type]?.output[value[1] as number]) issues.push(`Broken workflow connection at ${id}.${name}.`); }
       else if (Array.isArray(rule[0]) && !(rule[0] as unknown[]).includes(value)) issues.push(`Unavailable ${name}: ${String(value)}.`);

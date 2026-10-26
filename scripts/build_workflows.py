@@ -92,6 +92,16 @@ def ui_graph(graph, layout, catalog, title):
             for name, definition in schema["input"].get(section, {}).items():
                 kind = definition[0]
                 options = definition[1] if len(definition) > 1 else {}
+                if kind == "COMFY_AUTOGROW_V3":
+                    template = options.get("template", {})
+                    child_types = list(template.get("input", {}).get("required", {}).values())
+                    if len(child_types) == 1:
+                        children = template.get("names", [])
+                        present = [child for child in children if name + "." + child in data["inputs"]]
+                        empty = next((child for child in children if child not in present), None)
+                        for child in present + ([empty] if empty else []):
+                            node["inputs"].append({"name": name + "." + child, "type": child_types[0][0], "shape": 7, "link": None})
+                    continue
                 widget = isinstance(kind, list) or kind in ("INT", "FLOAT", "STRING", "BOOLEAN", "COMBO")
                 value = data["inputs"].get(name)
                 connected = is_link(value)

@@ -2,18 +2,19 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { defaults, type Catalog, type Job } from '../shared/types';
-import { defaultImagePrompt, emptyImageDraft, imageDefaults, imageGeometry, imagePrompt, isImageJob } from '../shared/image-replacement';
-import { imageModelFiles, modelBytes, pinnedModels } from '../shared/models';
+import { defaultImagePrompt, emptyImageDraft, imageDefaults, imageGeometry, imagePrompt, isImageJob, legacyImagePrompt } from '../shared/image-replacement';
+import { IMAGE_IDENTITY, imageFilesForSettings, imageModelFiles, modelBytes, pinnedModels, qwenImageModelFiles } from '../shared/models';
 import { compileWorkflow, validateGraph } from '../server/workflow';
 import { applyProgress } from '../server/comfy';
 import { publicJob } from '../server/store';
 
 const repo = path.resolve(import.meta.dirname, '../..');
 const load = (file: string) => JSON.parse(readFileSync(path.join(repo, file), 'utf8'));
-const catalog: Catalog = { ...load('integration-snapshot/object-info.json'), ...load('integration-snapshot/viggle-node-schemas.json') };
+const catalog: Catalog = { ...load('integration-snapshot/object-info.json'), ...load('integration-snapshot/viggle-node-schemas.json'), ...load('integration-snapshot/qwen21-node-schemas.json') };
 for (const node of Object.values(catalog)) for (const [name, rule] of Object.entries({ ...node.input.required, ...node.input.optional })) {
   if (name === 'image') rule[0] = ['target.png', 'identity.png', 'face.png', 'original.png', 'mask.png'];
   if (['unet_name', 'vae_name', 'clip_name'].includes(name) && Array.isArray(rule[0])) rule[0] = [...rule[0], ...pinnedModels.map(f => f.destination.split('/').at(-1))];
+  if (name === 'lora_name' && Array.isArray(rule[0])) rule[0] = [...rule[0], ...pinnedModels.filter(file => file.destination.startsWith('loras/')).map(file => file.destination.slice(6))];
 }
 function fixture(): Job {
   const geometry = imageGeometry({ width: 1171, height: 1801 }, 1);
@@ -73,9 +74,66 @@ describe('source-preserving Klein image replacement', () => {
     const graph = compileWorkflow({}, job);
     expect(graph['124']).toBeUndefined(); expect(graph['128']).toBeUndefined(); expect(graph['131']).toBeUndefined();
     expect(graph['113'].inputs.positive).toEqual(['111', 0]); expect(graph['46'].inputs.images).toEqual(['127', 0]);
-    expect(imagePrompt({ ...imageDefaults, prompt: '' }, false)).toContain(defaultImagePrompt);
+    expect(imagePrompt({ ...imageDefaults, prompt: '' }, false)).toContain(legacyImagePrompt);
     expect(imagePrompt(imageDefaults, true)).toContain('IMAGE 3');
     expect(imagePrompt(imageDefaults, false)).not.toContain('IMAGE 3');
+  });
+  it('separates the trained identity pass from outfit editing and requires only its selected adapter', () => {
+    const job = fixture(); job.image!.version = 'masked-latent-v3';
+    job.image!.settings = { ...imageDefaults, identityRefine: true };
+    job.uploads!.faceMask = 'mask.png';
+    const graph = compileWorkflow({}, job);
+    expect(validateGraph(graph, catalog)).toEqual([]);
+    expect(graph['124']).toBeUndefined();
+    expect(graph['113'].inputs.model).toEqual(['102', 0]);
+    expect(graph['208'].inputs).toEqual({ model: ['102', 0], lora_name: IMAGE_IDENTITY, strength_model: 1 });
+    expect(graph['209'].inputs.model).toEqual(['208', 0]);
+    expect(graph['204'].inputs.latent).toEqual(['201', 0]);
+    expect(graph['206'].inputs.latent).toEqual(['123', 0]);
+    expect(graph['212'].inputs.samples).toEqual(['201', 0]);
+    expect(graph['220'].inputs.destination).toEqual(['119', 0]);
+    expect(graph['126'].inputs.image).toEqual(['220', 0]);
+    expect(graph['105'].inputs.text).not.toContain('IMAGE 3');
+    expect(imageFilesForSettings(imageDefaults)).toEqual(imageModelFiles);
+    expect(imageFilesForSettings(job.image!.settings)).toEqual([...imageModelFiles, 'loras/' + IMAGE_IDENTITY]);
+    delete job.uploads!.faceMask; expect(() => compileWorkflow({}, job)).toThrow('clear reference face');
+  });
+  it('uses a focused complete-outfit default only on the new recipe, preserving paid legacy prompts', () => {
+    expect(imagePrompt({ ...imageDefaults, prompt: legacyImagePrompt }, false, 'masked-latent-v3')).toContain(defaultImagePrompt);
+    expect(imagePrompt({ ...imageDefaults, prompt: '' }, false, 'masked-latent-v2')).toContain(legacyImagePrompt);
+    expect(imagePrompt({ ...imageDefaults, prompt: '' }, false, 'masked-latent-v3')).toContain('complete outfit');
+    expect(defaultImagePrompt).toContain('light direction');
+    expect(defaultImagePrompt).not.toContain('maroon');
+  });
+  it('uses the published fresh-latent adapter recipe and an explicit facial reference budget on v4', () => {
+    const job = fixture(); job.image!.version = 'masked-latent-v4'; job.image!.settings = { ...imageDefaults, identityRefine: true }; job.uploads!.faceMask = 'mask.png';
+    const graph = compileWorkflow({}, job);
+    expect(validateGraph(graph, catalog)).toEqual([]);
+    expect(graph['123'].inputs.pixels).toEqual(['221', 0]);
+    expect(graph['221'].inputs.megapixels).toBe(1);
+    expect(graph['218'].inputs.latent_image).toEqual(['214', 0]);
+    expect(graph['214'].inputs).toEqual({ width: job.width, height: job.height, batch_size: 1 });
+    expect(graph['212']).toBeUndefined();
+    expect(graph['220'].inputs.mask).toEqual(['211', 0]);
+    expect(graph['131'].inputs.destination).toEqual(['128', 0]);
+  });
+  it('keeps Qwen whole-person inputs ordered, native latent sizing and matching model families', () => {
+    const job = fixture(); job.image!.version = 'masked-latent-v4'; job.image!.settings = { ...imageDefaults, model: 'qwen21', faceDetail: false };
+    job.image!.geometry = imageGeometry({ width: 720, height: 1280 }, 2, 'qwen21');
+    const graph = compileWorkflow({}, job), g = job.image!.geometry;
+    expect(validateGraph(graph, catalog)).toEqual([]);
+    expect(graph['108'].inputs).toMatchObject({ 'images.image_1': ['1', 0], 'images.image_2': ['4', 0], resolution: 0 });
+    expect(graph['118'].inputs).toMatchObject({ latent_image: ['108', 2], steps: 8, cfg: 1, sampler_name: 'euler', scheduler: 'simple' });
+    expect(graph['120'].class_type).toBe('SplitImageWithAlpha');
+    expect(graph['126'].inputs.image).toEqual(['120', 0]);
+    expect(graph['131'].inputs.destination).toEqual(['128', 0]);
+    expect(g.width % 32).toBe(0); expect(g.height % 32).toBe(0);
+    expect(g.contentWidth * g.contentHeight).toBeGreaterThan(1_990_000);
+    expect(imageFilesForSettings(job.image!.settings)).toEqual(qwenImageModelFiles);
+    expect(modelBytes(qwenImageModelFiles)).toBe(18_406_159_200);
+    expect(qwenImageModelFiles.some(file => /klein|flux2|qwen_3_4b/.test(file))).toBe(false);
+    graph['108'].inputs['images.unapproved_17'] = ['4', 0];
+    expect(validateGraph(graph, catalog)).toContain('Unsupported input 108.images.unapproved_17.');
   });
   it('reports true four-step image progress and keeps input upload paths private', () => {
     const job = fixture(); job.workflow = compileWorkflow({}, job); job.pendingPrompt = 'paid-image';

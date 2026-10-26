@@ -96,6 +96,57 @@ class ImageReplacementTests(unittest.TestCase):
             native = cv2.imread(str(work / "edit-mask.png"), 0)
             np.testing.assert_array_equal(working[5:122, 1:94], native)
 
+    def test_refinement_face_area_is_aligned_and_never_expands_the_selected_edit(self):
+        import cv2
+        import numpy as np
+        with tempfile.TemporaryDirectory() as temp, patch.object(editor, "detect", return_value=[{"bbox": [30, 20, 20, 28], "confidence": .95}]):
+            _, _, request, work = self.fixture(Path(temp))
+            request["version"] = "masked-latent-v3"
+            request["settings"]["identityRefine"] = True
+            editor.prepare(request, work, "fixture detector")
+            face = cv2.imread(str(work / "face-refine-mask.png"), 0)
+            mask = cv2.imread(str(work / "working-mask.png"), 0)
+            self.assertEqual(face.shape, mask.shape)
+            self.assertTrue(np.any(face > 64))
+            self.assertTrue(np.all(face <= mask))
+            self.assertEqual(editor.prepare(request, work, "fixture detector")["hasFace"], True)
+
+    def test_missing_identity_face_fails_before_paid_inference(self):
+        with tempfile.TemporaryDirectory() as temp, patch.object(editor, "detect", return_value=[]):
+            _, _, request, work = self.fixture(Path(temp))
+            request["version"] = "masked-latent-v3"
+            request["settings"]["identityRefine"] = True
+            with self.assertRaisesRegex(ValueError, "clear reference face"):
+                editor.prepare(request, work, None)
+
+    def test_face_review_uses_the_manual_closeup_that_actually_conditioned_the_model(self):
+        import cv2
+        import numpy as np
+        with tempfile.TemporaryDirectory() as temp, patch.object(editor, "detect", return_value=[{"bbox": [30, 20, 20, 28], "confidence": .95}]):
+            source, _, request, work = self.fixture(Path(temp))
+            manual = Path(temp) / "manual.png"
+            cv2.imwrite(str(manual), np.full_like(source, 77))
+            request["face"] = str(manual)
+            editor.prepare(request, work, "fixture detector")
+            cv2.imwrite(str(work / "gpu-result.png"), source)
+            editor.finish(request, work, "fixture detector")
+            self.assertTrue(np.all(cv2.imread(str(work / "reference-face.png")) == 77))
+
+    def test_closeup_target_crops_distant_reference_framing_without_stretching_or_changing_pixels(self):
+        import numpy as np
+        source = np.zeros((300, 200, 3), np.uint8)
+        reference = np.arange(600 * 400 * 3, dtype=np.uint8).reshape(600, 400, 3)
+        faces = [[{"bbox": [40, 60, 100, 140], "confidence": .95}], [{"bbox": [180, 70, 50, 70], "confidence": .95}]]
+        with patch.object(editor, "detect", side_effect=faces):
+            result, cropped = editor.reference_field_of_view(reference, source, "fixture detector")
+        self.assertTrue(cropped)
+        self.assertEqual(result.shape, (150, 100, 3))
+        np.testing.assert_array_equal(result, reference[40:190, 160:260])
+        with patch.object(editor, "detect", return_value=[]):
+            result, cropped = editor.reference_field_of_view(reference, source, None)
+        self.assertFalse(cropped)
+        self.assertIs(result, reference)
+
 
 if __name__ == "__main__":
     unittest.main()

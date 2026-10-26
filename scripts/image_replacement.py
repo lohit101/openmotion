@@ -24,12 +24,12 @@ def read_image(file, gray=False):
     return image
 
 
-def padded(image, max_pixels):
+def padded(image, max_pixels, grid=16):
     cv2, _ = dependencies()
     h, w = image.shape[:2]
     scale = min(1, math.sqrt(max_pixels / (w * h)))
     cw, ch = max(1, round(w * scale)), max(1, round(h * scale))
-    width, height = max(64, math.ceil(cw / 16) * 16), max(64, math.ceil(ch / 16) * 16)
+    width, height = max(64, math.ceil(cw / grid) * grid), max(64, math.ceil(ch / grid) * grid)
     x, y = (width - cw) // 2, (height - ch) // 2
     scaled = cv2.resize(image, (cw, ch), interpolation=cv2.INTER_AREA) if (cw, ch) != (w, h) else image
     return cv2.copyMakeBorder(scaled, y, height - ch - y, x, width - cw - x, cv2.BORDER_REPLICATE)
@@ -49,6 +49,28 @@ def face_crop(image, face):
     x0, y0 = max(0, int(cx - side / 2)), max(0, int(cy - side / 2))
     x1, y1 = min(w, math.ceil(cx + side / 2)), min(h, math.ceil(cy + side / 2))
     return image[y0:y1, x0:x1]
+
+
+def reference_field_of_view(reference, source, model):
+    """Crop a distant body reference for a close-up target without warping it.
+
+    This removes irrelevant standing-body framing from portrait edits. It does
+    not infer pose or invent details absent from the original reference.
+    """
+    source_faces, reference_faces = detect(source, model), detect(reference, model)
+    if len(source_faces) != 1 or len(reference_faces) != 1:
+        return reference, False
+    a, b = source_faces[0]["bbox"], reference_faces[0]["bbox"]
+    factor = math.sqrt((b[2] * b[3]) / (a[2] * a[3]))
+    sh, sw = source.shape[:2]
+    rh, rw = reference.shape[:2]
+    width, height = round(sw * factor), round(sh * factor)
+    if min(width, height) < 32 or width > rw or height > rh or width * height > rw * rh * .72:
+        return reference, False
+    x = round(b[0] + b[2] / 2 - (a[0] + a[2] / 2) * factor)
+    y = round(b[1] + b[3] / 2 - (a[1] + a[3] / 2) * factor)
+    x, y = max(0, min(rw - width, x)), max(0, min(rh - height, y))
+    return reference[y:y + height, x:x + width], True
 
 
 def fingerprint(request):
@@ -78,10 +100,15 @@ def prepare(request, folder, model):
     target = cv2.copyMakeBorder(small, g["y"], g["height"] - g["contentHeight"] - g["y"], g["x"], g["width"] - g["contentWidth"] - g["x"], cv2.BORDER_REPLICATE)
     atomic_png(folder / "target.png", target)
     atomic_png(folder / "original.png", source)
-    atomic_png(folder / "identity.png", padded(reference, 1_000_000))
+    qwen = s.get("model") == "qwen21"
+    reference_input, cropped = reference_field_of_view(reference, source, model) if request.get("version") == "masked-latent-v4" and not qwen else (reference, False)
+    atomic_png(folder / "identity.png", padded(reference_input, 590_000 if qwen else 1_000_000, 32 if qwen else 16))
     outputs = ["target.png", "original.png", "identity.png"]
     warnings, has_face = [], False
-    if s["faceDetail"]:
+    if cropped:
+        warnings.append("The full-body identity reference was cropped to match the target's tighter field of view. The original reference is retained.")
+    refine = request.get("version") in ["masked-latent-v3", "masked-latent-v4"] and s.get("identityRefine", False)
+    if s["faceDetail"] or refine:
         if request.get("face"):
             crop = read_image(request["face"])
         else:
@@ -90,9 +117,12 @@ def prepare(request, folder, model):
             if crop is None:
                 warnings.append("No unambiguous face close-up could be extracted. The full identity reference is used; add a clear close-up for stronger facial guidance.")
         if crop is not None:
-            atomic_png(folder / "face.png", padded(crop, 384 * 384))
+            atomic_png(folder / "face.png", padded(crop, 1_000_000 if refine and request.get("version") == "masked-latent-v4" else 384 * 384))
             outputs.append("face.png")
             has_face = True
+    if refine and not has_face:
+        raise ValueError("Identity refinement requires one clear reference face. Add a close-up before generating.")
+    working_mask = None
     if s["protectBackground"]:
         if not request.get("mask"):
             raise ValueError("Paint the replacement area before using background protection.")
@@ -107,13 +137,33 @@ def prepare(request, folder, model):
             mask = np.minimum(mask, cv2.GaussianBlur(mask, (0, 0), max(.1, s["feather"] / 2)))
         atomic_png(folder / "edit-mask.png", mask)
         outputs.append("edit-mask.png")
-        if request.get("version") == "masked-latent-v2":
+        if request.get("version") in ["masked-latent-v2", "masked-latent-v3", "masked-latent-v4"]:
             small_mask = cv2.resize(mask, (g["contentWidth"], g["contentHeight"]), interpolation=cv2.INTER_AREA)
             working_mask = cv2.copyMakeBorder(small_mask, g["y"], g["height"] - g["contentHeight"] - g["y"], g["x"], g["width"] - g["contentWidth"] - g["x"], cv2.BORDER_CONSTANT, value=0)
             atomic_png(folder / "working-mask.png", working_mask)
             outputs.append("working-mask.png")
         if np.mean(mask > 0) > .98:
             warnings.append("The edit area covers almost the entire photo. Background protection applies only outside the painted area.")
+    if refine:
+        faces = detect(source, model)
+        if len(faces) != 1:
+            raise ValueError("Identity refinement requires one clear face in the target. Choose a visible-face source frame before generating.")
+        ref_faces = detect(read_image(folder / "face.png"), model)
+        if len(ref_faces) != 1:
+            raise ValueError("The identity close-up must show one clear face. Choose a sharper single-person reference.")
+        x, y, fw, fh = faces[0]["bbox"]
+        sx, sy = g["contentWidth"] / source.shape[1], g["contentHeight"] / source.shape[0]
+        center = (round((x + fw / 2) * sx + g["x"]), round((y + fh / 2) * sy + g["y"]))
+        axes = (max(1, round(fw * .72 * sx)), max(1, round(fh * .85 * sy)))
+        face_mask = np.zeros((g["height"], g["width"]), dtype=np.uint8)
+        cv2.ellipse(face_mask, center, axes, 0, 0, 360, 255, -1)
+        face_mask = cv2.GaussianBlur(face_mask, (0, 0), max(2, min(axes) * .08))
+        if working_mask is not None:
+            face_mask = np.minimum(face_mask, working_mask)
+        if not np.any(face_mask > 64):
+            raise ValueError("Paint over the target face as well as the outfit before using identity refinement.")
+        atomic_png(folder / "face-refine-mask.png", face_mask)
+        outputs.append("face-refine-mask.png")
     atomic_json(marker, {"fingerprint": signature, "hasFace": has_face, "warnings": warnings, "outputs": {name: sha256(folder / name) for name in outputs}})
     return {"hasFace": has_face, "warnings": warnings}
 
@@ -137,7 +187,8 @@ def finish(request, folder, model):
         outside_difference = int(np.max(np.abs(output[outside].astype(np.int16) - source[outside].astype(np.int16)))) if np.any(outside) else 0
     atomic_png(folder / "final.png", output)
     faces = {}
-    for name, image in [("source", source), ("reference", read_image(request["reference"])), ("output", output)]:
+    reference_file = request.get("face") or request["reference"]
+    for name, image in [("source", source), ("reference", read_image(reference_file)), ("output", output)]:
         found = detect(image, model)
         faces[name] = found[0] if len(found) == 1 else None
         if faces[name]:

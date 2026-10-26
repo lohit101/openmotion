@@ -1,0 +1,14 @@
+{
+  "total_bytes": 369644384,
+  "files": [
+    {
+      "repo": "Alissonerdx/BFS-Best-Face-Swap",
+      "revision": "0ca3913ade4b4ada458d60c232354e8586c4c181",
+      "filename": "bfs_head_v1_flux-klein_4b.safetensors",
+      "destination": "loras/bfs_head_v1_flux-klein_4b.safetensors",
+      "size": 369644384,
+      "sha256": "77aabcd6144612dd4873080b99283dd9a27977712548bee161894f62c91ff09c",
+      "license": "mit"
+    }
+  ]
+}

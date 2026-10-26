@@ -116,10 +116,11 @@ export class Runner {
         job.image!.prepared = prepared; this.save(job); this.checkCancelled(job);
         const files = [['source', 'target.png'], ['reference', 'identity.png'], ...(prepared.hasFace ? [['face', 'face.png']] : []), ...(job.image!.settings.protectBackground ? [['original', 'original.png'], ['mask', 'edit-mask.png']] : [])];
         const g = job.image!.geometry, nativeMask = g.width === g.outputWidth && g.height === g.outputHeight && g.x === 0 && g.y === 0;
-        if (job.image!.version === 'masked-latent-v2' && job.image!.settings.protectBackground && !nativeMask) files.push(['noiseMask', 'working-mask.png']);
+        if (job.image!.version && job.image!.settings.protectBackground && !nativeMask) files.push(['noiseMask', 'working-mask.png']);
+        if (['masked-latent-v3', 'masked-latent-v4'].includes(job.image!.version || '') && job.image!.settings.identityRefine) files.push(['faceMask', 'face-refine-mask.png']);
         const uploads: Record<string, string> = {};
         for (const [key, name] of files) { this.stage(job, 'Transferring image inputs to GPU', Object.keys(uploads).length, files.length, 'inputs'); uploads[key] = await client.upload(path.join(folder, name), job.id + '-' + key, signal); this.checkCancelled(job); }
-        if (job.image!.version === 'masked-latent-v2' && job.image!.settings.protectBackground && nativeMask) uploads.noiseMask = uploads.mask;
+        if (job.image!.version && job.image!.settings.protectBackground && nativeMask) uploads.noiseMask = uploads.mask;
         job.uploads = uploads as NonNullable<Job['uploads']>; this.save(job);
       }
       if (!job.uploads && !isImageJob(job)) {

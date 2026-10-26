@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def selected_manifest(files=None):
     available = []
-    for name in ('models.lock.json', 'optional-models.lock.json', 'natural-models.lock.json', 'extra-models.lock.json', 'viggle-models.lock.json', 'repaint-models.lock.json'):
+    for name in ('models.lock.json', 'optional-models.lock.json', 'natural-models.lock.json', 'extra-models.lock.json', 'viggle-models.lock.json', 'repaint-models.lock.json', 'image-adapters.lock.json', 'qwen-image-models.lock.json'):
         available.extend(json.loads((ROOT / 'config' / name).read_text())['files'])
     if files is None:
         files = [item['destination'] for item in available]
