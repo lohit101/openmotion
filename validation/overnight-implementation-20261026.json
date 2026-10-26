@@ -77,13 +77,14 @@
   },
   "first_gpu_candidate": {
     "gpu": "RTX PRO 5000 Blackwell 48 GB",
-    "location": "India",
-    "sampled_compute_hourly": 0.604,
+    "location": "Nebraska, US",
+    "sampled_compute_hourly": 0.6666666666666666,
     "disk_gb": 96,
     "sampled_disk_hourly": 0.026666666666666665,
-    "sampled_running_hourly": 0.6306666666666666,
+    "sampled_running_hourly": 0.6933333333333332,
     "quote_evidence": "validation/overnight-gpu-quotes-20261026.json",
-    "not_a_current_reservation_or_performance_ranking": true
+    "not_a_current_reservation_or_performance_ranking": true,
+    "selection": "Preferred final quote; India $0.604 compute is the lower hourly-cost alternative but much slower/more costly on advertised cold transfers."
   },
   "public_demo_review": "validation/public-viggle-demo-review-20261026.json",
   "remaining": [

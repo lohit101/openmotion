@@ -1,6 +1,6 @@
 # Overnight realism and cost plan · 26 October 2026
 
-The implementation is a source-frame repaint followed by Viggle propagation. The first GPU to test is a **48 GB RTX PRO 5000 Blackwell**, with **96 GB disk** and a 64 GB-class or larger host RAM allocation. Keep GPU compute at or below the user's **$0.70/hour hard ceiling**; disk is separate. **Three minutes for five seconds is a validation target, not an achieved result.**
+The implementation is a source-frame repaint followed by Viggle propagation. The first GPU to test is a **48 GB RTX PRO 5000 Blackwell**, preferably the final **$0.667/hour compute / $0.693/hour running** quote with fast networking and low transfer fees, with **96 GB disk** and a 64 GB-class or larger host RAM allocation. Keep GPU compute at or below the user's **$0.70/hour hard ceiling**; disk is separate. **Three minutes for five seconds is a validation target, not an achieved result.**
 
 The app and both standalone ComfyUI workflows are built. Offline checks pass, including real pinned ComfyUI prompt validation on CPU and actual tensor execution of the source-fitting, padding and anchor helpers. These checks load no model weights and do not establish GPU inference correctness or output quality. Vast's most recent rental attempt reports **insufficient credit**, and the provider currently lists no running or retained instances on this account. No new generated video, speed record, or visual-quality improvement is claimed for this implementation. Do not mistake the saved example timings for a new benchmark.
 
@@ -39,7 +39,8 @@ These are timestamped **Vast quotes, not reservations or benchmarks**. See [the 
 
 | GPU / example location | Compute / hour | Disk / hour | Running total / hour | Assessment |
 |---|---:|---:|---:|---|
-| RTX PRO 5000 48 GB / India | $0.604 | $0.0267 | $0.6307 | First test: enough model headroom and current Blackwell kernels. Its 629 Mbps download is a cold-start weakness. |
+| RTX PRO 5000 48 GB / Nebraska | $0.6667 | $0.0267 | $0.6933 | Preferred final quote: 73.7 GB host RAM, 3,412 Mbps download, 7,456 MB/s reported disk and near-zero transfer fees. Actual timing still needs testing. |
+| RTX PRO 5000 48 GB / India | $0.604 | $0.0267 | $0.6307 | Lower hourly price; its 629 Mbps download and higher transfer fee make cold sessions less attractive. |
 | RTX 5090 32 GB / Japan | $0.5733 | $0.1333 | $0.7067 | Faster raw compute/bandwidth candidate, but tight VRAM, expensive retained disk and a lower host reliability score in this quote. Test only after the recipe works. |
 | L40S 48 GB / US | $0.4333 | quoted separately | quoted separately | Economical alternate for suitable stacks; no matched timing here. |
 | A40 48 GB / Belgium | $0.400 | quoted separately | quoted separately | Lower rental cost; older architecture may lose the time/cost advantage. |
@@ -55,20 +56,22 @@ No current verified PRO 6000/H100/B200 offer in the sampled results met the comp
 
 ## Realistic cost envelope
 
-At the India PRO 5000 quote, the **running** price is $0.6307/hour including 96 GB disk. Warm per-attempt costs, **conditional on measured latency**, would be:
+At the final Nebraska PRO 5000 quote, the **running** price is $0.6933/hour including 96 GB disk. Warm per-attempt costs, **conditional on measured latency**, would be:
 
 | End-to-end time for a five-second shot | Compute + disk per attempt |
 |---|---:|
-| 90 seconds | $0.0158 |
-| 3 minutes | $0.0315 |
-| 5 minutes | $0.0526 |
-| 10 minutes | $0.1051 |
+| 90 seconds | $0.0173 |
+| 3 minutes | $0.0347 |
+| 5 minutes | $0.0578 |
+| 10 minutes | $0.1156 |
 
-These are arithmetic scenarios, not predictions. Two attempts per accepted take double those variable costs. A three-minute pipeline with a 50% acceptance rate costs about **$0.063 per usable take**, before setup, transfers, persistent storage and other service overhead.
+These are arithmetic scenarios, not predictions. Two attempts per accepted take double those variable costs. A three-minute pipeline with a 50% acceptance rate costs about **$0.069 per usable take**, before setup, transfers, persistent storage and other service overhead.
 
-The 40.428 GB model download costs about **$0.263** at this host's $0.0065104/GB ingress quote. At its advertised 629.4 Mbps, that transfer alone has a theoretical minimum of **8.6 minutes**. OS/PyTorch downloads, HTTP overhead, retries, hashing and installation add time and possibly traffic charges. A fresh machine cannot honestly promise a five-minute full-stack launch on that network.
+The final Nebraska host quotes $0.000002604/GB ingress: about **$0.00011** for the 40.428 GB model pack, with a theoretical transfer minimum of **1.6 minutes** at its advertised 3,411.8 Mbps. Its quoted storage is unchanged from the India alternative. A higher compute rate here can lower total cold-session cost.
 
-If setup took 15 minutes, its running charge would be about $0.158. Amortizing that plus the model-transfer fee across ten accepted one-attempt three-minute clips adds roughly $0.042 per clip: about **$0.074 each** in that hypothetical session. Include actual failed attempts in the final measurement.
+For comparison, the India host charges about **$0.263** to download the same files, with a model-transfer minimum of **8.6 minutes** at 629.4 Mbps. The Taiwan quote has higher transfer fees again. OS/PyTorch downloads, HTTP overhead, retries, hashing and installation add time and possibly traffic charges; advertised network speed is not a measured transfer rate. Neither quote establishes a universal five-minute first launch.
+
+If complete setup took 15 minutes on the Nebraska host, its running charge would be about **$0.173**. Amortized across ten accepted one-attempt three-minute clips, setup plus model ingress adds about $0.017 per clip: roughly **$0.052 each** in that hypothetical session, before other traffic and overhead. Include actual failed attempts, idle time and persistent storage in the final measurement. The lower-rate India example would be about $0.074 for the same hypothetical session because its model transfer fee dominates the small compute saving.
 
 For a service, batch jobs and measure acceptance rate. At three minutes per attempt, one GPU has at most 20 attempts/hour before overhead; 50% acceptance means at most 10 usable clips/hour. A single clip per day cannot be priced from marginal compute alone: retained disk and idle time can dominate.
 
