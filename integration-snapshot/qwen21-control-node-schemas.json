@@ -1,0 +1,129 @@
+{
+  "ModelPatchLoader": {
+    "input": {
+      "required": {
+        "name": [
+          []
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "name"
+      ]
+    },
+    "is_input_list": false,
+    "output": [
+      "MODEL_PATCH"
+    ],
+    "output_is_list": [
+      false
+    ],
+    "output_name": [
+      "MODEL_PATCH"
+    ],
+    "name": "ModelPatchLoader",
+    "display_name": "Load Model Patch",
+    "description": "",
+    "python_module": "comfy_extras.nodes_model_patch",
+    "category": "model/loaders",
+    "output_node": false,
+    "has_intermediate_output": false,
+    "experimental": true,
+    "search_aliases": []
+  },
+  "ZImageFunControlnet": {
+    "input": {
+      "required": {
+        "model": [
+          "MODEL"
+        ],
+        "model_patch": [
+          "MODEL_PATCH"
+        ],
+        "vae": [
+          "VAE"
+        ],
+        "strength": [
+          "FLOAT",
+          {
+            "default": 1.0,
+            "min": -10.0,
+            "max": 10.0,
+            "step": 0.01
+          }
+        ]
+      },
+      "optional": {
+        "image": [
+          "IMAGE"
+        ],
+        "inpaint_image": [
+          "IMAGE"
+        ],
+        "mask": [
+          "MASK"
+        ],
+        "start_percent": [
+          "FLOAT",
+          {
+            "default": 0.0,
+            "min": 0.0,
+            "max": 1.0,
+            "step": 0.001,
+            "advanced": true
+          }
+        ],
+        "end_percent": [
+          "FLOAT",
+          {
+            "default": 1.0,
+            "min": 0.0,
+            "max": 1.0,
+            "step": 0.001,
+            "advanced": true
+          }
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "model",
+        "model_patch",
+        "vae",
+        "strength"
+      ],
+      "optional": [
+        "image",
+        "inpaint_image",
+        "mask",
+        "start_percent",
+        "end_percent"
+      ]
+    },
+    "is_input_list": false,
+    "output": [
+      "MODEL"
+    ],
+    "output_is_list": [
+      false
+    ],
+    "output_name": [
+      "MODEL"
+    ],
+    "name": "ZImageFunControlnet",
+    "display_name": "Apply Fun ControlNet",
+    "description": "Applies a Z-Image or Qwen Image 2.1 Fun ControlNet loaded with Load Model Patch.",
+    "python_module": "comfy_extras.nodes_model_patch",
+    "category": "model/patch",
+    "output_node": false,
+    "has_intermediate_output": false,
+    "experimental": true,
+    "search_aliases": [
+      "z-image controlnet",
+      "qwen image 2.1 controlnet",
+      "controlnet union",
+      "fun controlnet"
+    ]
+  }
+}

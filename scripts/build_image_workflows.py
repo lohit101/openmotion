@@ -39,6 +39,7 @@ def main():
     catalog = json.loads((ROOT / 'integration-snapshot/object-info.json').read_text())
     catalog.update(json.loads((ROOT / 'integration-snapshot/viggle-node-schemas.json').read_text()))
     catalog.update(json.loads((ROOT / 'integration-snapshot/qwen21-node-schemas.json').read_text()))
+    catalog.update(json.loads((ROOT / 'integration-snapshot/qwen21-control-node-schemas.json').read_text()))
     for file in sorted((ROOT / 'workflows/experimental/api').glob('*_image_*.json')):
         graph = json.loads(file.read_text())
         errors = check_api(graph, catalog, allow_missing_files=True)
@@ -64,8 +65,26 @@ Eight steps, Euler/simple, CFG 1, native reference-prefix cache with default pre
 Use a clear full-body reference on a plain light background, about 0.59 MP.
 The base scene stays first and its native latent output sizes the generation.
 Split RGBA to RGB before compositing. Paint the person and preserve occlusions.
-Review identity, pose and scene lighting; GPU quality and timing are not yet measured.
+Review identity, pose and scene lighting; the legacy whole-person test failed exact framing.
 Base Qwen components use the Qwen Research License; the BFS adapter is MIT.
+'''
+        if 'source_anchored' in file.name:
+            qwen_notes = '''# Qwen Image 2.1 source-anchored replacement · experimental
+
+Use target.png and identity.png as scene and replacement references.
+source-structure.png is a source-aligned Canny map with internal facial detail removed;
+it is not a raw RGB photo. edit-mask.png is white-to-edit, black-to-preserve.
+The trained Qwen Fun ControlNet Union is loaded with the native ModelPatchLoader.
+Source VAE latents, the sampling mask and the inpainting branch all share one canvas.
+
+The head variant uses a separate BFS v1.1 adapter after the outfit pass.
+Supply face.png, face-refine-mask.png and body-mask.png on this same working canvas.
+Export an actual Studio job for detector-derived masks and immutable input filenames.
+Body and head adapters are independent; each pass uses only two image references.
+Eight Euler/simple steps per pass, CFG 1; no face restorer or beautifier.
+The optional native-quality recipe uses 20 steps, CFG 4, without turbo acceleration.
+Structural guidance and masks do not guarantee an exact identity or perfect lighting.
+Qwen base/control weights: Qwen Research License. BFS adapters: MIT.
 '''
         ui['nodes'][-1]['widgets_values'] = [qwen_notes if qwen else NOTES]
         ui['extra']['recast_engine'] = 'qwen21-image' if qwen else 'klein-image'

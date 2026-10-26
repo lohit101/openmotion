@@ -122,7 +122,7 @@ export function applyProgress(job: Job, event: any): boolean {
   if (node === null) return false;
   const validCounter = value !== null && max !== null && Number.isFinite(value) && Number.isFinite(max) && max > 0;
   job.progress = { ...job.progress, node, stage: job.workflow?.[node]?._meta?.title || stageNames[node] || 'Processing video', value: validCounter ? Math.min(max!, Math.max(0, value!)) : null,
-    max: validCounter ? max : null, unit: ['43', '118'].includes(node) ? 'steps' : ['9', '10'].includes(node) ? 'frames' : 'items', updatedAt: Date.now() };
+    max: validCounter ? max : null, unit: ['43', '118', '218'].includes(node) || ['KSampler', 'SamplerCustomAdvanced'].includes(job.workflow?.[node]?.class_type || '') ? 'steps' : ['9', '10'].includes(node) ? 'frames' : 'items', updatedAt: Date.now() };
   job.status = 'running'; return true;
 }
 export class ConnectionManager {

@@ -73,6 +73,36 @@ def reference_field_of_view(reference, source, model):
     return reference[y:y + height, x:x + width], True
 
 
+def repair_small_mask_gaps(mask):
+    """Close tiny enclosed paint gaps; never expand the outer paint boundary."""
+    cv2, np = dependencies()
+    count, labels, stats, _ = cv2.connectedComponentsWithStats((mask < 128).astype(np.uint8), 8)
+    repaired, closed = mask.copy(), 0
+    limit = max(4, round(mask.size * .002))
+    h, w = mask.shape
+    for label in range(1, count):
+        x, y, width, height, area = stats[label]
+        if 0 < x and 0 < y and x + width < w and y + height < h and area <= limit:
+            repaired[labels == label] = 255
+            closed += 1
+    return repaired, closed
+
+
+def source_structure(source, geometry, model):
+    """Actual source contours, without encoding the original face's inner details."""
+    cv2, _ = dependencies()
+    gray = cv2.cvtColor(source, cv2.COLOR_BGR2GRAY)
+    edges = cv2.Canny(cv2.GaussianBlur(gray, (3, 3), .8), 60, 150)
+    faces = detect(source, model)
+    if len(faces) == 1:
+        x, y, fw, fh = faces[0]["bbox"]
+        cv2.ellipse(edges, (round(x + fw / 2), round(y + fh / 2)), (max(1, round(fw * .38)), max(1, round(fh * .38))), 0, 0, 360, 0, -1)
+    g = geometry
+    small = cv2.resize(edges, (g["contentWidth"], g["contentHeight"]), interpolation=cv2.INTER_LINEAR)
+    padded = cv2.copyMakeBorder(small, g["y"], g["height"] - g["contentHeight"] - g["y"], g["x"], g["width"] - g["contentWidth"] - g["x"], cv2.BORDER_CONSTANT, value=0)
+    return cv2.cvtColor(padded, cv2.COLOR_GRAY2BGR)
+
+
 def fingerprint(request):
     keys = ["source", "reference", "face", "mask"]
     files = {key: sha256(request[key]) if request.get(key) else None for key in keys}
@@ -101,13 +131,15 @@ def prepare(request, folder, model):
     atomic_png(folder / "target.png", target)
     atomic_png(folder / "original.png", source)
     qwen = s.get("model") == "qwen21"
+    scene = qwen and request.get("version") == "scene-anchor-v1"
+    head_refine = scene and s.get("qwenHeadRefine", False)
     reference_input, cropped = reference_field_of_view(reference, source, model) if request.get("version") == "masked-latent-v4" and not qwen else (reference, False)
     atomic_png(folder / "identity.png", padded(reference_input, 590_000 if qwen else 1_000_000, 32 if qwen else 16))
     outputs = ["target.png", "original.png", "identity.png"]
     warnings, has_face = [], False
     if cropped:
         warnings.append("The full-body identity reference was cropped to match the target's tighter field of view. The original reference is retained.")
-    refine = request.get("version") in ["masked-latent-v3", "masked-latent-v4"] and s.get("identityRefine", False)
+    refine = (request.get("version") in ["masked-latent-v3", "masked-latent-v4"] and s.get("identityRefine", False)) or head_refine
     if s["faceDetail"] or refine:
         if request.get("face"):
             crop = read_image(request["face"])
@@ -117,7 +149,7 @@ def prepare(request, folder, model):
             if crop is None:
                 warnings.append("No unambiguous face close-up could be extracted. The full identity reference is used; add a clear close-up for stronger facial guidance.")
         if crop is not None:
-            atomic_png(folder / "face.png", padded(crop, 1_000_000 if refine and request.get("version") == "masked-latent-v4" else 384 * 384))
+            atomic_png(folder / "face.png", padded(crop, 590_000 if head_refine else 1_000_000 if refine and request.get("version") == "masked-latent-v4" else 384 * 384, 32 if head_refine else 16))
             outputs.append("face.png")
             has_face = True
     if refine and not has_face:
@@ -132,12 +164,16 @@ def prepare(request, folder, model):
         mask = cv2.resize(mask, (source.shape[1], source.shape[0]), interpolation=cv2.INTER_LINEAR)
         if not np.any(mask > 8):
             raise ValueError("The edit mask is empty. Paint over the person you want to replace.")
+        if scene and s.get("repairMaskGaps", False):
+            mask, closed = repair_small_mask_gaps(mask)
+            if closed:
+                warnings.append("Closed %d tiny enclosed gaps in the painted mask. The outer paint boundary was retained; disable gap repair for deliberately protected small objects." % closed)
         # Feather inward only: a zero mask pixel never admits generated pixels.
         if s["feather"]:
             mask = np.minimum(mask, cv2.GaussianBlur(mask, (0, 0), max(.1, s["feather"] / 2)))
         atomic_png(folder / "edit-mask.png", mask)
         outputs.append("edit-mask.png")
-        if request.get("version") in ["masked-latent-v2", "masked-latent-v3", "masked-latent-v4"]:
+        if scene or request.get("version") in ["masked-latent-v2", "masked-latent-v3", "masked-latent-v4"]:
             small_mask = cv2.resize(mask, (g["contentWidth"], g["contentHeight"]), interpolation=cv2.INTER_AREA)
             working_mask = cv2.copyMakeBorder(small_mask, g["y"], g["height"] - g["contentHeight"] - g["y"], g["x"], g["width"] - g["contentWidth"] - g["x"], cv2.BORDER_CONSTANT, value=0)
             atomic_png(folder / "working-mask.png", working_mask)
@@ -164,6 +200,20 @@ def prepare(request, folder, model):
             raise ValueError("Paint over the target face as well as the outfit before using identity refinement.")
         atomic_png(folder / "face-refine-mask.png", face_mask)
         outputs.append("face-refine-mask.png")
+        if head_refine:
+            # Keep a small face core unchanged in the outfit pass. The separate
+            # head pass gets the actual source pose and expression as its base.
+            core = np.zeros_like(face_mask)
+            cv2.ellipse(core, center, (max(1, round(fw * .46 * sx)), max(1, round(fh * .46 * sy))), 0, 0, 360, 255, -1)
+            core = cv2.GaussianBlur(core, (0, 0), max(1, min(axes) * .015))
+            body = (working_mask.astype(np.float32) * (1 - core.astype(np.float32) / 255)).round().astype(np.uint8)
+            atomic_png(folder / "body-mask.png", body)
+            outputs.append("body-mask.png")
+    if scene:
+        if working_mask is None:
+            raise ValueError("Source-anchored replacement requires a painted edit area.")
+        atomic_png(folder / "source-structure.png", source_structure(source, g, model))
+        outputs.append("source-structure.png")
     atomic_json(marker, {"fingerprint": signature, "hasFace": has_face, "warnings": warnings, "outputs": {name: sha256(folder / name) for name in outputs}})
     return {"hasFace": has_face, "warnings": warnings}
 
@@ -188,7 +238,7 @@ def finish(request, folder, model):
     atomic_png(folder / "final.png", output)
     faces = {}
     settings = request["settings"]
-    face_used = settings.get("model") != "qwen21" and (settings["faceDetail"] or settings.get("identityRefine", False))
+    face_used = (settings.get("model") != "qwen21" and (settings["faceDetail"] or settings.get("identityRefine", False))) or (request.get("version") == "scene-anchor-v1" and settings.get("qwenHeadRefine", False))
     reference_file = (request.get("face") if face_used else None) or request["reference"]
     for name, image in [("source", source), ("reference", read_image(reference_file)), ("output", output)]:
         found = detect(image, model)

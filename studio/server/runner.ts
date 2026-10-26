@@ -118,6 +118,10 @@ export class Runner {
         const g = job.image!.geometry, nativeMask = g.width === g.outputWidth && g.height === g.outputHeight && g.x === 0 && g.y === 0;
         if (job.image!.version && job.image!.settings.protectBackground && !nativeMask) files.push(['noiseMask', 'working-mask.png']);
         if (['masked-latent-v3', 'masked-latent-v4'].includes(job.image!.version || '') && job.image!.settings.identityRefine) files.push(['faceMask', 'face-refine-mask.png']);
+        if (job.image!.version === 'scene-anchor-v1') {
+          files.push(['structure', 'source-structure.png']);
+          if (job.image!.settings.qwenHeadRefine) files.push(['faceMask', 'face-refine-mask.png'], ['bodyMask', 'body-mask.png']);
+        }
         const uploads: Record<string, string> = {};
         for (const [key, name] of files) { this.stage(job, 'Transferring image inputs to GPU', Object.keys(uploads).length, files.length, 'inputs'); uploads[key] = await client.upload(path.join(folder, name), job.id + '-' + key, signal); this.checkCancelled(job); }
         if (job.image!.version && job.image!.settings.protectBackground && nativeMask) uploads.noiseMask = uploads.mask;
@@ -182,6 +186,11 @@ export class Runner {
           const file = path.join(folder, 'keyframe.png');
           try { if (!await exists(file)) await client.download(keyframe, file, signal); job.keyframe = file; this.save(job); }
           catch (error) { if (signal.aborted) throw error; await writeFile(path.join(folder, 'keyframe-download-warning.json'), JSON.stringify({ warning: 'The reference preview could not be downloaded. The existing video run was not resubmitted.' })); }
+        }
+        const bodyStage = isImageJob(job) && history.outputs?.['154']?.images?.[0];
+        if (bodyStage) {
+          try { const file = path.join(folder, 'body-stage.png'); if (!await exists(file)) await client.download(bodyStage, file, signal); }
+          catch (error) { if (signal.aborted) throw error; await writeFile(path.join(folder, 'body-preview-warning.json'), JSON.stringify({ warning: 'The intermediate body preview could not be downloaded. No image was resubmitted.' })); }
         }
         if (history.status?.status_str === 'error') {
           const event = history.status.messages?.find((m: any[]) => m[0] === 'execution_error');

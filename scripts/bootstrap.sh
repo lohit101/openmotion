@@ -147,7 +147,7 @@ import json,sys
 from pathlib import Path
 root=Path(sys.argv[1]); comfy=Path(sys.argv[2])
 (root/'state/install.json').write_text(json.dumps({'comfy_root':str(comfy),'swap_root':str(root)},indent=2))
-keys=['checkpoints','diffusion_models','text_encoders','clip_vision','vae','loras','text_cond']
+keys=['checkpoints','diffusion_models','text_encoders','clip_vision','vae','loras','text_cond','model_patches']
 lines=['character_swap:','  base_path: '+json.dumps(str(root/'models')),'  is_default: true']
 lines += ['  '+key+': '+key for key in keys]
 (root/'state/model-paths.yaml').write_text('\n'.join(lines)+'\n')

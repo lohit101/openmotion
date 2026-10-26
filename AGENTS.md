@@ -8,6 +8,8 @@
 
 - The authorized Qwen migration and two same-input A100 40 GB tests are complete (45.873 s and 40.033 s). Qwen and its official turbo/BFS body adapters are installed alongside the four Viggle files; Klein and its head adapter are absent. Both image results failed the strict scale/lighting/mask-edge requirement despite clearer face/outfit transfer. Keep Qwen experimental, preserve both results and do not automatically propagate them to video. See `docs/validation/qwen-migration-20261027.md`.
 
+- The user rejected those results and explicitly requested deeper commercial-workflow research and implementation for source-frame fidelity. The new `scene-anchor-v1` experiment uses the pinned native Qwen Union structure/inpaint branch, source latents and a separate optional BFS v1.1 head pass. Preserve v4 jobs and their paid conditioning. See `docs/source-frame-research-20261027.md`. Latest user steering: the GPU is in active use for a video; test only after that video finishes. Never restart its app/runtime, stop it or start model transfers while that job is active.
+
 - GPU discovery and new-rental preflight require a known download/ingress price of at most $0.005/GB, per the user's revised limit. Filter at the provider and locally, including favourite availability, and recheck the exact rental ask before spending. Keep management controls and cached models for existing rentals. Upload, storage and compute fees remain separate.
 
 - Keep this project in Git. Make a separate, focused commit after each completed bug fix or feature, with the relevant validation recorded. Do not rewrite existing commits unless the user asks.

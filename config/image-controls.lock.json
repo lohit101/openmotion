@@ -1,0 +1,21 @@
+{
+  "total_bytes": 7811076048,
+  "files": [
+    {
+      "repo": "alibaba-pai/Qwen-Image-2.1-Fun-Controlnet-Union",
+      "revision": "8a4702014d4dabb5f896fcba917e2ee0a961465f",
+      "filename": "Qwen-Image-2.1-Fun-Controlnet-Union.safetensors",
+      "destination": "model_patches/qwen_image_2.1_fun_controlnet_union.safetensors",
+      "size": 7550979904,
+      "sha256": "65d6b66d734da9e7ff5ef04e7db3a133553a52a3f29a7fcb3e9cce8fa21dcfcd"
+    },
+    {
+      "repo": "Alissonerdx/BFS-Best-Face-Swap",
+      "revision": "0ca3913ade4b4ada458d60c232354e8586c4c181",
+      "filename": "bfs_head_v1.1_qwen_2.1.safetensors",
+      "destination": "loras/bfs_head_v1.1_qwen_2.1.safetensors",
+      "size": 260096144,
+      "sha256": "d1d748d5601077f3b6d05766f6823510e901970d916afa404a97e85dc92fa88e"
+    }
+  ]
+}

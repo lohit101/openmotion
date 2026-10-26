@@ -7,6 +7,7 @@ import viggle from '../../config/viggle-models.lock.json';
 import repaint from '../../config/repaint-models.lock.json';
 import imageAdapters from '../../config/image-adapters.lock.json';
 import qwenImage from '../../config/qwen-image-models.lock.json';
+import imageControls from '../../config/image-controls.lock.json';
 import { isViggle } from './engines';
 import type { Settings } from './types';
 import type { ImageSettings } from './image-replacement';
@@ -18,12 +19,18 @@ export const I2V_SPEED = 'lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.saf
 export const DPO = 'wan2.1_SCAIL_2_DPO_lora_bf16.safetensors';
 export const SOCIAL_STYLE = 'Instagoon-v1-step00001400.safetensors';
 const scailModels = [...base.files, ...relight.files, ...natural.files, ...extras.files];
-export const pinnedModels = [...scailModels, ...viggle.files, ...repaint.files, ...imageAdapters.files, ...qwenImage.files];
+export const pinnedModels = [...scailModels, ...viggle.files, ...repaint.files, ...imageAdapters.files, ...qwenImage.files, ...imageControls.files];
 export const setupModelFiles: string[] = setup.files;
 export const imageModelFiles = repaint.files.map(file => file.destination);
 export const IMAGE_IDENTITY = 'bfs_head_v1_flux-klein_4b.safetensors';
 export const qwenImageModelFiles = qwenImage.files.map(file => file.destination);
-export const imageFilesForSettings = (settings: ImageSettings): string[] => settings.model === 'qwen21' ? qwenImageModelFiles : [...imageModelFiles, ...(settings.identityRefine ? ['loras/' + IMAGE_IDENTITY] : [])];
+export const QWEN_STRUCTURE = 'model_patches/qwen_image_2.1_fun_controlnet_union.safetensors';
+export const QWEN_HEAD = 'bfs_head_v1.1_qwen_2.1.safetensors';
+export const imageFilesForSettings = (settings: ImageSettings): string[] => settings.model === 'qwen21'
+  ? settings.qwenRecipe === 'source-anchored'
+    ? [...qwenImageModelFiles.filter(file => settings.qwenQuality === 'fast' || !file.includes('turbo_lora')), QWEN_STRUCTURE, ...(settings.qwenHeadRefine ? ['loras/' + QWEN_HEAD] : [])]
+    : qwenImageModelFiles
+  : [...imageModelFiles, ...(settings.identityRefine ? ['loras/' + IMAGE_IDENTITY] : [])];
 const filename = (destination: string) => destination.split('/').at(-1)!;
 
 // Describe requirements only. Selection never initiates a download.
@@ -50,11 +57,13 @@ const descriptions: Record<string, [string, string, 'core' | 'adapter']> = {
   'flux-2-klein-4b-fp8.safetensors': ['FLUX.2 Klein 4B', 'Four-step source-frame character replacement before animation', 'core'],
   'qwen_3_4b.safetensors': ['Klein text encoder', 'Reads the instruction used to prepare the replacement frame', 'core'],
   [IMAGE_IDENTITY]: ['Klein identity refinement · BFS', 'Trained head-swap adapter for a separate four-step facial identity pass. Klein 4B only.', 'adapter'],
-  'qwen_image_2.1_int8_convrot.safetensors': ['Qwen Image 2.1 INT8', 'Alternative image editor for the trained whole-person swap recipe. GPU quality comparison pending.', 'core'],
+  'qwen_image_2.1_int8_convrot.safetensors': ['Qwen Image 2.1 INT8', 'Image editor shared by whole-person editing and source-anchored inpainting', 'core'],
   'qwen3vl_8b_int8_convrot.safetensors': ['Qwen 2.1 vision-language encoder', 'Reads both the scene and replacement person for the Qwen image recipe', 'core'],
   'qwen_image_2.1_vae_bf16.safetensors': ['Qwen 2.1 image encoder / decoder', 'Matching Qwen image latent and RGB/alpha decoder', 'core'],
   'qwen_image_2.1_turbo_lora_avg_rank_178_bf16.safetensors': ['Qwen 2.1 eight-step adapter', 'Matching official accelerator for the Qwen image recipe', 'adapter'],
-  'bfs_body_swap_v1.0_qwen_2.1.safetensors': ['Qwen whole-person swap · BFS', 'Trained body, outfit and identity transfer with scene-first and person-second inputs. Quality test pending.', 'adapter'],
+  'bfs_body_swap_v1.0_qwen_2.1.safetensors': ['Qwen whole-person swap · BFS', 'Trained body and outfit transfer. The unconstrained recipe failed exact framing in our comparison.', 'adapter'],
+  'qwen_image_2.1_fun_controlnet_union.safetensors': ['Qwen source geometry & inpainting', 'Constrains source structure and the selected edit area during generation', 'core'],
+  [QWEN_HEAD]: ['Qwen head identity · BFS v1.1', 'Separate masked head pass; matching Qwen 2.1 adapter with reduced skin softening', 'adapter'],
   'flux2-vae.safetensors': ['Klein image encoder / decoder', 'Image encoding for the source frame and character reference', 'core'],
   'wan2.1_14B_SCAIL_2_int8_convrot.safetensors': ['SCAIL-2 INT8', 'Character replacement and motion generation', 'core'],
   'umt5_xxl_fp8_e4m3fn_scaled.safetensors': ['Text encoder', 'Reads the positive and negative prompts', 'core'],
@@ -69,7 +78,7 @@ const descriptions: Record<string, [string, string, 'core' | 'adapter']> = {
 };
 export const modelDefinitions = pinnedModels.map(file => {
   const [label, description, group] = descriptions[filename(file.destination)];
-  const engine = viggle.files.some(item => item.destination === file.destination) ? 'viggle' : [...repaint.files, ...imageAdapters.files, ...qwenImage.files].some(item => item.destination === file.destination) ? 'repaint' : 'scail2';
+  const engine = viggle.files.some(item => item.destination === file.destination) ? 'viggle' : [...repaint.files, ...imageAdapters.files, ...qwenImage.files, ...imageControls.files].some(item => item.destination === file.destination) ? 'repaint' : 'scail2';
   return { id: file.destination, filename: filename(file.destination), size: file.size, label, description, group,
     engine, included: group === 'core', experimental: filename(file.destination) === SOCIAL_STYLE,
     trigger: filename(file.destination) === SOCIAL_STYLE ? 'instag00n' : '',

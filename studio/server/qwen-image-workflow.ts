@@ -1,9 +1,11 @@
 import type { Graph, Job } from '../shared/types';
 import { defaultImagePrompt, legacyImagePrompt } from '../shared/image-replacement';
+import { compileQwenSceneWorkflow } from './qwen-scene-workflow';
 
 /** Trained whole-person adapter, using its scene-first/person-second contract. */
 export function compileQwenImageWorkflow(job: Job): Graph {
   if (!job.image || !job.uploads) throw new Error('Qwen image inputs have not been prepared.');
+  if (job.image.version === 'scene-anchor-v1') return compileQwenSceneWorkflow(job);
   const { settings: s, geometry: g } = job.image, graph: Graph = {};
   if (s.protectBackground && (!job.uploads.mask || !job.uploads.original)) throw new Error('Paint the replacement area first.');
   const add = (id: string, class_type: string, inputs: Record<string, unknown>, title: string) => { graph[id] = { class_type, inputs, _meta: { title } }; };

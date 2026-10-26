@@ -53,7 +53,9 @@ export function registerImageRoutes(app: Express, store: Store, connection: Conn
     const previous = store.byKey(key); if (previous) return void res.status(isImageJob(previous) ? 200 : 409).json(isImageJob(previous) ? publicJob(previous) : { error: 'This request ID was used for another workflow.' });
     if (!value.sourceId || !value.referenceId) throw new Error('Add a target image and an identity reference.');
     if (value.settings.model === 'qwen21') { value.settings.faceDetail = false; value.settings.identityRefine = false; }
-    inputs([value.sourceId, value.referenceId, value.settings.faceDetail || value.settings.identityRefine ? value.faceId : null, value.settings.protectBackground ? value.maskId : null]);
+    const scene = value.settings.model === 'qwen21' && value.settings.qwenRecipe === 'source-anchored';
+    if (scene && !value.settings.protectBackground) throw new Error('Source-anchored replacement requires a painted edit area. Keep background protection on.');
+    inputs([value.sourceId, value.referenceId, value.settings.faceDetail || value.settings.identityRefine || scene && value.settings.qwenHeadRefine ? value.faceId : null, value.settings.protectBackground ? value.maskId : null]);
     if (value.settings.protectBackground && (!value.maskId || store.asset(value.maskId)?.maskFor !== value.sourceId)) throw new Error('Paint the replacement area on this target, or turn off background protection.');
     const source = store.asset(value.sourceId)!, geometry = imageGeometry(source, value.settings.megapixels, value.settings.model);
     if (cloud.state.busy || cloud.state.launches.some(l => ['stopping', 'destroying'].includes(l.phase) || (l.instanceId && l.safetyStatus === 'unconfirmed'))) return void res.status(503).json({ error: 'Wait for GPU setup or instance actions to settle before generating.' });
@@ -69,7 +71,7 @@ export function registerImageRoutes(app: Express, store: Store, connection: Conn
     const title = source.sourceFrame ? `Frame ${source.sourceFrame.time.toFixed(2)}s / image replacement` : source.name.replace(/\.[^.]+$/, '').slice(0, 80) + ' / image replacement';
     const job: Job = { id: randomUUID(), title, status: 'queued', mediaType: 'image',
       sourceId: value.sourceId, referenceId: value.referenceId, settings: { ...defaults, prompt: settings.prompt, seed: settings.seed, randomSeed: settings.randomSeed },
-      image: { version: 'masked-latent-v4', settings, faceId: value.faceId, maskId: value.maskId, geometry }, width: geometry.width, height: geometry.height, outputSize: { width: source.width, height: source.height },
+      image: { version: scene ? 'scene-anchor-v1' : 'masked-latent-v4', settings, faceId: value.faceId, maskId: value.maskId, geometry }, width: geometry.width, height: geometry.height, outputSize: { width: source.width, height: source.height },
       createdAt: new Date().toISOString(), favorite: false, deleted: false, progress: { stage: 'Queued for image replacement', node: null, value: null, max: null, unit: 'steps', segment: 1, segments: 1, completedFrames: 0, targetFrames: 1, updatedAt: Date.now() },
       segments: [], context: '', pendingPrompt: null, uploads: null, error: null, output: null, poster: null, cancelRequested: false, elapsedSeconds: null, origin: 'render', workflow: null };
     store.addJob(job, key); res.status(201).json(publicJob(job)); void runner.kick();

@@ -1,0 +1,369 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "target.png"
+    },
+    "_meta": {
+      "title": "Original source frame · composition and illumination"
+    }
+  },
+  "4": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "identity.png"
+    },
+    "_meta": {
+      "title": "Replacement person · appearance and outfit"
+    }
+  },
+  "46": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "131",
+        0
+      ],
+      "filename_prefix": "recast/klein-image-replacement/segment_0000"
+    },
+    "_meta": {
+      "title": "Save one source-anchored replacement"
+    }
+  },
+  "102": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "qwen_image_2.1_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": {
+      "title": "Shared Qwen Image 2.1 INT8"
+    }
+  },
+  "103": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen3vl_8b_int8_convrot.safetensors",
+      "type": "qwen_image",
+      "device": "default"
+    },
+    "_meta": {
+      "title": "Matching visual instruction encoder"
+    }
+  },
+  "104": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "qwen_image_2.1_vae_bf16.safetensors"
+    },
+    "_meta": {
+      "title": "Matching Qwen RGBA VAE"
+    }
+  },
+  "105": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": {
+      "model": [
+        "102",
+        0
+      ],
+      "lora_name": "qwen_image_2.1_turbo_lora_avg_rank_178_bf16.safetensors",
+      "strength_model": 1
+    },
+    "_meta": {
+      "title": "Official eight-step acceleration"
+    }
+  },
+  "106": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": {
+      "model": [
+        "105",
+        0
+      ],
+      "lora_name": "bfs_body_swap_v1.0_qwen_2.1.safetensors",
+      "strength_model": 1
+    },
+    "_meta": {
+      "title": "Body and outfit transfer"
+    }
+  },
+  "108": {
+    "class_type": "TextEncodeQwenImage21",
+    "inputs": {
+      "clip": [
+        "103",
+        0
+      ],
+      "prompt": "body_swap: edit <image1>. Replace its person with the person and complete outfit from <image2>. Keep <image1> pose, head size, screen position, camera distance and lighting. Keep the rest of the photograph unchanged.",
+      "negative_prompt": "",
+      "resolution": 0,
+      "images.image_1": [
+        "1",
+        0
+      ],
+      "images.image_2": [
+        "4",
+        0
+      ],
+      "vae": [
+        "104",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Scene and identity in separate reference slots"
+    }
+  },
+  "118": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": [
+        "146",
+        0
+      ],
+      "positive": [
+        "108",
+        0
+      ],
+      "negative": [
+        "108",
+        1
+      ],
+      "latent_image": [
+        "149",
+        0
+      ],
+      "seed": 20261027,
+      "steps": 8,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1
+    },
+    "_meta": {
+      "title": "Source-anchored body and outfit · 8 steps"
+    }
+  },
+  "119": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "118",
+        0
+      ],
+      "vae": [
+        "104",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Decode the body edit"
+    }
+  },
+  "120": {
+    "class_type": "SplitImageWithAlpha",
+    "inputs": {
+      "image": [
+        "119",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Explicit RGB body image"
+    }
+  },
+  "126": {
+    "class_type": "ImageCrop",
+    "inputs": {
+      "image": [
+        "120",
+        0
+      ],
+      "width": 1024,
+      "height": 1024,
+      "x": 0,
+      "y": 0
+    },
+    "_meta": {
+      "title": "Remove grid padding only"
+    }
+  },
+  "127": {
+    "class_type": "ImageScale",
+    "inputs": {
+      "image": [
+        "126",
+        0
+      ],
+      "upscale_method": "lanczos",
+      "width": 1024,
+      "height": 1024,
+      "crop": "disabled"
+    },
+    "_meta": {
+      "title": "Restore the source photograph dimensions"
+    }
+  },
+  "128": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "target.png"
+    },
+    "_meta": {
+      "title": "Original source pixels"
+    }
+  },
+  "129": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "edit-mask.png"
+    },
+    "_meta": {
+      "title": "Actual prepared edit area"
+    }
+  },
+  "130": {
+    "class_type": "ImageToMask",
+    "inputs": {
+      "image": [
+        "129",
+        0
+      ],
+      "channel": "red"
+    },
+    "_meta": {
+      "title": "Protect the unedited source"
+    }
+  },
+  "131": {
+    "class_type": "ImageCompositeMasked",
+    "inputs": {
+      "destination": [
+        "128",
+        0
+      ],
+      "source": [
+        "127",
+        0
+      ],
+      "x": 0,
+      "y": 0,
+      "resize_source": false,
+      "mask": [
+        "130",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Preserve the source outside the edit area"
+    }
+  },
+  "140": {
+    "class_type": "ModelPatchLoader",
+    "inputs": {
+      "name": "qwen_image_2.1_fun_controlnet_union.safetensors"
+    },
+    "_meta": {
+      "title": "Trained Qwen geometry and inpainting branch"
+    }
+  },
+  "141": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "source-structure.png"
+    },
+    "_meta": {
+      "title": "Source edges with internal facial detail removed"
+    }
+  },
+  "142": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "edit-mask.png"
+    },
+    "_meta": {
+      "title": "Source-aligned body edit mask"
+    }
+  },
+  "143": {
+    "class_type": "ImageToMask",
+    "inputs": {
+      "image": [
+        "142",
+        0
+      ],
+      "channel": "red"
+    },
+    "_meta": {
+      "title": "White regenerates; black preserves"
+    }
+  },
+  "144": {
+    "class_type": "VAEEncode",
+    "inputs": {
+      "pixels": [
+        "1",
+        0
+      ],
+      "vae": [
+        "104",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Start from the original source latent"
+    }
+  },
+  "146": {
+    "class_type": "ZImageFunControlnet",
+    "inputs": {
+      "model": [
+        "106",
+        0
+      ],
+      "model_patch": [
+        "140",
+        0
+      ],
+      "vae": [
+        "104",
+        0
+      ],
+      "image": [
+        "141",
+        0
+      ],
+      "inpaint_image": [
+        "1",
+        0
+      ],
+      "mask": [
+        "143",
+        0
+      ],
+      "strength": 0.8,
+      "start_percent": 0,
+      "end_percent": 1
+    },
+    "_meta": {
+      "title": "Constrain source geometry and unpainted context during denoising"
+    }
+  },
+  "149": {
+    "class_type": "SetLatentNoiseMask",
+    "inputs": {
+      "samples": [
+        "144",
+        0
+      ],
+      "mask": [
+        "143",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Denoise only the intended body region"
+    }
+  }
+}

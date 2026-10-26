@@ -3,14 +3,15 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { defaults, type Catalog, type Job } from '../shared/types';
 import { defaultImagePrompt, emptyImageDraft, imageDefaults, imageGeometry, imagePrompt, isImageJob, legacyImagePrompt } from '../shared/image-replacement';
-import { IMAGE_IDENTITY, imageFilesForSettings, imageModelFiles, modelBytes, pinnedModels, qwenImageModelFiles } from '../shared/models';
+import { IMAGE_IDENTITY, QWEN_HEAD, QWEN_STRUCTURE, imageFilesForSettings, imageModelFiles, modelBytes, pinnedModels, qwenImageModelFiles } from '../shared/models';
 import { compileWorkflow, validateGraph } from '../server/workflow';
 import { applyProgress } from '../server/comfy';
 import { publicJob } from '../server/store';
 
 const repo = path.resolve(import.meta.dirname, '../..');
 const load = (file: string) => JSON.parse(readFileSync(path.join(repo, file), 'utf8'));
-const catalog: Catalog = { ...load('integration-snapshot/object-info.json'), ...load('integration-snapshot/viggle-node-schemas.json'), ...load('integration-snapshot/qwen21-node-schemas.json') };
+const catalog: Catalog = { ...load('integration-snapshot/object-info.json'), ...load('integration-snapshot/viggle-node-schemas.json'), ...load('integration-snapshot/qwen21-node-schemas.json'), ...load('integration-snapshot/qwen21-control-node-schemas.json') };
+catalog.ModelPatchLoader.input.required!.name[0] = [QWEN_STRUCTURE.split('/').at(-1)!];
 for (const node of Object.values(catalog)) for (const [name, rule] of Object.entries({ ...node.input.required, ...node.input.optional })) {
   if (name === 'image') rule[0] = ['target.png', 'identity.png', 'face.png', 'original.png', 'mask.png'];
   if (['unet_name', 'vae_name', 'clip_name'].includes(name) && Array.isArray(rule[0])) rule[0] = [...rule[0], ...pinnedModels.map(f => f.destination.split('/').at(-1))];
@@ -141,5 +142,38 @@ describe('source-preserving Klein image replacement', () => {
     expect(applyProgress(job, { type: 'progress', data: { prompt_id: 'paid-image', node: '118', value: 2, max: 4 } })).toBe(true);
     expect(job.progress).toMatchObject({ value: 2, max: 4, unit: 'steps', stage: 'Replace the character in four image steps' });
     expect(publicJob(job).uploads).toBeNull(); expect(publicJob(job).image?.settings).toEqual(job.image!.settings);
+  });
+  it('anchors new Qwen edits to source latents, masks and a trained control branch', () => {
+    const job = fixture(); job.image!.version = 'scene-anchor-v1';
+    job.image!.settings = { ...imageDefaults, model: 'qwen21', qwenRecipe: 'source-anchored', faceDetail: false, qwenHeadRefine: false };
+    job.uploads!.structure = 'target.png';
+    const graph = compileWorkflow({}, job);
+    expect(validateGraph(graph, catalog)).toEqual([]);
+    expect(graph['149'].inputs).toEqual({ samples: ['144', 0], mask: ['143', 0] });
+    expect(graph['146'].inputs).toMatchObject({ image: ['141', 0], inpaint_image: ['1', 0], mask: ['143', 0], model_patch: ['140', 0] });
+    expect(graph['118'].inputs.latent_image).toEqual(['149', 0]);
+    expect(graph['107']).toBeUndefined(); // Reference-prefix cache is not mixed with active structural patches.
+    expect(imageFilesForSettings(job.image!.settings)).toContain(QWEN_STRUCTURE);
+    expect(imageFilesForSettings(job.image!.settings)).not.toContain('loras/' + QWEN_HEAD);
+    delete job.uploads!.structure; expect(() => compileWorkflow({}, job)).toThrow('prepared source structure');
+  });
+  it('uses independent body/head model branches and true per-pass counters', () => {
+    const job = fixture(); job.image!.version = 'scene-anchor-v1';
+    job.image!.settings = { ...imageDefaults, model: 'qwen21', qwenRecipe: 'source-anchored', qwenHeadRefine: true, qwenQuality: 'quality' };
+    Object.assign(job.uploads!, { structure: 'target.png', faceMask: 'mask.png', bodyMask: 'mask.png' });
+    const graph = compileWorkflow({}, job);
+    expect(validateGraph(graph, catalog)).toEqual([]);
+    expect(graph['105']).toBeUndefined(); // Native 20-step sampling has no distillation adapter.
+    expect(graph['106'].inputs.model).toEqual(['102', 0]);
+    expect(graph['206'].inputs.model).toEqual(['102', 0]);
+    expect(graph['206'].inputs.lora_name).toBe(QWEN_HEAD);
+    expect(graph['208'].inputs).toMatchObject({ 'images.image_1': ['153', 0], 'images.image_2': ['203', 0] });
+    expect(graph['208'].inputs['images.image_3']).toBeUndefined();
+    expect(graph['218'].inputs).toMatchObject({ steps: 20, cfg: 4, latent_image: ['214', 0] });
+    expect(imageFilesForSettings(job.image!.settings)).toContain('loras/' + QWEN_HEAD);
+    expect(imageFilesForSettings(job.image!.settings).some(file => file.includes('turbo_lora'))).toBe(false);
+    job.workflow = graph; job.pendingPrompt = 'scene-paid';
+    expect(applyProgress(job, { type: 'progress', data: { prompt_id: 'scene-paid', node: '218', value: 3, max: 20 } })).toBe(true);
+    expect(job.progress).toMatchObject({ value: 3, max: 20, unit: 'steps', stage: 'Separate facial identity · 20 steps' });
   });
 });

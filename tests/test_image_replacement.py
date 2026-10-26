@@ -162,6 +162,45 @@ class ImageReplacementTests(unittest.TestCase):
             editor.finish(request, work, "fixture detector")
             np.testing.assert_array_equal(cv2.imread(str(work / "reference-face.png")), editor.face_crop(source[::-1], face))
 
+    def test_mask_gap_repair_closes_small_enclosed_holes_without_growing_the_boundary(self):
+        import numpy as np
+        mask = np.zeros((200, 160), np.uint8)
+        mask[10:190, 10:150] = 255
+        mask[30:33, 30:33] = 0
+        mask[29:34, 29] = 80
+        mask[60:90, 60:90] = 0  # Large intentional occlusion stays protected.
+        repaired, closed = editor.repair_small_mask_gaps(mask)
+        self.assertEqual(closed, 1)
+        self.assertTrue(np.all(repaired[30:33, 30:33] == 255))
+        self.assertTrue(np.all(repaired[29:34, 29] == 255))
+        self.assertFalse(np.any(repaired[60:90, 60:90]))
+        self.assertFalse(np.any(repaired[:10]))
+        self.assertFalse(np.any(repaired[:, :10]))
+
+    def test_source_anchored_preparation_has_immutable_geometry_and_separate_head_body_masks(self):
+        import cv2
+        import numpy as np
+        with tempfile.TemporaryDirectory() as temp, patch.object(editor, "detect", return_value=[{"bbox": [30, 20, 20, 28], "confidence": .95}]):
+            _, _, request, work = self.fixture(Path(temp))
+            request["version"] = "scene-anchor-v1"
+            request["settings"].update(model="qwen21", faceDetail=False, qwenHeadRefine=True, repairMaskGaps=True)
+            report = editor.prepare(request, work, "fixture detector")
+            self.assertTrue(report["hasFace"])
+            body = cv2.imread(str(work / "body-mask.png"), 0)
+            head = cv2.imread(str(work / "face-refine-mask.png"), 0)
+            full = cv2.imread(str(work / "working-mask.png"), 0)
+            self.assertEqual(body.shape, (128, 96))
+            self.assertTrue(np.all(body <= full))
+            self.assertTrue(np.all(head <= full))
+            self.assertEqual(body[39, 41], 0)
+            structure = cv2.imread(str(work / "source-structure.png"))
+            self.assertEqual(structure.shape, (128, 96, 3))
+            self.assertTrue(np.any(structure > 0))
+            self.assertEqual(editor.prepare(request, work, "fixture detector"), report)
+            cv2.imwrite(str(work / "source-structure.png"), np.zeros_like(structure))
+            with self.assertRaisesRegex(ValueError, "Saved image inputs changed"):
+                editor.prepare(request, work, "fixture detector")
+
 
 if __name__ == "__main__":
     unittest.main()
