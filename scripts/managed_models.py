@@ -28,6 +28,14 @@ def main():
     os.environ['RECAST_SSH_BATCH'] = '1'
     root = Path(config['remote_root'])
     if args.action != 'download':
+        if args.action == 'inventory':
+            code = ('import sys,json,shutil;sys.path.insert(0,sys.argv[1]);from model_storage import inventory;'
+                    'result=inventory(sys.argv[2]);result["freeBytes"]=shutil.disk_usage(sys.argv[2]).free;'
+                    'from pathlib import Path;root=Path(sys.argv[2]);'
+                    'result["partials"]=[{"id":f["destination"],"size":min(f["size"],p.stat().st_size)} for f in json.loads(sys.argv[3]) if (p:=root/(f["destination"]+".part")).is_file() and not p.is_symlink()];'
+                    'print("RECAST_MODEL_STORAGE "+json.dumps(result))')
+            vast.remote(config, ['python3', '-c', code, str(root / 'scripts'), str(root / 'models'), json.dumps(selected_manifest()['files'])])
+            return
         command = ['python3', str(root / 'scripts/model_storage.py'), '--model-dir', str(root / 'models')]
         if args.action == 'delete':
             from model_storage import lora_parts

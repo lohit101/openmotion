@@ -1,12 +1,12 @@
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import type { Catalog, Graph } from '../shared/types';
-import { emptyModels, modelDefinitions, pinnedModels, type InstalledLora, type ModelsState, type ModelTransfer } from '../shared/models';
+import { emptyModels, IMAGE_IDENTITY, modelDefinitions, pinnedModels, type InstalledLora, type ModelsState, type ModelTransfer } from '../shared/models';
 import type { Store } from './store';
 import { lorasFrom, type ConnectionManager } from './comfy';
 import { command } from './media';
 
-export async function manageModelStorage(repo: string, instanceId: number, action: 'inventory' | 'delete', name?: string): Promise<{ loras?: InstalledLora[]; name?: string; freedBytes?: number; removed?: boolean }> {
+export async function manageModelStorage(repo: string, instanceId: number, action: 'inventory' | 'delete', name?: string): Promise<{ loras?: InstalledLora[]; name?: string; freedBytes?: number; freeBytes?: number; partials?: { id: string; size: number }[]; removed?: boolean }> {
   const args = ['-u', path.join(repo, 'scripts/managed_models.py'), '--instance-id', String(instanceId), '--action', action];
   if (action === 'delete') args.push('--lora', name!);
   const output = await command('python3', args, undefined, 45000);
@@ -89,7 +89,7 @@ export class ModelManager {
       try {
         if (this.connection.status.state !== 'online') {
           for (const file of this.state.files) if (!['queued', 'downloading'].includes(file.status)) Object.assign(file, { status: 'unknown', percent: null });
-          this.state.error = null; this.state.checkedAt = null; this.state.installedLoras = []; return this.state;
+          this.state.error = null; this.state.checkedAt = null; this.state.installedLoras = []; this.state.diskFreeBytes = undefined; return this.state;
         }
         const catalog: Catalog = await this.connection.client().json('/object_info');
         const installed = installedModelIds(catalog);
@@ -102,6 +102,11 @@ export class ModelManager {
         if (instanceId && this.connection.status.endpoint === 'http://127.0.0.1:8188') {
           const result = await this.storage(this.repo, instanceId, 'inventory');
           this.state.installedLoras = result.loras || [];
+          this.state.diskFreeBytes = Number.isFinite(result.freeBytes) && result.freeBytes! >= 0 ? result.freeBytes : undefined;
+          if (result.partials) for (const file of this.state.files) if (!['installed', 'queued', 'downloading'].includes(file.status)) {
+            const size = result.partials.find(partial => partial.id === file.id)?.size || 0;
+            file.downloaded = Number.isFinite(size) && size >= 0 ? Math.min(size, pinnedModels.find(model => model.destination === file.id)!.size) : 0;
+          }
         }
         const loras = lorasFrom(catalog);
         if (JSON.stringify(loras) !== JSON.stringify(this.connection.status.loras)) { this.connection.status.loras = loras; this.connection.emit(); }
@@ -126,6 +131,13 @@ export class ModelManager {
       await this.refresh(); if (this.state.error) throw new Error(this.state.error);
       if (epoch !== this.cancelEpoch) throw new Error('Download request cancelled.');
       if (this.connection.status.state !== 'online' || this.store.value('cloud-connected-instance', null) !== instanceId) throw new Error('The GPU connection changed. Reconnect before downloading.');
+      const planned = new Set([...files, ...this.queue, ...this.state.files.filter(file => file.status === 'downloading').map(file => file.id)]);
+      const remaining = this.state.files.filter(file => planned.has(file.id) && file.status !== 'installed').reduce((sum, file) => {
+        const size = pinnedModels.find(model => model.destination === file.id)!.size;
+        return sum + size - Math.min(size, Math.max(0, file.downloaded || 0));
+      }, 0);
+      const required = remaining + 5 * 1024 ** 3;
+      if (remaining && this.state.diskFreeBytes !== undefined && this.state.diskFreeBytes < required) throw new Error(`These files need ${(required / 1e9).toFixed(2)} GB free including working space; this GPU has ${(this.state.diskFreeBytes / 1e9).toFixed(2)} GB. No new download was started. Use a larger disk or remove unused extras first.`);
       for (const id of files) {
         const file = this.state.files.find(file => file.id === id)!;
         if (['installed', 'queued', 'downloading'].includes(file.status)) continue;
@@ -178,6 +190,7 @@ export class ModelManager {
       if (draft.settings.loraA === name) draft.settings.loraA = 'None';
       if (draft.settings.loraB === name) draft.settings.loraB = 'None';
       this.store.set('draft', draft);
+      if (name === IMAGE_IDENTITY) { const imageDraft = this.store.imageDraft(); imageDraft.settings.identityRefine = false; this.store.set('image-draft', imageDraft); }
       const file = this.state.files.find(file => file.id === 'loras/' + name);
       if (file) Object.assign(file, { status: 'missing', percent: null, message: '', error: null });
       this.store.emit('event', { type: 'lora-removed', data: result });

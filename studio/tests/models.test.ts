@@ -195,6 +195,18 @@ describe('manual model queue', () => {
     connection.status.state = 'offline'; await expect(manager.start([pinnedModels[0].destination])).rejects.toThrow('running GPU');
     expect(worker).not.toHaveBeenCalled();
   });
+  it('rejects an entire model plan before any paid transfer when disk space is insufficient', async () => {
+    const { manager, storage, worker } = await fixture();
+    storage.mockImplementation(async () => ({ loras: [], freeBytes: 6_000_000_000 }));
+    await expect(manager.start(['diffusion_models/minimax_h3_ref2va_viggle_pruned_int8_convrot.safetensors'])).rejects.toThrow('No new download was started');
+    expect(worker).not.toHaveBeenCalled(); expect(manager.state.busy).toBe(false);
+  });
+  it('resumes a verified-size partial without demanding the already downloaded space again', async () => {
+    const { manager, storage, worker, controls, untilIdle } = await fixture(), file = 'loras/' + NATURAL_SPEED;
+    storage.mockImplementation(async () => ({ loras: [], freeBytes: 5 * 1024 ** 3 + 100_000_000, partials: [{ id: file, size: 600_000_000 }] }));
+    await manager.start([file]); expect(worker).toHaveBeenCalledTimes(1);
+    controls.get(file)!.resolve(); await untilIdle();
+  });
   it('counts only filenames actually present in ComfyUI, including the shared encoders and tracker', () => {
     const installed = installedModelIds(catalog);
     expect(installed.has('diffusion_models/wan2.1_14B_SCAIL_2_int8_convrot.safetensors')).toBe(true);
