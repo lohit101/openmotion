@@ -191,4 +191,18 @@ describe('source-preserving Klein image replacement', () => {
     expect(graph['118'].inputs.latent_image).toEqual(['149', 0]);
     expect(graph['218'].inputs.latent_image).toEqual(['214', 0]);
   });
+  it('keeps native Qwen CFG at one and removes unused control and acceleration files in v3', () => {
+    const job = fixture(); job.image!.version = 'scene-anchor-v3';
+    job.image!.settings = { ...imageDefaults, model: 'qwen21', qwenRecipe: 'source-anchored', qwenQuality: 'quality', qwenHeadRefine: false, structureStrength: 0 };
+    job.uploads!.structure = 'target.png';
+    const graph = compileWorkflow({}, job);
+    expect(validateGraph(graph, catalog)).toEqual([]);
+    expect(graph['118'].inputs).toMatchObject({ cfg: 1, steps: 20, latent_image: ['108', 2], model: ['106', 0] });
+    expect(graph['140']).toBeUndefined(); expect(graph['146']).toBeUndefined(); expect(graph['105']).toBeUndefined(); expect(graph['218']).toBeUndefined();
+    expect(graph['155'].inputs.images).toEqual(['120', 0]);
+    expect(imageFilesForSettings(job.image!.settings)).not.toContain(QWEN_STRUCTURE);
+    expect(imageFilesForSettings(job.image!.settings).some(file => /turbo|head_v1/.test(file))).toBe(false);
+    job.image!.version = 'scene-anchor-v2';
+    expect(compileWorkflow({}, job)['118'].inputs.cfg).toBe(4);
+  });
 });

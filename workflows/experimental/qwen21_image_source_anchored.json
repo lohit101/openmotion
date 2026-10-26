@@ -1,6 +1,6 @@
 {
-  "last_node_id": 147,
-  "last_link_id": 27,
+  "last_node_id": 156,
+  "last_link_id": 28,
   "nodes": [
     {
       "id": 1,
@@ -415,7 +415,7 @@
           ]
         }
       ],
-      "title": "Source-anchored body and outfit \u00b7 8 steps",
+      "title": "Character and outfit \u00b7 8 steps",
       "properties": {
         "Node name for S&R": "KSampler"
       },
@@ -496,7 +496,8 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            15
+            15,
+            28
           ]
         },
         {
@@ -969,25 +970,61 @@
       ]
     },
     {
-      "id": 147,
+      "id": 155,
+      "type": "SaveImage",
+      "pos": [
+        2520,
+        4620
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 23,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 28
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": []
+        }
+      ],
+      "title": "Save the model output before masking for quality diagnosis",
+      "properties": {
+        "Node name for S&R": "SaveImage"
+      },
+      "widgets_values": [
+        "recast/klein-image-replacement/body_raw"
+      ]
+    },
+    {
+      "id": 156,
       "type": "MarkdownNote",
       "pos": [
         0,
-        4620
+        4900
       ],
       "size": [
         1000,
         680
       ],
       "flags": {},
-      "order": 23,
+      "order": 24,
       "mode": 0,
       "inputs": [],
       "outputs": [],
       "properties": {},
       "title": "Start here",
       "widgets_values": [
-        "# Qwen Image 2.1 source-anchored replacement \u00b7 experimental\n\nUse target.png and identity.png as scene and replacement references.\nsource-structure.png is a source-aligned Canny map with internal facial detail removed;\nit is not a raw RGB photo. edit-mask.png is white-to-edit, black-to-preserve.\nThe trained Qwen Fun ControlNet Union is loaded with the native ModelPatchLoader.\nUse the native image encoder's scene-sized latent. The inpainting branch receives\nthe source image and mask. Do not replace that latent with a source VAE encode.\n\nThe head variant uses a separate BFS v1.1 adapter after the outfit pass.\nSupply face.png, face-refine-mask.png and body-mask.png on this same working canvas.\nExport an actual Studio job for detector-derived masks and immutable input filenames.\nBody and head adapters are independent; each pass uses only two image references.\nEight Euler/simple steps per pass, CFG 1; no face restorer or beautifier.\nThe optional native-quality recipe uses 20 steps, CFG 4, without turbo acceleration.\nStructural guidance and masks do not guarantee an exact identity or perfect lighting.\nQwen base/control weights: Qwen Research License. BFS adapters: MIT.\n"
+        "# Qwen Image 2.1 source-anchored replacement \u00b7 experimental\n\nUse target.png and identity.png as scene and replacement references.\nsource-structure.png is a source-aligned Canny map with internal facial detail removed;\nit is not a raw RGB photo. edit-mask.png is white-to-edit, black-to-preserve.\nThe trained Qwen Fun ControlNet Union is loaded with the native ModelPatchLoader.\nUse the native image encoder's scene-sized latent. The inpainting branch receives\nthe source image and mask. Do not replace that latent with a source VAE encode.\n\nThe head variant uses a separate BFS v1.1 adapter after the outfit pass.\nSupply face.png, face-refine-mask.png and body-mask.png on this same working canvas.\nExport an actual Studio job for detector-derived masks and immutable input filenames.\nBody and head adapters are independent; each pass uses only two image references.\nEight Euler/simple steps per pass, CFG 1; no face restorer or beautifier.\nThe optional native-quality recipe uses 20 steps, CFG 1, without turbo acceleration.\nStructural guidance and masks do not guarantee an exact identity or perfect lighting.\nQwen base/control weights: Qwen Research License. BFS adapters: MIT.\n"
       ]
     }
   ],
@@ -1207,6 +1244,14 @@
       146,
       5,
       "MASK"
+    ],
+    [
+      28,
+      120,
+      0,
+      155,
+      0,
+      "IMAGE"
     ]
   ],
   "groups": [
@@ -1256,7 +1301,7 @@
         2500,
         -65,
         360,
-        4610
+        4890
       ],
       "color": "#41686b",
       "font_size": 24,

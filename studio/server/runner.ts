@@ -187,10 +187,10 @@ export class Runner {
           try { if (!await exists(file)) await client.download(keyframe, file, signal); job.keyframe = file; this.save(job); }
           catch (error) { if (signal.aborted) throw error; await writeFile(path.join(folder, 'keyframe-download-warning.json'), JSON.stringify({ warning: 'The reference preview could not be downloaded. The existing video run was not resubmitted.' })); }
         }
-        const bodyStage = isImageJob(job) && history.outputs?.['154']?.images?.[0];
-        if (bodyStage) {
-          try { const file = path.join(folder, 'body-stage.png'); if (!await exists(file)) await client.download(bodyStage, file, signal); }
-          catch (error) { if (signal.aborted) throw error; await writeFile(path.join(folder, 'body-preview-warning.json'), JSON.stringify({ warning: 'The intermediate body preview could not be downloaded. No image was resubmitted.' })); }
+        if (isImageJob(job)) for (const [node, name] of [['154', 'body-stage'], ['155', 'body-raw'], ['222', 'head-raw']]) {
+          const preview = history.outputs?.[node]?.images?.[0]; if (!preview) continue;
+          try { const file = path.join(folder, `${name}.png`); if (!await exists(file)) await client.download(preview, file, signal); }
+          catch (error) { if (signal.aborted) throw error; await writeFile(path.join(folder, `${name}-preview-warning.json`), JSON.stringify({ warning: 'The intermediate image preview could not be downloaded. No image was resubmitted.' })); }
         }
         if (history.status?.status_str === 'error') {
           const event = history.status.messages?.find((m: any[]) => m[0] === 'execution_error');

@@ -185,8 +185,8 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   });
   app.get('/api/jobs/:id/:type', (req, res) => {
     const job = store.job(String(req.params.id)); if (!job) return void res.sendStatus(404);
-    if (isImageJob(job) && ['image', 'image-source', 'face-source', 'face-reference', 'face-output', 'image-mask', 'image-structure', 'image-body'].includes(String(req.params.type))) {
-      const name = { image: 'final.png', 'image-source': 'original.png', 'face-source': 'source-face.png', 'face-reference': 'reference-face.png', 'face-output': 'output-face.png', 'image-mask': 'edit-mask.png', 'image-structure': 'source-structure.png', 'image-body': 'body-stage.png' }[String(req.params.type)];
+    if (isImageJob(job) && ['image', 'image-source', 'face-source', 'face-reference', 'face-output', 'image-mask', 'image-structure', 'image-body', 'image-body-raw', 'image-head-raw'].includes(String(req.params.type))) {
+      const name = { image: 'final.png', 'image-source': 'original.png', 'face-source': 'source-face.png', 'face-reference': 'reference-face.png', 'face-output': 'output-face.png', 'image-mask': 'edit-mask.png', 'image-structure': 'source-structure.png', 'image-body': 'body-stage.png', 'image-body-raw': 'body-raw.png', 'image-head-raw': 'head-raw.png' }[String(req.params.type)];
       const file = path.join(store.root, 'jobs', job.id, name!);
       if (!existsSync(file)) return void res.sendStatus(404);
       if (req.query.download) res.attachment(`${job.title.replace(/[^a-zA-Z0-9 _-]/g, '').slice(0, 70)}.png`);

@@ -83,7 +83,7 @@ Supply face.png, face-refine-mask.png and body-mask.png on this same working can
 Export an actual Studio job for detector-derived masks and immutable input filenames.
 Body and head adapters are independent; each pass uses only two image references.
 Eight Euler/simple steps per pass, CFG 1; no face restorer or beautifier.
-The optional native-quality recipe uses 20 steps, CFG 4, without turbo acceleration.
+The optional native-quality recipe uses 20 steps, CFG 1, without turbo acceleration.
 Structural guidance and masks do not guarantee an exact identity or perfect lighting.
 Qwen base/control weights: Qwen Research License. BFS adapters: MIT.
 '''

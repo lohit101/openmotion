@@ -142,7 +142,7 @@
       "denoise": 1
     },
     "_meta": {
-      "title": "Source-anchored body and outfit · 8 steps"
+      "title": "Character and outfit · 8 steps"
     }
   },
   "119": {
@@ -354,7 +354,7 @@
       ]
     },
     "_meta": {
-      "title": "Keep the original face core as the head-pose anchor"
+      "title": "Keep the generated identity inside the painted area"
     }
   },
   "154": {
@@ -368,6 +368,19 @@
     },
     "_meta": {
       "title": "Save the intermediate body edit for review"
+    }
+  },
+  "155": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "120",
+        0
+      ],
+      "filename_prefix": "recast/klein-image-replacement/body_raw"
+    },
+    "_meta": {
+      "title": "Save the model output before masking for quality diagnosis"
     }
   },
   "203": {
@@ -556,6 +569,19 @@
     },
     "_meta": {
       "title": "Keep the finished body outside the head area"
+    }
+  },
+  "222": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "220",
+        0
+      ],
+      "filename_prefix": "recast/klein-image-replacement/head_raw"
+    },
+    "_meta": {
+      "title": "Save the head output before masking for quality diagnosis"
     }
   }
 }

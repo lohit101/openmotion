@@ -203,6 +203,19 @@ class ImageReplacementTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Saved image inputs changed"):
                 editor.prepare(request, work, "fixture detector")
 
+    def test_new_head_preparation_keeps_generated_identity_instead_of_reinserting_source_face(self):
+        import cv2
+        import numpy as np
+        with tempfile.TemporaryDirectory() as temp, patch.object(editor, "detect", return_value=[{"bbox": [30, 20, 20, 28], "confidence": .95}]):
+            _, _, request, work = self.fixture(Path(temp))
+            request["version"] = "scene-anchor-v3"
+            request["settings"].update(model="qwen21", faceDetail=False, qwenHeadRefine=True, repairMaskGaps=True)
+            editor.prepare(request, work, "fixture detector")
+            body = cv2.imread(str(work / "body-mask.png"), 0)
+            full = cv2.imread(str(work / "working-mask.png"), 0)
+            np.testing.assert_array_equal(body, full)
+            self.assertGreater(int(body[39, 41]), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

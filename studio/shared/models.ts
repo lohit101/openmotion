@@ -28,7 +28,7 @@ export const QWEN_STRUCTURE = 'model_patches/qwen_image_2.1_fun_controlnet_union
 export const QWEN_HEAD = 'bfs_head_v1.1_qwen_2.1.safetensors';
 export const imageFilesForSettings = (settings: ImageSettings): string[] => settings.model === 'qwen21'
   ? settings.qwenRecipe === 'source-anchored'
-    ? [...qwenImageModelFiles.filter(file => settings.qwenQuality === 'fast' || !file.includes('turbo_lora')), QWEN_STRUCTURE, ...(settings.qwenHeadRefine ? ['loras/' + QWEN_HEAD] : [])]
+    ? [...qwenImageModelFiles.filter(file => settings.qwenQuality === 'fast' || !file.includes('turbo_lora')), ...(settings.structureStrength > 0 ? [QWEN_STRUCTURE] : []), ...(settings.qwenHeadRefine ? ['loras/' + QWEN_HEAD] : [])]
     : qwenImageModelFiles
   : [...imageModelFiles, ...(settings.identityRefine ? ['loras/' + IMAGE_IDENTITY] : [])];
 const filename = (destination: string) => destination.split('/').at(-1)!;

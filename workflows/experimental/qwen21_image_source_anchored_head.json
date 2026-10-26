@@ -1,6 +1,6 @@
 {
-  "last_node_id": 222,
-  "last_link_id": 53,
+  "last_node_id": 223,
+  "last_link_id": 55,
   "nodes": [
     {
       "id": 1,
@@ -168,7 +168,7 @@
           "type": "CLIP",
           "links": [
             4,
-            33
+            34
           ]
         }
       ],
@@ -205,9 +205,9 @@
             7,
             13,
             24,
-            36,
-            40,
-            49
+            37,
+            41,
+            50
           ]
         }
       ],
@@ -246,7 +246,7 @@
           "type": "MODEL",
           "links": [
             3,
-            32
+            33
           ]
         }
       ],
@@ -421,7 +421,7 @@
           ]
         }
       ],
-      "title": "Source-anchored body and outfit \u00b7 8 steps",
+      "title": "Character and outfit \u00b7 8 steps",
       "properties": {
         "Node name for S&R": "KSampler"
       },
@@ -502,7 +502,8 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            29
+            29,
+            32
           ]
         },
         {
@@ -783,7 +784,7 @@
           "type": "MODEL_PATCH",
           "links": [
             23,
-            39
+            40
           ]
         }
       ],
@@ -816,7 +817,7 @@
           "type": "IMAGE",
           "links": [
             25,
-            41
+            42
           ]
         },
         {
@@ -1015,13 +1016,13 @@
           "type": "IMAGE",
           "links": [
             31,
-            34,
-            42,
-            51
+            35,
+            43,
+            52
           ]
         }
       ],
-      "title": "Keep the original face core as the head-pose anchor",
+      "title": "Keep the generated identity inside the painted area",
       "properties": {
         "Node name for S&R": "ImageCompositeMasked"
       },
@@ -1068,18 +1069,54 @@
       ]
     },
     {
-      "id": 203,
-      "type": "LoadImage",
+      "id": 155,
+      "type": "SaveImage",
       "pos": [
         2520,
         5460
       ],
       "size": [
         320,
-        440
+        180
       ],
       "flags": {},
       "order": 25,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 32
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": []
+        }
+      ],
+      "title": "Save the model output before masking for quality diagnosis",
+      "properties": {
+        "Node name for S&R": "SaveImage"
+      },
+      "widgets_values": [
+        "recast/klein-image-replacement/body_raw"
+      ]
+    },
+    {
+      "id": 203,
+      "type": "LoadImage",
+      "pos": [
+        2520,
+        5880
+      ],
+      "size": [
+        320,
+        440
+      ],
+      "flags": {},
+      "order": 26,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -1087,7 +1124,7 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            35
+            36
           ]
         },
         {
@@ -1109,20 +1146,20 @@
       "type": "LoraLoaderModelOnly",
       "pos": [
         2520,
-        5980
+        6400
       ],
       "size": [
         320,
         180
       ],
       "flags": {},
-      "order": 26,
+      "order": 27,
       "mode": 0,
       "inputs": [
         {
           "name": "model",
           "type": "MODEL",
-          "link": 32
+          "link": 33
         }
       ],
       "outputs": [
@@ -1130,7 +1167,7 @@
           "name": "MODEL",
           "type": "MODEL",
           "links": [
-            38
+            39
           ]
         }
       ],
@@ -1148,32 +1185,32 @@
       "type": "TextEncodeQwenImage21",
       "pos": [
         2520,
-        6300
+        6720
       ],
       "size": [
         320,
         438
       ],
       "flags": {},
-      "order": 27,
+      "order": 28,
       "mode": 0,
       "inputs": [
         {
           "name": "clip",
           "type": "CLIP",
-          "link": 33
+          "link": 34
         },
         {
           "name": "images.image_1",
           "type": "IMAGE",
           "shape": 7,
-          "link": 34
+          "link": 35
         },
         {
           "name": "images.image_2",
           "type": "IMAGE",
           "shape": 7,
-          "link": 35
+          "link": 36
         },
         {
           "name": "images.image_3",
@@ -1184,7 +1221,7 @@
         {
           "name": "vae",
           "type": "VAE",
-          "link": 36,
+          "link": 37,
           "shape": 7
         }
       ],
@@ -1193,21 +1230,21 @@
           "name": "positive",
           "type": "CONDITIONING",
           "links": [
-            45
+            46
           ]
         },
         {
           "name": "negative",
           "type": "CONDITIONING",
           "links": [
-            46
+            47
           ]
         },
         {
           "name": "latent",
           "type": "LATENT",
           "links": [
-            47
+            48
           ]
         }
       ],
@@ -1226,14 +1263,14 @@
       "type": "LoadImage",
       "pos": [
         2520,
-        6818
+        7238
       ],
       "size": [
         320,
         440
       ],
       "flags": {},
-      "order": 28,
+      "order": 29,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -1241,7 +1278,7 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            37
+            38
           ]
         },
         {
@@ -1263,20 +1300,20 @@
       "type": "ImageToMask",
       "pos": [
         2520,
-        7338
+        7758
       ],
       "size": [
         320,
         180
       ],
       "flags": {},
-      "order": 29,
+      "order": 30,
       "mode": 0,
       "inputs": [
         {
           "name": "image",
           "type": "IMAGE",
-          "link": 37
+          "link": 38
         }
       ],
       "outputs": [
@@ -1284,8 +1321,8 @@
           "name": "MASK",
           "type": "MASK",
           "links": [
-            43,
-            53
+            44,
+            54
           ]
         }
       ],
@@ -1302,47 +1339,47 @@
       "type": "ZImageFunControlnet",
       "pos": [
         2520,
-        7598
+        8018
       ],
       "size": [
         320,
         280
       ],
       "flags": {},
-      "order": 30,
+      "order": 31,
       "mode": 0,
       "inputs": [
         {
           "name": "model",
           "type": "MODEL",
-          "link": 38
+          "link": 39
         },
         {
           "name": "model_patch",
           "type": "MODEL_PATCH",
-          "link": 39
+          "link": 40
         },
         {
           "name": "vae",
           "type": "VAE",
-          "link": 40
+          "link": 41
         },
         {
           "name": "image",
-          "type": "IMAGE",
-          "link": 41,
-          "shape": 7
-        },
-        {
-          "name": "inpaint_image",
           "type": "IMAGE",
           "link": 42,
           "shape": 7
         },
         {
+          "name": "inpaint_image",
+          "type": "IMAGE",
+          "link": 43,
+          "shape": 7
+        },
+        {
           "name": "mask",
           "type": "MASK",
-          "link": 43,
+          "link": 44,
           "shape": 7
         }
       ],
@@ -1351,7 +1388,7 @@
           "name": "MODEL",
           "type": "MODEL",
           "links": [
-            44
+            45
           ]
         }
       ],
@@ -1370,35 +1407,35 @@
       "type": "KSampler",
       "pos": [
         2520,
-        7980
+        8400
       ],
       "size": [
         320,
         340
       ],
       "flags": {},
-      "order": 31,
+      "order": 32,
       "mode": 0,
       "inputs": [
         {
           "name": "model",
           "type": "MODEL",
-          "link": 44
+          "link": 45
         },
         {
           "name": "positive",
           "type": "CONDITIONING",
-          "link": 45
+          "link": 46
         },
         {
           "name": "negative",
           "type": "CONDITIONING",
-          "link": 46
+          "link": 47
         },
         {
           "name": "latent_image",
           "type": "LATENT",
-          "link": 47
+          "link": 48
         }
       ],
       "outputs": [
@@ -1406,7 +1443,7 @@
           "name": "LATENT",
           "type": "LATENT",
           "links": [
-            48
+            49
           ]
         }
       ],
@@ -1429,25 +1466,25 @@
       "type": "VAEDecode",
       "pos": [
         2520,
-        8400
+        8820
       ],
       "size": [
         320,
         180
       ],
       "flags": {},
-      "order": 32,
+      "order": 33,
       "mode": 0,
       "inputs": [
         {
           "name": "samples",
           "type": "LATENT",
-          "link": 48
+          "link": 49
         },
         {
           "name": "vae",
           "type": "VAE",
-          "link": 49
+          "link": 50
         }
       ],
       "outputs": [
@@ -1455,7 +1492,7 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            50
+            51
           ]
         }
       ],
@@ -1470,20 +1507,20 @@
       "type": "SplitImageWithAlpha",
       "pos": [
         2520,
-        8820
+        9240
       ],
       "size": [
         320,
         180
       ],
       "flags": {},
-      "order": 33,
+      "order": 34,
       "mode": 0,
       "inputs": [
         {
           "name": "image",
           "type": "IMAGE",
-          "link": 50
+          "link": 51
         }
       ],
       "outputs": [
@@ -1491,7 +1528,8 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            52
+            53,
+            55
           ]
         },
         {
@@ -1511,30 +1549,30 @@
       "type": "ImageCompositeMasked",
       "pos": [
         2520,
-        9240
+        9660
       ],
       "size": [
         320,
         214
       ],
       "flags": {},
-      "order": 34,
+      "order": 35,
       "mode": 0,
       "inputs": [
         {
           "name": "destination",
           "type": "IMAGE",
-          "link": 51
+          "link": 52
         },
         {
           "name": "source",
           "type": "IMAGE",
-          "link": 52
+          "link": 53
         },
         {
           "name": "mask",
           "type": "MASK",
-          "link": 53,
+          "link": 54,
           "shape": 7
         }
       ],
@@ -1559,24 +1597,60 @@
     },
     {
       "id": 222,
+      "type": "SaveImage",
+      "pos": [
+        2520,
+        10080
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 36,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 55
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": []
+        }
+      ],
+      "title": "Save the head output before masking for quality diagnosis",
+      "properties": {
+        "Node name for S&R": "SaveImage"
+      },
+      "widgets_values": [
+        "recast/klein-image-replacement/head_raw"
+      ]
+    },
+    {
+      "id": 223,
       "type": "MarkdownNote",
       "pos": [
         0,
-        9554
+        10360
       ],
       "size": [
         1000,
         680
       ],
       "flags": {},
-      "order": 35,
+      "order": 37,
       "mode": 0,
       "inputs": [],
       "outputs": [],
       "properties": {},
       "title": "Start here",
       "widgets_values": [
-        "# Qwen Image 2.1 source-anchored replacement \u00b7 experimental\n\nUse target.png and identity.png as scene and replacement references.\nsource-structure.png is a source-aligned Canny map with internal facial detail removed;\nit is not a raw RGB photo. edit-mask.png is white-to-edit, black-to-preserve.\nThe trained Qwen Fun ControlNet Union is loaded with the native ModelPatchLoader.\nUse the native image encoder's scene-sized latent. The inpainting branch receives\nthe source image and mask. Do not replace that latent with a source VAE encode.\n\nThe head variant uses a separate BFS v1.1 adapter after the outfit pass.\nSupply face.png, face-refine-mask.png and body-mask.png on this same working canvas.\nExport an actual Studio job for detector-derived masks and immutable input filenames.\nBody and head adapters are independent; each pass uses only two image references.\nEight Euler/simple steps per pass, CFG 1; no face restorer or beautifier.\nThe optional native-quality recipe uses 20 steps, CFG 4, without turbo acceleration.\nStructural guidance and masks do not guarantee an exact identity or perfect lighting.\nQwen base/control weights: Qwen Research License. BFS adapters: MIT.\n"
+        "# Qwen Image 2.1 source-anchored replacement \u00b7 experimental\n\nUse target.png and identity.png as scene and replacement references.\nsource-structure.png is a source-aligned Canny map with internal facial detail removed;\nit is not a raw RGB photo. edit-mask.png is white-to-edit, black-to-preserve.\nThe trained Qwen Fun ControlNet Union is loaded with the native ModelPatchLoader.\nUse the native image encoder's scene-sized latent. The inpainting branch receives\nthe source image and mask. Do not replace that latent with a source VAE encode.\n\nThe head variant uses a separate BFS v1.1 adapter after the outfit pass.\nSupply face.png, face-refine-mask.png and body-mask.png on this same working canvas.\nExport an actual Studio job for detector-derived masks and immutable input filenames.\nBody and head adapters are independent; each pass uses only two image references.\nEight Euler/simple steps per pass, CFG 1; no face restorer or beautifier.\nThe optional native-quality recipe uses 20 steps, CFG 1, without turbo acceleration.\nStructural guidance and masks do not guarantee an exact identity or perfect lighting.\nQwen base/control weights: Qwen Research License. BFS adapters: MIT.\n"
       ]
     }
   ],
@@ -1831,6 +1905,14 @@
     ],
     [
       32,
+      120,
+      0,
+      155,
+      0,
+      "IMAGE"
+    ],
+    [
+      33,
       105,
       0,
       206,
@@ -1838,7 +1920,7 @@
       "MODEL"
     ],
     [
-      33,
+      34,
       103,
       0,
       208,
@@ -1846,7 +1928,7 @@
       "CLIP"
     ],
     [
-      34,
+      35,
       153,
       0,
       208,
@@ -1854,7 +1936,7 @@
       "IMAGE"
     ],
     [
-      35,
+      36,
       203,
       0,
       208,
@@ -1862,7 +1944,7 @@
       "IMAGE"
     ],
     [
-      36,
+      37,
       104,
       0,
       208,
@@ -1870,7 +1952,7 @@
       "VAE"
     ],
     [
-      37,
+      38,
       209,
       0,
       211,
@@ -1878,7 +1960,7 @@
       "IMAGE"
     ],
     [
-      38,
+      39,
       206,
       0,
       215,
@@ -1886,7 +1968,7 @@
       "MODEL"
     ],
     [
-      39,
+      40,
       140,
       0,
       215,
@@ -1894,7 +1976,7 @@
       "MODEL_PATCH"
     ],
     [
-      40,
+      41,
       104,
       0,
       215,
@@ -1902,7 +1984,7 @@
       "VAE"
     ],
     [
-      41,
+      42,
       141,
       0,
       215,
@@ -1910,7 +1992,7 @@
       "IMAGE"
     ],
     [
-      42,
+      43,
       153,
       0,
       215,
@@ -1918,7 +2000,7 @@
       "IMAGE"
     ],
     [
-      43,
+      44,
       211,
       0,
       215,
@@ -1926,7 +2008,7 @@
       "MASK"
     ],
     [
-      44,
+      45,
       215,
       0,
       218,
@@ -1934,7 +2016,7 @@
       "MODEL"
     ],
     [
-      45,
+      46,
       208,
       0,
       218,
@@ -1942,7 +2024,7 @@
       "CONDITIONING"
     ],
     [
-      46,
+      47,
       208,
       1,
       218,
@@ -1950,7 +2032,7 @@
       "CONDITIONING"
     ],
     [
-      47,
+      48,
       208,
       2,
       218,
@@ -1958,7 +2040,7 @@
       "LATENT"
     ],
     [
-      48,
+      49,
       218,
       0,
       219,
@@ -1966,7 +2048,7 @@
       "LATENT"
     ],
     [
-      49,
+      50,
       104,
       0,
       219,
@@ -1974,7 +2056,7 @@
       "VAE"
     ],
     [
-      50,
+      51,
       219,
       0,
       220,
@@ -1982,7 +2064,7 @@
       "IMAGE"
     ],
     [
-      51,
+      52,
       153,
       0,
       221,
@@ -1990,7 +2072,7 @@
       "IMAGE"
     ],
     [
-      52,
+      53,
       220,
       0,
       221,
@@ -1998,12 +2080,20 @@
       "IMAGE"
     ],
     [
-      53,
+      54,
       211,
       0,
       221,
       2,
       "MASK"
+    ],
+    [
+      55,
+      220,
+      0,
+      222,
+      0,
+      "IMAGE"
     ]
   ],
   "groups": [
@@ -2053,7 +2143,7 @@
         2500,
         -65,
         360,
-        9544
+        10350
       ],
       "color": "#41686b",
       "font_size": 24,
