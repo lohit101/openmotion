@@ -76,7 +76,9 @@ def reference_field_of_view(reference, source, model):
 def repair_small_mask_gaps(mask):
     """Close tiny enclosed paint gaps; never expand the outer paint boundary."""
     cv2, np = dependencies()
-    count, labels, stats, _ = cv2.connectedComponentsWithStats((mask < 128).astype(np.uint8), 8)
+    # Include antialiased fringes inside a gap; otherwise a partially painted
+    # ring still leaks the original skin/clothing into the replacement.
+    count, labels, stats, _ = cv2.connectedComponentsWithStats((mask < 254).astype(np.uint8), 8)
     repaired, closed = mask.copy(), 0
     limit = max(4, round(mask.size * .002))
     h, w = mask.shape

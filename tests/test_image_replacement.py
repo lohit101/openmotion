@@ -168,11 +168,13 @@ class ImageReplacementTests(unittest.TestCase):
         mask[10:190, 10:150] = 255
         mask[30:33, 30:33] = 0
         mask[29:34, 29] = 80
+        mask[29:34, 28] = 220
         mask[60:90, 60:90] = 0  # Large intentional occlusion stays protected.
         repaired, closed = editor.repair_small_mask_gaps(mask)
         self.assertEqual(closed, 1)
         self.assertTrue(np.all(repaired[30:33, 30:33] == 255))
         self.assertTrue(np.all(repaired[29:34, 29] == 255))
+        self.assertTrue(np.all(repaired[29:34, 28] == 255))
         self.assertFalse(np.any(repaired[60:90, 60:90]))
         self.assertFalse(np.any(repaired[:10]))
         self.assertFalse(np.any(repaired[:, :10]))
