@@ -1,5 +1,7 @@
 # Recast character replacement on Vast
 
+**Image replacement** now has its own sidebar workspace: edit a photo or extract a source-video frame, use a character reference and optional face close-up, protect the scene with a painted mask, compare faces/results and save a PNG to the shared library. It reuses the three installed Klein image files and can send an exact source-frame edit back to Viggle without repainting it again. See [the image workflow guide and model comparison](docs/image-replacement.md).
+
 The new [Viggle source-frame replacement workflow](docs/viggle-workflow.md) combines a four-step FLUX.2 Klein edit with three-pass video propagation. It is available as a separate experimental Studio engine and editable ComfyUI graph. The [overnight plan](docs/overnight-realism-plan-2026-10-26.md) records the $0.70/hour compute ceiling, GPU quotes, storage costs and pending live validation. Existing SCAIL jobs remain on their original engine; no sub-three-minute or visual-quality result is claimed for the new stack yet.
 
 This project runs full-person video replacement in ComfyUI using the native SCAIL-2 INT8 model. It provides an editable graph, person-mask previews, optional model-matched LoRA slots, source audio, and five-frame continuation between short passes. Start with one person in a single continuous shot.

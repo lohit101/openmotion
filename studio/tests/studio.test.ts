@@ -3,7 +3,7 @@ import request from 'supertest';
 import express from 'express';
 import multer from 'multer';
 import { createServer } from 'node:http';
-import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -19,6 +19,8 @@ import { compilePrompt, PROMPT_VERSION } from '../shared/prompts';
 import type { ReferenceGeometry } from '../server/framing';
 import prompts from '../../config/prompts.json';
 import type { Asset, Catalog, Graph, Job, Settings } from '../shared/types';
+import { imageDefaults } from '../shared/image-replacement';
+import { ImageFinalizationError } from '../server/image-processing';
 
 const repo = path.resolve(import.meta.dirname, '../..');
 const catalog: Catalog = JSON.parse(readFileSync(path.join(repo, 'integration-snapshot/object-info.json'), 'utf8'));
@@ -70,6 +72,14 @@ async function mockComfy(viggle = false) {
   app.get('/history/:id', (req, res) => { if (dropHistory) { dropHistory = false; req.socket.destroy(); return; } res.json(history[req.params.id] ? { [req.params.id]: history[req.params.id] } : {}); });
   async function complete(id: string) {
     const entry = pending.get(id); if (!entry) return;
+    if (entry[2]['46'].class_type === 'SaveImage') {
+      // Protocol only: return the uploaded source, never synthetic model quality.
+      const graph = entry[2] as Graph, filename = id + '.png';
+      const source = uploads.get(String((graph['128'] || graph['1']).inputs.image))!;
+      const file = path.join(fixtures, filename); await copyFile(source, file); files.set(filename, file);
+      history[id] = { prompt: entry, status: { status_str: 'success', completed: true, messages: [] }, outputs: { '46': { images: [{ filename, subfolder: 'recast', type: 'output' }] } } };
+      pending.delete(id); emit(entry[3].client_id, 'executing', { prompt_id: id, node: null }); return;
+    }
     const graph = entry[2] as Graph, controls = graph['1']?.inputs, fps = controls ? Number(controls.fps) : 24, cap = controls ? Number(controls.frame_cap) : Number(graph['2'].inputs.frame_load_cap), skip = controls ? Number(controls.skip_frames) : 0, overlap = skip ? 5 : 0;
     const filename = id + '.mp4', file = path.join(fixtures, filename);
     const scale = graph['52'] ? ['-vf', `scale=${graph['52'].inputs.width}:${graph['52'].inputs.height}:flags=lanczos`] : [];
@@ -92,9 +102,10 @@ async function mockComfy(viggle = false) {
     submissions.push({ id, ...req.body, socketReady: sockets.get(req.body.client_id)?.readyState === WebSocket.OPEN }); pending.set(id, entry);
     if (mode === 'lose-response') { req.socket.destroy(); return; }
     emit(req.body.client_id, 'execution_start', { prompt_id: id });
-    emit(req.body.client_id, 'executing', { prompt_id: id, node: '43' });
-    const steps = req.body.prompt['42'].class_type === 'ManualSigmas' ? String(req.body.prompt['42'].inputs.sigmas).split(',').length - 1 : req.body.prompt['42'].inputs.steps;
-    emit(req.body.client_id, 'progress', { prompt_id: id, node: '43', value: 2, max: typeof steps === 'number' ? steps : 6 });
+    const imageRun = req.body.prompt['46'].class_type === 'SaveImage', stepNode = req.body.prompt[imageRun ? '115' : '42'], node = imageRun ? '118' : '43';
+    emit(req.body.client_id, 'executing', { prompt_id: id, node });
+    const steps = stepNode.class_type === 'ManualSigmas' ? String(stepNode.inputs.sigmas).split(',').length - 1 : stepNode.inputs.steps;
+    emit(req.body.client_id, 'progress', { prompt_id: id, node, value: 2, max: typeof steps === 'number' ? steps : 6 });
     res.json({ prompt_id: id, node_errors: {} });
     if (mode === 'complete') void complete(id);
   });
@@ -176,6 +187,86 @@ describe('local app with the captured ComfyUI protocol', () => {
     await agent.post('/api/connection/connect').send({ endpoint: mock!.endpoint, useSSH: false }).expect(202);
     await until(() => local!.connection.status.state, state => state === 'online');
   }
+  async function imageInputs(agent: ReturnType<typeof request>) {
+    const source = await agent.post('/api/assets/image').attach('file', image).expect(201), reference = await agent.post('/api/assets/image').attach('file', image).expect(201);
+    local!.runner.imageProcessor = async (action, job, store, _repo, folder) => {
+      if (action === 'prepare') {
+        await copyFile(store.asset(job.sourceId)!.path, path.join(folder, 'target.png')); await copyFile(store.asset(job.sourceId)!.path, path.join(folder, 'original.png'));
+        await copyFile(store.asset(job.referenceId)!.path, path.join(folder, 'identity.png'));
+        return { hasFace: false, warnings: [] };
+      }
+      await copyFile(path.join(folder, 'gpu-result.png'), path.join(folder, 'final.png'));
+      return { status: 'review', warnings: [], backgroundProtected: false, outsideMaskMaxDifference: null, sourceFace: false, referenceFace: false, outputFace: false };
+    };
+    return { sourceId: source.body.id, referenceId: reference.body.id, faceId: null, maskId: null, settings: { ...imageDefaults, protectBackground: false, faceDetail: false } };
+  }
+  it('saves independent image settings offline and never downloads or submits a missing-model request', async () => {
+    const agent = await setup(), values = await imageInputs(agent), before = local!.store.draft();
+    await agent.post('/api/images/draft').send(values).expect(200);
+    expect(local!.store.imageDraft().sourceId).toBe(values.sourceId); expect(local!.store.draft()).toEqual(before);
+    expect(mock!.calls).toEqual([]);
+    await agent.post('/api/images/jobs').set('Idempotency-Key', 'image-offline').send(values).expect(503);
+    await connect(agent);
+    const missing = await agent.post('/api/images/jobs').set('Idempotency-Key', 'image-missing').send(values).expect(409);
+    expect(missing.body.missingModels).toHaveLength(3); expect(mock!.submissions).toHaveLength(0);
+    expect(mock!.calls.some(call => /download|\/prompt/.test(call))).toBe(false);
+  });
+  it('saves one PNG image with its receipt, library entry and reproducible workflow', async () => {
+    const agent = await setup(true), values = await imageInputs(agent); await connect(agent);
+    const response = await agent.post('/api/images/jobs').set('Idempotency-Key', 'image-once').send(values).expect(201);
+    const job = await until(() => local!.store.job(response.body.id)!, j => ['completed', 'failed', 'interrupted'].includes(j.status));
+    expect(job.status).toBe('completed'); expect(job.error).toBeNull(); expect(job.mediaType).toBe('image');
+    expect(job.segments).toHaveLength(1); expect(job.progress.completedFrames).toBe(1); expect(mock!.submissions).toHaveLength(1);
+    await agent.post('/api/images/jobs').set('Idempotency-Key', 'image-once').send(values).expect(200); expect(mock!.submissions).toHaveLength(1);
+    expect((await readdir(path.join(root, 'jobs', job.id)))).toContain('history_0.json');
+    const result = await agent.get(`/api/jobs/${job.id}/image?download=1`).expect(200); expect(result.headers['content-type']).toContain('image/png'); expect(result.headers['content-disposition']).toContain('.png');
+    await agent.get(`/api/jobs/${job.id}/image-source`).expect(200);
+    expect((await agent.get(`/api/jobs/${job.id}/workflow`).expect(200)).body['46'].class_type).toBe('SaveImage');
+    const use = await agent.post(`/api/images/jobs/${job.id}/use`).send({}).expect(200);
+    expect(use.body.draft.settings.referencePreparation).toBe('auto'); expect(use.body.draft.referenceId).toBe(use.body.asset.id);
+    expect((await agent.post(`/api/images/jobs/${job.id}/use`).send({}).expect(200)).body.asset.id).toBe(use.body.asset.id);
+  });
+  it('binds masks to their target and carries an extracted video frame back as a prepared reference', async () => {
+    const agent = await setup(true), motion = await inputs(agent), values = await imageInputs(agent); await connect(agent);
+    const mask = await agent.post(`/api/images/mask/${values.sourceId}`).attach('file', image).expect(201);
+    await agent.post('/api/images/jobs').set('Idempotency-Key', 'wrong-mask').send({ ...values, sourceId: values.referenceId, maskId: mask.body.id, settings: { ...values.settings, protectBackground: true } }).expect(400);
+    const frame = await agent.post('/api/images/source-frame').send({ sourceId: motion.sourceId, time: .5 }).expect(201);
+    expect(frame.body.sourceFrame).toEqual({ videoId: motion.sourceId, time: .5 });
+    const response = await agent.post('/api/images/jobs').set('Idempotency-Key', 'source-frame-image').send({ ...values, sourceId: frame.body.id }).expect(201);
+    const job = await until(() => local!.store.job(response.body.id)!, j => ['completed', 'failed'].includes(j.status)); expect(job.status).toBe('completed');
+    const use = await agent.post(`/api/images/jobs/${job.id}/use`).send({}).expect(200);
+    expect(use.body.draft.sourceId).toBe(motion.sourceId); expect(use.body.draft.settings).toMatchObject({ referencePreparation: 'prepared', engine: 'viggle', fps: 24, start: .5 });
+  });
+  it('queues images behind the active video without interrupting it or creating a second GPU queue', async () => {
+    const agent = await setup(true), motion = await inputs(agent), values = await imageInputs(agent); motion.settings.seconds = .5; await connect(agent); mock!.setMode('hold');
+    const video = await agent.post('/api/jobs').set('Idempotency-Key', 'video-before-image').send(motion).expect(201);
+    await until(() => mock!.submissions.length, n => n === 1);
+    const response = await agent.post('/api/images/jobs').set('Idempotency-Key', 'image-after-video').send(values).expect(201);
+    expect(local!.store.job(response.body.id)!.status).toBe('queued'); expect(mock!.cancelled).toEqual([]); expect(mock!.submissions).toHaveLength(1);
+    mock!.setMode('complete'); await mock!.complete(mock!.submissions[0].id);
+    const job = await until(() => local!.store.job(response.body.id)!, j => ['completed', 'failed'].includes(j.status));
+    expect(local!.store.job(video.body.id)!.status).toBe('completed'); expect(job.status).toBe('completed'); expect(mock!.submissions).toHaveLength(2);
+  }, 20000);
+  it('recovers an accepted image submission after a lost response without generating again', async () => {
+    const agent = await setup(true), values = await imageInputs(agent); await connect(agent); mock!.setMode('lose-response');
+    const response = await agent.post('/api/images/jobs').set('Idempotency-Key', 'image-lost-response').send(values).expect(201);
+    await until(() => local!.store.job(response.body.id)!, j => j.status === 'interrupted'); await until(() => local!.runner.busy, busy => !busy);
+    await mock!.complete(mock!.submissions[0].id); await connect(agent);
+    await agent.post(`/api/jobs/${response.body.id}/resume`).send({}).expect(200);
+    const job = await until(() => local!.store.job(response.body.id)!, j => ['completed', 'failed'].includes(j.status));
+    expect(job.status).toBe('completed'); expect(mock!.submissions).toHaveLength(1);
+  }, 20000);
+  it('retries local image finalization from the paid receipt without another GPU submission', async () => {
+    const agent = await setup(true), values = await imageInputs(agent); await connect(agent);
+    const original = local!.runner.imageProcessor; let fail = true;
+    local!.runner.imageProcessor = async (...args) => { if (args[0] === 'finish' && fail) { fail = false; throw new ImageFinalizationError('Retry local processing.'); } return original(...args); };
+    const response = await agent.post('/api/images/jobs').set('Idempotency-Key', 'local-image-retry').send(values).expect(201);
+    const saved = await until(() => local!.store.job(response.body.id)!, j => j.status === 'interrupted'); expect(saved.progress.completedFrames).toBe(1); await until(() => local!.runner.busy, busy => !busy);
+    local!.connection.disconnect(); // Finalizing a downloaded image needs no rented GPU.
+    await agent.post(`/api/jobs/${saved.id}/resume`).send({}).expect(200);
+    const job = await until(() => local!.store.job(saved.id)!, j => ['completed', 'failed'].includes(j.status));
+    expect(job.status).toBe('completed'); expect(mock!.submissions).toHaveLength(1);
+  });
   it('works offline, rejects invalid media and saves drafts without probing a GPU', async () => {
     const agent = await setup(); const values = await inputs(agent);
     expect((await agent.get('/api/bootstrap')).body.connection.state).toBe('offline'); expect(mock!.calls).toEqual([]);

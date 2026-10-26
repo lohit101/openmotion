@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { CloudState } from './cloud';
 import { defaultNegativePrompt, defaultPrompt } from './prompts';
 import type { ModelsState } from './models';
+import type { ImageDraft, ImageRun } from './image-replacement';
 
 export const settingsSchema = z.object({
   engine: z.enum(['scail2', 'viggle']).default('scail2'),
@@ -32,7 +33,7 @@ export const settingsSchema = z.object({
 });
 export type Settings = z.infer<typeof settingsSchema>;
 export const defaults: Settings = settingsSchema.parse({ prompt: defaultPrompt() });
-export interface Asset { id: string; kind: 'video' | 'image'; name: string; path: string; width: number; height: number; duration: number; fps: number; size: number; hasAudio: boolean; poster: string; createdAt: string; }
+export interface Asset { id: string; kind: 'video' | 'image'; name: string; path: string; width: number; height: number; duration: number; fps: number; size: number; hasAudio: boolean; poster: string; createdAt: string; sourceFrame?: { videoId: string; time: number }; maskFor?: string; }
 export type JobStatus = 'queued' | 'running' | 'reconnecting' | 'interrupted' | 'completed' | 'failed' | 'cancelled';
 export interface Progress { stage: string; node: string | null; value: number | null; max: number | null; unit: string; segment: number; segments: number; completedFrames: number; targetFrames: number; updatedAt: number; }
 export interface Segment { promptId: string; frames: number; file: string; seconds: number; }
@@ -47,7 +48,7 @@ export interface Job {
   id: string; title: string; status: JobStatus; settings: Settings; sourceId: string; referenceId: string;
   createdAt: string; startedAt?: string; finishedAt?: string; favorite: boolean; deleted: boolean;
   width: number; height: number; outputSize?: { width: number; height: number }; progress: Progress; segments: Segment[]; context: string;
-  pendingPrompt: string | null; uploads: { source: string; reference: string } | null;
+  pendingPrompt: string | null; uploads: { source: string; reference: string; face?: string; original?: string; mask?: string; noiseMask?: string } | null;
   error: string | null; output: string | null; poster: string | null; cancelRequested: boolean;
   cancellationConfirmed?: boolean; submitting?: boolean; retryRequired?: boolean;
   elapsedSeconds: number | null; origin: 'render' | 'import'; workflow: Record<string, GraphNode> | null;
@@ -55,13 +56,14 @@ export interface Job {
   framingVersion?: 'face-v1'; referenceFraming?: ReferenceFraming; framingCheck?: FramingCheck;
   renderVersion?: 'continuous-v1'; saveDiagnosticLatent?: boolean;
   keyframe?: string; timings?: { node: string; stage: string; seconds: number }[];
+  mediaType?: 'image'; image?: ImageRun;
 }
 export interface GraphNode { class_type: string; inputs: Record<string, unknown>; _meta?: { title: string }; }
 export type Graph = Record<string, GraphNode>;
 export type Catalog = Record<string, { input: { required?: Record<string, unknown[]>; optional?: Record<string, unknown[]> }; output: string[] }>;
 export interface Connection { state: 'offline' | 'connecting' | 'online'; endpoint: string; gpu: string | null; message: string; loras: string[]; checkedAt: string | null; }
 export interface Draft { sourceId: string | null; referenceId: string | null; settings: Settings; }
-export interface Bootstrap { assets: Asset[]; jobs: Job[]; draft: Draft; connection: Connection; cloud: CloudState; models: ModelsState; }
+export interface Bootstrap { assets: Asset[]; jobs: Job[]; draft: Draft; connection: Connection; cloud: CloudState; models: ModelsState; imageDraft?: ImageDraft; }
 
 function dimensionsAt(settings: Settings, source: Pick<Asset, 'width' | 'height'>, short: number, grid: number): [number, number] {
   let ratio = source.width / source.height;

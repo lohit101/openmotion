@@ -17,6 +17,7 @@ export const SOCIAL_STYLE = 'Instagoon-v1-step00001400.safetensors';
 const scailModels = [...base.files, ...relight.files, ...natural.files, ...extras.files];
 export const pinnedModels = [...scailModels, ...viggle.files, ...repaint.files];
 export const setupModelFiles: string[] = setup.files;
+export const imageModelFiles = repaint.files.map(file => file.destination);
 const filename = (destination: string) => destination.split('/').at(-1)!;
 
 // Describe requirements only. Selection never initiates a download.

@@ -214,7 +214,7 @@ svg { flex-shrink: 0; }
 .job-card { min-width: 0; }
 .job-media { display: block; width: 100%; aspect-ratio: 16/10; overflow: hidden; background: var(--raised); border: 1px solid var(--line); border-radius: var(--radius-control); position: relative; padding: 0; }
 .job-card.selected .job-media { border-color: #a2b66a; }
-.job-media video { width: 100%; height: 100%; object-fit: cover; object-position: center 16%; display: block; }
+.job-media video, .job-media > img { width: 100%; height: 100%; object-fit: cover; object-position: center 16%; display: block; }
 .job-media:hover { border-color: var(--quiet); }
 .job-play { position: absolute; bottom: 7px; left: 7px; width: 22px; height: 22px; display: grid; place-items: center; background: #1214169c; color: #eee; border: 1px solid #ffffff21; border-radius: 50%; }
 .job-card-content { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 5px; align-items: center; margin-top: 8px; }
@@ -240,7 +240,7 @@ svg { flex-shrink: 0; }
 .search-field:focus-within { border-color: var(--accent-text); }
 .library-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 29px 20px; align-items: start; }
 .library-grid .job-media { aspect-ratio: 4/4.2; border-radius: 11px; }
-.library-grid .job-media video { object-fit: cover; }
+.library-grid .job-media video, .library-grid .job-media > img { object-fit: cover; }
 .library-grid .job-card-content { margin-top: 12px; }
 .library-grid .job-title { font-size: 12px; }
 .library-grid .job-card-content > small { font-size: 10px; }

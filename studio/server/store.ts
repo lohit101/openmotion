@@ -5,6 +5,7 @@ import path from 'node:path';
 import type { Asset, Draft, Job } from '../shared/types';
 import { defaults } from '../shared/types';
 import { migrateDemoPrompt } from '../shared/prompts';
+import { emptyImageDraft, imageDraftSchema } from '../shared/image-replacement';
 
 export class Store extends EventEmitter {
   db: DatabaseSync;
@@ -39,6 +40,7 @@ export class Store extends EventEmitter {
     if (prompt !== draft.settings.prompt) { draft.settings.prompt = prompt; this.set('draft', draft); }
     return draft;
   }
+  imageDraft() { return imageDraftSchema.parse(this.value('image-draft', emptyImageDraft())); }
   close() { this.db.close(); }
 }
 export function publicJob(job: Job): Job { return { ...job, workflow: null, uploads: null, context: '', keyframe: job.keyframe ? 'ready' : undefined, output: job.output ? 'ready' : null, poster: job.poster ? 'ready' : null }; }

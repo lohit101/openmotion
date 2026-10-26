@@ -1,5 +1,7 @@
 # Project workflow
 
+- Image replacement has an independent draft and immutable per-job target/reference/mask/face inputs. Reuse the three Klein image files; no video models or adapters are required. The target controls composition, pose and scale; identity references control appearance. Masks bind to their target and protect exact decoded source pixels outside the edit area. Face crops/head geometry checks are visual diagnostics, never a fabricated identity score or guaranteed identity lock. Image and video work share the existing serialized queue and receipt recovery. An image extracted from a known video may return as a prepared frame; a generic photo must return as a normal reference with automatic preparation. Downloaded images can finish locally without a GPU; never pay to regenerate a locally recoverable output.
+
 - GPU discovery and new-rental preflight require a known download/ingress price of at most $0.005/GB, per the user's revised limit. Filter at the provider and locally, including favourite availability, and recheck the exact rental ask before spending. Keep management controls and cached models for existing rentals. Upload, storage and compute fees remain separate.
 
 - Keep this project in Git. Make a separate, focused commit after each completed bug fix or feature, with the relevant validation recorded. Do not rewrite existing commits unless the user asks.

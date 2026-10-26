@@ -1,0 +1,402 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "target.png"
+    },
+    "_meta": {
+      "title": "Target photo controls pose and framing"
+    }
+  },
+  "4": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "identity.png"
+    },
+    "_meta": {
+      "title": "Identity reference controls face, hair and outfit"
+    }
+  },
+  "46": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "131",
+        0
+      ],
+      "filename_prefix": "recast/klein-image-replacement/segment_0000"
+    },
+    "_meta": {
+      "title": "Save one lossless replacement image"
+    }
+  },
+  "102": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "flux-2-klein-4b-fp8.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": {
+      "title": "Load the shared Klein 4B editor"
+    }
+  },
+  "103": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen_3_4b.safetensors",
+      "type": "flux2",
+      "device": "default"
+    },
+    "_meta": {
+      "title": "Read the photographic replacement instructions"
+    }
+  },
+  "104": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "flux2-vae.safetensors"
+    },
+    "_meta": {
+      "title": "Load the shared image encoder"
+    }
+  },
+  "105": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": [
+        "103",
+        0
+      ],
+      "text": "Edit IMAGE 1 only. IMAGE 1 defines the scene, pose, framing and camera distance. IMAGE 2 defines the replacement identity, hair and outfit. Replace the entire person, including every original garment and accessory, with the person and complete outfit from IMAGE 2. Match IMAGE 2's neckline, sleeves, fabric, colors and clothing design on the target pose. Preserve IMAGE 1's original room and background texture. Replace the main person in IMAGE 1 (target photograph) with the person from IMAGE 2 (identity reference). Produce one photorealistic photograph, with no changes beyond the replacement.\n\nIDENTITY — IMAGE 2 is authoritative. Preserve the person's recognizable facial geometry: bone structure, eye shape and spacing, nose, lips, jaw, cheeks, forehead and distinguishing features. Keep their natural skin tone, hairline, hairstyle, outfit and accessories. Do not blend faces, beautify, idealize, age, reshape or invent a different person. Adapt their face to the target viewpoint without changing identity.\n\nPOSE AND CAMERA — IMAGE 1 is authoritative. Match the original subject's screen position, apparent height and head size, camera distance, head tilt, gaze, expression, shoulder alignment, arms, hands, torso, legs and contact points. Keep the same camera viewpoint, perspective, framing and subject-to-background relationship. Retain the replacement person's own anatomy and body proportions while fitting the target pose and apparent scale. Adapt clothing folds to that pose; preserve the outfit's design. Do not move the person forward, backward or sideways.\n\nPHOTOGRAPHIC INTEGRATION — Preserve IMAGE 1's background, architecture, furniture, objects and foreground occlusions. Match its light direction, exposure, color temperature, reflections, ambient light and contact shadows. Keep the original depth of field, grain, sharpness, lens rendering and ordinary camera texture. Use natural skin detail and believable hands. Avoid waxy skin, artificial sharpening, pasted-on faces, halos and altered backgrounds.\n\nPriority: facial identity from IMAGE 2; placement, pose, distance and framing from IMAGE 1; clothing and appearance from IMAGE 2; lighting and environment from IMAGE 1. The result should look like the same photograph taken at the same moment, with the replacement person occupying the original subject's exact location."
+    },
+    "_meta": {
+      "title": "Separate target composition from replacement identity"
+    }
+  },
+  "106": {
+    "class_type": "ConditioningZeroOut",
+    "inputs": {
+      "conditioning": [
+        "105",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Distilled zero conditioning"
+    }
+  },
+  "107": {
+    "class_type": "VAEEncode",
+    "inputs": {
+      "pixels": [
+        "1",
+        0
+      ],
+      "vae": [
+        "104",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Encode target composition as image one"
+    }
+  },
+  "108": {
+    "class_type": "VAEEncode",
+    "inputs": {
+      "pixels": [
+        "4",
+        0
+      ],
+      "vae": [
+        "104",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Encode replacement identity as image two"
+    }
+  },
+  "109": {
+    "class_type": "ReferenceLatent",
+    "inputs": {
+      "conditioning": [
+        "105",
+        0
+      ],
+      "latent": [
+        "107",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Target is the first reference"
+    }
+  },
+  "110": {
+    "class_type": "ReferenceLatent",
+    "inputs": {
+      "conditioning": [
+        "106",
+        0
+      ],
+      "latent": [
+        "107",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Target is the first zero reference"
+    }
+  },
+  "111": {
+    "class_type": "ReferenceLatent",
+    "inputs": {
+      "conditioning": [
+        "109",
+        0
+      ],
+      "latent": [
+        "108",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Identity is the second reference"
+    }
+  },
+  "112": {
+    "class_type": "ReferenceLatent",
+    "inputs": {
+      "conditioning": [
+        "110",
+        0
+      ],
+      "latent": [
+        "108",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Identity is the second zero reference"
+    }
+  },
+  "113": {
+    "class_type": "CFGGuider",
+    "inputs": {
+      "model": [
+        "102",
+        0
+      ],
+      "positive": [
+        "111",
+        0
+      ],
+      "negative": [
+        "112",
+        0
+      ],
+      "cfg": 1
+    },
+    "_meta": {
+      "title": "Native distilled guidance"
+    }
+  },
+  "115": {
+    "class_type": "Flux2Scheduler",
+    "inputs": {
+      "steps": 4,
+      "width": 1024,
+      "height": 1024
+    },
+    "_meta": {
+      "title": "Four-step Klein schedule"
+    }
+  },
+  "116": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 20261027
+    },
+    "_meta": {
+      "title": "Save a reproducible image seed"
+    }
+  },
+  "117": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "euler"
+    },
+    "_meta": {
+      "title": "Euler image sampler"
+    }
+  },
+  "118": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "116",
+        0
+      ],
+      "guider": [
+        "113",
+        0
+      ],
+      "sampler": [
+        "117",
+        0
+      ],
+      "sigmas": [
+        "115",
+        0
+      ],
+      "latent_image": [
+        "134",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Replace the character in four image steps"
+    }
+  },
+  "119": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "118",
+        0
+      ],
+      "vae": [
+        "104",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Decode the replacement photograph"
+    }
+  },
+  "126": {
+    "class_type": "ImageCrop",
+    "inputs": {
+      "image": [
+        "119",
+        0
+      ],
+      "width": 1024,
+      "height": 1024,
+      "x": 0,
+      "y": 0
+    },
+    "_meta": {
+      "title": "Remove grid padding without changing camera framing"
+    }
+  },
+  "127": {
+    "class_type": "ImageScale",
+    "inputs": {
+      "image": [
+        "126",
+        0
+      ],
+      "upscale_method": "lanczos",
+      "width": 1024,
+      "height": 1024,
+      "crop": "disabled"
+    },
+    "_meta": {
+      "title": "Restore the exact original image dimensions"
+    }
+  },
+  "128": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "target.png"
+    },
+    "_meta": {
+      "title": "Keep original scene pixels"
+    }
+  },
+  "129": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "edit-mask.png"
+    },
+    "_meta": {
+      "title": "Read the selected replacement area"
+    }
+  },
+  "130": {
+    "class_type": "ImageToMask",
+    "inputs": {
+      "image": [
+        "129",
+        0
+      ],
+      "channel": "red"
+    },
+    "_meta": {
+      "title": "White replaces; black preserves"
+    }
+  },
+  "131": {
+    "class_type": "ImageCompositeMasked",
+    "inputs": {
+      "destination": [
+        "128",
+        0
+      ],
+      "source": [
+        "127",
+        0
+      ],
+      "x": 0,
+      "y": 0,
+      "resize_source": false,
+      "mask": [
+        "130",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Replace only the painted area"
+    }
+  },
+  "132": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "edit-mask.png"
+    },
+    "_meta": {
+      "title": "Keep the sampling mask aligned with the target canvas"
+    }
+  },
+  "133": {
+    "class_type": "ImageToMask",
+    "inputs": {
+      "image": [
+        "132",
+        0
+      ],
+      "channel": "red"
+    },
+    "_meta": {
+      "title": "Denoise only the selected area"
+    }
+  },
+  "134": {
+    "class_type": "SetLatentNoiseMask",
+    "inputs": {
+      "samples": [
+        "107",
+        0
+      ],
+      "mask": [
+        "133",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Retain target scene context during masked sampling"
+    }
+  }
+}

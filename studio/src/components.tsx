@@ -21,7 +21,7 @@ export function Toggle({ label, checked, onChange, disabled = false, detail }: {
 export function Modal({ open, onOpenChange, title, description, children, wide = false }: { open: boolean; onOpenChange: (v: boolean) => void; title: string; description: string; children: ReactNode; wide?: boolean }) {
   return <Dialog.Root open={open} onOpenChange={onOpenChange}><Dialog.Portal><Dialog.Overlay className="modal-overlay" /><Dialog.Content className={`modal ${wide ? 'modal-wide' : ''}`}><div className="modal-head"><div><Dialog.Title>{title}</Dialog.Title><Dialog.Description>{description}</Dialog.Description></div><Dialog.Close className="icon-button" aria-label="Close dialog"><X size={20} /></Dialog.Close></div>{children}</Dialog.Content></Dialog.Portal></Dialog.Root>;
 }
-export function AssetDrop({ kind, asset, onAsset, onError }: { kind: 'video' | 'image'; asset?: Asset; onAsset: (a: Asset | null) => void; onError: (s: string) => void }) {
+export function AssetDrop({ kind, asset, onAsset, onError, label, emptyLabel }: { kind: 'video' | 'image'; asset?: Asset; onAsset: (a: Asset | null) => void; onError: (s: string) => void; label?: string; emptyLabel?: string }) {
   const input = useRef<HTMLInputElement>(null), request = useRef<XMLHttpRequest | null>(null);
   const [dragging, setDragging] = useState(false), [uploading, setUploading] = useState(false), [percent, setPercent] = useState(0), [checking, setChecking] = useState(false);
   useEffect(() => () => request.current?.abort(), []);
@@ -37,11 +37,11 @@ export function AssetDrop({ kind, asset, onAsset, onError }: { kind: 'video' | '
     xhr.onabort = () => setUploading(false);
     const form = new FormData(); form.append('file', file); xhr.send(form);
   };
-  return <div className="asset-field"><div className="field-heading"><span>{kind === 'video' ? 'Motion video' : 'Character reference'}</span>{asset && <button className="text-icon" onClick={() => onAsset(null)} aria-label={`Remove ${kind === 'video' ? 'motion video' : 'character reference'}`}><X size={13} /></button>}</div>
+  return <div className="asset-field"><div className="field-heading"><span>{label || (kind === 'video' ? 'Motion video' : 'Character reference')}</span>{asset && <button className="text-icon" onClick={() => onAsset(null)} aria-label={`Remove ${label?.toLowerCase() || (kind === 'video' ? 'motion video' : 'character reference')}`}><X size={13} /></button>}</div>
     <input ref={input} type="file" accept={kind === 'video' ? 'video/mp4,video/quicktime,video/webm,video/x-matroska,.mkv,.m4v' : 'image/png,image/jpeg,image/webp'} hidden onChange={e => { upload(e.target.files?.[0]); e.target.value = ''; }} />
     <button className={`asset-drop ${asset ? 'has-asset' : ''} ${dragging ? 'dragging' : ''}`} onClick={() => input.current?.click()} disabled={uploading}
       onDragOver={e => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={e => { e.preventDefault(); setDragging(false); if (e.dataTransfer.files.length !== 1) { onError('Drop one file at a time.'); return; } upload(e.dataTransfer.files[0]); }}>
-      {asset ? <><img src={`/api/assets/${asset.id}/poster`} alt={kind === 'video' ? 'Selected source video' : 'Selected character reference'} /><span className="asset-replace"><UploadSimple size={16} /> Replace</span></> : <div className="drop-empty">{kind === 'video' ? <FilmStrip size={28} weight="light" /> : <ImageIcon size={28} weight="light" />}<strong>{kind === 'video' ? 'Add a video' : 'Add a character'}</strong><span>or drop it here</span></div>}
+      {asset ? <><img src={`/api/assets/${asset.id}/poster`} alt={label || (kind === 'video' ? 'Selected source video' : 'Selected character reference')} /><span className="asset-replace"><UploadSimple size={16} /> Replace</span></> : <div className="drop-empty">{kind === 'video' ? <FilmStrip size={28} weight="light" /> : <ImageIcon size={28} weight="light" />}<strong>{emptyLabel || (kind === 'video' ? 'Add a video' : 'Add a character')}</strong><span>or drop it here</span></div>}
       {uploading && <div className="upload-overlay"><span className="activity-line" /><strong>{checking ? 'Checking media' : `Uploading ${percent}%`}</strong></div>}
     </button><div className="asset-caption">{asset ? <><span title={asset.name}>{asset.name}</span><small>{kind === 'video' ? formatTime(asset.duration) : `${asset.width} × ${asset.height}`}</small></> : <small>{kind === 'video' ? 'MP4, MOV or WebM' : 'JPG, PNG or WebP'}</small>}</div></div>;
 }

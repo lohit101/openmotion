@@ -21,6 +21,8 @@ import type { Asset, Catalog, Graph, Job } from '../shared/types';
 import { migrateDemoPrompt, PROMPT_VERSION } from '../shared/prompts';
 import { FRAMING_VERSION, type ReferenceGeometry } from './framing';
 import { engineIssue, isViggle } from '../shared/engines';
+import { registerImageRoutes } from './image-routes';
+import { canFinishImageLocally, isImageJob } from '../shared/image-replacement';
 
 const STUDIO = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const REPO = path.dirname(STUDIO);
@@ -47,7 +49,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Referrer-Policy', 'same-origin'); next();
   });
   app.use(express.json({ limit: '100kb' }));
-  const bootstrap = () => ({ assets: store.assets().map(publicAsset), jobs: store.jobs().map(publicJob), draft: store.draft(), connection: connection.status, cloud: cloud.state, models: models.state });
+  const bootstrap = () => ({ assets: store.assets().map(publicAsset), jobs: store.jobs().map(publicJob), draft: store.draft(), imageDraft: store.imageDraft(), connection: connection.status, cloud: cloud.state, models: models.state });
   app.get('/api/bootstrap', (_req, res) => res.json(bootstrap()));
   app.get('/api/events', (req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
@@ -107,6 +109,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     for (const id of [value.sourceId, value.referenceId]) if (id && !store.asset(id)) throw new Error('This input no longer exists. Upload it again.');
     store.set('draft', value); res.json(value);
   });
+  registerImageRoutes(app, store, connection, runner, cloud, models);
   const upload = multer({ dest: path.join(store.root, 'uploads'), limits: { files: 1, fileSize: 512 * 1024 ** 2, fields: 0 } });
   app.post('/api/assets/:kind', upload.single('file'), async (req, res) => {
     if (!req.file) return void res.status(400).json({ error: 'Choose a file to upload.' });
@@ -173,13 +176,20 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   });
   app.post('/api/jobs/:id/resume', async (req, res) => {
     const job = store.job(String(req.params.id)); if (!job) return void res.sendStatus(404);
-    if (connection.status.state !== 'online') return void res.status(503).json({ error: 'Reconnect your GPU first.' });
+    if (connection.status.state !== 'online' && !canFinishImageLocally(job)) return void res.status(503).json({ error: 'Reconnect your GPU first.' });
     if (job.status !== 'interrupted') return void res.status(409).json({ error: 'Only an interrupted run can be resumed. Reuse settings to start another run.' });
     const value = z.object({ retryMissing: z.boolean().default(false) }).parse(req.body || {});
     await runner.resume(job, value.retryMissing); res.json(publicJob(store.job(job.id)!));
   });
   app.get('/api/jobs/:id/:type', (req, res) => {
     const job = store.job(String(req.params.id)); if (!job) return void res.sendStatus(404);
+    if (isImageJob(job) && ['image', 'image-source', 'face-source', 'face-reference', 'face-output'].includes(String(req.params.type))) {
+      const name = { image: 'final.png', 'image-source': 'original.png', 'face-source': 'source-face.png', 'face-reference': 'reference-face.png', 'face-output': 'output-face.png' }[String(req.params.type)];
+      const file = path.join(store.root, 'jobs', job.id, name!);
+      if (!existsSync(file)) return void res.sendStatus(404);
+      if (req.query.download) res.attachment(`${job.title.replace(/[^a-zA-Z0-9 _-]/g, '').slice(0, 70)}.png`);
+      return void res.sendFile(file);
+    }
     if (req.params.type === 'keyframe') {
       if (!job.keyframe) return void res.sendStatus(404);
       return void res.sendFile(path.join(store.root, 'jobs', job.id, 'keyframe.png'));

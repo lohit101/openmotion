@@ -1,0 +1,57 @@
+import { z } from 'zod';
+import type { Asset, Job } from './types';
+
+export const defaultImagePrompt = `Replace the main person in IMAGE 1 (target photograph) with the person from IMAGE 2 (identity reference). Produce one photorealistic photograph, with no changes beyond the replacement.
+
+IDENTITY — IMAGE 2 is authoritative. Preserve the person's recognizable facial geometry: bone structure, eye shape and spacing, nose, lips, jaw, cheeks, forehead and distinguishing features. Keep their natural skin tone, hairline, hairstyle, outfit and accessories. Do not blend faces, beautify, idealize, age, reshape or invent a different person. Adapt their face to the target viewpoint without changing identity.
+
+POSE AND CAMERA — IMAGE 1 is authoritative. Match the original subject's screen position, apparent height and head size, camera distance, head tilt, gaze, expression, shoulder alignment, arms, hands, torso, legs and contact points. Keep the same camera viewpoint, perspective, framing and subject-to-background relationship. Retain the replacement person's own anatomy and body proportions while fitting the target pose and apparent scale. Adapt clothing folds to that pose; preserve the outfit's design. Do not move the person forward, backward or sideways.
+
+PHOTOGRAPHIC INTEGRATION — Preserve IMAGE 1's background, architecture, furniture, objects and foreground occlusions. Match its light direction, exposure, color temperature, reflections, ambient light and contact shadows. Keep the original depth of field, grain, sharpness, lens rendering and ordinary camera texture. Use natural skin detail and believable hands. Avoid waxy skin, artificial sharpening, pasted-on faces, halos and altered backgrounds.
+
+Priority: facial identity from IMAGE 2; placement, pose, distance and framing from IMAGE 1; clothing and appearance from IMAGE 2; lighting and environment from IMAGE 1. The result should look like the same photograph taken at the same moment, with the replacement person occupying the original subject's exact location.`;
+
+export const imageSettingsSchema = z.object({
+  prompt: z.string().trim().max(8000).default(defaultImagePrompt),
+  megapixels: z.union([z.literal(1), z.literal(2)]).default(1),
+  protectBackground: z.boolean().default(true),
+  feather: z.number().int().min(0).max(24).default(4),
+  faceDetail: z.boolean().default(true),
+  seed: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).default(20261027),
+  randomSeed: z.boolean().default(false),
+});
+export type ImageSettings = z.infer<typeof imageSettingsSchema>;
+export const imageDefaults = imageSettingsSchema.parse({});
+export const imageDraftSchema = z.object({
+  sourceId: z.string().nullable().default(null), referenceId: z.string().nullable().default(null),
+  faceId: z.string().nullable().default(null), maskId: z.string().nullable().default(null),
+  settings: imageSettingsSchema.default(imageDefaults),
+});
+export type ImageDraft = z.infer<typeof imageDraftSchema>;
+export const emptyImageDraft = (): ImageDraft => imageDraftSchema.parse({});
+export interface ImageGeometry { width: number; height: number; contentWidth: number; contentHeight: number; x: number; y: number; outputWidth: number; outputHeight: number; }
+export interface ImageReview { status: 'review' | 'warning'; warnings: string[]; backgroundProtected: boolean; outsideMaskMaxDifference: number | null; sourceFace: boolean; referenceFace: boolean; outputFace: boolean; }
+export interface ImageRun {
+  version?: 'masked-latent-v2';
+  settings: ImageSettings; faceId: string | null; maskId: string | null; geometry: ImageGeometry;
+  prepared?: { hasFace: boolean; warnings: string[] }; review?: ImageReview; resultAssetId?: string;
+}
+export const isImageJob = (job: Pick<Job, 'mediaType'>): boolean => job.mediaType === 'image';
+export const canFinishImageLocally = (job: Job): boolean => isImageJob(job) && job.progress.completedFrames >= job.progress.targetFrames && job.segments.length > 0 && !job.pendingPrompt && !job.submitting;
+
+export function imageGeometry(source: Pick<Asset, 'width' | 'height'>, megapixels: ImageSettings['megapixels']): ImageGeometry {
+  const { width: w, height: h } = source;
+  if (![w, h].every(v => Number.isSafeInteger(v) && v >= 32 && v <= 16384) || w * h > 32_000_000) throw new Error('Use a target image between 32 pixels and 32 megapixels.');
+  if (w / h < .25 || w / h > 4) throw new Error('Choose a target photo with an aspect ratio between 1:4 and 4:1. The image will not be cropped.');
+  const scale = Math.min(1, Math.sqrt(megapixels * 1_000_000 / (w * h)));
+  const contentWidth = Math.max(1, Math.round(w * scale)), contentHeight = Math.max(1, Math.round(h * scale));
+  const width = Math.max(64, Math.ceil(contentWidth / 16) * 16), height = Math.max(64, Math.ceil(contentHeight / 16) * 16);
+  return { width, height, contentWidth, contentHeight, x: Math.floor((width - contentWidth) / 2), y: Math.floor((height - contentHeight) / 2), outputWidth: w, outputHeight: h };
+}
+
+export function imagePrompt(settings: ImageSettings, hasFace: boolean, version?: ImageRun['version']): string {
+  return 'Edit IMAGE 1 only. IMAGE 1 defines the scene, pose, framing and camera distance. IMAGE 2 defines the replacement identity, hair and outfit. '
+    + (version === 'masked-latent-v2' ? 'Replace the entire person, including every original garment and accessory, with the person and complete outfit from IMAGE 2. Match IMAGE 2\'s neckline, sleeves, fabric, colors and clothing design on the target pose. Preserve IMAGE 1\'s original room and background texture. ' : '')
+    + (hasFace ? 'IMAGE 3 is a close-up of that same replacement person: use it to preserve facial features only, never its pose, lighting, framing or background. ' : '')
+    + (settings.prompt.trim() || defaultImagePrompt);
+}

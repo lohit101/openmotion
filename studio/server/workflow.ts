@@ -5,9 +5,12 @@ import { renderPrompt } from '../shared/prompts';
 import { RELIGHT, NATURAL_SPEED, I2V_SPEED } from '../shared/models';
 import { isViggle } from '../shared/engines';
 import { compileViggleWorkflow } from './viggle-workflow';
+import { compileImageWorkflow } from './image-workflow';
+import { isImageJob } from '../shared/image-replacement';
 export { RELIGHT, NATURAL_SPEED, I2V_SPEED };
 
 export function compileWorkflow(template: Graph, job: Job): Graph {
+  if (isImageJob(job)) return compileImageWorkflow(job);
   if (isViggle(job.settings)) return compileViggleWorkflow(job);
   if (!job.uploads) throw new Error('Inputs have not been transferred.');
   const graph = structuredClone(template), s = job.settings;

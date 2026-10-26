@@ -1,0 +1,1534 @@
+{
+  "last_node_id": 135,
+  "last_link_id": 34,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "LoadImage",
+      "pos": [
+        0,
+        0
+      ],
+      "size": [
+        320,
+        440
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            4
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": []
+        }
+      ],
+      "title": "Target photo controls pose and framing",
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "target.png"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "LoadImage",
+      "pos": [
+        0,
+        520
+      ],
+      "size": [
+        320,
+        440
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            6
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": []
+        }
+      ],
+      "title": "Identity reference controls face, hair and outfit",
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "identity.png"
+      ]
+    },
+    {
+      "id": 46,
+      "type": "SaveImage",
+      "pos": [
+        2520,
+        0
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": []
+        }
+      ],
+      "title": "Save one lossless replacement image",
+      "properties": {
+        "Node name for S&R": "SaveImage"
+      },
+      "widgets_values": [
+        "recast/klein-image-replacement/segment_0000"
+      ]
+    },
+    {
+      "id": 102,
+      "type": "UNETLoader",
+      "pos": [
+        420,
+        0
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            16
+          ]
+        }
+      ],
+      "title": "Load the shared Klein 4B editor",
+      "properties": {
+        "Node name for S&R": "UNETLoader"
+      },
+      "widgets_values": [
+        "flux-2-klein-4b-fp8.safetensors",
+        "default"
+      ]
+    },
+    {
+      "id": 103,
+      "type": "CLIPLoader",
+      "pos": [
+        420,
+        420
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            2
+          ]
+        }
+      ],
+      "title": "Read the photographic replacement instructions",
+      "properties": {
+        "Node name for S&R": "CLIPLoader"
+      },
+      "widgets_values": [
+        "qwen_3_4b.safetensors",
+        "flux2",
+        "default"
+      ]
+    },
+    {
+      "id": 104,
+      "type": "VAELoader",
+      "pos": [
+        420,
+        840
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            5,
+            7,
+            25
+          ]
+        }
+      ],
+      "title": "Load the shared image encoder",
+      "properties": {
+        "Node name for S&R": "VAELoader"
+      },
+      "widgets_values": [
+        "flux2-vae.safetensors"
+      ]
+    },
+    {
+      "id": 105,
+      "type": "CLIPTextEncode",
+      "pos": [
+        840,
+        0
+      ],
+      "size": [
+        320,
+        360
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 2
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            3,
+            8
+          ]
+        }
+      ],
+      "title": "Separate target composition from replacement identity",
+      "properties": {
+        "Node name for S&R": "CLIPTextEncode"
+      },
+      "widgets_values": [
+        "Edit IMAGE 1 only. IMAGE 1 defines the scene, pose, framing and camera distance. IMAGE 2 defines the replacement identity, hair and outfit. Replace the entire person, including every original garment and accessory, with the person and complete outfit from IMAGE 2. Match IMAGE 2's neckline, sleeves, fabric, colors and clothing design on the target pose. Preserve IMAGE 1's original room and background texture. Replace the main person in IMAGE 1 (target photograph) with the person from IMAGE 2 (identity reference). Produce one photorealistic photograph, with no changes beyond the replacement.\n\nIDENTITY \u2014 IMAGE 2 is authoritative. Preserve the person's recognizable facial geometry: bone structure, eye shape and spacing, nose, lips, jaw, cheeks, forehead and distinguishing features. Keep their natural skin tone, hairline, hairstyle, outfit and accessories. Do not blend faces, beautify, idealize, age, reshape or invent a different person. Adapt their face to the target viewpoint without changing identity.\n\nPOSE AND CAMERA \u2014 IMAGE 1 is authoritative. Match the original subject's screen position, apparent height and head size, camera distance, head tilt, gaze, expression, shoulder alignment, arms, hands, torso, legs and contact points. Keep the same camera viewpoint, perspective, framing and subject-to-background relationship. Retain the replacement person's own anatomy and body proportions while fitting the target pose and apparent scale. Adapt clothing folds to that pose; preserve the outfit's design. Do not move the person forward, backward or sideways.\n\nPHOTOGRAPHIC INTEGRATION \u2014 Preserve IMAGE 1's background, architecture, furniture, objects and foreground occlusions. Match its light direction, exposure, color temperature, reflections, ambient light and contact shadows. Keep the original depth of field, grain, sharpness, lens rendering and ordinary camera texture. Use natural skin detail and believable hands. Avoid waxy skin, artificial sharpening, pasted-on faces, halos and altered backgrounds.\n\nPriority: facial identity from IMAGE 2; placement, pose, distance and framing from IMAGE 1; clothing and appearance from IMAGE 2; lighting and environment from IMAGE 1. The result should look like the same photograph taken at the same moment, with the replacement person occupying the original subject's exact location."
+      ]
+    },
+    {
+      "id": 106,
+      "type": "ConditioningZeroOut",
+      "pos": [
+        840,
+        440
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "conditioning",
+          "type": "CONDITIONING",
+          "link": 3
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            10
+          ]
+        }
+      ],
+      "title": "Distilled zero conditioning",
+      "properties": {
+        "Node name for S&R": "ConditioningZeroOut"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 107,
+      "type": "VAEEncode",
+      "pos": [
+        840,
+        840
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "pixels",
+          "type": "IMAGE",
+          "link": 4
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 5
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            9,
+            11,
+            33
+          ]
+        }
+      ],
+      "title": "Encode target composition as image one",
+      "properties": {
+        "Node name for S&R": "VAEEncode"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 108,
+      "type": "VAEEncode",
+      "pos": [
+        840,
+        1260
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "pixels",
+          "type": "IMAGE",
+          "link": 6
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            13,
+            15
+          ]
+        }
+      ],
+      "title": "Encode replacement identity as image two",
+      "properties": {
+        "Node name for S&R": "VAEEncode"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 109,
+      "type": "ReferenceLatent",
+      "pos": [
+        1260,
+        0
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "conditioning",
+          "type": "CONDITIONING",
+          "link": 8
+        },
+        {
+          "name": "latent",
+          "type": "LATENT",
+          "link": 9,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            12
+          ]
+        }
+      ],
+      "title": "Target is the first reference",
+      "properties": {
+        "Node name for S&R": "ReferenceLatent"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 110,
+      "type": "ReferenceLatent",
+      "pos": [
+        1260,
+        420
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "conditioning",
+          "type": "CONDITIONING",
+          "link": 10
+        },
+        {
+          "name": "latent",
+          "type": "LATENT",
+          "link": 11,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            14
+          ]
+        }
+      ],
+      "title": "Target is the first zero reference",
+      "properties": {
+        "Node name for S&R": "ReferenceLatent"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 111,
+      "type": "ReferenceLatent",
+      "pos": [
+        1260,
+        840
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "conditioning",
+          "type": "CONDITIONING",
+          "link": 12
+        },
+        {
+          "name": "latent",
+          "type": "LATENT",
+          "link": 13,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            17
+          ]
+        }
+      ],
+      "title": "Identity is the second reference",
+      "properties": {
+        "Node name for S&R": "ReferenceLatent"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 112,
+      "type": "ReferenceLatent",
+      "pos": [
+        1260,
+        1260
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "conditioning",
+          "type": "CONDITIONING",
+          "link": 14
+        },
+        {
+          "name": "latent",
+          "type": "LATENT",
+          "link": 15,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            18
+          ]
+        }
+      ],
+      "title": "Identity is the second zero reference",
+      "properties": {
+        "Node name for S&R": "ReferenceLatent"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 113,
+      "type": "CFGGuider",
+      "pos": [
+        1680,
+        0
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 16
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 17
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 18
+        }
+      ],
+      "outputs": [
+        {
+          "name": "GUIDER",
+          "type": "GUIDER",
+          "links": [
+            20
+          ]
+        }
+      ],
+      "title": "Native distilled guidance",
+      "properties": {
+        "Node name for S&R": "CFGGuider"
+      },
+      "widgets_values": [
+        1
+      ]
+    },
+    {
+      "id": 115,
+      "type": "Flux2Scheduler",
+      "pos": [
+        1680,
+        420
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "SIGMAS",
+          "type": "SIGMAS",
+          "links": [
+            22
+          ]
+        }
+      ],
+      "title": "Four-step Klein schedule",
+      "properties": {
+        "Node name for S&R": "Flux2Scheduler"
+      },
+      "widgets_values": [
+        4,
+        1024,
+        1024
+      ]
+    },
+    {
+      "id": 116,
+      "type": "RandomNoise",
+      "pos": [
+        1680,
+        840
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 16,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "NOISE",
+          "type": "NOISE",
+          "links": [
+            19
+          ]
+        }
+      ],
+      "title": "Save a reproducible image seed",
+      "properties": {
+        "Node name for S&R": "RandomNoise"
+      },
+      "widgets_values": [
+        20261027,
+        "fixed"
+      ]
+    },
+    {
+      "id": 117,
+      "type": "KSamplerSelect",
+      "pos": [
+        1680,
+        1260
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 17,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "SAMPLER",
+          "type": "SAMPLER",
+          "links": [
+            21
+          ]
+        }
+      ],
+      "title": "Euler image sampler",
+      "properties": {
+        "Node name for S&R": "KSamplerSelect"
+      },
+      "widgets_values": [
+        "euler"
+      ]
+    },
+    {
+      "id": 118,
+      "type": "SamplerCustomAdvanced",
+      "pos": [
+        2100,
+        0
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 18,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "noise",
+          "type": "NOISE",
+          "link": 19
+        },
+        {
+          "name": "guider",
+          "type": "GUIDER",
+          "link": 20
+        },
+        {
+          "name": "sampler",
+          "type": "SAMPLER",
+          "link": 21
+        },
+        {
+          "name": "sigmas",
+          "type": "SIGMAS",
+          "link": 22
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 23
+        }
+      ],
+      "outputs": [
+        {
+          "name": "output",
+          "type": "LATENT",
+          "links": [
+            24
+          ]
+        },
+        {
+          "name": "denoised_output",
+          "type": "LATENT",
+          "links": []
+        }
+      ],
+      "title": "Replace the character in four image steps",
+      "properties": {
+        "Node name for S&R": "SamplerCustomAdvanced"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 119,
+      "type": "VAEDecode",
+      "pos": [
+        2100,
+        420
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 19,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 24
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 25
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            26
+          ]
+        }
+      ],
+      "title": "Decode the replacement photograph",
+      "properties": {
+        "Node name for S&R": "VAEDecode"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 126,
+      "type": "ImageCrop",
+      "pos": [
+        2520,
+        420
+      ],
+      "size": [
+        320,
+        196
+      ],
+      "flags": {},
+      "order": 20,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 26
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            27
+          ]
+        }
+      ],
+      "title": "Remove grid padding without changing camera framing",
+      "properties": {
+        "Node name for S&R": "ImageCrop"
+      },
+      "widgets_values": [
+        1024,
+        1024,
+        0,
+        0
+      ]
+    },
+    {
+      "id": 127,
+      "type": "ImageScale",
+      "pos": [
+        2520,
+        840
+      ],
+      "size": [
+        320,
+        196
+      ],
+      "flags": {},
+      "order": 21,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 27
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            30
+          ]
+        }
+      ],
+      "title": "Restore the exact original image dimensions",
+      "properties": {
+        "Node name for S&R": "ImageScale"
+      },
+      "widgets_values": [
+        "lanczos",
+        1024,
+        1024,
+        "disabled"
+      ]
+    },
+    {
+      "id": 128,
+      "type": "LoadImage",
+      "pos": [
+        0,
+        1040
+      ],
+      "size": [
+        320,
+        440
+      ],
+      "flags": {},
+      "order": 22,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            29
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": []
+        }
+      ],
+      "title": "Keep original scene pixels",
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "target.png"
+      ]
+    },
+    {
+      "id": 129,
+      "type": "LoadImage",
+      "pos": [
+        0,
+        1560
+      ],
+      "size": [
+        320,
+        440
+      ],
+      "flags": {},
+      "order": 23,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            28
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": []
+        }
+      ],
+      "title": "Read the selected replacement area",
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "edit-mask.png"
+      ]
+    },
+    {
+      "id": 130,
+      "type": "ImageToMask",
+      "pos": [
+        2520,
+        1260
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 24,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 28
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [
+            31
+          ]
+        }
+      ],
+      "title": "White replaces; black preserves",
+      "properties": {
+        "Node name for S&R": "ImageToMask"
+      },
+      "widgets_values": [
+        "red"
+      ]
+    },
+    {
+      "id": 131,
+      "type": "ImageCompositeMasked",
+      "pos": [
+        2520,
+        1680
+      ],
+      "size": [
+        320,
+        214
+      ],
+      "flags": {},
+      "order": 25,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "destination",
+          "type": "IMAGE",
+          "link": 29
+        },
+        {
+          "name": "source",
+          "type": "IMAGE",
+          "link": 30
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "link": 31,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            1
+          ]
+        }
+      ],
+      "title": "Replace only the painted area",
+      "properties": {
+        "Node name for S&R": "ImageCompositeMasked"
+      },
+      "widgets_values": [
+        0,
+        0,
+        false
+      ]
+    },
+    {
+      "id": 132,
+      "type": "LoadImage",
+      "pos": [
+        2520,
+        2100
+      ],
+      "size": [
+        320,
+        440
+      ],
+      "flags": {},
+      "order": 26,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            32
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": []
+        }
+      ],
+      "title": "Keep the sampling mask aligned with the target canvas",
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "edit-mask.png"
+      ]
+    },
+    {
+      "id": 133,
+      "type": "ImageToMask",
+      "pos": [
+        2520,
+        2620
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 27,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 32
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [
+            34
+          ]
+        }
+      ],
+      "title": "Denoise only the selected area",
+      "properties": {
+        "Node name for S&R": "ImageToMask"
+      },
+      "widgets_values": [
+        "red"
+      ]
+    },
+    {
+      "id": 134,
+      "type": "SetLatentNoiseMask",
+      "pos": [
+        2520,
+        2940
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 28,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 33
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "link": 34
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            23
+          ]
+        }
+      ],
+      "title": "Retain target scene context during masked sampling",
+      "properties": {
+        "Node name for S&R": "SetLatentNoiseMask"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 135,
+      "type": "MarkdownNote",
+      "pos": [
+        0,
+        3220
+      ],
+      "size": [
+        1000,
+        680
+      ],
+      "flags": {},
+      "order": 29,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {},
+      "title": "Start here",
+      "widgets_values": [
+        "# Klein image replacement\n\nImage one is the target photograph: pose, camera distance, screen placement,\nscale and scene lighting. Image two is the identity reference: face, hair,\noutfit and accessories. Use the three shared Klein image models only.\nFour image steps, Euler, CFG 1. No video models or LoRAs are required.\n\nThese portable examples use a 1024 x 1024 target. For a different target, set\nlatent/scheduler/crop/export dimensions consistently. Studio automatically\npads to the model grid without cropping and exports the original dimensions.\nExport an actual Studio job for its exact canvas, prepared inputs and optional\nthird face reference. The native graph uses those uploaded input filenames.\n\nThe masked workflow takes a grayscale edit-mask.png: white replaces, black\npreserves. Supply the same target in both target loaders. Preserve foreground\nocclusions by leaving them black. A mask constrains changed pixels; it is not\na face identity guarantee. Studio feathers inward and restores exact original\ndecoded pixels outside the mask after the GPU image is saved.\n\nReview facial features and head scale/placement before using the image in a\nvideo. No face beautification or face restoration is applied. Model quality\nmust be checked on the actual reference; a seed is not an identity lock.\n"
+      ]
+    }
+  ],
+  "links": [
+    [
+      1,
+      131,
+      0,
+      46,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      103,
+      0,
+      105,
+      0,
+      "CLIP"
+    ],
+    [
+      3,
+      105,
+      0,
+      106,
+      0,
+      "CONDITIONING"
+    ],
+    [
+      4,
+      1,
+      0,
+      107,
+      0,
+      "IMAGE"
+    ],
+    [
+      5,
+      104,
+      0,
+      107,
+      1,
+      "VAE"
+    ],
+    [
+      6,
+      4,
+      0,
+      108,
+      0,
+      "IMAGE"
+    ],
+    [
+      7,
+      104,
+      0,
+      108,
+      1,
+      "VAE"
+    ],
+    [
+      8,
+      105,
+      0,
+      109,
+      0,
+      "CONDITIONING"
+    ],
+    [
+      9,
+      107,
+      0,
+      109,
+      1,
+      "LATENT"
+    ],
+    [
+      10,
+      106,
+      0,
+      110,
+      0,
+      "CONDITIONING"
+    ],
+    [
+      11,
+      107,
+      0,
+      110,
+      1,
+      "LATENT"
+    ],
+    [
+      12,
+      109,
+      0,
+      111,
+      0,
+      "CONDITIONING"
+    ],
+    [
+      13,
+      108,
+      0,
+      111,
+      1,
+      "LATENT"
+    ],
+    [
+      14,
+      110,
+      0,
+      112,
+      0,
+      "CONDITIONING"
+    ],
+    [
+      15,
+      108,
+      0,
+      112,
+      1,
+      "LATENT"
+    ],
+    [
+      16,
+      102,
+      0,
+      113,
+      0,
+      "MODEL"
+    ],
+    [
+      17,
+      111,
+      0,
+      113,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      18,
+      112,
+      0,
+      113,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      19,
+      116,
+      0,
+      118,
+      0,
+      "NOISE"
+    ],
+    [
+      20,
+      113,
+      0,
+      118,
+      1,
+      "GUIDER"
+    ],
+    [
+      21,
+      117,
+      0,
+      118,
+      2,
+      "SAMPLER"
+    ],
+    [
+      22,
+      115,
+      0,
+      118,
+      3,
+      "SIGMAS"
+    ],
+    [
+      23,
+      134,
+      0,
+      118,
+      4,
+      "LATENT"
+    ],
+    [
+      24,
+      118,
+      0,
+      119,
+      0,
+      "LATENT"
+    ],
+    [
+      25,
+      104,
+      0,
+      119,
+      1,
+      "VAE"
+    ],
+    [
+      26,
+      119,
+      0,
+      126,
+      0,
+      "IMAGE"
+    ],
+    [
+      27,
+      126,
+      0,
+      127,
+      0,
+      "IMAGE"
+    ],
+    [
+      28,
+      129,
+      0,
+      130,
+      0,
+      "IMAGE"
+    ],
+    [
+      29,
+      128,
+      0,
+      131,
+      0,
+      "IMAGE"
+    ],
+    [
+      30,
+      127,
+      0,
+      131,
+      1,
+      "IMAGE"
+    ],
+    [
+      31,
+      130,
+      0,
+      131,
+      2,
+      "MASK"
+    ],
+    [
+      32,
+      132,
+      0,
+      133,
+      0,
+      "IMAGE"
+    ],
+    [
+      33,
+      107,
+      0,
+      134,
+      0,
+      "LATENT"
+    ],
+    [
+      34,
+      133,
+      0,
+      134,
+      1,
+      "MASK"
+    ]
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "title": "01 Inputs",
+      "bounding": [
+        -20,
+        -65,
+        780,
+        2090
+      ],
+      "color": "#35586e",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 2,
+      "title": "02 Person tracking and masks",
+      "bounding": [
+        820,
+        -65,
+        780,
+        1530
+      ],
+      "color": "#546741",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 3,
+      "title": "03 INT8 model and LoRAs",
+      "bounding": [
+        1660,
+        -65,
+        360,
+        1530
+      ],
+      "color": "#755b41",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 4,
+      "title": "04 Identity and text",
+      "bounding": [
+        2080,
+        -65,
+        360,
+        690
+      ],
+      "color": "#654a73",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 5,
+      "title": "05 Native replacement",
+      "bounding": [
+        2500,
+        -65,
+        360,
+        3210
+      ],
+      "color": "#41686b",
+      "font_size": 24,
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.38,
+      "offset": [
+        90,
+        100
+      ]
+    },
+    "frontendVersion": "1.57.1",
+    "VHS_MetadataImage": true,
+    "VHS_KeepIntermediate": false,
+    "character_swap_version": 1,
+    "recast_engine": "klein-image"
+  },
+  "version": 0.4
+}

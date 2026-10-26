@@ -41,13 +41,13 @@ export function DownloadSelect({ value, options, onChange, label, controls }: { 
   </div>;
 }
 
-export function RequiredFiles({ files, controls, manage, setup }: { files: string[]; controls: DownloadControls; manage: () => void; setup: () => void }) {
+export function RequiredFiles({ files, controls, manage, setup }: { files: string[]; controls: DownloadControls; manage?: () => void; setup: () => void }) {
   const details = useRef<HTMLDetailsElement>(null);
   const ready = files.filter(id => controls.state.files.find(file => file.id === id)?.status === 'installed').length;
   return <div className="required-models"><div className="required-models-summary"><HardDrives size={16} /><button onClick={() => { if (details.current) details.current.open = !details.current.open; }}>Files for these settings<span>{controls.online ? `${ready} / ${files.length} ready` : 'GPU offline'}</span></button>
       <DownloadButton files={files} controls={controls} label="Files for current settings" size />
     </div>
-    <p>{controls.settingUp ? 'Starting the blank engine. Weights stay on demand.' : !controls.online ? 'Connect the engine, then download only what you need.' : ready === files.length ? 'All files for these settings are on your GPU.' : 'Click download to prepare only these settings. Changing an option starts no downloads.'} <button onClick={controls.online ? manage : setup}>{controls.online ? 'Manage LoRAs' : 'View GPU'}</button></p>
+    <p>{controls.settingUp ? 'Starting the blank engine. Weights stay on demand.' : !controls.online ? 'Connect the engine, then download only what you need.' : ready === files.length ? 'All files for these settings are on your GPU.' : 'Click download to prepare only these settings. Changing an option starts no downloads.'} {(!controls.online || manage) && <button onClick={controls.online ? manage : setup}>{controls.online ? 'Manage LoRAs' : 'View GPU'}</button>}</p>
     <details ref={details} className="required-file-details"><summary>View individual files</summary><div>{modelDefinitions.filter(file => files.includes(file.id)).map(file => <div className="required-file-row" key={file.id}><span>{file.label}<small>{modelSize(file.size)}</small></span><DownloadButton files={[file.id]} controls={controls} label={file.label} size /></div>)}</div></details>
   </div>;
 }

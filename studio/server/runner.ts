@@ -11,12 +11,15 @@ import { nextSegment } from '../shared/types';
 import { exists, localReferenceGeometry, type ReferenceGeometry } from './framing';
 import { missingPinnedAdapters } from './models';
 import { isViggle, planForJob } from '../shared/engines';
+import { canFinishImageLocally, isImageJob, type ImageReview } from '../shared/image-replacement';
+import { ImageFinalizationError, processImage } from './image-processing';
 
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 export class Runner {
   busy = false; active: Job | null = null; abort: AbortController | null = null;
   private resumes = new Map<string, Promise<void>>();
   public geometry: ReferenceGeometry;
+  public imageProcessor = processImage;
   constructor(public store: Store, public connection: ConnectionManager, public template: Graph, public repo: string, geometry?: ReferenceGeometry) { this.geometry = geometry || localReferenceGeometry(repo); }
   interrupt(reason: string) {
     this.abort?.abort(new OfflineError(reason));
@@ -25,11 +28,11 @@ export class Runner {
     }
   }
   async kick() {
-    if (this.busy || this.connection.status.state !== 'online') return;
+    if (this.busy) return;
     this.busy = true;
     try {
-      while (this.connection.status.state === 'online') {
-        const next = this.store.jobs().reverse().find(j => j.origin === 'render' && !j.deleted && ['queued', 'running', 'reconnecting'].includes(j.status));
+      while (true) {
+        const next = this.store.jobs().reverse().find(j => j.origin === 'render' && !j.deleted && ['queued', 'running', 'reconnecting'].includes(j.status) && (this.connection.status.state === 'online' || canFinishImageLocally(j)));
         if (!next) break;
         this.active = next; this.abort = new AbortController(); await this.run(next, this.abort.signal); this.active = null;
       }
@@ -107,7 +110,19 @@ export class Runner {
     };
     try {
       this.checkCancelled(job); job.status = 'running'; job.startedAt ||= new Date().toISOString(); this.save(job);
-      if (!job.uploads) {
+      if (!job.uploads && isImageJob(job) && !canFinishImageLocally(job)) {
+        this.stage(job, 'Preparing target and identity references');
+        const prepared = await this.imageProcessor('prepare', job, this.store, this.repo, folder, signal) as { hasFace: boolean; warnings: string[] };
+        job.image!.prepared = prepared; this.save(job); this.checkCancelled(job);
+        const files = [['source', 'target.png'], ['reference', 'identity.png'], ...(prepared.hasFace ? [['face', 'face.png']] : []), ...(job.image!.settings.protectBackground ? [['original', 'original.png'], ['mask', 'edit-mask.png']] : [])];
+        const g = job.image!.geometry, nativeMask = g.width === g.outputWidth && g.height === g.outputHeight && g.x === 0 && g.y === 0;
+        if (job.image!.version === 'masked-latent-v2' && job.image!.settings.protectBackground && !nativeMask) files.push(['noiseMask', 'working-mask.png']);
+        const uploads: Record<string, string> = {};
+        for (const [key, name] of files) { this.stage(job, 'Transferring image inputs to GPU', Object.keys(uploads).length, files.length, 'inputs'); uploads[key] = await client.upload(path.join(folder, name), job.id + '-' + key, signal); this.checkCancelled(job); }
+        if (job.image!.version === 'masked-latent-v2' && job.image!.settings.protectBackground && nativeMask) uploads.noiseMask = uploads.mask;
+        job.uploads = uploads as NonNullable<Job['uploads']>; this.save(job);
+      }
+      if (!job.uploads && !isImageJob(job)) {
         this.stage(job, 'Preparing your clip');
         const existingSource = path.join(folder, 'prepared-source.mp4');
         const reusable = job.framingVersion && await exists(path.join(folder, 'reference-framing.json')) && await exists(existingSource);
@@ -125,7 +140,7 @@ export class Runner {
       while (job.progress.completedFrames < job.progress.targetFrames) {
         this.checkCancelled(job);
         job.progress.segment = job.segments.length + 1;
-        const plan = planForJob(job.settings, job.progress.completedFrames, job.progress.targetFrames, nextSegment);
+        const plan = isImageJob(job) ? { skip: 0, cap: 1, overlap: 0 } : planForJob(job.settings, job.progress.completedFrames, job.progress.targetFrames, nextSegment);
         const receive = (event: any) => { if (!signal.aborted && applyProgress(job, event)) this.save(job); };
         socket = await client.watch('recast-' + job.id, receive).catch(() => undefined);
         if (!job.pendingPrompt) {
@@ -172,6 +187,17 @@ export class Runner {
           const text = event?.[1]?.exception_message || 'Generation failed on the GPU.';
           throw new Error(/out of memory/i.test(text) ? 'The GPU ran out of memory. Try 480p or fewer frames per pass, then reuse these settings.' : String(text).slice(0, 1800));
         }
+        if (isImageJob(job)) {
+          const image = history.outputs?.['46']?.images?.find((file: any) => String(file.filename).endsWith('.png'));
+          if (!image) throw new Error('The GPU finished without the expected replacement image.');
+          const receipt = path.join(folder, 'history_0.json');
+          await writeFile(receipt + '.part', JSON.stringify(history, null, 2)); await rename(receipt + '.part', receipt);
+          this.stage(job, 'Saving the completed replacement image');
+          const file = path.join(folder, 'gpu-result.png');
+          if (!await exists(file)) await client.download(image, file, signal);
+          job.segments.push({ file: 'gpu-result.png', promptId: job.pendingPrompt!, frames: 1, seconds: (Date.now() - segmentStart) / 1000 });
+          job.pendingPrompt = null; job.progress.completedFrames = 1; this.save(job); continue;
+        }
         const outputs = history.outputs || {}, context = outputs['47']?.context?.[0];
         const video = outputs['46']?.gifs?.filter((f: any) => f.filename.endsWith('.mp4')).at(-1);
         if (!context || !video) throw new Error('The GPU finished without the expected video and continuity record.');
@@ -201,7 +227,15 @@ export class Runner {
         if (context.source_count < plan.cap) job.progress.targetFrames = job.progress.completedFrames;
         this.save(job);
       }
-      this.checkCancelled(job); this.stage(job, 'Assembling final video');
+      this.checkCancelled(job);
+      if (isImageJob(job)) {
+        this.stage(job, 'Preserving scene pixels and preparing face review');
+        job.image!.review = await this.imageProcessor('finish', job, this.store, this.repo, folder, signal) as ImageReview;
+        job.output = path.join(folder, 'final.png'); job.poster = path.join(folder, 'poster.jpg'); await poster(job.output, job.poster);
+        job.status = 'completed'; job.finishedAt = new Date().toISOString(); job.elapsedSeconds = (Date.parse(job.finishedAt) - Date.parse(job.startedAt!)) / 1000;
+        this.stage(job, 'Complete · review facial identity and framing'); return;
+      }
+      this.stage(job, 'Assembling final video');
       const assembly = { source: source.path, settings: { fps: job.settings.fps, start_seconds: Math.floor(job.settings.start * job.settings.fps) / job.settings.fps }, completed_frames: job.progress.completedFrames, segments: job.segments };
       await writeFile(path.join(folder, 'assembly.json'), JSON.stringify(assembly));
       const code = 'import json,sys;from pathlib import Path;sys.path.insert(0,sys.argv[1]);from render_clip import finish_video;p=Path(sys.argv[2]);finish_video(json.loads((p/"assembly.json").read_text()),p)';
@@ -220,10 +254,10 @@ export class Runner {
     } catch (error) {
       if (signal.aborted && signal.reason instanceof OfflineError) error = signal.reason;
       const saved = this.store.job(job.id); const cancelled = saved?.cancelRequested && saved.cancellationConfirmed;
-      job.status = cancelled ? 'cancelled' : saved?.cancelRequested || error instanceof OfflineError ? 'interrupted' : 'failed';
+      job.status = cancelled ? 'cancelled' : saved?.cancelRequested || error instanceof OfflineError || error instanceof ImageFinalizationError ? 'interrupted' : 'failed';
       job.error = cancelled ? null : saved?.cancelRequested ? 'Cancellation could not be confirmed. The GPU job may still be running. Reconnect and check cancellation.' : (error instanceof Error ? error.message : String(error));
       if (error instanceof OfflineError) this.connection.disconnect('GPU connection lost. Reconnect to check and resume the existing run.');
-      job.progress.stage = cancelled ? 'Cancelled' : job.status === 'interrupted' ? 'Connection interrupted' : 'Generation failed';
+      job.progress.stage = cancelled ? 'Cancelled' : error instanceof ImageFinalizationError ? 'Image saved · finish local processing' : job.status === 'interrupted' ? 'Connection interrupted' : 'Generation failed';
       job.progress.value = null; job.progress.max = null; this.save(job);
     } finally { socket?.close(); }
   }

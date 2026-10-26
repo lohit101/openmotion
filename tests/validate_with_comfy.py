@@ -45,6 +45,8 @@ async def validate(comfy_root):
         (fixtures / "output").mkdir()
         Image.new("RGB", (64, 96), (100, 120, 140)).save(fixtures / "input/reference.png")
         Image.new("RGB", (64, 96), (100, 120, 140)).save(fixtures / "input/repainted-source-frame.png")
+        for name in ['target.png', 'identity.png', 'edit-mask.png']:
+            Image.new("RGB", (1024, 1024), (100, 120, 140)).save(fixtures / 'input' / name)
         (fixtures / "input/source.mp4").write_bytes(b"filename-validation-only")
         for item in selected_manifest()['files']:
             relative = Path(item["destination"])
@@ -52,7 +54,7 @@ async def validate(comfy_root):
             directory.mkdir(parents=True, exist_ok=True)
             (directory / relative.name).write_bytes(b"filename-validation-only")
             folder_paths.add_model_folder_path(relative.parts[0], str(directory), is_default=True)
-        paths = sorted((ROOT / 'workflows/api').glob('*.json')) + sorted((ROOT / 'workflows/experimental/api').glob('viggle*.json'))
+        paths = sorted((ROOT / 'workflows/api').glob('*.json')) + sorted((ROOT / 'workflows/experimental/api').glob('*.json'))
         for path in paths:
             graph = json.loads(path.read_text())
             result = await execution.validate_prompt("cpu-validation", graph, None)
@@ -92,6 +94,14 @@ async def validate(comfy_root):
         assert torch.equal(anchor[0], viggle_images[0])
         print("PASS helper execution: presets, optional LoRA, geometry, tail padding, exact context, overlap and audio", flush=True)
         print('PASS Viggle tensor execution: source fitting, 120→124 padding, exact export count and source-frame anchor', flush=True)
+        destination = torch.rand((1, 64, 96, 3))
+        replacement = torch.ones_like(destination)
+        mask = torch.zeros((1, 64, 96)); mask[:, 12:50, 20:70] = 1
+        compositor = nodes.NODE_CLASS_MAPPINGS['ImageCompositeMasked']()
+        composite = getattr(compositor, compositor.FUNCTION)(destination, replacement, 0, 0, False, mask)[0]
+        assert torch.equal(composite[mask == 0], destination[mask == 0])
+        assert torch.equal(composite[mask == 1], replacement[mask == 1])
+        print('PASS native image mask composition: unchanged scene outside mask, replacement inside', flush=True)
 
 
 def main():
