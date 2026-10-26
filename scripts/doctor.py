@@ -67,6 +67,9 @@ def main():
         return "%d pinned model files, %.2f GB" % (len(manifest['files']), manifest["total_bytes"] / 1e9)
 
     def schemas():
+        import server as recast_server
+        install, _ = recast_server.configuration()
+        recast_server.verify_runtime_source(install)
         port = json.loads((ROOT / "config/server.json").read_text())["port"]
         with urllib.request.urlopen("http://127.0.0.1:%d/object_info" % port, timeout=30) as response:
             catalog = json.load(response)

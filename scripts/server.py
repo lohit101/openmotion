@@ -2,6 +2,7 @@
 """Manage only this installation's private ComfyUI process."""
 
 import argparse
+import hashlib
 import json
 import os
 import signal
@@ -116,10 +117,65 @@ def launch_arguments():
     return install, config, main, arguments
 
 
+def runtime_key(install):
+    """Identify the installed code and launch settings, excluding model files."""
+    comfy = Path(install['comfy_root'])
+    digest = hashlib.sha256()
+    for directory in (comfy, comfy / 'custom_nodes/ComfyUI-VideoHelperSuite', comfy / 'custom_nodes/ComfyUI-Viggle-Animate-H3'):
+        result = subprocess.run(['git', '-C', str(directory), 'rev-parse', 'HEAD'], capture_output=True, text=True)
+        digest.update(str(directory).encode())
+        digest.update(result.stdout.strip().encode() if result.returncode == 0 else b'missing-revision')
+    for file in sorted((comfy / 'custom_nodes/character_swap_helpers').glob('*.py')):
+        digest.update(file.name.encode()); digest.update(file.read_bytes())
+    for file in (ROOT / 'config/server.json', ROOT / 'config/runtime.lock.json', Path(__file__), STATE / 'model-paths.yaml'):
+        digest.update(file.name.encode()); digest.update(file.read_bytes() if file.exists() else b'missing-file')
+    return digest.hexdigest()
+
+
+def verify_runtime_source(install):
+    """Reject an old cached engine before declaring a new recipe ready."""
+    lock = json.loads((ROOT / 'config/runtime.lock.json').read_text())
+    comfy = Path(install['comfy_root'])
+    for directory, field in ((comfy, 'comfyui_commit'), (comfy / 'custom_nodes/ComfyUI-VideoHelperSuite', 'video_helper_commit'), (comfy / 'custom_nodes/ComfyUI-Viggle-Animate-H3', 'viggle_commit')):
+        result = subprocess.run(['git', '-C', str(directory), 'rev-parse', 'HEAD'], capture_output=True, text=True)
+        if result.returncode or result.stdout.strip() != lock[field]:
+            raise RuntimeError('Cached runtime revision differs from the pinned setup: ' + field)
+    source = ROOT / 'custom_nodes/character_swap_helpers'
+    target = comfy / 'custom_nodes/character_swap_helpers'
+    expected = {f.name: f.read_bytes() for f in source.glob('*.py')}
+    installed = {f.name: f.read_bytes() for f in target.glob('*.py')}
+    if not expected or expected != installed:
+        raise RuntimeError('Cached helper code needs the current pinned setup before rendering.')
+    saved = running()
+    if not saved or saved.get('runtime_key') != runtime_key(install):
+        raise RuntimeError('ComfyUI has not loaded the current runtime. Run pinned setup; it reloads only after the queue is idle.')
+
+
+def sync_runtime():
+    """Reload changed owned code, waiting for all current work to finish."""
+    install, config = configuration()
+    saved = running()
+    if saved and saved.get('runtime_key') != runtime_key(install):
+        attempt = 0
+        while running():
+            with urllib.request.urlopen('http://127.0.0.1:%d/queue' % config['port'], timeout=30) as response:
+                queue = json.load(response)
+            if not isinstance(queue.get('queue_running'), list) or not isinstance(queue.get('queue_pending'), list):
+                raise RuntimeError('Cannot verify the existing ComfyUI queue. No server restart was requested.')
+            if not queue['queue_running'] and not queue['queue_pending']:
+                stop()
+                break
+            if attempt % 15 == 0:
+                print('RECAST_WARNING Waiting for the existing ComfyUI queue to finish before loading updated code. Its render has not been interrupted.', flush=True)
+            attempt += 1
+            time.sleep(2)
+    return start()
+
+
 def run_foreground():
     install, _, main, arguments = launch_arguments()
     STATE.mkdir(exist_ok=True)
-    PIDFILE.write_text(json.dumps({"pid": os.getpid(), "main": main, "started": time.time()}))
+    PIDFILE.write_text(json.dumps({"pid": os.getpid(), "main": main, "started": time.time(), "runtime_key": runtime_key(install)}))
     os.chdir(install["comfy_root"])
     os.environ["PYTHONUNBUFFERED"] = "1"
     os.environ["PYTHONFAULTHANDLER"] = "1"
@@ -164,7 +220,7 @@ def start():
     with LOG.open("ab") as log:
         process = subprocess.Popen(arguments, cwd=install["comfy_root"], env={**os.environ, 'PYTHONUNBUFFERED': '1', 'PYTHONFAULTHANDLER': '1'}, stdout=log, stderr=subprocess.STDOUT,
                                    stdin=subprocess.DEVNULL, start_new_session=True)
-    PIDFILE.write_text(json.dumps({"pid": process.pid, "main": main, "started": time.time()}))
+    PIDFILE.write_text(json.dumps({"pid": process.pid, "main": main, "started": time.time(), "runtime_key": runtime_key(install)}))
     print("Starting ComfyUI; log: " + str(LOG), flush=True)
     return wait_ready(config, process=process)
 
@@ -203,10 +259,12 @@ def stop():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["start", "stop", "restart", "status", "logs", "run"])
+    parser.add_argument("action", choices=["start", "stop", "restart", "status", "logs", "run", "sync"])
     args = parser.parse_args()
     if args.action == "run":
         run_foreground()
+    if args.action == 'sync':
+        return sync_runtime()
     if args.action in ("stop", "restart"):
         stop()
     if args.action in ("start", "restart"):

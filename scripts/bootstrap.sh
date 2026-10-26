@@ -184,7 +184,7 @@ done
 if [[ "${RECAST_DOWNLOAD_SAMPLES:-0}" == "1" ]]; then
   "$SWAP_VENV_PYTHON" "$SWAP_ROOT/scripts/sample_inputs.py" --input-dir "$SWAP_ROOT/data/input"
 fi
-bash "$SWAP_ROOT/scripts/server.sh" start
+bash "$SWAP_ROOT/scripts/server.sh" sync
 if [[ "${RECAST_SKIP_MODEL_DOWNLOADS:-0}" == "1" ]]; then
   "$SWAP_VENV_PYTHON" "$SWAP_ROOT/scripts/doctor.py" --runtime-only
 else
