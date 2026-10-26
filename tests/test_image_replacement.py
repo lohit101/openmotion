@@ -147,6 +147,21 @@ class ImageReplacementTests(unittest.TestCase):
         self.assertFalse(cropped)
         self.assertIs(result, reference)
 
+    def test_qwen_review_ignores_a_saved_manual_face_that_did_not_condition_the_model(self):
+        import cv2
+        import numpy as np
+        face = {"bbox": [30, 20, 20, 28], "confidence": .95}
+        with tempfile.TemporaryDirectory() as temp, patch.object(editor, "detect", return_value=[face]):
+            source, _, request, work = self.fixture(Path(temp))
+            manual = Path(temp) / "unused-face.png"
+            cv2.imwrite(str(manual), np.full_like(source, 77))
+            request["face"] = str(manual)
+            request["settings"].update(model="qwen21", faceDetail=False, identityRefine=False)
+            editor.prepare(request, work, "fixture detector")
+            cv2.imwrite(str(work / "gpu-result.png"), source)
+            editor.finish(request, work, "fixture detector")
+            np.testing.assert_array_equal(cv2.imread(str(work / "reference-face.png")), editor.face_crop(source[::-1], face))
+
 
 if __name__ == "__main__":
     unittest.main()

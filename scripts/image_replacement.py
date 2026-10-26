@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CPU preparation and pixel-preserving finalization for Klein image edits.
+"""CPU preparation and pixel-preserving finalization for image edits.
 
 No model weights are downloaded here. Face detection reuses the existing local
 YuNet setup; it is not face recognition or proof of identity fidelity.
@@ -187,7 +187,9 @@ def finish(request, folder, model):
         outside_difference = int(np.max(np.abs(output[outside].astype(np.int16) - source[outside].astype(np.int16)))) if np.any(outside) else 0
     atomic_png(folder / "final.png", output)
     faces = {}
-    reference_file = request.get("face") or request["reference"]
+    settings = request["settings"]
+    face_used = settings.get("model") != "qwen21" and (settings["faceDetail"] or settings.get("identityRefine", False))
+    reference_file = (request.get("face") if face_used else None) or request["reference"]
     for name, image in [("source", source), ("reference", read_image(reference_file)), ("output", output)]:
         found = detect(image, model)
         faces[name] = found[0] if len(found) == 1 else None
