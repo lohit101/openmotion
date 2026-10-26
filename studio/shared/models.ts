@@ -58,7 +58,7 @@ export const modelDefinitions = pinnedModels.map(file => {
   const [label, description, group] = descriptions[filename(file.destination)];
   const engine = viggle.files.some(item => item.destination === file.destination) ? 'viggle' : repaint.files.some(item => item.destination === file.destination) ? 'repaint' : 'scail2';
   return { id: file.destination, filename: filename(file.destination), size: file.size, label, description, group,
-    engine, included: group === 'core' || engine === 'viggle', experimental: filename(file.destination) === SOCIAL_STYLE,
+    engine, included: group === 'core', experimental: filename(file.destination) === SOCIAL_STYLE,
     trigger: filename(file.destination) === SOCIAL_STYLE ? 'instag00n' : '',
     source: filename(file.destination) === SOCIAL_STYLE ? extras.files[0].source : '' };
 });
