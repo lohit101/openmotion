@@ -2,6 +2,10 @@ import { z } from 'zod';
 import budget from '../../config/budget-profile.json';
 
 export const GPU_COMPUTE_CEILING = budget.gpu_compute_ceiling_usd_per_hour;
+export const DOWNLOAD_PRICE_CEILING = budget.download_ceiling_usd_per_gb;
+export function withinDownloadBudget(perGB: number | null): boolean {
+  return perGB !== null && Number.isFinite(perGB) && perGB >= 0 && perGB <= DOWNLOAD_PRICE_CEILING;
+}
 export function withinComputeBudget(hourly: number | null): boolean {
   return hourly !== null && Number.isFinite(hourly) && hourly >= 0 && hourly <= GPU_COMPUTE_CEILING + 1e-9;
 }

@@ -1,5 +1,7 @@
 # Project workflow
 
+- GPU discovery and new-rental preflight require a known download/ingress price of at most $0.005/GB, per the user's revised limit. Filter at the provider and locally, including favourite availability, and recheck the exact rental ask before spending. Keep management controls and cached models for existing rentals. Upload, storage and compute fees remain separate.
+
 - Keep this project in Git. Make a separate, focused commit after each completed bug fix or feature, with the relevant validation recorded. Do not rewrite existing commits unless the user asks.
 - Commit source code, workflows, model/runtime manifests, documentation and small sanitized validation reports. Keep API/SSH credentials, `.local`, Studio databases, uploaded references/videos, generated media, model weights and raw GPU captures out of Git. Raw capture bundles belong under ignored `backups/`.
 - Work offline whenever possible. The user controls pausing and unpausing the rented GPU. Capture what is needed before they pause; finish independent implementation and checks before requesting GPU validation. Do not automatically start/resume a paused instance or submit new paid test renders without the user's authorization.

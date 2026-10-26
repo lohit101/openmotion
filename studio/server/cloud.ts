@@ -11,7 +11,7 @@ import type { ConnectionManager } from './comfy';
 import type { Runner } from './runner';
 import { command } from './media';
 import type { CloudInstance, CloudLaunch, CloudState, GpuOffer, GpuFavourite, OfferFilters } from '../shared/cloud';
-import { canRetryRental, GPU_COMPUTE_CEILING, isDgxSpark, isGraceBlackwell, offerFiltersSchema, offerGpuFilter, sameGpuModel, supportedGpuName, withinComputeBudget } from '../shared/cloud';
+import { canRetryRental, DOWNLOAD_PRICE_CEILING, GPU_COMPUTE_CEILING, isDgxSpark, isGraceBlackwell, offerFiltersSchema, offerGpuFilter, sameGpuModel, supportedGpuName, withinComputeBudget, withinDownloadBudget } from '../shared/cloud';
 import { modelBytes, modelFilesForSettings, pinnedModels, setupModelFiles } from '../shared/models';
 
 const MODEL_GB = modelBytes(setupModelFiles) / 1e9;
@@ -20,6 +20,7 @@ export const RENTAL_IMAGE = 'nvidia/cuda:13.0.2-base-ubuntu24.04';
 export const SSH_ONSTART = readFileSync(new URL('../../scripts/ssh_permissions.sh', import.meta.url), 'utf8');
 const number = (value: unknown): number | null => value !== null && value !== '' && value !== undefined && Number.isFinite(Number(value)) ? Number(value) : null;
 const amount = (...values: unknown[]) => values.map(number).find(v => v !== null && v >= 0) ?? null;
+const transferPrice = (value: unknown) => typeof value === 'number' || (typeof value === 'string' && value.trim() !== '') ? amount(value) : null;
 const driverNumber = (value: unknown) => { const parts = String(value || '').split('.'); return parts.length === 1 ? Number(value) : Number(parts[0]) * 1000000 + Number(parts[1]) * 1000 + Number(parts[2] || 0); };
 export class VastError extends Error { constructor(message: string, public status: number, public ambiguous = false) { super(message); } }
 const publicKeyIdentity = (value: unknown) => typeof value === 'string' ? value.trim().split(/\s+/).slice(0, 2).join(' ') : '';
@@ -111,6 +112,9 @@ export class VastClient {
     // Vast's bundle-search `id` predicate does not target the rental ask ID.
     // Revalidate the exact ask that will be used by PUT /asks/{ask_contract_id}.
     if (id) query.ask_contract_id = { eq: id }; else query.gpu_name = offerGpuFilter(filters.gpu);
+    // Filter discovery too, so expensive-transfer hosts do not fill the result
+    // limit. Exact-ask preflight reads the actual rate to detect changes.
+    if (!id) query.inet_down_cost = { lte: DOWNLOAD_PRICE_CEILING };
     if (host) { query.machine_id = { eq: host.machineId }; query.gpu_name = { eq: host.gpu }; }
     if (filters.verified) query.verified = { eq: true };
     if (filters.minDownload > 0) query.inet_down = { gte: filters.minDownload };
@@ -123,6 +127,8 @@ export function normalizeOffer(raw: any, filters: OfferFilters, modelGB = MODEL_
   const storageHourly = amount(raw.search?.diskHour, raw.storage_total_cost), totalHourly = amount(raw.search?.totalHour, raw.dph_total);
   const computeHourly = amount(raw.search?.gpuCostPerHour, raw.dph_base, totalHourly !== null && storageHourly !== null ? totalHourly - storageHourly : null);
   const reasons: string[] = [], gpu = String(raw.gpu_name || ''), ram = Number(raw.cpu_ram || 0) / 1000, unified = isDgxSpark(gpu);
+  const downloadPerGB = transferPrice(raw.inet_down_cost);
+  if (!withinDownloadBudget(downloadPerGB)) reasons.push(`Download fees must be known and at most $${DOWNLOAD_PRICE_CEILING.toFixed(3)}/GB.`);
   if (!withinComputeBudget(computeHourly)) reasons.push(computeHourly === null ? 'GPU compute pricing is unavailable; the budget cannot be checked.' : `GPU compute exceeds the $${GPU_COMPUTE_CEILING.toFixed(2)}/hour budget. Storage is quoted separately.`);
   const reportedVram = number(raw.gpu_ram), vram = reportedVram && reportedVram > 0 ? reportedVram / 1024 : unified ? ram : 0;
   if (!supportedGpuName(gpu)) reasons.push('Choose a supported NVIDIA RTX, A-series or DGX/datacenter GPU.'); if (Number(raw.num_gpus) !== 1) reasons.push('This workflow uses one GPU.');
@@ -147,9 +153,9 @@ export function normalizeOffer(raw: any, filters: OfferFilters, modelGB = MODEL_
   return { id: askId, machineId: Number(raw.machine_id), gpu, vram, ram, cpus: Number(raw.cpu_cores_effective || raw.cpu_cores || 0), cpu: String(raw.cpu_name || 'CPU details unavailable'),
     location: String(raw.geolocation || 'Location unavailable'), verified: raw.verification === 'verified' || raw.verified === true, reliability: Number(raw.reliability2 ?? raw.reliability ?? 0),
     driver: String(raw.driver_version || ''), cuda: Number(raw.cuda_max_good || 0), diskMax: Number(raw.disk_space || 0), diskBandwidth: Number(raw.disk_bw || 0),
-    downloadMbps: Number(raw.inet_down || 0), uploadMbps: Number(raw.inet_up || 0), downloadPerGB: amount(raw.inet_down_cost), uploadPerGB: amount(raw.inet_up_cost), pcie: Number(raw.pcie_bw || 0),
+    downloadMbps: Number(raw.inet_down || 0), uploadMbps: Number(raw.inet_up || 0), downloadPerGB, uploadPerGB: transferPrice(raw.inet_up_cost), pcie: Number(raw.pcie_bw || 0),
     computeHourly, storageHourly, totalHourly, storageMonthly: amount(raw.storage_cost) === null ? null : Number(raw.storage_cost) * filters.disk,
-    modelDownloadCost: amount(raw.inet_down_cost) === null ? null : Number(raw.inet_down_cost) * modelGB, modelDownloadGB: modelGB, disk: filters.disk,
+    modelDownloadCost: downloadPerGB === null ? null : downloadPerGB * modelGB, modelDownloadGB: modelGB, disk: filters.disk,
     expiresAt: new Date(Date.now() + 90000).toISOString(), quote: randomUUID(), compatible: !reasons.length, reasons };
 }
 
@@ -344,7 +350,7 @@ export class CloudManager {
             const modelGB = modelBytes(modelFilesForSettings(this.store.draft().settings)) / 1e9;
             const offers = rows.map(raw => normalizeOffer(raw, scopedFilters, modelGB)).filter(offer => offer.compatible && offer.machineId === item!.machineId && offer.gpu === item!.gpu).sort((a, b) => (a.totalHourly ?? Infinity) - (b.totalHourly ?? Infinity));
             this.rememberOffers(offers, scopedFilters);
-            result = offers.length ? { status: 'available', offer: offers[0], lastHourly: offers[0].totalHourly } : { status: 'unavailable', message: 'No rentable single-GPU offer matches this host and the selected storage, RAM, network and verification settings.' };
+            result = offers.length ? { status: 'available', offer: offers[0], lastHourly: offers[0].totalHourly } : { status: 'unavailable', message: `No rentable single-GPU offer matches this host, the selected settings and the $${DOWNLOAD_PRICE_CEILING.toFixed(3)}/GB download cap.` };
           }
         } catch (error) { result = { status: 'error', message: (error as Error).message }; }
         if (this.favouriteChecks.get(item.id) === token && this.state.favourites?.some(saved => saved.id === item!.id)) {
@@ -360,6 +366,7 @@ export class CloudManager {
     if (!rows.length) throw new PreflightError('This exact offer is no longer listed with the selected resources. Choose a fresh offer from the marketplace.', 'offer-unavailable');
     const fresh = normalizeOffer(rows[0], filters, offer.modelDownloadGB);
     if (fresh.machineId !== offer.machineId || fresh.gpu !== offer.gpu) throw new Error('The offer hardware changed. Review a fresh offer before renting.');
+    if (!withinDownloadBudget(fresh.downloadPerGB)) throw new PreflightError(`This host's download fees are unknown or exceed $${DOWNLOAD_PRICE_CEILING.toFixed(3)}/GB. Choose another host.`, 'transfer-changed');
     if (!fresh.compatible) throw new Error(fresh.reasons.join(' '));
     if (fresh.totalHourly === null || fresh.totalHourly > ceiling + 0.000001) throw new PreflightError('The hourly price increased. Review a fresh quote before renting.', 'price-changed');
     if (approved.download === null || approved.upload === null || fresh.downloadPerGB === null || fresh.uploadPerGB === null) throw new PreflightError('Transfer pricing is unavailable. Choose an offer with known download and upload fees.', 'transfer-changed');

@@ -1,4 +1,5 @@
 {
   "gpu_compute_ceiling_usd_per_hour": 0.7,
-  "note": "User's hard GPU-compute ceiling for the current plan. Storage and transfer fees are quoted separately. No automatic hardware escalation."
+  "download_ceiling_usd_per_gb": 0.005,
+  "note": "User's GPU compute and incoming-transfer ceilings. New rentals require a known download rate of at most $0.005/GB. Storage and upload fees are quoted separately. No automatic hardware escalation."
 }

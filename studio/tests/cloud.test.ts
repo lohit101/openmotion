@@ -4,7 +4,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { Store } from '../server/store';
 import { CloudManager, computeIsStopped, fatalContainerStatus, hasRegisteredSshKey, matchesGpuProbe, normalizeOffer, RENTAL_IMAGE, SSH_ONSTART, VastClient, VastError } from '../server/cloud';
-import { GPU_COMPUTE_CEILING, offerFiltersSchema, withinComputeBudget } from '../shared/cloud';
+import { DOWNLOAD_PRICE_CEILING, GPU_COMPUTE_CEILING, offerFiltersSchema, withinComputeBudget, withinDownloadBudget } from '../shared/cloud';
 import type { ConnectionManager } from '../server/comfy';
 import type { Runner } from '../server/runner';
 import { pinnedModels, setupModelFiles, SOCIAL_STYLE } from '../shared/models';
@@ -103,6 +103,30 @@ describe('Vast marketplace, billing and lifecycle', () => {
     expect(normalizeOffer(raw, filters).compatible).toBe(false);
     expect(normalizeOffer(raw, filters).reasons.join()).toContain('$0.70/hour');
   });
+  it('allows known downloads up to the inclusive $0.005/GB limit without capping uploads', () => {
+    expect(DOWNLOAD_PRICE_CEILING).toBe(.005);
+    for (const value of [0, .000001, .004, .005]) {
+      expect(withinDownloadBudget(value)).toBe(true);
+      const offer = normalizeOffer({ ...rawOffer(), inet_down_cost: value, inet_up_cost: .1 }, filters, 40.4);
+      expect(offer.compatible).toBe(true); expect(offer.downloadPerGB).toBe(value);
+      expect(offer.modelDownloadCost).toBeCloseTo(40.4 * value); expect(offer.uploadPerGB).toBe(.1);
+    }
+    expect(normalizeOffer({ ...rawOffer(), inet_down_cost: '0.004' }, filters).compatible).toBe(true);
+  });
+  it('excludes unknown, invalid and over-budget download rates rather than treating them as free', () => {
+    for (const value of [null, NaN, Infinity, -.001, .0050001, .0390625]) expect(withinDownloadBudget(value)).toBe(false);
+    for (const value of [null, undefined, NaN, Infinity, -.001, .0050001, .0390625, '', ' ', false, true, [], 'unknown']) {
+      const offer = normalizeOffer({ ...rawOffer(), inet_down_cost: value }, filters);
+      expect(offer.compatible).toBe(false); expect(offer.reasons.join()).toContain('$0.005/GB');
+    }
+  });
+  it('filters download rates locally even when a provider ignores the search ceiling', async () => {
+    const { cloud } = await manager();
+    for (const value of [.0390625, null, undefined]) {
+      vi.spyOn(cloud.client, 'offers').mockResolvedValueOnce([{ ...rawOffer(), inet_down_cost: value }]);
+      expect((await cloud.offers(filters)).offers).toEqual([]);
+    }
+  });
   it('never submits a rental when a fresh compute quote exceeds the budget even with a higher total approval', async () => {
     const { cloud, fixture } = await manager();
     const { offers } = await cloud.offers(filters);
@@ -138,7 +162,7 @@ describe('Vast marketplace, billing and lifecycle', () => {
   it('queries compatible hardware with selected disk and authenticates only in the HTTPS header', async () => {
     const fixture = provider(), client = new VastClient(async () => 'fixture-secret', fixture.fetcher); await client.offers({ ...filters, disk: 128, ram: 64 });
     const call = fixture.calls[0]; expect(call.auth).toBe('Bearer fixture-secret'); expect(call.url.toString()).not.toContain('fixture-secret');
-    expect(call.body).toMatchObject({ allocated_storage: 128, cpu_ram: { gte: 64000 }, driver_version: { gte: 580065006 }, type: 'on-demand' });
+    expect(call.body).toMatchObject({ allocated_storage: 128, cpu_ram: { gte: 64000 }, driver_version: { gte: 580065006 }, inet_down_cost: { lte: .005 }, type: 'on-demand' });
     expect(call.body.gpu_ram).toBeUndefined();
     expect(call.body.gpu_name.in).toContain('RTX 5090');
     expect(call.body.gpu_name.in).toContain('A100 PCIE');
@@ -295,6 +319,7 @@ describe('Vast marketplace, billing and lifecycle', () => {
     const fixture = provider(), client = new VastClient(async () => 'fixture', fixture.fetcher);
     const rows = await client.offers(filters, 123); expect(rows.map(row => row.ask_contract_id)).toEqual([123]);
     expect(fixture.calls[0].body.ask_contract_id).toEqual({ eq: 123 }); expect(fixture.calls[0].body.id).toBeUndefined();
+    expect(fixture.calls[0].body.inet_down_cost).toBeUndefined(); // Read changed prices, then enforce the cap locally.
     expect(normalizeOffer({ ...rawOffer(), id: 999, ask_contract_id: 123 }, filters).id).toBe(123);
     expect(await client.offers(filters, 456)).toEqual([]);
   });
@@ -314,9 +339,17 @@ describe('Vast marketplace, billing and lifecycle', () => {
     expect(launch.creationAttempted).toBe(false); expect(launch.lastFailure).toContain('SSH authentication'); expect(fixture.createCount).toBe(0);
   });
   it('does not accept increased transfer fees at an unchanged GPU hourly price', async () => {
-    const { cloud, fixture } = await manager(); const { offers } = await cloud.offers(filters); fixture.setTransfer(4);
+    const { cloud, fixture } = await manager(); const { offers } = await cloud.offers(filters); fixture.setTransfer(.004);
     const launch = cloud.launch(offers[0].quote, .23, 'transfer-change'); await until(() => !cloud.state.busy);
     expect(launch.failureCode).toBe('transfer-changed'); expect(fixture.createCount).toBe(0);
+  });
+  it.each([.006, NaN])('never rents when exact-ask download pricing becomes invalid: %s', async price => {
+    const { cloud, fixture } = await manager(); const { offers } = await cloud.offers(filters); fixture.setTransfer(price);
+    // Even a stale saved approval of a higher rate cannot bypass the hard cap.
+    offers[0].downloadPerGB = .1;
+    const launch = cloud.launch(offers[0].quote, .23, 'transfer-cap'); await until(() => !cloud.state.busy);
+    expect(launch.failureCode).toBe('transfer-changed'); expect(launch.message).toContain('$0.005/GB');
+    expect(launch.creationAttempted).toBe(false); expect(fixture.createCount).toBe(0);
   });
   it('automatically stops compute after installer failure and retains the disk', async () => {
     const { cloud, fixture, provision } = await manager(); provision.mockRejectedValueOnce(new Error('CUDA kernel validation failed'));
@@ -541,6 +574,7 @@ describe('Vast marketplace, billing and lifecycle', () => {
     const saved = cloud.state.favourites![0]; expect(saved.status).toBe('available'); expect(saved.offer?.machineId).toBe(99); expect(saved.offer?.totalHourly).toBe(.21); expect(saved.offer?.disk).toBe(128);
     const search = fixture.calls.filter(call => call.url.pathname === '/api/v0/bundles/').at(-1)!;
     expect(search.body.machine_id).toEqual({ eq: 99 }); expect(search.body.gpu_name).toEqual({ eq: 'RTX 3090' }); expect(search.body.cpu_ram).toEqual({ gte: 64000 });
+    expect(search.body.inet_down_cost).toEqual({ lte: .005 });
     expect(fixture.createCount).toBe(0); expect(fixture.calls.some(call => call.method === 'DELETE')).toBe(false);
     const launch = cloud.launch(saved.offer!.quote, .21, 'favourite-rental'); await until(() => !cloud.state.busy); expect(launch.phase).toBe('ready');
   });
@@ -548,6 +582,12 @@ describe('Vast marketplace, billing and lifecycle', () => {
     const { cloud } = await manager(); const { offers } = await cloud.offers(filters); cloud.saveFavourite({ quote: offers[0].quote });
     vi.spyOn(cloud.client, 'offers').mockResolvedValueOnce([{ ...rawOffer(), machine_id: 100 }]);
     await cloud.checkFavourites(filters); expect(cloud.state.favourites![0]).toMatchObject({ status: 'unavailable', offer: null });
+  });
+  it('keeps a saved host unavailable when its download fee exceeds the cap', async () => {
+    const { cloud, fixture } = await manager(); const { offers } = await cloud.offers(filters); cloud.saveFavourite({ quote: offers[0].quote });
+    fixture.setTransfer(.0390625); await cloud.checkFavourites(filters);
+    expect(cloud.state.favourites![0]).toMatchObject({ status: 'unavailable', offer: null });
+    expect(cloud.state.favourites![0].message).toContain('$0.005/GB'); expect(fixture.createCount).toBe(0);
   });
   it('distinguishes a failed availability request from an unavailable host', async () => {
     const { cloud } = await manager(); const { offers } = await cloud.offers(filters); cloud.saveFavourite({ quote: offers[0].quote });
