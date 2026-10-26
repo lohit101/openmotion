@@ -40,6 +40,8 @@ Completed GPU receipts are saved before image download. Reconnection checks the 
 
 **Use in Motion control** saves the PNG as a reusable input. If the target was extracted from a known video, it restores that video and clip start, uses native 24 fps and selects **prepared frame**, avoiding a second Klein edit. A generic photograph becomes a normal character reference with **automatic preparation**; it is not mislabelled as a frame from an unrelated video. Review likeness before propagating it: video conditioning cannot repair an incorrect identity anchor.
 
+Viggle's **Reference preparation** menu disables **Automatic** unless all three Klein files are confirmed installed. Its adjacent download button remains available on a connected idle GPU, so Klein can be restored explicitly if wanted. A missing or unknown installation does not silently turn an ordinary reference into a prepared frame. The server also rejects automatic jobs with missing Klein before queuing a paid render. The prepared-frame option uses only Viggle's own model stack and remains available without Klein.
+
 The portable editable examples are [full-photo editing](../workflows/experimental/klein4b_image_replacement.json) and [masked editing](../workflows/experimental/klein4b_image_masked.json), with matching API graphs beside them. They use a 1024-square target. Studio's per-job export contains the actual source dimensions, mask, uploaded filenames and optional face input. Regenerate the examples with:
 
 ```sh

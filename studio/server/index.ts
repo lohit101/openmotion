@@ -14,7 +14,7 @@ import { seedExamples } from './seed';
 import { validateSelection } from './workflow';
 import { CloudManager } from './cloud';
 import { ModelManager } from './models';
-import { modelDefinitions, modelFilesForSettings } from '../shared/models';
+import { imageModelFiles, modelDefinitions, modelFilesForSettings } from '../shared/models';
 import { offerFiltersSchema } from '../shared/cloud';
 import { defaults, geometry, renderGeometry, segmentCount, settingsSchema } from '../shared/types';
 import type { Asset, Catalog, Graph, Job } from '../shared/types';
@@ -150,7 +150,9 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     if (models.state.busy || cloud.state.busy || connection.status.state !== 'online') return void res.status(409).json({ error: 'The GPU or model downloads changed while checking. Nothing was queued; wait for readiness before generating.' });
     if (models.state.error) return void res.status(503).json({ error: models.state.error });
     const missing = modelFilesForSettings(value.settings).filter(id => models.state.files.find(file => file.id === id)?.status !== 'installed');
-    if (missing.length) return void res.status(409).json({ error: 'Download the required files in Models before generating. Nothing was queued.', missingModels: missing });
+    if (missing.length) return void res.status(409).json({ error: isViggle(value.settings) && value.settings.referencePreparation !== 'prepared' && missing.some(id => imageModelFiles.includes(id))
+      ? 'Automatic frame preparation requires Klein. Download it beside Reference preparation, or create a frame in Image replacement and select Use an already edited source frame. Nothing was queued.'
+      : 'Download the required files in Models before generating. Nothing was queued.', missingModels: missing });
     for (const name of [value.settings.loraA, value.settings.loraB]) if (name !== 'None' && !connection.status.loras.includes(name)) return void res.status(409).json({ error: 'Upload the selected custom LoRA before generating: ' + name });
     const source = store.asset(value.sourceId), reference = store.asset(value.referenceId); if (!source || !reference) throw new Error('Upload both inputs before generating.');
     validateSelection(source, reference, value.settings.start, value.settings.seconds, value.settings.fps);

@@ -25,7 +25,7 @@ export function DownloadButton({ files, controls, label, size = false }: { files
   </button>;
 }
 
-export function DownloadSelect({ value, options, onChange, label, controls }: { value: string; options: { value: string; label: string; files: string[] }[];
+export function DownloadSelect({ value, options, onChange, label, controls }: { value: string; options: { value: string; label: string; files: string[]; disabled?: boolean; disabledReason?: string }[];
   onChange: (value: string) => void; label: string; controls: DownloadControls }) {
   const details = useRef<HTMLDetailsElement>(null);
   const selected = options.find(option => option.value === value);
@@ -36,7 +36,7 @@ export function DownloadSelect({ value, options, onChange, label, controls }: { 
   return <div className="download-select"><details ref={details} onKeyDown={event => { if (event.key === 'Escape' && details.current) { details.current.open = false; details.current.querySelector('summary')?.focus(); } }}>
     <summary aria-label={label}><span>{selected?.label || value}</span><CaretDown size={12} /></summary>
     <div className="download-options" aria-label={`${label} options`}>{options.map(option => <div className="download-option" key={option.value}>
-      <button type="button" aria-pressed={value === option.value} className="download-option-choice" onClick={() => { onChange(option.value); if (details.current) { details.current.open = false; details.current.querySelector('summary')?.focus(); } }}>
+      <button type="button" aria-pressed={value === option.value} disabled={option.disabled} title={option.disabledReason} className="download-option-choice" onClick={() => { if (option.disabled) return; onChange(option.value); if (details.current) { details.current.open = false; details.current.querySelector('summary')?.focus(); } }}>
         <span>{option.label}</span>{value === option.value && <Check size={12} />}
       </button><DownloadButton files={option.files} controls={controls} label={option.label} size />
     </div>)}</div></details>{selected ? <DownloadButton files={selected.files} controls={controls} label={selected.label} /> : <span className="model-download failed" title="Upload this custom LoRA to the connected GPU, or choose None" aria-label="Custom LoRA is missing"><WarningCircle size={15} /></span>}

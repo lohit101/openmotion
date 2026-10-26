@@ -14,7 +14,7 @@ import { applyProgress, localEndpoint, OfflineError } from '../server/comfy';
 import { command, probe, prepareVideo } from '../server/media';
 import { compileWorkflow, validateGraph, RELIGHT, NATURAL_SPEED } from '../server/workflow';
 import { defaults, geometry, nextSegment, segmentCount } from '../shared/types';
-import { pinnedModels } from '../shared/models';
+import { imageModelFiles, pinnedModels } from '../shared/models';
 import { compilePrompt, PROMPT_VERSION } from '../shared/prompts';
 import type { ReferenceGeometry } from '../server/framing';
 import prompts from '../../config/prompts.json';
@@ -336,6 +336,24 @@ describe('local app with the captured ComfyUI protocol', () => {
     expect(blocked.body.missingModels).toEqual(['loras/' + NATURAL_SPEED]);
     expect(local!.store.jobs()).toHaveLength(0); expect(mock!.submissions).toHaveLength(0);
     expect(local!.models.state.busy).toBe(false);
+  });
+  it('blocks automatic Viggle preparation without Klein while allowing a prepared frame without downloading it', async () => {
+    const agent = await setup(true), values = await inputs(agent); await connect(agent);
+    Object.assign(values.settings, { engine: 'viggle', fps: 24, seconds: 3, referencePreparation: 'auto', loraA: 'None', loraB: 'None' });
+    const live = structuredClone(local!.connection.catalog);
+    for (const schema of Object.values(live)) for (const rule of Object.values({ ...schema.input.required, ...schema.input.optional })) {
+      if (Array.isArray(rule[0])) rule[0] = rule[0].filter((name: unknown) => !imageModelFiles.some(file => file.endsWith('/' + name)));
+    }
+    const client = local!.connection.client();
+    vi.spyOn(local!.connection, 'client').mockReturnValue({ ...client, json: vi.fn(async () => live) } as unknown as typeof client);
+    const blocked = await agent.post('/api/jobs').set('Idempotency-Key', 'automatic-needs-klein').send(values).expect(409);
+    expect(blocked.body.error).toContain('Automatic frame preparation requires Klein');
+    expect(blocked.body.missingModels.sort()).toEqual([...imageModelFiles].sort());
+    expect(local!.store.jobs()).toHaveLength(0); expect(mock!.submissions).toHaveLength(0); expect(local!.models.state.busy).toBe(false);
+    vi.spyOn(local!.runner, 'kick').mockResolvedValue(undefined);
+    values.settings.referencePreparation = 'prepared';
+    await agent.post('/api/jobs').set('Idempotency-Key', 'prepared-skips-klein').send(values).expect(201);
+    expect(mock!.submissions).toHaveLength(0); expect(local!.models.state.busy).toBe(false);
   });
   it('migrates stale sample drafts and compiles an empty prompt in a newly created job', async () => {
     const agent = await setup(), values = await inputs(agent);

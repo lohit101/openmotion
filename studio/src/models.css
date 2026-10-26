@@ -17,6 +17,7 @@
 .download-option { display: flex; gap: 6px; align-items: center; padding: 3px; }
 .download-option-choice { min-width: 0; flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 7px; padding: 9px 7px; border-radius: 5px; text-align: left; font-size: 11px; }
 .download-option-choice:hover { background: var(--hover); }
+.download-option-choice:disabled { opacity: .45; cursor: not-allowed; background: transparent; }
 .download-option-choice[aria-pressed='true'] { color: var(--accent-text); }
 .download-option-choice span { overflow-wrap: anywhere; }
 .feature-download-row { display: flex; align-items: center; gap: 8px; }
