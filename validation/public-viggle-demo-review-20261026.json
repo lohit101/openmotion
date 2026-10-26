@@ -1,0 +1,58 @@
+{
+  "reviewed_at_utc": "2026-10-26T00:51:23.265252+00:00",
+  "provenance": "Publisher-generated examples downloaded from Viggle/Viggle-Animate; not local generations, not an independent random sample, not proof of quantized consumer performance.",
+  "sources": {
+    "movement_fast": "https://huggingface.co/Viggle/Viggle-Animate/resolve/main/examples/media/compare-fastmotion.mp4",
+    "movement_kick": "https://huggingface.co/Viggle/Viggle-Animate/resolve/main/examples/media/compare-highkick.mp4",
+    "speech_source": "https://huggingface.co/Viggle/Viggle-Animate/resolve/main/examples/media/audio-pin-driving.mp4",
+    "speech_output": "https://huggingface.co/Viggle/Viggle-Animate/resolve/main/examples/media/audio-pin-out.mp4",
+    "configuration": "https://huggingface.co/Viggle/Viggle-Animate/blob/main/inference/sample.py"
+  },
+  "inspection_times_seconds": [
+    0.5,
+    2.5,
+    4.5
+  ],
+  "movement_observations": [
+    "Source pose, apparent body scale and position track closely in the inspected Viggle panels, including the high kick.",
+    "Viggle appears less smeared than the shown Wan panel in these selected examples. No general model superiority or pass rate is inferred.",
+    "Room perspective and dominant lighting remain coherent. Small faces in the montage are insufficient to establish close-up facial realism."
+  ],
+  "speech_observations": [
+    "The separate audio-pinned close-up retains plausible skin detail, glasses, gaze and the source camera framing in the inspected frames.",
+    "Mouth poses vary across the inspected frames. Static visual inspection does not measure phoneme synchronization or naturalness in continuous playback.",
+    "This published audio-pinned path uses a different inference condition and reports 51 seconds on B200 after loading. The current community Comfy integration here does not implement it; retaining source audio in export is not audio conditioning."
+  ],
+  "excluded_evidence": [
+    "white-house-funk.mp4: explicitly a preview of unreleased Viggle Animate v2, not evidence for the released weights.",
+    "Low-resolution photoreal-duo montage: insufficient detail for a close-up identity assessment."
+  ],
+  "background_only_measurements": [
+    {
+      "demo": "compare-fastmotion",
+      "frames": 124,
+      "fps": 24,
+      "region": "Unoccluded top background: y40:140, source x360:720 versus Viggle x720:1080 in the published 1440x624 montage; headers excluded",
+      "mean_luma_delta_8bit": -5.887,
+      "median_abs_luma_delta_8bit": 5.71,
+      "std_luma_delta_8bit": 1.409,
+      "max_adjacent_change_luma_delta_8bit": 1.66
+    },
+    {
+      "demo": "compare-highkick",
+      "frames": 124,
+      "fps": 24,
+      "region": "Unoccluded top background: y40:140, source x360:720 versus Viggle x720:1080 in the published 1440x624 montage; headers excluded",
+      "mean_luma_delta_8bit": -2.615,
+      "median_abs_luma_delta_8bit": 2.632,
+      "std_luma_delta_8bit": 0.27,
+      "max_adjacent_change_luma_delta_8bit": 0.332
+    }
+  ],
+  "measurement_limits": "OpenCV BGR-to-gray 8-bit luma mean in an unoccluded ceiling ROI, source versus Viggle panel. These values measure background brightness differences in already compressed publisher montages, not subject lighting, identity, realism, motion accuracy or an overall quality score. Wan panel is not scored because its framing/borders differ.",
+  "local_review_artifacts": [
+    "backups/overnight-20261026/public-demos/compare-fastmotion-contact.jpg",
+    "backups/overnight-20261026/public-demos/compare-highkick-contact.jpg",
+    "backups/overnight-20261026/public-demos/audio-pin-contact.jpg"
+  ]
+}

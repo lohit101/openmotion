@@ -31,6 +31,8 @@ SCAIL/Wan style, DPO, relighting or generic acceleration LoRAs to this model.
 Review the saved conditioning PNG: scale, screen position, face, clothing and
 lighting must already be right before temporal propagation can preserve them.
 The image prompt acts on preparation; the video uses fixed conditioning.
+Source audio is retained for export; the newer audio-pinned speech conditioning
+is not implemented here. Start with movement-focused shots.
 
 GPU validation and sub-three-minute performance are not yet established for
 this quantized recipe. The publisher's 26 s result is BF16 on B200 and excludes

@@ -1,6 +1,8 @@
-# Budget-first character replacement plan
+# Earlier budget-first character replacement plan
 
-Updated 26 October 2026 IST. This is the current execution plan and supersedes the high-memory/multi-engine implementation order and 256GB default in the earlier [research plan](production-character-replacement-plan-2026-10-26.md) and [latency audit](latency-cost-and-higgsfield-audit-2026-10-26.md). Those documents remain research evidence. This revision changes documentation and planning only; it does not rent a GPU, download weights, change generation settings, impose an automatic timeout or delete an existing disk.
+**Superseded by the user’s overnight instruction.** The current implementation and hard $0.70/hour GPU-compute ceiling are in [the overnight plan](overnight-realism-plan-2026-10-26.md). The text below preserves the earlier recommendation and is not the active model choice or spending authorization.
+
+Updated 26 October 2026 IST. This earlier revision superseded the high-memory/multi-engine implementation order and 256GB default in the earlier [research plan](production-character-replacement-plan-2026-10-26.md) and [latency audit](latency-cost-and-higgsfield-audit-2026-10-26.md). Those documents remain research evidence. This revision changes documentation and planning only; it does not rent a GPU, download weights, change generation settings, impose an automatic timeout or delete an existing disk.
 
 ## The revised decision
 

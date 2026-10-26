@@ -1,0 +1,102 @@
+{
+  "checked_at_utc": "2026-10-26T01:02:20.071324+00:00",
+  "status": "Implementation and offline/native CPU validation complete; paid GPU inference blocked by account credit.",
+  "gpu_compute_ceiling_usd_per_hour": 0.7,
+  "new_rentals_created": 0,
+  "new_gpu_compute_spend_usd": 0,
+  "model_weights_downloaded": false,
+  "account_check": {
+    "usable_credit_available": false,
+    "provider_instances_reported": 0,
+    "exact_balance_omitted": true
+  },
+  "checks": {
+    "studio": {
+      "command": "npm --prefix studio test -- --reporter=dot",
+      "test_files_passed": 15,
+      "tests_passed": 217,
+      "scope": "Settings, budgets, provisioning, recovery, model storage, native progress and protocol simulation; no video inference."
+    },
+    "python_default": {
+      "command": "python3 -m unittest discover -s tests -p 'test_*.py'",
+      "collected": 67,
+      "passed": 61,
+      "skipped": 6,
+      "skip_reason": "OpenCV integration requires the local geometry environment."
+    },
+    "python_opencv": {
+      "command": ".local/geometry-venv/bin/python -m unittest discover -s tests -p 'test_reference_geometry.py'",
+      "passed": 14,
+      "includes_all_six_environment_specific_checks": true
+    },
+    "native_comfy_cpu": {
+      "command": ".local/comfy-validation-venv/bin/python tests/validate_with_comfy.py --comfy-root backups/overnight-20261026/ComfyUI-cpu",
+      "exit_code": 0,
+      "python": "3.13.16",
+      "torch": "2.11.0",
+      "cuda_available": false,
+      "device": "CPU forced",
+      "comfy_commit": "fb3befd168731438f88bc96e0920a538e8649878",
+      "vhs_commit": "4d907bee61e92c2e65af3bd6383a4e4d356126d1",
+      "viggle_node_commit": "6ae081af5b3175f99ef7cddebd5dfaf93390ab70",
+      "prompts_accepted": [
+        "scail2_int8_masks.json",
+        "scail2_int8_swap.json",
+        "viggle_int8_auto_swap.json",
+        "viggle_int8_prepared_swap.json"
+      ],
+      "tensor_helpers_executed": [
+        "SCAIL controls, fitting, padding, context, overlap and audio",
+        "Viggle source fitting, 120 to 124 padding, exact source count and anchor"
+      ],
+      "scope": "Real node imports and execution.validate_prompt plus real CPU tensor helpers. Dummy filename fixtures only; no checkpoint loaded or image/video generated.",
+      "warnings": "Mac OpenCV/PyAV reported duplicate AVFoundation class names. Validation completed successfully; CUDA behavior remains untested."
+    },
+    "editable_graphs": {
+      "api_and_ui_wiring_valid": true,
+      "viggle_graphs": 2,
+      "scail_graphs": 2
+    },
+    "production_build": "passed",
+    "shell_syntax": "passed",
+    "git_diff_check": "passed",
+    "browser_visual_review": "Not completed: native Chrome automation timed out. Static UI rendering and build checks passed; no screenshot QA claimed."
+  },
+  "new_path": {
+    "engine": "viggle",
+    "image_editor": "FLUX.2 Klein 4B FP8",
+    "image_steps": 4,
+    "video_model": "Viggle pruned INT8 ConvRot",
+    "distillation": "matching full-rank Viggle DMD, strength 1",
+    "video_passes": 3,
+    "video_fps": 24,
+    "maximum_single_shot_frames": 124,
+    "automatic_preparation_model_bytes": 40428343196,
+    "prepared_frame_model_bytes": 27976525336,
+    "source_audio": "passed through on export; audio-pinned speech conditioning is not implemented"
+  },
+  "first_gpu_candidate": {
+    "gpu": "RTX PRO 5000 Blackwell 48 GB",
+    "location": "India",
+    "sampled_compute_hourly": 0.604,
+    "disk_gb": 96,
+    "sampled_disk_hourly": 0.026666666666666665,
+    "sampled_running_hourly": 0.6306666666666666,
+    "quote_evidence": "validation/overnight-gpu-quotes-20261026.json",
+    "not_a_current_reservation_or_performance_ranking": true
+  },
+  "public_demo_review": "validation/public-viggle-demo-review-20261026.json",
+  "remaining": [
+    "Live CUDA/model loading and VRAM fit on the rented host",
+    "Actual Klein reference-edit fidelity on user inputs",
+    "Complete cold and warm five-second timing/cost",
+    "Visual comparison of source, keyframe and generated result",
+    "Speech conditioning and longer multi-shot integration are separate future work"
+  ],
+  "not_claimed": [
+    "Higgsfield-equivalent or indistinguishable realism",
+    "A sub-three-minute result",
+    "A fastest-GPU winner based on local matched benchmarks",
+    "Quantized/pruned equivalence to the publisher BF16 examples"
+  ]
+}

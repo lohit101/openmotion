@@ -16,6 +16,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 async def validate(comfy_root):
+    sys.path.insert(0, str(ROOT / 'scripts'))
+    from model_manifest import selected_manifest
     sys.path.insert(0, str(comfy_root))
     os.chdir(comfy_root)
     sys.argv = ["validate", "--cpu", "--disable-dynamic-vram", "--disable-partner-nodes"]
@@ -42,14 +44,16 @@ async def validate(comfy_root):
         (fixtures / "input").mkdir()
         (fixtures / "output").mkdir()
         Image.new("RGB", (64, 96), (100, 120, 140)).save(fixtures / "input/reference.png")
+        Image.new("RGB", (64, 96), (100, 120, 140)).save(fixtures / "input/repainted-source-frame.png")
         (fixtures / "input/source.mp4").write_bytes(b"filename-validation-only")
-        for item in json.loads((ROOT / "config/models.lock.json").read_text())["files"]:
+        for item in selected_manifest()['files']:
             relative = Path(item["destination"])
             directory = fixtures / "models" / relative.parent
             directory.mkdir(parents=True, exist_ok=True)
             (directory / relative.name).write_bytes(b"filename-validation-only")
             folder_paths.add_model_folder_path(relative.parts[0], str(directory), is_default=True)
-        for path in sorted((ROOT / "workflows/api").glob("*.json")):
+        paths = sorted((ROOT / 'workflows/api').glob('*.json')) + sorted((ROOT / 'workflows/experimental/api').glob('viggle*.json'))
+        for path in paths:
             graph = json.loads(path.read_text())
             result = await execution.validate_prompt("cpu-validation", graph, None)
             if not result[0]:
@@ -81,7 +85,13 @@ async def validate(comfy_root):
         assert helpers.SwapLoadContext().load("", 64, 96, 20, 0) == (None, 0, 0)
         short_audio = {"waveform": torch.zeros(1, 1, 100), "sample_rate": 1000}
         assert helpers.slice_audio(short_audio, 20, 5, 75) is None
+        viggle_images, source_count, anchor = helpers.RecastViggleSource().prepare(torch.ones((120, 64, 32, 3)), 64, 96)
+        assert tuple(viggle_images.shape) == (124, 96, 64, 3) and source_count == 120
+        assert tuple(anchor.shape) == (1, 96, 64, 3)
+        assert torch.equal(viggle_images[-1], viggle_images[119])
+        assert torch.equal(anchor[0], viggle_images[0])
         print("PASS helper execution: presets, optional LoRA, geometry, tail padding, exact context, overlap and audio", flush=True)
+        print('PASS Viggle tensor execution: source fitting, 120→124 padding, exact export count and source-frame anchor', flush=True)
 
 
 def main():

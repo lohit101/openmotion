@@ -1,6 +1,6 @@
 # Source-aligned Viggle replacement
 
-This is a new experimental engine, separate from the existing SCAIL workflow. Offline schema, graph and application checks pass. No live speed or visual-quality result is claimed until the GPU validation report exists.
+This is a new experimental engine, separate from the existing SCAIL workflow. Offline schema, graph and application checks pass. The real pinned ComfyUI classes also accept all four exported prompts in CPU-only validation, and the source-padding/anchor helpers execute on real CPU tensors. No live speed or visual-quality result is claimed until the GPU validation report exists.
 
 ## Use in Recast
 
@@ -44,6 +44,6 @@ The supplemental schema snapshot is extracted from pinned source. It is not a su
 
 [Viggle's research](https://viggle.ai/research/viggle-animate-character-replacement-from-a-repainted-frame) reports 124 frames at 480×832 in 26 seconds on B200, **after** a repainted frame is available. Its released model uses three forward passes. The consumer INT8 graph here, its image editor and our complete application have not demonstrated that time. The separately described optimized 5090 implementation is not released.
 
-The [community node pack](https://github.com/Saganaki22/ComfyUI-Viggle-Animate-H3/tree/6ae081af5b3175f99ef7cddebd5dfaf93390ab70) supports the exact sigma schedule but its converted/pruned weights are experimental. Quantization, pruning and the reference edit can change fidelity. Check mouths, fingers, occlusions, exposure changes and fine texture. Publisher demos are useful qualitative evidence, not an independent score for our inputs.
+The [community node pack](https://github.com/Saganaki22/ComfyUI-Viggle-Animate-H3/tree/6ae081af5b3175f99ef7cddebd5dfaf93390ab70) supports the exact sigma schedule but its converted/pruned weights are experimental. Quantization, pruning and the reference edit can change fidelity. Check mouths, fingers, occlusions, exposure changes and fine texture. The publisher has since added an audio-pinned speech recipe, but that conditioning is not implemented by this community Comfy graph. Source-audio passthrough alone does not provide lip-sync; start with movement-focused shots. Publisher demos are useful qualitative evidence, not an independent score for our inputs.
 
 Viggle/H3 weights use the MiniMax H3 Community License; this evaluation follows your private-testing instruction. A future hosted product needs a separate rights review. Klein 4B and its selected repackaged image components are distributed under Apache 2.0. No paid image/video API, hosted moderation service or additional content filter was added.

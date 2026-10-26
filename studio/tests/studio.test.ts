@@ -14,6 +14,7 @@ import { applyProgress, localEndpoint, OfflineError } from '../server/comfy';
 import { command, probe, prepareVideo } from '../server/media';
 import { compileWorkflow, validateGraph, RELIGHT, NATURAL_SPEED } from '../server/workflow';
 import { defaults, geometry, nextSegment, segmentCount } from '../shared/types';
+import { pinnedModels } from '../shared/models';
 import { compilePrompt, PROMPT_VERSION } from '../shared/prompts';
 import type { ReferenceGeometry } from '../server/framing';
 import prompts from '../../config/prompts.json';
@@ -42,10 +43,16 @@ function jobFixture(): Job {
 
 // A local protocol fixture, never a product mode. Media is FFmpeg passthrough;
 // it checks API contracts, recovery and assembly, not model quality or speed.
-async function mockComfy() {
+async function mockComfy(viggle = false) {
   const app = express(), server = createServer(app), ws = new WebSocketServer({ server, path: '/ws' });
   const localCatalog = structuredClone(catalog), sockets = new Map<string, WebSocket>(), uploads = new Map<string, string>(), files = new Map<string, string>();
   (localCatalog.LoraLoaderModelOnly.input.required!.lora_name[0] as string[]).push(NATURAL_SPEED);
+  if (viggle) {
+    Object.assign(localCatalog, JSON.parse(readFileSync(path.join(repo, 'integration-snapshot/viggle-node-schemas.json'), 'utf8')));
+    for (const schema of Object.values(localCatalog)) for (const [name, rule] of Object.entries({ ...schema.input.required, ...schema.input.optional })) {
+      if (['unet_name', 'vae_name', 'clip_name', 'lora_name', 'text_cond'].includes(name) && Array.isArray(rule[0])) rule[0] = [...rule[0], ...pinnedModels.map(f => f.destination.split('/').at(-1))];
+    }
+  }
   const pending = new Map<string, any[]>(), history: Record<string, any> = {}, submissions: any[] = [], cancelled: string[] = [], calls: string[] = [];
   let mode: 'complete' | 'hold' | 'lose-response' = 'complete', dropHistory = false, dropCancel = false, dropLatent = false, dropDownload = false;
   app.use(express.json({ limit: '5mb' })); app.use((req, _res, next) => { calls.push(req.method + ' ' + req.path); next(); });
@@ -63,13 +70,17 @@ async function mockComfy() {
   app.get('/history/:id', (req, res) => { if (dropHistory) { dropHistory = false; req.socket.destroy(); return; } res.json(history[req.params.id] ? { [req.params.id]: history[req.params.id] } : {}); });
   async function complete(id: string) {
     const entry = pending.get(id); if (!entry) return;
-    const graph = entry[2] as Graph, controls = graph['1'].inputs, fps = Number(controls.fps), cap = Number(controls.frame_cap), skip = Number(controls.skip_frames), overlap = skip ? 5 : 0;
+    const graph = entry[2] as Graph, controls = graph['1']?.inputs, fps = controls ? Number(controls.fps) : 24, cap = controls ? Number(controls.frame_cap) : Number(graph['2'].inputs.frame_load_cap), skip = controls ? Number(controls.skip_frames) : 0, overlap = skip ? 5 : 0;
     const filename = id + '.mp4', file = path.join(fixtures, filename);
     const scale = graph['52'] ? ['-vf', `scale=${graph['52'].inputs.width}:${graph['52'].inputs.height}:flags=lanczos`] : [];
     await command('ffmpeg', ['-v', 'error', '-y', '-ss', String((skip + overlap) / fps), '-i', uploads.get(String(graph['2'].inputs.video))!, '-frames:v', String(cap - overlap), ...scale, '-an', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', file]);
     files.set(filename, file); history[id] = { prompt: entry, status: { status_str: 'success', completed: true, messages: [] }, outputs: {
       '46': { gifs: [{ filename, subfolder: 'recast', type: 'output' }] }, '47': { context: [{ path: '/gpu/output/context-' + id + '.safetensors', source_count: cap, source_end_frame: skip + cap, fps }] }
     } };
+    if (graph['121']) {
+      const keyframe = id + '_keyframe.png'; files.set(keyframe, image);
+      history[id].outputs['121'] = { images: [{ filename: keyframe, subfolder: 'recast', type: 'output' }] };
+    }
     if (graph['51'] && !dropLatent) {
       const latentName = id + '.latent', latentFile = path.join(fixtures, latentName); await writeFile(latentFile, 'Protocol fixture latent, not a sampled tensor'); files.set(latentName, latentFile);
       history[id].outputs['51'] = { latents: [{ filename: latentName, subfolder: 'recast', type: 'output' }] };
@@ -82,7 +93,7 @@ async function mockComfy() {
     if (mode === 'lose-response') { req.socket.destroy(); return; }
     emit(req.body.client_id, 'execution_start', { prompt_id: id });
     emit(req.body.client_id, 'executing', { prompt_id: id, node: '43' });
-    const steps = req.body.prompt['42'].inputs.steps;
+    const steps = req.body.prompt['42'].class_type === 'ManualSigmas' ? String(req.body.prompt['42'].inputs.sigmas).split(',').length - 1 : req.body.prompt['42'].inputs.steps;
     emit(req.body.client_id, 'progress', { prompt_id: id, node: '43', value: 2, max: typeof steps === 'number' ? steps : 6 });
     res.json({ prompt_id: id, node_errors: {} });
     if (mode === 'complete') void complete(id);
@@ -142,8 +153,8 @@ describe('local app with the captured ComfyUI protocol', () => {
     if (local) { local.connection.disconnect(); local.runner.abort?.abort(); await until(() => local!.runner.busy, busy => !busy); local.store.close(); }
     await mock?.close(); if (root) await rm(root, { recursive: true, force: true }); local = undefined; mock = undefined;
   });
-  async function setup() {
-    root = await mkdtemp(path.join(os.tmpdir(), 'recast-test-')); mock = await mockComfy();
+  async function setup(viggle = false) {
+    root = await mkdtemp(path.join(os.tmpdir(), 'recast-test-')); mock = await mockComfy(viggle);
     // Synthetic media has no faces. This injected protocol fixture checks that
     // prepared inputs and quality reports are wired correctly; detector/affine
     // behavior is verified separately by the CPU geometry tests.
@@ -175,6 +186,28 @@ describe('local app with the captured ComfyUI protocol', () => {
     const media = await agent.get(`/api/assets/${values.sourceId}/original`).set('Range', 'bytes=0-99').expect(206); expect(media.body.length).toBe(100);
     expect(mock!.calls).toEqual([]);
   });
+  it('runs the Viggle protocol as one 120-frame shot and saves its keyframe, audio and library settings', async () => {
+    const agent = await setup(true), values = await inputs(agent);
+    Object.assign(values.settings, { engine: 'viggle', fps: 16, seconds: 5 });
+    await connect(agent);
+    const invalid = await agent.post('/api/jobs').set('Idempotency-Key', 'invalid-viggle-fps').send(values).expect(400);
+    expect(invalid.body.error).toContain('24 fps'); expect(mock!.submissions).toHaveLength(0);
+    values.settings.fps = 24;
+    const response = await agent.post('/api/jobs').set('Idempotency-Key', 'viggle-one-shot').send(values).expect(201);
+    const job = await until(() => local!.store.job(response.body.id)!, j => ['completed', 'failed', 'interrupted'].includes(j.status));
+    expect(job.error).toBeNull(); expect(job.status).toBe('completed'); expect(job.settings.engine).toBe('viggle');
+    expect(job.progress.completedFrames).toBe(120); expect(job.progress.segments).toBe(1); expect(job.segments).toHaveLength(1);
+    expect(mock!.submissions).toHaveLength(1); expect(mock!.submissions[0].prompt['1']).toBeUndefined();
+    expect(mock!.submissions[0].prompt['40'].inputs.ref_image).toEqual(['121', 0]);
+    expect(geometry.prepare).not.toHaveBeenCalled(); expect(geometry.check).toHaveBeenCalledOnce();
+    expect(job.keyframe).toBeTruthy(); await agent.get(`/api/jobs/${job.id}/keyframe`).expect(200);
+    const meta = await probe(job.output!); expect(meta.fps).toBe(24); expect(meta.hasAudio).toBe(true);
+    const timing = JSON.parse(await command('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-count_frames', '-show_entries', 'stream=nb_read_frames,duration', '-of', 'json', job.output!])).streams[0];
+    expect(timing.nb_read_frames).toBe('120'); expect(Number(timing.duration)).toBeCloseTo(5, 5);
+    const bootstrap = (await agent.get('/api/bootstrap')).body;
+    expect(bootstrap.jobs[0].keyframe).toBe('ready'); expect(bootstrap.jobs[0].settings.engine).toBe('viggle');
+    expect((await readdir(path.join(root, 'jobs', job.id)))).toContain('history_0.json');
+  }, 25000);
   it.each([['quality12', 12], ['quality16', 16]] as const)('exports %s at 720p and 24 fps without changing motion duration or continuity geometry', async (preset, steps) => {
     const agent = await setup(), values = await inputs(agent);
     Object.assign(values.settings, { preset, resolution: '720', orientation: 'portrait', fps: 24, seconds: 0.5 });
