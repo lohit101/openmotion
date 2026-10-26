@@ -1,6 +1,6 @@
 {
-  "last_node_id": 150,
-  "last_link_id": 31,
+  "last_node_id": 147,
+  "last_link_id": 27,
   "nodes": [
     {
       "id": 1,
@@ -23,8 +23,7 @@
           "type": "IMAGE",
           "links": [
             5,
-            22,
-            28
+            26
           ]
         },
         {
@@ -203,8 +202,7 @@
           "links": [
             7,
             13,
-            23,
-            26
+            24
           ]
         }
       ],
@@ -281,7 +279,7 @@
           "name": "MODEL",
           "type": "MODEL",
           "links": [
-            24
+            22
           ]
         }
       ],
@@ -357,7 +355,9 @@
         {
           "name": "latent",
           "type": "LATENT",
-          "links": []
+          "links": [
+            11
+          ]
         }
       ],
       "title": "Scene and identity in separate reference slots",
@@ -776,7 +776,7 @@
           "name": "MODEL_PATCH",
           "type": "MODEL_PATCH",
           "links": [
-            25
+            23
           ]
         }
       ],
@@ -808,7 +808,7 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            27
+            25
           ]
         },
         {
@@ -888,8 +888,7 @@
           "name": "MASK",
           "type": "MASK",
           "links": [
-            29,
-            31
+            27
           ]
         }
       ],
@@ -902,92 +901,51 @@
       ]
     },
     {
-      "id": 144,
-      "type": "VAEEncode",
+      "id": 146,
+      "type": "ZImageFunControlnet",
       "pos": [
         2520,
         4240
       ],
       "size": [
         320,
-        180
+        280
       ],
       "flags": {},
       "order": 22,
       "mode": 0,
       "inputs": [
         {
-          "name": "pixels",
-          "type": "IMAGE",
-          "link": 22
-        },
-        {
-          "name": "vae",
-          "type": "VAE",
-          "link": 23
-        }
-      ],
-      "outputs": [
-        {
-          "name": "LATENT",
-          "type": "LATENT",
-          "links": [
-            30
-          ]
-        }
-      ],
-      "title": "Start from the original source latent",
-      "properties": {
-        "Node name for S&R": "VAEEncode"
-      },
-      "widgets_values": []
-    },
-    {
-      "id": 146,
-      "type": "ZImageFunControlnet",
-      "pos": [
-        2520,
-        4620
-      ],
-      "size": [
-        320,
-        280
-      ],
-      "flags": {},
-      "order": 23,
-      "mode": 0,
-      "inputs": [
-        {
           "name": "model",
           "type": "MODEL",
-          "link": 24
+          "link": 22
         },
         {
           "name": "model_patch",
           "type": "MODEL_PATCH",
-          "link": 25
+          "link": 23
         },
         {
           "name": "vae",
           "type": "VAE",
-          "link": 26
+          "link": 24
         },
         {
           "name": "image",
           "type": "IMAGE",
-          "link": 27,
+          "link": 25,
           "shape": 7
         },
         {
           "name": "inpaint_image",
           "type": "IMAGE",
-          "link": 28,
+          "link": 26,
           "shape": 7
         },
         {
           "name": "mask",
           "type": "MASK",
-          "link": 29,
+          "link": 27,
           "shape": 7
         }
       ],
@@ -1011,66 +969,25 @@
       ]
     },
     {
-      "id": 149,
-      "type": "SetLatentNoiseMask",
-      "pos": [
-        2520,
-        5040
-      ],
-      "size": [
-        320,
-        180
-      ],
-      "flags": {},
-      "order": 24,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "samples",
-          "type": "LATENT",
-          "link": 30
-        },
-        {
-          "name": "mask",
-          "type": "MASK",
-          "link": 31
-        }
-      ],
-      "outputs": [
-        {
-          "name": "LATENT",
-          "type": "LATENT",
-          "links": [
-            11
-          ]
-        }
-      ],
-      "title": "Denoise only the intended body region",
-      "properties": {
-        "Node name for S&R": "SetLatentNoiseMask"
-      },
-      "widgets_values": []
-    },
-    {
-      "id": 150,
+      "id": 147,
       "type": "MarkdownNote",
       "pos": [
         0,
-        5320
+        4620
       ],
       "size": [
         1000,
         680
       ],
       "flags": {},
-      "order": 25,
+      "order": 23,
       "mode": 0,
       "inputs": [],
       "outputs": [],
       "properties": {},
       "title": "Start here",
       "widgets_values": [
-        "# Qwen Image 2.1 source-anchored replacement \u00b7 experimental\n\nUse target.png and identity.png as scene and replacement references.\nsource-structure.png is a source-aligned Canny map with internal facial detail removed;\nit is not a raw RGB photo. edit-mask.png is white-to-edit, black-to-preserve.\nThe trained Qwen Fun ControlNet Union is loaded with the native ModelPatchLoader.\nSource VAE latents, the sampling mask and the inpainting branch all share one canvas.\n\nThe head variant uses a separate BFS v1.1 adapter after the outfit pass.\nSupply face.png, face-refine-mask.png and body-mask.png on this same working canvas.\nExport an actual Studio job for detector-derived masks and immutable input filenames.\nBody and head adapters are independent; each pass uses only two image references.\nEight Euler/simple steps per pass, CFG 1; no face restorer or beautifier.\nThe optional native-quality recipe uses 20 steps, CFG 4, without turbo acceleration.\nStructural guidance and masks do not guarantee an exact identity or perfect lighting.\nQwen base/control weights: Qwen Research License. BFS adapters: MIT.\n"
+        "# Qwen Image 2.1 source-anchored replacement \u00b7 experimental\n\nUse target.png and identity.png as scene and replacement references.\nsource-structure.png is a source-aligned Canny map with internal facial detail removed;\nit is not a raw RGB photo. edit-mask.png is white-to-edit, black-to-preserve.\nThe trained Qwen Fun ControlNet Union is loaded with the native ModelPatchLoader.\nUse the native image encoder's scene-sized latent. The inpainting branch receives\nthe source image and mask. Do not replace that latent with a source VAE encode.\n\nThe head variant uses a separate BFS v1.1 adapter after the outfit pass.\nSupply face.png, face-refine-mask.png and body-mask.png on this same working canvas.\nExport an actual Studio job for detector-derived masks and immutable input filenames.\nBody and head adapters are independent; each pass uses only two image references.\nEight Euler/simple steps per pass, CFG 1; no face restorer or beautifier.\nThe optional native-quality recipe uses 20 steps, CFG 4, without turbo acceleration.\nStructural guidance and masks do not guarantee an exact identity or perfect lighting.\nQwen base/control weights: Qwen Research License. BFS adapters: MIT.\n"
       ]
     }
   ],
@@ -1157,8 +1074,8 @@
     ],
     [
       11,
-      149,
-      0,
+      108,
+      2,
       118,
       3,
       "LATENT"
@@ -1245,22 +1162,6 @@
     ],
     [
       22,
-      1,
-      0,
-      144,
-      0,
-      "IMAGE"
-    ],
-    [
-      23,
-      104,
-      0,
-      144,
-      1,
-      "VAE"
-    ],
-    [
-      24,
       106,
       0,
       146,
@@ -1268,7 +1169,7 @@
       "MODEL"
     ],
     [
-      25,
+      23,
       140,
       0,
       146,
@@ -1276,7 +1177,7 @@
       "MODEL_PATCH"
     ],
     [
-      26,
+      24,
       104,
       0,
       146,
@@ -1284,7 +1185,7 @@
       "VAE"
     ],
     [
-      27,
+      25,
       141,
       0,
       146,
@@ -1292,7 +1193,7 @@
       "IMAGE"
     ],
     [
-      28,
+      26,
       1,
       0,
       146,
@@ -1300,27 +1201,11 @@
       "IMAGE"
     ],
     [
-      29,
+      27,
       143,
       0,
       146,
       5,
-      "MASK"
-    ],
-    [
-      30,
-      144,
-      0,
-      149,
-      0,
-      "LATENT"
-    ],
-    [
-      31,
-      143,
-      0,
-      149,
-      1,
       "MASK"
     ]
   ],
@@ -1371,7 +1256,7 @@
         2500,
         -65,
         360,
-        5310
+        4610
       ],
       "color": "#41686b",
       "font_size": 24,

@@ -8,6 +8,7 @@ export function compileQwenSceneWorkflow(job: Job): Graph {
   if (!run || !u?.structure || !u.noiseMask || !u.mask || !u.original || !run.settings.protectBackground) throw new Error('Source-anchored replacement requires a painted area and prepared source structure.');
   const s = run.settings, g = run.geometry, graph: Graph = {};
   const head = s.qwenHeadRefine;
+  const nativeLatent = run.version === 'scene-anchor-v2';
   if (head && (!u.face || !u.faceMask || !u.bodyMask)) throw new Error('The separate head pass requires one clear target face and reference face.');
   const add = (id: string, class_type: string, inputs: Record<string, unknown>, title: string) => { graph[id] = { class_type, inputs, _meta: { title } }; };
   const steps = s.qwenQuality === 'quality' ? 20 : 8, cfg = s.qwenQuality === 'quality' ? 4 : 1;
@@ -30,10 +31,10 @@ export function compileQwenSceneWorkflow(job: Job): Graph {
   add('141', 'LoadImage', { image: u.structure }, 'Source edges with internal facial detail removed');
   add('142', 'LoadImage', { image: head ? u.bodyMask : u.noiseMask }, 'Source-aligned body edit mask');
   add('143', 'ImageToMask', { image: ['142', 0], channel: 'red' }, 'White regenerates; black preserves');
-  add('144', 'VAEEncode', { pixels: ['1', 0], vae: ['104', 0] }, 'Start from the original source latent');
+  if (!nativeLatent) add('144', 'VAEEncode', { pixels: ['1', 0], vae: ['104', 0] }, 'Start from the original source latent');
   add('146', 'ZImageFunControlnet', { model: ['106', 0], model_patch: ['140', 0], vae: ['104', 0], image: ['141', 0], inpaint_image: ['1', 0], mask: ['143', 0], strength: s.structureStrength, start_percent: 0, end_percent: 1 }, 'Constrain source geometry and unpainted context during denoising');
-  add('149', 'SetLatentNoiseMask', { samples: ['144', 0], mask: ['143', 0] }, 'Denoise only the intended body region');
-  add('118', 'KSampler', { model: ['146', 0], positive: ['108', 0], negative: ['108', 1], latent_image: ['149', 0], seed: s.seed, steps, cfg, sampler_name: 'euler', scheduler: 'simple', denoise: 1 }, `Source-anchored body and outfit · ${steps} steps`);
+  if (!nativeLatent) add('149', 'SetLatentNoiseMask', { samples: ['144', 0], mask: ['143', 0] }, 'Denoise only the intended body region');
+  add('118', 'KSampler', { model: ['146', 0], positive: ['108', 0], negative: ['108', 1], latent_image: nativeLatent ? ['108', 2] : ['149', 0], seed: s.seed, steps, cfg, sampler_name: 'euler', scheduler: 'simple', denoise: 1 }, `Source-anchored body and outfit · ${steps} steps`);
   add('119', 'VAEDecode', { samples: ['118', 0], vae: ['104', 0] }, 'Decode the body edit');
   add('120', 'SplitImageWithAlpha', { image: ['119', 0] }, 'Explicit RGB body image');
   let result: [string, number] = ['120', 0];
@@ -45,10 +46,12 @@ export function compileQwenSceneWorkflow(job: Job): Graph {
     add('208', 'TextEncodeQwenImage21', { clip: ['103', 0], prompt: 'head_swap: edit <image1>. Replace its head with the head from <image2>, preserving the reference identity and hair. Copy head rotation, eye direction and expression from <image1>. Keep the head size, body, clothing, lighting and background of <image1> unchanged. Preserve natural skin texture.', negative_prompt: '', resolution: 0, 'images.image_1': ['153', 0], 'images.image_2': ['203', 0], vae: ['104', 0] }, 'Separate two-image identity conditioning');
     add('209', 'LoadImage', { image: u.faceMask }, 'Source-aligned head edit area');
     add('211', 'ImageToMask', { image: ['209', 0], channel: 'red' }, 'Preserve the completed body outside the head');
-    add('212', 'VAEEncode', { pixels: ['153', 0], vae: ['104', 0] }, 'Encode the completed body with source face geometry');
-    add('214', 'SetLatentNoiseMask', { samples: ['212', 0], mask: ['211', 0] }, 'Localize the separate identity pass');
+    if (!nativeLatent) {
+      add('212', 'VAEEncode', { pixels: ['153', 0], vae: ['104', 0] }, 'Encode the completed body with source face geometry');
+      add('214', 'SetLatentNoiseMask', { samples: ['212', 0], mask: ['211', 0] }, 'Localize the separate identity pass');
+    }
     add('215', 'ZImageFunControlnet', { model: ['206', 0], model_patch: ['140', 0], vae: ['104', 0], image: ['141', 0], inpaint_image: ['153', 0], mask: ['211', 0], strength: s.structureStrength, start_percent: 0, end_percent: 1 }, 'Retain source head geometry and scene context');
-    add('218', 'KSampler', { model: ['215', 0], positive: ['208', 0], negative: ['208', 1], latent_image: ['214', 0], seed: s.seed + 1, steps, cfg, sampler_name: 'euler', scheduler: 'simple', denoise: 1 }, `Separate facial identity · ${steps} steps`);
+    add('218', 'KSampler', { model: ['215', 0], positive: ['208', 0], negative: ['208', 1], latent_image: nativeLatent ? ['208', 2] : ['214', 0], seed: s.seed + 1, steps, cfg, sampler_name: 'euler', scheduler: 'simple', denoise: 1 }, `Separate facial identity · ${steps} steps`);
     add('219', 'VAEDecode', { samples: ['218', 0], vae: ['104', 0] }, 'Decode the localized head edit');
     add('220', 'SplitImageWithAlpha', { image: ['219', 0] }, 'Explicit RGB head image');
     add('221', 'ImageCompositeMasked', { destination: ['153', 0], source: ['220', 0], x: 0, y: 0, resize_source: false, mask: ['211', 0] }, 'Keep the finished body outside the head area');

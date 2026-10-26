@@ -176,4 +176,19 @@ describe('source-preserving Klein image replacement', () => {
     expect(applyProgress(job, { type: 'progress', data: { prompt_id: 'scene-paid', node: '218', value: 3, max: 20 } })).toBe(true);
     expect(job.progress).toMatchObject({ value: 3, max: 20, unit: 'steps', stage: 'Separate facial identity · 20 steps' });
   });
+  it('uses the trained native edit latents in v2 while preserving paid v1 source-latent jobs', () => {
+    const job = fixture(); job.image!.version = 'scene-anchor-v2';
+    job.image!.settings = { ...imageDefaults, model: 'qwen21', qwenRecipe: 'source-anchored', qwenHeadRefine: true };
+    Object.assign(job.uploads!, { structure: 'target.png', faceMask: 'mask.png', bodyMask: 'mask.png' });
+    let graph = compileWorkflow({}, job);
+    expect(validateGraph(graph, catalog)).toEqual([]);
+    expect(graph['118'].inputs.latent_image).toEqual(['108', 2]);
+    expect(graph['218'].inputs.latent_image).toEqual(['208', 2]);
+    expect(graph['149']).toBeUndefined(); expect(graph['214']).toBeUndefined();
+    expect(graph['146'].inputs.inpaint_image).toEqual(['1', 0]);
+    expect(graph['215'].inputs.mask).toEqual(['211', 0]);
+    job.image!.version = 'scene-anchor-v1'; graph = compileWorkflow({}, job);
+    expect(graph['118'].inputs.latent_image).toEqual(['149', 0]);
+    expect(graph['218'].inputs.latent_image).toEqual(['214', 0]);
+  });
 });

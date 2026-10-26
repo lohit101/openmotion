@@ -131,8 +131,8 @@
         1
       ],
       "latent_image": [
-        "149",
-        0
+        "108",
+        2
       ],
       "seed": 20261027,
       "steps": 8,
@@ -299,22 +299,6 @@
       "title": "White regenerates; black preserves"
     }
   },
-  "144": {
-    "class_type": "VAEEncode",
-    "inputs": {
-      "pixels": [
-        "1",
-        0
-      ],
-      "vae": [
-        "104",
-        0
-      ]
-    },
-    "_meta": {
-      "title": "Start from the original source latent"
-    }
-  },
   "146": {
     "class_type": "ZImageFunControlnet",
     "inputs": {
@@ -348,22 +332,6 @@
     },
     "_meta": {
       "title": "Constrain source geometry and unpainted context during denoising"
-    }
-  },
-  "149": {
-    "class_type": "SetLatentNoiseMask",
-    "inputs": {
-      "samples": [
-        "144",
-        0
-      ],
-      "mask": [
-        "143",
-        0
-      ]
-    },
-    "_meta": {
-      "title": "Denoise only the intended body region"
     }
   }
 }

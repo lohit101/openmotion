@@ -75,7 +75,8 @@ Use target.png and identity.png as scene and replacement references.
 source-structure.png is a source-aligned Canny map with internal facial detail removed;
 it is not a raw RGB photo. edit-mask.png is white-to-edit, black-to-preserve.
 The trained Qwen Fun ControlNet Union is loaded with the native ModelPatchLoader.
-Source VAE latents, the sampling mask and the inpainting branch all share one canvas.
+Use the native image encoder's scene-sized latent. The inpainting branch receives
+the source image and mask. Do not replace that latent with a source VAE encode.
 
 The head variant uses a separate BFS v1.1 adapter after the outfit pass.
 Supply face.png, face-refine-mask.png and body-mask.png on this same working canvas.

@@ -133,7 +133,7 @@ def prepare(request, folder, model):
     atomic_png(folder / "target.png", target)
     atomic_png(folder / "original.png", source)
     qwen = s.get("model") == "qwen21"
-    scene = qwen and request.get("version") == "scene-anchor-v1"
+    scene = qwen and request.get("version") in ("scene-anchor-v1", "scene-anchor-v2")
     head_refine = scene and s.get("qwenHeadRefine", False)
     reference_input, cropped = reference_field_of_view(reference, source, model) if request.get("version") == "masked-latent-v4" and not qwen else (reference, False)
     atomic_png(folder / "identity.png", padded(reference_input, 590_000 if qwen else 1_000_000, 32 if qwen else 16))
@@ -240,7 +240,7 @@ def finish(request, folder, model):
     atomic_png(folder / "final.png", output)
     faces = {}
     settings = request["settings"]
-    face_used = (settings.get("model") != "qwen21" and (settings["faceDetail"] or settings.get("identityRefine", False))) or (request.get("version") == "scene-anchor-v1" and settings.get("qwenHeadRefine", False))
+    face_used = (settings.get("model") != "qwen21" and (settings["faceDetail"] or settings.get("identityRefine", False))) or (request.get("version") in ("scene-anchor-v1", "scene-anchor-v2") and settings.get("qwenHeadRefine", False))
     reference_file = (request.get("face") if face_used else None) or request["reference"]
     for name, image in [("source", source), ("reference", read_image(reference_file)), ("output", output)]:
         found = detect(image, model)

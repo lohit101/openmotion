@@ -41,7 +41,7 @@ export const emptyImageDraft = (): ImageDraft => imageDraftSchema.parse({});
 export interface ImageGeometry { width: number; height: number; contentWidth: number; contentHeight: number; x: number; y: number; outputWidth: number; outputHeight: number; }
 export interface ImageReview { status: 'review' | 'warning'; warnings: string[]; backgroundProtected: boolean; outsideMaskMaxDifference: number | null; sourceFace: boolean; referenceFace: boolean; outputFace: boolean; }
 export interface ImageRun {
-  version?: 'masked-latent-v2' | 'masked-latent-v3' | 'masked-latent-v4' | 'scene-anchor-v1';
+  version?: 'masked-latent-v2' | 'masked-latent-v3' | 'masked-latent-v4' | 'scene-anchor-v1' | 'scene-anchor-v2';
   settings: ImageSettings; faceId: string | null; maskId: string | null; geometry: ImageGeometry;
   prepared?: { hasFace: boolean; warnings: string[] }; review?: ImageReview; resultAssetId?: string;
 }
