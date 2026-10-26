@@ -11,7 +11,7 @@ import type { ConnectionManager } from './comfy';
 import type { Runner } from './runner';
 import { command } from './media';
 import type { CloudInstance, CloudLaunch, CloudState, GpuOffer, GpuFavourite, OfferFilters } from '../shared/cloud';
-import { canRetryRental, isDgxSpark, isGraceBlackwell, offerFiltersSchema, offerGpuFilter, sameGpuModel, supportedGpuName } from '../shared/cloud';
+import { canRetryRental, GPU_COMPUTE_CEILING, isDgxSpark, isGraceBlackwell, offerFiltersSchema, offerGpuFilter, sameGpuModel, supportedGpuName, withinComputeBudget } from '../shared/cloud';
 import { modelBytes, modelFilesForSettings, pinnedModels, setupModelFiles } from '../shared/models';
 
 const MODEL_GB = modelBytes(setupModelFiles) / 1e9;
@@ -123,6 +123,7 @@ export function normalizeOffer(raw: any, filters: OfferFilters, modelGB = MODEL_
   const storageHourly = amount(raw.search?.diskHour, raw.storage_total_cost), totalHourly = amount(raw.search?.totalHour, raw.dph_total);
   const computeHourly = amount(raw.search?.gpuCostPerHour, raw.dph_base, totalHourly !== null && storageHourly !== null ? totalHourly - storageHourly : null);
   const reasons: string[] = [], gpu = String(raw.gpu_name || ''), ram = Number(raw.cpu_ram || 0) / 1000, unified = isDgxSpark(gpu);
+  if (!withinComputeBudget(computeHourly)) reasons.push(computeHourly === null ? 'GPU compute pricing is unavailable; the budget cannot be checked.' : `GPU compute exceeds the $${GPU_COMPUTE_CEILING.toFixed(2)}/hour budget. Storage is quoted separately.`);
   const reportedVram = number(raw.gpu_ram), vram = reportedVram && reportedVram > 0 ? reportedVram / 1024 : unified ? ram : 0;
   if (!supportedGpuName(gpu)) reasons.push('Choose a supported NVIDIA RTX, A-series or DGX/datacenter GPU.'); if (Number(raw.num_gpus) !== 1) reasons.push('This workflow uses one GPU.');
   const askId = Number(raw.ask_contract_id ?? raw.id);
@@ -456,6 +457,8 @@ export class CloudManager {
       const current = this.rawInstances.find(instance => instance.id === launch.instanceId);
       if (!current) throw new Error('The existing rental could not be confirmed. Refresh before reconnecting.');
       if (!['running', 'loading', 'creating'].includes(current.actual_status) && current.intended_status !== 'running') {
+        const computeHourly = amount(current.instance?.gpuCostPerHour, current.dph_base, launch.offer.computeHourly);
+        if (!withinComputeBudget(computeHourly)) throw new Error(`This rental cannot be started within the $${GPU_COMPUTE_CEILING.toFixed(2)}/hour GPU compute budget. Choose a current offer; storage is separate.`);
         this.change(launch, 'requesting', 'Starting the existing rental. Billing resumes when compute starts.');
         await this.client.request(`/api/v0/instances/${launch.instanceId}/`, 'PUT', { state: 'running' });
       } else this.change(launch, 'waiting', 'Following the existing rental without restarting its container.');

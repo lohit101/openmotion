@@ -1,4 +1,10 @@
 import { z } from 'zod';
+import budget from '../../config/budget-profile.json';
+
+export const GPU_COMPUTE_CEILING = budget.gpu_compute_ceiling_usd_per_hour;
+export function withinComputeBudget(hourly: number | null): boolean {
+  return hourly !== null && Number.isFinite(hourly) && hourly >= 0 && hourly <= GPU_COMPUTE_CEILING + 1e-9;
+}
 
 // Provider model names, checked against Vast's /gpu_names/unique/ catalog.
 export const aSeriesGpuNames = ['A10', 'A30', 'A40', 'A100 PCIE', 'A100 SXM4', 'A800 PCIE', 'RTX A5000', 'RTX A5500', 'RTX A6000'];

@@ -46,7 +46,7 @@ These are timestamped **Vast quotes, not reservations or benchmarks**. See [the 
 
 [NVIDIA's PRO 5000 specifications](https://www.nvidia.com/en-au/products/workstations/professional-desktop-gpus/rtx-pro-5000/) list 48 GB and 1,344 GB/s memory bandwidth; [5090 specifications](https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5090/) list 32 GB and 1,792 GB/s. **The 5090 has more raw throughput; PRO 5000 buys memory headroom.** VRAM must fit first, then measured same-workflow time decides. Internet bandwidth affects setup/transfers, not the speed of a resident sampler. GPU memory bandwidth is different from Internet bandwidth. Marketing FP4/sparse TOPS and Vast DLPerf cannot be converted into our seconds per clip.
 
-No current verified PRO 6000/H100/B200 offer in the sampled results met the compute ceiling. Do not stretch the budget based on hypothetical throughput. Keep one GPU active at a time.
+No current verified PRO 6000/H100/B200 offer in the sampled results met the compute ceiling. Do not stretch the budget based on hypothetical throughput. Keep one GPU active at a time. The server enforces this compute ceiling on listing and rental revalidation, and before resuming stopped compute. Storage remains a separate line item; no healthy setup/render is stopped for elapsed time.
 
 ## Realistic cost envelope
 

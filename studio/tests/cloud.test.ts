@@ -4,7 +4,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { Store } from '../server/store';
 import { CloudManager, computeIsStopped, fatalContainerStatus, hasRegisteredSshKey, matchesGpuProbe, normalizeOffer, RENTAL_IMAGE, SSH_ONSTART, VastClient, VastError } from '../server/cloud';
-import { offerFiltersSchema } from '../shared/cloud';
+import { GPU_COMPUTE_CEILING, offerFiltersSchema, withinComputeBudget } from '../shared/cloud';
 import type { ConnectionManager } from '../server/comfy';
 import type { Runner } from '../server/runner';
 import { pinnedModels, setupModelFiles, SOCIAL_STYLE } from '../shared/models';
@@ -92,6 +92,41 @@ describe('Vast marketplace, billing and lifecycle', () => {
     const offer = normalizeOffer(rawOffer(), filters); expect(offer.compatible).toBe(true); expect(offer.totalHourly).toBe(.23); expect(offer.computeHourly).toBe(.2); expect(offer.storageHourly).toBe(.03);
     expect(offer.storageMonthly).toBeCloseTo(21.6); expect(offer.modelDownloadCost).toBeCloseTo(.029738555883); expect(offer.vram).toBe(24);
     const old = normalizeOffer({ ...rawOffer(), driver_version: '535.86.05', gpu_ram: 16384 }, filters); expect(old.compatible).toBe(false); expect(old.reasons.join()).toContain('580.65.06');
+  });
+  it('enforces the compute ceiling while keeping separately quoted storage outside it', () => {
+    expect(GPU_COMPUTE_CEILING).toBe(.7);
+    for (const value of [null, NaN, Infinity, -.1, .7001, 1]) expect(withinComputeBudget(value)).toBe(false);
+    expect(withinComputeBudget(.7)).toBe(true);
+    const raw = rawOffer(); raw.search = { gpuCostPerHour: .7, diskHour: .1, totalHour: .8 };
+    expect(normalizeOffer(raw, filters).compatible).toBe(true);
+    raw.search.gpuCostPerHour = .701;
+    expect(normalizeOffer(raw, filters).compatible).toBe(false);
+    expect(normalizeOffer(raw, filters).reasons.join()).toContain('$0.70/hour');
+  });
+  it('never submits a rental when a fresh compute quote exceeds the budget even with a higher total approval', async () => {
+    const { cloud, fixture } = await manager();
+    const { offers } = await cloud.offers(filters);
+    const fetcher = fixture.fetcher.getMockImplementation()!;
+    fixture.fetcher.mockImplementation(async (input, init) => {
+      const response = await fetcher(input, init);
+      if (new URL(String(input)).pathname !== '/api/v0/bundles/') return response;
+      const value = await response.json(); value.offers[0].search.gpuCostPerHour = .75;
+      return new Response(JSON.stringify(value), { headers: { 'Content-Type': 'application/json' } });
+    });
+    const launch = cloud.launch(offers[0].quote, 1, 'budget-change');
+    await until(() => !cloud.state.busy);
+    expect(launch.phase).toBe('failed'); expect(launch.message).toContain('budget');
+    expect(fixture.createCount).toBe(0);
+  });
+  it('does not start stopped compute whose current contract rate exceeds the ceiling', async () => {
+    const { cloud, fixture } = await manager(); const { offers } = await cloud.offers(filters);
+    const launch = cloud.launch(offers[0].quote, .23, 'budget-resume'); await until(() => !cloud.state.busy);
+    await cloud.action(777, 'stop');
+    fixture.updateInstance({ actual_status: 'stopped', intended_status: 'stopped', dph_base: .8 });
+    await cloud.continue(launch); await until(() => !cloud.state.busy);
+    expect(launch.message).toContain('budget');
+    expect(fixture.calls.filter(c => c.url.pathname === '/api/v0/instances/777/' && c.method === 'PUT' && c.body.state === 'running')).toHaveLength(0);
+    expect(fixture.createCount).toBe(1);
   });
   it('allows a fast-network filter without treating a host rating as measured throughput', async () => {
     const fixture = provider(), client = new VastClient(async () => 'fixture-secret', fixture.fetcher);

@@ -1,0 +1,4 @@
+{
+  "gpu_compute_ceiling_usd_per_hour": 0.7,
+  "note": "User's hard GPU-compute ceiling for the current plan. Storage and transfer fees are quoted separately. No automatic hardware escalation."
+}
