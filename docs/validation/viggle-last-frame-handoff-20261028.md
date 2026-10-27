@@ -16,7 +16,7 @@ For unusual final overlaps larger than five frames, the actual last accepted fra
 
 ## Checks
 
-- Full app suite: 288 tests passed, followed by a new passing test for historical Reuse settings behavior. TypeScript and production build passed.
+- After preserving and merging the concurrent shared-Vast-credentials changes, the full combined app suite passed **291 tests across 24 files**, including historical Reuse settings behavior. TypeScript and the merged production build passed.
 - Python suite: 90 checks, 27 optional-environment skips. Real ComfyUI CPU validation and tensor checks passed, including both five-frame and 107-frame overlaps, exact last-frame extraction, strict job/version/offset validation and unchanged motion-anchor tensors.
 - The thirty-second protocol case verifies the new reference node, per-segment reference downloads, native 24 fps and exact frame/audio assembly. Protocol media remains FFmpeg passthrough, not a model-quality evaluation.
 
