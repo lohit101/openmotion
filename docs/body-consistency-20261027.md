@@ -1,6 +1,6 @@
 # Whole-character photo replacement
 
-Status: implemented, offline checks pass, GPU quality evaluation pending the user's new host. The user asked to keep photo and video workflows separate for now. This change does not submit video jobs or automatically send a photo to Viggle.
+Status: two GPU comparisons completed on the user's new RTX A6000. The user accepted v1's appearance and rejected the subsequent pose-guided v2. V1 is restored; a separate local framing preview moves that accepted subject closer without new inference. See [the evaluation and framing record](validation/body-framing-20261027.md). Photo and video remain separate.
 
 The accepted photo K establishes a facial-quality baseline. Its outfit-only stage preserves too much target anatomy. The new `body-identity-v1` recipe runs these independent branches:
 
@@ -18,7 +18,7 @@ Use the same original target/reference/mask as K for the first comparison. Inspe
 
 If studio preparation changes visible anatomy, compare the original reference path without it. If placement drifts, constrain pose rather than restoring the source silhouette. If later stages undo body transfer, localize those stages instead of increasing steps blindly. Preserve every paid result and change one relevant condition per comparison; no hidden automatic quality retries.
 
-The retained RTX PRO 4500 could not resume because Vast reported unavailable resources. A temporary A100 rental attempt was rejected and then cancelled at the user's request to provide their own host. An app cancellation bug left that rejected request unconfirmed; `ffabf20` repairs it after a provider/label check while retaining safeguards for lost responses. The account was verified empty and the stale block cleared. No body test has run yet; do not report a quality pass or measured new render time.
+Before these tests, the retained RTX PRO 4500 could not resume because Vast reported unavailable resources. A temporary A100 rental attempt was rejected and cancelled while the user provided their own host. `ffabf20` repairs the resulting stale cancellation block after a provider/label check while retaining safeguards for lost responses. The subsequent body comparisons are recorded separately; acceptance of this one image does not validate all poses or full-body anatomy.
 
 Validation: production build, 63 image/model checks and 19 CPU preparation/finalization checks pass. The independent cloud cancellation fix passed 90 cloud checks. CPU preflight generated an undistorted square reference canvas and preserved immutable original files.
 

@@ -52,6 +52,17 @@ describe('source-preserving Klein image replacement', () => {
     expect(direct['501']).toBeUndefined(); expect(direct['318']).toBeUndefined();
     expect(direct['108'].inputs['images.image_2']).toEqual(['4', 0]);
     expect(direct['324'].inputs.images).toEqual(['220', 0]);
+    job.image!.version = 'body-identity-v2'; job.image!.settings.qwenBodyPose = true;
+    Object.assign(job.uploads!, { structure: 'target.png', bodyAppearance: 'identity.png', faceMask: 'mask.png' });
+    const controlled = compileWorkflow({}, job);
+    expect(validateGraph(controlled, catalog)).toEqual([]);
+    expect(controlled['108'].inputs['images.image_2']).toEqual(['5', 0]);
+    expect(controlled['146'].inputs).toMatchObject({ model: ['106', 0], image: ['141', 0], strength: .65, end_percent: .8 });
+    expect(controlled['146'].inputs.inpaint_image).toBeUndefined();
+    expect(controlled['218'].inputs).toMatchObject({ sampler_name: 'euler', scheduler: 'simple', cfg: 1 });
+    expect(controlled['221'].inputs).toMatchObject({ destination: ['120', 0], source: ['220', 0], mask: ['211', 0] });
+    expect(controlled['324'].inputs.images).toEqual(['221', 0]);
+    expect(imageFilesForSettings(job.image!.settings)).toContain(QWEN_STRUCTURE);
   });
   it('uses a separate draft and only the existing three image models', () => {
     expect(emptyImageDraft().settings.prompt).toBe(defaultImagePrompt);

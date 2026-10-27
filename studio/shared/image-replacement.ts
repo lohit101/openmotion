@@ -33,6 +33,8 @@ export const imageSettingsSchema = z.object({
   qwenLayoutOnly: z.boolean().default(false),
   localIdentity: z.boolean().default(false),
   qwenIdentityGuide: z.boolean().default(false),
+  qwenBodyPose: z.boolean().default(false),
+  bodyPoseStrength: z.number().finite().min(0).max(1.5).default(.65),
   faceDetail: z.boolean().default(true),
   identityRefine: z.boolean().default(false),
   seed: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).default(20261027),
@@ -49,10 +51,20 @@ export type ImageDraft = z.infer<typeof imageDraftSchema>;
 export const emptyImageDraft = (): ImageDraft => imageDraftSchema.parse({});
 export interface ImageGeometry { width: number; height: number; contentWidth: number; contentHeight: number; x: number; y: number; outputWidth: number; outputHeight: number; }
 export interface ImageReview { status: 'review' | 'warning'; warnings: string[]; backgroundProtected: boolean; outsideMaskMaxDifference: number | null; sourceFace: boolean; referenceFace: boolean; outputFace: boolean; }
+export const localFramingSchema = z.object({
+  version: z.literal('foreground-scale-v1'), parentJobId: z.string().optional(),
+  scale: z.number().finite().min(1).max(1.5), matrix: z.array(z.array(z.number().finite()).length(3)).length(2),
+  width: z.number().int().positive(), height: z.number().int().positive(),
+  parentSHA256: z.string().regex(/^[a-f0-9]{64}$/), sourceSHA256: z.string().regex(/^[a-f0-9]{64}$/),
+  resultSHA256: z.string().regex(/^[a-f0-9]{64}$/), maskSHA256: z.string().regex(/^[a-f0-9]{64}$/), matteSHA256: z.string().regex(/^[a-f0-9]{64}$/),
+  elapsedSeconds: z.number().finite().nonnegative(), paidInference: z.literal(false),
+  geometry: z.object({ headSizeRatio: z.number().finite().positive(), faceCenterOffsetPixels: z.array(z.number().finite()).length(2) }).nullable(),
+});
 export interface ImageRun {
-  version?: 'masked-latent-v2' | 'masked-latent-v3' | 'masked-latent-v4' | 'scene-anchor-v1' | 'scene-anchor-v2' | 'scene-anchor-v3' | 'scene-anchor-v4' | 'scene-anchor-v5' | 'scene-anchor-v6' | 'scene-anchor-v7' | 'scene-anchor-v8' | 'native-mask-v1' | 'native-scene-v1' | 'identity-first-v1' | 'identity-first-v2' | 'body-identity-v1';
+  version?: 'masked-latent-v2' | 'masked-latent-v3' | 'masked-latent-v4' | 'scene-anchor-v1' | 'scene-anchor-v2' | 'scene-anchor-v3' | 'scene-anchor-v4' | 'scene-anchor-v5' | 'scene-anchor-v6' | 'scene-anchor-v7' | 'scene-anchor-v8' | 'native-mask-v1' | 'native-scene-v1' | 'identity-first-v1' | 'identity-first-v2' | 'body-identity-v1' | 'body-identity-v2';
   settings: ImageSettings; faceId: string | null; maskId: string | null; geometry: ImageGeometry;
   prepared?: { hasFace: boolean; warnings: string[] }; review?: ImageReview; resultAssetId?: string;
+  localFraming?: z.infer<typeof localFramingSchema> & { parentJobId: string };
 }
 export const isImageJob = (job: Pick<Job, 'mediaType'>): boolean => job.mediaType === 'image';
 export const canFinishImageLocally = (job: Job): boolean => isImageJob(job) && job.progress.completedFrames >= job.progress.targetFrames && job.segments.length > 0 && !job.pendingPrompt && !job.submitting;

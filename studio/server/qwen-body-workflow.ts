@@ -1,12 +1,14 @@
 import type { Graph, Job } from '../shared/types';
 import { defaultImagePrompt, legacyImagePrompt } from '../shared/image-replacement';
-import { QWEN_BODY, QWEN_HEAD, QWEN_CONSISTENCY } from '../shared/models';
+import { QWEN_BODY, QWEN_HEAD, QWEN_CONSISTENCY, QWEN_STRUCTURE } from '../shared/models';
 
 /** Body anatomy first; the accepted head sampler remains an independent branch. */
 export function compileQwenBodyWorkflow(job: Job): Graph {
   const run = job.image, u = job.uploads;
   if (!run || !u?.noiseMask || !u.mask || !u.original || !run.settings.protectBackground) throw new Error('Whole-character editing requires a target-aligned painted edit area.');
   const s = run.settings, g = run.geometry, graph: Graph = {};
+  const pose = run.version === 'body-identity-v2';
+  if (pose && (!u.structure || !u.bodyAppearance || !u.faceMask)) throw new Error('Pose-guided body editing needs prepared joints, original body appearance and a face-only blend region.');
   if (s.qwenNormalizeReference && !u.bodyReference) throw new Error('The body reference preparation canvas is missing. Nothing was submitted.');
   const add = (id: string, class_type: string, inputs: Record<string, unknown>, title: string) => { graph[id] = { class_type, inputs, _meta: { title } }; };
   const extra = s.prompt.trim(), custom = extra && ![defaultImagePrompt, legacyImagePrompt].includes(extra) ? ' Additional requirements: ' + extra : '';
@@ -17,7 +19,8 @@ export function compileQwenBodyWorkflow(job: Job): Graph {
   add('104', 'VAELoader', { vae_name: 'qwen_image_2.1_vae_bf16.safetensors' }, 'Matching RGBA VAE');
   add('142', 'LoadImage', { image: u.noiseMask }, 'Person edit allowance');
   add('143', 'ImageToMask', { image: ['142', 0], channel: 'red' }, 'Protect the original scene outside the person');
-  let reference: [string, number] = ['4', 0];
+  if (pose) add('5', 'LoadImage', { image: u.bodyAppearance }, 'Original physique pixels · no synthetic anatomy');
+  let reference: [string, number] = [pose ? '5' : '4', 0];
   if (s.qwenNormalizeReference) {
     add('500', 'LoadImage', { image: u.bodyReference }, 'Original reference on an undistorted square canvas');
     add('501', 'TextEncodeQwenImage21', { clip: ['103', 0], prompt: 'Create a full-body studio reference photograph of the exact person in <image1>. Standing upright, front view, camera level at chest height, arms relaxed at the sides, neutral expression. Plain seamless light-gray background and soft even neutral studio lighting. The person fills almost the full height of the square frame, from head to shoes, with a small even margin. Strictly preserve the visible physical build: shoulder breadth, upper-arm thickness, ribcage width, chest size, torso taper and body proportions from <image1>. Preserve their facial identity, hair, skin tone, outfit fabric, neckline and garment details. Do not exaggerate curves, enlarge the chest, add muscle or idealize the body. Remove photographic watermarks and background objects without changing physical markings. Where the input is cropped, extend the outfit simply and plausibly; do not alter the visible upper-body anatomy. Natural photographic detail.', negative_prompt: '', resolution: 0, 'images.image_1': ['500', 0], vae: ['104', 0] }, 'Canonical body reference · independent of facial authority');
@@ -29,8 +32,14 @@ export function compileQwenBodyWorkflow(job: Job): Graph {
     reference = ['506', 0];
   }
   add('106', 'LoraLoaderModelOnly', { model: ['102', 0], lora_name: QWEN_BODY, strength_model: 1 }, 'Stage one · reference body proportions and clothing');
+  if (pose) {
+    add('140', 'ModelPatchLoader', { name: QWEN_STRUCTURE.slice('model_patches/'.length) }, 'Qwen pose control branch');
+    add('141', 'LoadImage', { image: u.structure }, 'Source joints · no source silhouette or clothing');
+    add('146', 'ZImageFunControlnet', { model: ['106', 0], model_patch: ['140', 0], vae: ['104', 0], image: ['141', 0], strength: s.bodyPoseStrength, start_percent: 0, end_percent: .8 }, 'Guide pose while allowing reference body shape');
+  }
   add('108', 'TextEncodeQwenImage21', { clip: ['103', 0], prompt: 'body_swap: start with <image1> as the base photograph, keeping its lighting, environment and background. Replace the whole person with the person from <image2>, strictly preserving the clothing, body shape and proportions from <image2>. Use the reference shoulder breadth, upper-arm thickness, chest size, torso taper and physical build. The source supplies pose and camera placement only; replace its anatomy and outfit completely. Copy the pose, direction of the eyes, head rotation and expression from <image1>. Keep its apparent head size, head-center position, camera distance, lens perspective, shoulder height, arm directions, framing and crop. The reference supplies physique, not its standing pose or photographic lighting. Fit the reference anatomy and outfit to the captured perspective. Do not enlarge, exaggerate or idealize body proportions. Preserve all visible garment details and physical markings.' + custom, negative_prompt: '', resolution: 0, 'images.image_1': ['1', 0], 'images.image_2': reference, vae: ['104', 0] }, 'Source pose first · reference anatomy second');
-  add('118', 'KSampler', { model: ['106', 0], positive: ['108', 0], negative: ['108', 1], latent_image: ['108', 2], seed: s.seed, steps: 20, cfg: 1, sampler_name: 'euler', scheduler: 'simple', denoise: 1 }, 'Transfer body proportions and outfit · 20 steps');
+  if (pose) graph['108'].inputs.prompt = 'body_swap: start with <image1> as the base image, keeping its lighting, environment and background. Replace the person with the person from <image2>, strictly preserving their clothing, natural body shape and proportions. Copy the pose, eye direction, head rotation and expression from <image1>. Keep its head size, head position, camera distance, lens perspective and framing. Use <image2> only for the replacement appearance and physique, fitted naturally to the captured pose.' + custom;
+  add('118', 'KSampler', { model: [pose ? '146' : '106', 0], positive: ['108', 0], negative: ['108', 1], latent_image: ['108', 2], seed: s.seed, steps: 20, cfg: 1, sampler_name: 'euler', scheduler: 'simple', denoise: 1 }, 'Transfer body proportions and outfit · 20 steps');
   add('119', 'VAEDecode', { samples: ['118', 0], vae: ['104', 0] }, 'Decode the body transfer');
   add('120', 'SplitImageWithAlpha', { image: ['119', 0] }, 'RGB transferred body');
   add('155', 'SaveImage', { images: ['120', 0], filename_prefix: `recast/${job.id}/body_raw` }, 'Retain anatomy before head refinement');
@@ -38,11 +47,18 @@ export function compileQwenBodyWorkflow(job: Job): Graph {
   add('154', 'SaveImage', { images: ['153', 0], filename_prefix: `recast/${job.id}/body_stage` }, 'Retain body placement before the head stage');
   add('206', 'LoraLoaderModelOnly', { model: ['102', 0], lora_name: QWEN_HEAD, strength_model: 1 }, 'Stage two · accepted full head and hair adapter');
   add('208', 'TextEncodeQwenImage21', { clip: ['103', 0], prompt: 'head_swap: edit <image1>. Replace the entire head, face and hairstyle with the head from <image2>, preserving the reference facial identity, facial proportions, hairline, hair color, parting, hair length and texture. Remove the original hairstyle completely. Copy head rotation, gaze, expression, head size and position from <image1>. Keep its camera distance, shoulders, body pose, arm positions, hands, clothing and scene unchanged. Preserve the body shape, chest size, torso proportions and physical build already established in <image1>. Place the reference hair naturally over the shoulders and torso. Use the scene illumination, exposure and white balance of <image1>. Preserve natural skin and hair detail.', negative_prompt: '', resolution: 0, 'images.image_1': ['153', 0], 'images.image_2': ['4', 0], vae: ['104', 0] }, 'Original reference remains the facial authority');
-  add('218', 'KSampler', { model: ['206', 0], positive: ['208', 0], negative: ['208', 1], latent_image: ['208', 2], seed: s.seed, steps: 20, cfg: 1, sampler_name: 'res_multistep', scheduler: 'beta', denoise: 1 }, 'Refine facial identity and hair · 20 steps');
+  add('218', 'KSampler', { model: ['206', 0], positive: ['208', 0], negative: ['208', 1], latent_image: ['208', 2], seed: s.seed, steps: 20, cfg: 1, sampler_name: pose ? 'euler' : 'res_multistep', scheduler: pose ? 'simple' : 'beta', denoise: 1 }, 'Refine facial identity and hair · 20 steps');
   add('219', 'VAEDecode', { samples: ['218', 0], vae: ['104', 0] }, 'Decode the accepted head branch');
   add('220', 'SplitImageWithAlpha', { image: ['219', 0] }, 'RGB head and transferred body');
   add('222', 'SaveImage', { images: ['220', 0], filename_prefix: `recast/${job.id}/head_raw` }, 'Retain head output for anatomy comparison');
   let result: [string, number] = ['220', 0];
+  if (pose) {
+    add('209', 'LoadImage', { image: u.faceMask }, 'Face-only identity integration');
+    add('211', 'ImageToMask', { image: ['209', 0], channel: 'red' }, 'Exclude chest, torso and outfit from facial repaint');
+    add('221', 'ImageCompositeMasked', { destination: ['120', 0], source: ['220', 0], x: 0, y: 0, resize_source: false, mask: ['211', 0] }, 'Preserve the transferred body outside the face');
+    add('224', 'SaveImage', { images: ['221', 0], filename_prefix: `recast/${job.id}/head_stage` }, 'Retain body-preserving identity integration');
+    result = ['221', 0];
+  }
   if (s.qwenRelight) {
     add('306', 'LoraLoaderModelOnly', { model: ['102', 0], lora_name: QWEN_CONSISTENCY, strength_model: 1 }, 'Stage three · scene illumination');
     add('308', 'TextEncodeQwenImage21', { clip: ['103', 0], prompt: 'Relight <image1> to match the scene illumination in <image2>. Change only light direction, shadow softness, exposure, white balance and reflected room light. Preserve the exact person, facial geometry, hairstyle, body anatomy, chest size, shoulder breadth, waist, pose and clothing already in <image1>. <image2> supplies lighting only. Keep the camera framing and ordinary photographic texture.', negative_prompt: '', resolution: 0, 'images.image_1': result, 'images.image_2': ['1', 0], vae: ['104', 0] }, 'Match illumination while retaining reference anatomy');

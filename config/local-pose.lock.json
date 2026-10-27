@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "poseSource": "IDEA-Research/DWPose",
+  "sourceRevision": "3dca5db79d9f9ffdd378753ddf6ec66535aace88",
+  "modelRevision": "1a7144101628d69ee7a3768d1ee3a094070dc388",
+  "license": "Apache-2.0; OpenCV PPHumanSeg also Apache-2.0",
+  "pythonRuntime": ".local/facefusion-venv",
+  "total_bytes": 134422720,
+  "files": [
+    {
+      "destination": ".local/pose-runtime/onnxpose.py",
+      "size": 11608,
+      "sha256": "16fb69ab54f5e1ce8a5ad186e92f357da0162fc2ca2eeec4ccf1db72949291a2",
+      "url": "https://raw.githubusercontent.com/IDEA-Research/DWPose/3dca5db79d9f9ffdd378753ddf6ec66535aace88/ControlNet-v1-1-nightly/annotator/dwpose/onnxpose.py"
+    },
+    {
+      "destination": ".local/pose-runtime/LICENSE",
+      "size": 11996,
+      "sha256": "ec5aa54eef312195c4494873a37158b19b0d523e25cec570189e6aa86289cf42",
+      "url": "https://raw.githubusercontent.com/IDEA-Research/DWPose/3dca5db79d9f9ffdd378753ddf6ec66535aace88/LICENSE"
+    },
+    {
+      "destination": ".local/pose-runtime/pose.onnx",
+      "size": 134399116,
+      "sha256": "724f4ff2439ed61afb86fb8a1951ec39c6220682803b4a8bd4f598cd913b1843",
+      "url": "https://huggingface.co/yzd-v/DWPose/resolve/1a7144101628d69ee7a3768d1ee3a094070dc388/dw-ll_ucoco_384.onnx"
+    }
+  ]
+}

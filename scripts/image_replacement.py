@@ -146,6 +146,8 @@ def fingerprint(request):
         payload["version"] = request["version"]
     if request["settings"].get("localIdentity", False):
         payload["localIdentityProfile"] = sha256(Path(__file__).resolve().parents[1] / 'config/local-identity.lock.json')
+    if request['settings'].get('qwenBodyPose', False):
+        payload['localPoseProfile'] = sha256(Path(__file__).resolve().parents[1] / 'config/local-pose.lock.json')
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
 
 
@@ -174,12 +176,20 @@ def prepare(request, folder, model):
     atomic_png(folder / "original.png", source)
     qwen = s.get("model") == "qwen21"
     scene = qwen and request.get("version") in ("scene-anchor-v1", "scene-anchor-v2", "scene-anchor-v3", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7", "scene-anchor-v8")
-    body_identity = request.get('version') == 'body-identity-v1'
+    body_identity = request.get('version') in ('body-identity-v1', 'body-identity-v2')
     native_mask = body_identity or request.get("version") in ("native-mask-v1", "native-scene-v1", "identity-first-v1", "identity-first-v2", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7", "scene-anchor-v8")
     head_refine = (scene or native_mask) and s.get("qwenHeadRefine", False)
     reference_input, cropped = reference_field_of_view(reference, source, model) if request.get("version") == "masked-latent-v4" and not qwen else (reference, False)
     atomic_png(folder / "identity.png", padded(reference_input, 590_000 if qwen else 1_000_000, 32 if qwen else 16))
     outputs = ["target.png", "original.png", "identity.png"]
+    if request.get('version') == 'body-identity-v2':
+        root = Path(__file__).resolve().parents[1]
+        pose_request = folder / 'pose-request.json'
+        atomic_json(pose_request, request)
+        result = subprocess.run([str(root / '.local/facefusion-venv/bin/python'), str(root / 'scripts/local_pose.py'), 'run', '--request', str(pose_request), '--folder', str(folder)], capture_output=True, text=True, timeout=60)
+        if result.returncode:
+            raise ValueError(result.stderr.strip() or 'Local pose preparation failed. No GPU job was submitted.')
+        outputs += ['source-pose.png', 'body-appearance.png', 'pose-preparation.json']
     if body_identity and s.get('qwenNormalizeReference', False):
         # Preserve visible anatomy while giving native Qwen a square output
         # canvas. Padding is explicit; never stretch the reference body.
@@ -394,9 +404,9 @@ def finish(request, folder, model):
     atomic_png(folder / "final.png", output)
     faces = {}
     settings = request["settings"]
-    face_used = (settings.get("model") != "qwen21" and (settings["faceDetail"] or settings.get("identityRefine", False))) or (request.get("version") in ("scene-anchor-v1", "scene-anchor-v2", "scene-anchor-v3", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7", "scene-anchor-v8", "native-mask-v1", "native-scene-v1", "identity-first-v1", "identity-first-v2", "body-identity-v1") and settings.get("qwenHeadRefine", False))
+    face_used = (settings.get("model") != "qwen21" and (settings["faceDetail"] or settings.get("identityRefine", False))) or (request.get("version") in ("scene-anchor-v1", "scene-anchor-v2", "scene-anchor-v3", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7", "scene-anchor-v8", "native-mask-v1", "native-scene-v1", "identity-first-v1", "identity-first-v2", "body-identity-v1", "body-identity-v2") and settings.get("qwenHeadRefine", False))
     reference_file = (request.get("face") if face_used else None) or request["reference"]
-    if request.get("version") in ("native-mask-v1", "native-scene-v1", "identity-first-v1", "identity-first-v2", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7", "scene-anchor-v8", "body-identity-v1") and face_used:
+    if request.get("version") in ("native-mask-v1", "native-scene-v1", "identity-first-v1", "identity-first-v2", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7", "scene-anchor-v8", "body-identity-v1", "body-identity-v2") and face_used:
         reference_file = str(folder / "face.png")
     for name, image in [("source", source), ("reference", read_image(reference_file)), ("output", output)]:
         found = detect(image, model)
