@@ -1,0 +1,17 @@
+.workspace.workspace-idle { display: flex; flex-direction: column; }
+.workspace-idle .preview-stage, .workspace-idle .image-preview-stage { flex: 1; height: auto; min-height: 340px; border: 0; background: transparent; padding: 0; display: grid; place-items: center; }
+.workspace-welcome { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; min-height: 330px; padding: 35px 15px 65px; text-align: center; }
+.welcome-identity { display: flex; flex-direction: column; align-items: center; gap: 22px; color: var(--line); user-select: none; }
+.welcome-identity > span { display: flex; align-items: baseline; gap: 9px; color: var(--muted); font-size: 35px; font-weight: 600; letter-spacing: -1.2px; opacity: .55; }
+.welcome-identity > span > span { color: var(--quiet); font-size: 14px; font-weight: 400; letter-spacing: -.2px; }
+.workspace-welcome > p { max-width: 32ch; color: var(--quiet); font-size: 11px; line-height: 1.8; margin: 21px 0 15px; text-wrap: pretty; }
+.welcome-actions { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px 18px; }
+.welcome-actions > button { display: inline-flex; align-items: center; gap: 6px; padding: 8px 0; font-size: 11px; color: var(--muted); border-radius: 4px; }
+.welcome-actions > button:hover { color: var(--text); }
+.welcome-actions > button:last-child:not(:first-child) { color: var(--accent-text); }
+.workflow-layout .workspace-actions > .close-preview { display: grid; place-items: center; flex-shrink: 0; margin-left: 6px; }
+.workflow-layout .workspace-header > div:first-child { min-width: 0; }
+@media (max-width: 760px) {
+  .workspace-idle .preview-stage, .workspace-idle .image-preview-stage { min-height: 350px; }
+  .workspace-welcome { min-height: 320px; padding-block: 35px; }
+}
