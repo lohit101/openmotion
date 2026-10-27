@@ -25,11 +25,13 @@ import { ImageFinalizationError } from '../server/image-processing';
 const repo = path.resolve(import.meta.dirname, '../..');
 const catalog: Catalog = JSON.parse(readFileSync(path.join(repo, 'integration-snapshot/object-info.json'), 'utf8'));
 const template: Graph = JSON.parse(readFileSync(path.join(repo, 'workflows/api/scail2_int8_swap.json'), 'utf8'));
-let fixtures: string, video: string, image: string;
+let fixtures: string, video: string, image: string, longVideo: string;
 beforeAll(async () => {
   fixtures = await mkdtemp(path.join(os.tmpdir(), 'recast-fixtures-')); video = path.join(fixtures, 'source.mp4'); image = path.join(fixtures, 'character.png');
   await command('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc2=size=96x160:rate=16:duration=6', '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000:duration=6', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', video]);
   await command('ffmpeg', ['-v', 'error', '-y', '-i', video, '-frames:v', '1', image]);
+  longVideo = path.join(fixtures, 'long-source.mp4');
+  await command('ffmpeg', ['-v', 'error', '-y', '-stream_loop', '5', '-i', video, '-t', '32', '-c', 'copy', longVideo]);
 });
 afterAll(async () => { await rm(fixtures, { recursive: true, force: true }); });
 async function until<T>(read: () => T, predicate: (value: T) => boolean, timeout = 12000): Promise<T> {
@@ -56,7 +58,7 @@ async function mockComfy(viggle = false) {
     }
   }
   const pending = new Map<string, any[]>(), history: Record<string, any> = {}, submissions: any[] = [], cancelled: string[] = [], calls: string[] = [];
-  let mode: 'complete' | 'hold' | 'lose-response' = 'complete', dropHistory = false, dropCancel = false, dropLatent = false, dropDownload = false;
+  let mode: 'complete' | 'hold' | 'lose-response' = 'complete', dropHistory = false, dropCancel = false, dropLatent = false, dropDownload = false, dropContext = false;
   app.use(express.json({ limit: '5mb' })); app.use((req, _res, next) => { calls.push(req.method + ' ' + req.path); next(); });
   ws.on('connection', (socket, req) => { sockets.set(new URL(req.url!, 'http://localhost').searchParams.get('clientId')!, socket); });
   const emit = (client: string, type: string, data: unknown) => sockets.get(client)?.send(JSON.stringify({ type, data }));
@@ -80,13 +82,18 @@ async function mockComfy(viggle = false) {
       history[id] = { prompt: entry, status: { status_str: 'success', completed: true, messages: [] }, outputs: { '46': { images: [{ filename, subfolder: 'recast', type: 'output' }] } } };
       pending.delete(id); emit(entry[3].client_id, 'executing', { prompt_id: id, node: null }); return;
     }
-    const graph = entry[2] as Graph, controls = graph['1']?.inputs, fps = controls ? Number(controls.fps) : 24, cap = controls ? Number(controls.frame_cap) : Number(graph['2'].inputs.frame_load_cap), skip = controls ? Number(controls.skip_frames) : 0, overlap = skip ? 5 : 0;
+    const graph = entry[2] as Graph, controls = graph['1']?.inputs, fps = controls ? Number(controls.fps) : 24, cap = controls ? Number(controls.frame_cap) : Number(graph['2'].inputs.frame_load_cap), skip = controls ? Number(controls.skip_frames) : Number(graph['2'].inputs.skip_first_frames), overlap = controls ? skip ? 5 : 0 : Number(graph['45'].inputs.overlap);
     const filename = id + '.mp4', file = path.join(fixtures, filename);
     const scale = graph['52'] ? ['-vf', `scale=${graph['52'].inputs.width}:${graph['52'].inputs.height}:flags=lanczos`] : [];
     await command('ffmpeg', ['-v', 'error', '-y', '-ss', String((skip + overlap) / fps), '-i', uploads.get(String(graph['2'].inputs.video))!, '-frames:v', String(cap - overlap), ...scale, '-an', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', file]);
     files.set(filename, file); history[id] = { prompt: entry, status: { status_str: 'success', completed: true, messages: [] }, outputs: {
       '46': { gifs: [{ filename, subfolder: 'recast', type: 'output' }] }, '47': { context: [{ path: '/gpu/output/context-' + id + '.safetensors', source_count: cap, source_end_frame: skip + cap, fps }] }
     } };
+    if (graph['47'].class_type === 'RecastViggleSaveContext') {
+      const contextName = id + '.safetensors', contextFile = path.join(fixtures, contextName);
+      await writeFile(contextFile, 'Protocol fixture anchor; real tensors are checked separately in CPU ComfyUI tests.'); files.set(contextName, contextFile);
+      Object.assign(history[id].outputs['47'].context[0], { version: 'five-frame-v1', job_id: graph['47'].inputs.job_id, source_anchor_frame: graph['47'].inputs.next_skip_frames, artifact: { filename: contextName, type: 'output' } });
+    }
     if (graph['121']) {
       const keyframe = id + '_keyframe.png'; files.set(keyframe, image);
       history[id].outputs['121'] = { images: [{ filename: keyframe, subfolder: 'recast', type: 'output' }] };
@@ -110,11 +117,11 @@ async function mockComfy(viggle = false) {
     if (mode === 'complete') void complete(id);
   });
   app.post('/api/jobs/:id/cancel', (req, res) => { if (dropCancel) { dropCancel = false; req.socket.destroy(); return; } cancelled.push(req.params.id); pending.delete(req.params.id); res.json({ cancelled: true }); });
-  app.get('/view', (req, res) => { if (dropDownload) { dropDownload = false; req.socket.destroy(); return; } const file = files.get(String(req.query.filename)); if (file) res.sendFile(file); else res.sendStatus(404); });
+  app.get('/view', (req, res) => { if (dropDownload || dropContext && String(req.query.filename).endsWith('.safetensors')) { dropDownload = false; dropContext = false; req.socket.destroy(); return; } const file = files.get(String(req.query.filename)); if (file) res.sendFile(file); else res.sendStatus(404); });
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   const address = server.address() as { port: number };
-  return { endpoint: `http://127.0.0.1:${address.port}`, calls, submissions, cancelled, pending, history, complete, emit, uploads,
-    setMode(value: typeof mode) { mode = value; }, loseNextHistory() { dropHistory = true; }, loseNextCancel() { dropCancel = true; }, omitNextLatent() { dropLatent = true; }, loseNextDownload() { dropDownload = true; },
+  return { endpoint: `http://127.0.0.1:${address.port}`, calls, submissions, cancelled, pending, history, complete, emit, uploads, catalog: localCatalog,
+    setMode(value: typeof mode) { mode = value; }, loseNextHistory() { dropHistory = true; }, loseNextCancel() { dropCancel = true; }, omitNextLatent() { dropLatent = true; }, loseNextDownload() { dropDownload = true; }, loseNextContext() { dropContext = true; },
     async close() { for (const socket of ws.clients) socket.terminate(); ws.close(); server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); }
   };
 }
@@ -301,6 +308,56 @@ describe('local app with the captured ComfyUI protocol', () => {
     expect(bootstrap.jobs[0].keyframe).toBe('ready'); expect(bootstrap.jobs[0].settings.engine).toBe('viggle');
     expect((await readdir(path.join(root, 'jobs', job.id)))).toContain('history_0.json');
   }, 25000);
+  it('assembles thirty seconds of Viggle windows at exact 24 fps with one source audio track', async () => {
+    const agent = await setup(true);
+    const source = await agent.post('/api/assets/video').attach('file', longVideo).expect(201), reference = await agent.post('/api/assets/image').attach('file', image).expect(201);
+    await connect(agent);
+    const values = { sourceId: source.body.id, referenceId: reference.body.id, settings: { ...defaults, engine: 'viggle', fps: 24, seconds: 30, start: 1.25, referencePreparation: 'prepared' } };
+    const response = await agent.post('/api/jobs').set('Idempotency-Key', 'viggle-thirty-seconds').send(values).expect(201);
+    const job = await until(() => local!.store.job(response.body.id)!, j => ['completed', 'failed', 'interrupted'].includes(j.status), 25000);
+    expect(job.error).toBeNull(); expect(job.status).toBe('completed');
+    expect(job.viggleSegmentation).toBe('five-frame-v1'); expect(job.progress.completedFrames).toBe(720);
+    expect(job.progress.segments).toBe(7); expect(job.segments).toHaveLength(7); expect(mock!.submissions).toHaveLength(7);
+    expect(job.segments.map(segment => segment.frames)).toEqual([124, 119, 119, 119, 119, 119, 1]);
+    const last = mock!.submissions.at(-1)!.prompt;
+    expect(last['2'].inputs).toMatchObject({ skip_first_frames: 612, frame_load_cap: 108 });
+    expect(last['36'].inputs.overlap).toBe(107); expect(last['45'].inputs.overlap).toBe(107);
+    const info = JSON.parse(await command('ffprobe', ['-v', 'error', '-count_frames', '-show_streams', '-of', 'json', job.output!]));
+    const v = info.streams.find((s: any) => s.codec_type === 'video');
+    expect(v.nb_read_frames).toBe('720'); expect(Number(v.duration)).toBeCloseTo(30, 3); expect(v.avg_frame_rate).toBe('24/1');
+    expect(info.streams.filter((s: any) => s.codec_type === 'audio')).toHaveLength(1);
+    const saved = await readdir(path.join(root, 'jobs', job.id));
+    for (let i = 0; i < 7; i++) { expect(saved).toContain(`history_${i}.json`); expect(saved).toContain(`context_${i}.safetensors`); }
+  }, 30000);
+  it('resumes a completed anchor transfer without repeating its paid sample or character repaint', async () => {
+    const agent = await setup(true), values = await inputs(agent);
+    Object.assign(values.settings, { engine: 'viggle', fps: 24, seconds: 5.2, start: .5 });
+    mock!.loseNextContext(); await connect(agent);
+    const response = await agent.post('/api/jobs').set('Idempotency-Key', 'viggle-anchor-recovery').send(values).expect(201), id = response.body.id;
+    await until(() => local!.runner.busy, busy => !busy);
+    const stopped = local!.store.job(id)!;
+    expect(stopped.status).toBe('interrupted'); expect(mock!.submissions).toHaveLength(1);
+    expect(stopped.progress.completedFrames).toBe(0);
+    const originalPrompt = stopped.pendingPrompt!, downloaded = await readFile(path.join(root, 'jobs', id, 'segment_0000.mp4'));
+    delete mock!.history[originalPrompt];
+    await connect(agent); await agent.post(`/api/jobs/${id}/resume`).send({}).expect(200);
+    const job = await until(() => local!.store.job(id)!, j => ['completed', 'failed', 'interrupted'].includes(j.status));
+    expect(job.error).toBeNull(); expect(job.status).toBe('completed'); expect(job.segments[0].promptId).toBe(originalPrompt);
+    expect(job.progress.completedFrames).toBe(125); expect(mock!.submissions).toHaveLength(2);
+    expect(mock!.submissions[1].prompt['118']).toBeUndefined();
+    expect(mock!.submissions[1].prompt['4'].inputs.image).toContain('-prepared-frame');
+    expect(await readFile(path.join(root, 'jobs', id, 'segment_0000.mp4'))).toEqual(downloaded);
+    const timing = JSON.parse(await command('ffprobe', ['-v', 'error', '-count_frames', '-show_entries', 'stream=codec_type,nb_read_frames', '-of', 'json', job.output!]));
+    expect(timing.streams.find((s: any) => s.codec_type === 'video').nb_read_frames).toBe('125');
+  }, 25000);
+  it('rejects long clips on an old runtime before queueing any paid work', async () => {
+    const agent = await setup(true), values = await inputs(agent);
+    delete mock!.catalog.RecastViggleAnchor;
+    Object.assign(values.settings, { engine: 'viggle', fps: 24, seconds: 6 });
+    await connect(agent);
+    const response = await agent.post('/api/jobs').set('Idempotency-Key', 'old-viggle-nodes').send(values).expect(409);
+    expect(response.body.error).toContain('updated continuation nodes'); expect(mock!.submissions).toHaveLength(0); expect(local!.store.jobs()).toHaveLength(0);
+  });
   it.each([['quality12', 12], ['quality16', 16]] as const)('exports %s at 720p and 24 fps without changing motion duration or continuity geometry', async (preset, steps) => {
     const agent = await setup(), values = await inputs(agent);
     Object.assign(values.settings, { preset, resolution: '720', orientation: 'portrait', fps: 24, seconds: 0.5 });

@@ -1,4 +1,6 @@
-export const MAX_CLIP_SECONDS = 5;
+export const MAX_CLIP_SECONDS = 30;
+// New uploads still start with a short selection; longer paid work is explicit.
+export const DEFAULT_CLIP_SECONDS = 5;
 export interface ClipSelection { start: number; seconds: number; }
 export type TrimAction = 'start' | 'end' | 'move';
 const clamp = (value: number, low: number, high: number) => Math.max(low, Math.min(high, value));

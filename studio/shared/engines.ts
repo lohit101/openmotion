@@ -1,4 +1,5 @@
 import type { Settings } from './types';
+import { viggleWindow } from './viggle-segments';
 
 // Missing engine fields belong to legacy SCAIL jobs; never migrate a paid run
 // to another model while checking/resuming it.
@@ -13,7 +14,7 @@ export function engineIssue(s: Settings): string | null {
   if (!isViggle(s)) return [s.loraA, s.loraB].some(name => name.startsWith('viggle_')) ? 'Viggle adapters cannot be used with SCAIL. Select a model-matched adapter.' : null;
   if (s.mode !== 'swap') return 'Viggle supports Character swap here. Use SCAIL for Motion transfer.';
   if (s.fps !== 24) return 'Viggle uses native 24 fps. Select 24 fps before generating.';
-  if (Math.ceil(s.seconds * s.fps) > 124) return 'Viggle single-shot mode supports up to 124 frames (5.16 seconds). Use a single shot; longer clips can use SCAIL.';
+  if (s.seconds > 30) return 'Viggle supports up to 30 seconds here, using saved overlapping segments.';
   if (s.orientation !== 'source') return 'Viggle keeps the source composition. Select Match source framing.';
   if (s.loraA !== 'None' || s.loraB !== 'None') return 'SCAIL/Wan style LoRAs are incompatible with Viggle. Clear LoRA A and B.';
   return null;
@@ -21,9 +22,10 @@ export function engineIssue(s: Settings): string | null {
 
 export const defaultVigglePrompt = 'Use the reference character’s face, hair and outfit. Preserve the person’s exact position, apparent size, pose and camera distance in the source video. Match the scene’s lighting and keep natural skin texture.';
 
-export function planForJob(s: Settings, completed: number, target: number, legacy: (completed: number, target: number, cap: number) => { skip: number; cap: number; overlap: number }) {
+export function planForJob(s: Settings, completed: number, target: number, legacy: (completed: number, target: number, cap: number) => { skip: number; cap: number; overlap: number }, continuation?: 'five-frame-v1') {
   if (!isViggle(s)) return legacy(completed, target, s.framesPerPass);
   const issue = engineIssue(s); if (issue) throw new Error(issue);
+  if (continuation === 'five-frame-v1') return viggleWindow(completed, target);
   if (completed !== 0 || target > 124) throw new Error('Viggle single-shot renders cannot continue as SCAIL chunks. Reuse the settings for a new shot.');
   return { skip: 0, cap: target, overlap: 0 };
 }

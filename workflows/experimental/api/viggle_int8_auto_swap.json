@@ -12,7 +12,7 @@
       "format": "None"
     },
     "_meta": {
-      "title": "Read the selected source shot at 24 fps"
+      "title": "Read the selected source window at 24 fps"
     }
   },
   "3": {
@@ -227,7 +227,7 @@
       ]
     },
     "_meta": {
-      "title": "Trim grid padding and preserve exact source duration"
+      "title": "Trim grid padding and accepted overlap; preserve source timing"
     }
   },
   "46": {

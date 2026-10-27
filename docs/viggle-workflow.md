@@ -5,14 +5,14 @@ This is a new experimental engine, separate from the existing SCAIL workflow. Of
 ## Use in Recast
 
 1. Connect a managed GPU. Start with an RTX PRO 5000 Blackwell **48 GB**, at least 64 GB-class host RAM and **96 GB disk** for this stack alone. Inspect the compute price separately from disk and transfer fees.
-2. In Motion control, select **Viggle Animate**. Choose a continuous, single-person shot, **480p, 24 fps, 5 seconds or less**. Upload the source video and a clear character photo showing the desired face, hair and outfit.
-3. Leave **Reference preparation → Match character to source frame** enabled. Click the explicit download button beside Files for these settings. The seven pinned files total **40,428,343,196 bytes**. Changing options and Generate never download weights.
-4. Generate. The first stage edits a source frame with FLUX.2 Klein 4B. The second stage uses that edited frame and the source video in Viggle. The progress counters report actual image and video sampling separately.
+2. In Motion control, select **Viggle Animate**. Start with a continuous, single-person shot, **480p, 24 fps**. New uploads initially select five seconds; the trimmer now supports up to **30 seconds** using automatic continuation. See the [segmentation guide](viggle-segmentation.md). Upload the source video and a prepared character frame, or explicitly select installed automatic preparation.
+3. For the current Qwen photo route, upload the edited source frame and choose **Use an already edited source frame**. This requires the four Viggle files only. If using installed Klein instead, explicitly select automatic frame preparation; that seven-file combination totals **40,428,343,196 bytes**. Changing options and Generate never download weights.
+4. Generate. Viggle uses the edited frame and source footage, with automatic continuation for longer selections. If automatic Klein preparation was selected, its image edit runs once before the first video window. Progress reports actual image/video counters and saved segments.
 5. Open Render details to inspect the conditioning frame and export the actual API graph. Compare scale, head size, screen position, lighting and identity with the source. A better frame is necessary before temporal propagation can preserve those attributes.
 
 If you already edited a frame from the exact source shot, upload it as the reference and choose **Use an already edited source frame**. This skips Klein and requires four files totalling **27,976,525,336 bytes**. A standalone character photo is not an already edited source frame.
 
-The current Studio integration intentionally handles one shot of up to **124 frames** at native 24 fps, rather than applying SCAIL's unrelated 81-frame continuation scheme. Existing SCAIL jobs, modes, adapters and longer clips keep their original behavior. Multi-shot editing needs a fresh aligned frame per shot; it is not solved by raising the duration field.
+New Studio runs above **124 frames** use versioned Viggle five-frame continuation for up to **720 frames / 30 seconds**. Short shots and historical jobs retain their original path; SCAIL's unrelated continuation is unchanged. Multi-shot editing still needs a fresh aligned frame per shot. The standalone editable graphs below remain single-window examples; Recast coordinates longer runs, local segment backups and final assembly.
 
 ## Exact recipe
 
