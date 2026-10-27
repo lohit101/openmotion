@@ -72,8 +72,6 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     const value = z.object({ name: z.string().min(1).max(300) }).parse(req.body);
     res.json(await models.remove(value.name));
   });
-  app.post('/api/cloud/key', async (req, res) => { const value = z.object({ key: z.string().trim().min(12).max(500) }).parse(req.body); await cloud.saveKey(value.key); res.json(cloud.state); });
-  app.delete('/api/cloud/key', async (_req, res) => { await cloud.removeKey(); res.json(cloud.state); });
   app.post('/api/cloud/refresh', async (_req, res) => res.json(await cloud.refresh()));
   app.post('/api/cloud/offers', async (req, res) => res.json(await cloud.offers(offerFiltersSchema.parse(req.body))));
   app.post('/api/cloud/favourites', (req, res) => {
