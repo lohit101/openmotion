@@ -64,7 +64,7 @@ export default function ClipEditorWorkspace({ jobs, intent, consumed, library }:
   useEffect(() => { void refreshExports().catch(e => setError(e.message)); }, [refreshExports]);
   useEffect(() => { if (!working) return; const timer = setInterval(() => { void refreshExports().catch(e => setError(e.message)); }, 1000); return () => clearInterval(timer); }, [working, refreshExports]);
   useEffect(() => {
-    if (!playing && at && video.current?.readyState && !exportPreview) video.current.currentTime = at.sourceTime;
+    if (!playing && at && video.current?.readyState && !exportPreview && Math.abs(video.current.currentTime - at.sourceTime) > .001) video.current.currentTime = at.sourceTime;
   }, [playing, at?.clip.id, at?.clip.inFrame, at?.clip.outFrame, at?.sourceTime, exportPreview]);
   useEffect(() => {
     if (!playing || exportPreview) return;
@@ -89,7 +89,7 @@ export default function ClipEditorWorkspace({ jobs, intent, consumed, library }:
     if (time >= duration - .01) { seek(0); playingRef.current = true; setPlaying(true); if (rows[0]?.clip.id === at.clip.id && video.current) { video.current.currentTime = rows[0].clip.inFrame / rows[0].source.fps; void video.current.play().catch(() => stop()); } return; }
     playingRef.current = true; setPlaying(true); void video.current?.play().catch(() => { stop(); setError('Preview could not play. Try the play button again.'); });
   };
-  const onReady = () => { const active = locateTimeline(draftRef.current.clips, sources, timeRef.current); if (video.current && active) { video.current.currentTime = active.sourceTime; if (playingRef.current) void video.current.play().catch(() => stop()); } };
+  const onReady = () => { const active = locateTimeline(draftRef.current.clips, sources, timeRef.current); if (video.current && active) { if (Math.abs(video.current.currentTime - active.sourceTime) > .001) video.current.currentTime = active.sourceTime; if (playingRef.current) void video.current.play().catch(() => stop()); } };
   const submit = async () => {
     if (!draft.title.trim()) { setError('Give your edit a name before exporting.'); return; }
     setSubmitting(true); setError(''); stop();

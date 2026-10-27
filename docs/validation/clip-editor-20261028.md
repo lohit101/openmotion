@@ -12,3 +12,5 @@ Validation:
 - Fixtures and raw media remain temporary/ignored. No user video was exported for testing or overwritten, and no additional paid frame was generated.
 
 The local API was loaded only after generation/model/setup queues were confirmed idle, and the existing endpoint was probed without SSH setup or compute changes. A later reload was deferred when the user started a new video. An accidental extra start was rejected on the occupied port; the original listener and active native render were checked and remained healthy. No GPU rental was started, stopped or resumed for this feature. Final startup hardening/deployment is recorded separately.
+
+The paused preview also avoids seeking to an unchanged timestamp when only the other trim edge changes. This prevents an unnecessary first-frame reload; actual in-point/playhead changes still seek at source-frame precision. The production build passes after this small presentation fix.
