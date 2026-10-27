@@ -26,6 +26,7 @@ import { registerImageRoutes } from './image-routes';
 import { clipFrameCount } from '../shared/clip';
 import { canFinishImageLocally, isImageJob } from '../shared/image-replacement';
 import { registerClipEditorRoutes } from './clip-editor';
+import { startLocalServer } from './local-server';
 
 const STUDIO = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const REPO = path.dirname(STUDIO);
@@ -237,10 +238,10 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   });
   return { app, store, connection, runner, cloud, models, clipEditor };
 }
-if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
-  const { app, store, cloud, models, clipEditor } = await createApplication();
+async function main() {
   const port = Number(process.env.PORT || 3000);
-  const server = app.listen(port, '127.0.0.1', () => console.log(`Recast Studio: http://127.0.0.1:${port} (GPU disconnected until you connect)`));
+  const { server, store, cloud, models, clipEditor } = await startLocalServer(() => createApplication(), port);
+  console.log(`Recast Studio: http://127.0.0.1:${port} (GPU disconnected until you connect)`);
   server.on('error', error => { console.error(error.message); cloud.dispose(); store.close(); process.exitCode = 1; });
   let closing = false;
   const shutdown = async () => {
@@ -250,4 +251,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
     catch (error) { console.error((error as Error).message); clearTimeout(deadline); cloud.dispose(); store.close(); process.exit(1); }
   };
   process.once('SIGINT', () => void shutdown()); process.once('SIGTERM', () => void shutdown());
+}
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+  void main().catch((error: NodeJS.ErrnoException) => {
+    console.error(error.code === 'EADDRINUSE' ? `Port ${process.env.PORT || 3000} is already in use. No Studio data was opened; use the existing app window.` : error.message);
+    process.exitCode = 1;
+  });
 }
