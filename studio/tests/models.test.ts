@@ -235,4 +235,32 @@ describe('manual model queue', () => {
     await expect(manager.start(['loras/' + I2V_SPEED])).rejects.toThrow('removal');
     finish(); await pending;
   });
+  it('persists measured per-instance inventories while offline availability remains unknown', async () => {
+    const { manager, choices, storage, connection, worker } = await fixture();
+    choices.push(NATURAL_SPEED);
+    storage.mockImplementation(async () => ({ loras: [{ name: NATURAL_SPEED, size: 123, partialSize: 11, included: false }],
+      files: [{ id: 'loras/' + NATURAL_SPEED, size: 123 }], partials: [{ id: 'loras/' + NATURAL_SPEED, size: 11 }], freeBytes: 456 }));
+    await manager.refresh();
+    expect(manager.state.inventories?.[0]).toMatchObject({ key: 'vast:123', instanceId: 123, freeBytes: 456,
+      files: [{ id: 'loras/' + NATURAL_SPEED, size: 123, partialSize: 11, measured: true }] });
+    connection.status.state = 'offline'; await manager.refresh();
+    expect(manager.state.files.every(file => file.status === 'unknown')).toBe(true);
+    expect(manager.state.inventories?.[0].files[0].size).toBe(123);
+    const restored = new ModelManager(store!, connection as unknown as ConnectionManager, repo, worker, storage);
+    expect(restored.state.inventories?.[0].instanceId).toBe(123);
+    connection.status.state = 'online'; store!.set('cloud-connected-instance', 456); choices.length = 0;
+    storage.mockImplementation(async () => ({ loras: [], files: [], partials: [], freeBytes: 789 }));
+    await manager.refresh();
+    expect(manager.state.inventories?.map(item => item.instanceId)).toEqual([456, 123]);
+    expect(manager.state.inventories?.[0].files).toEqual([]);
+    expect(worker).not.toHaveBeenCalled();
+  });
+  it('does not save an old GPU inventory under a newly selected instance', async () => {
+    const { manager, choices, storage } = await fixture(); choices.push(NATURAL_SPEED);
+    storage.mockImplementation(async () => { store!.set('cloud-connected-instance', 456); return { loras: [], files: [] }; });
+    await manager.refresh();
+    expect(manager.state.error).toContain('GPU changed');
+    expect(manager.state.inventories).toEqual([]);
+    expect(manager.state.files.every(file => file.status === 'unknown')).toBe(true);
+  });
 });

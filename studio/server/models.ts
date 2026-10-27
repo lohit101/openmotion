@@ -1,12 +1,13 @@
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import type { Catalog, Graph } from '../shared/types';
-import { emptyModels, IMAGE_IDENTITY, modelDefinitions, pinnedModels, type InstalledLora, type ModelsState, type ModelTransfer } from '../shared/models';
+import { emptyModels, IMAGE_IDENTITY, modelDefinitions, pinnedModels, type InstalledLora, type ModelInventory, type ModelsState, type ModelTransfer } from '../shared/models';
+import { inventoryKey } from '../shared/downloads';
 import type { Store } from './store';
 import { lorasFrom, type ConnectionManager } from './comfy';
 import { command } from './media';
 
-export async function manageModelStorage(repo: string, instanceId: number, action: 'inventory' | 'delete', name?: string): Promise<{ loras?: InstalledLora[]; name?: string; freedBytes?: number; freeBytes?: number; partials?: { id: string; size: number }[]; removed?: boolean }> {
+export async function manageModelStorage(repo: string, instanceId: number, action: 'inventory' | 'delete', name?: string): Promise<{ loras?: InstalledLora[]; files?: { id: string; size: number }[]; name?: string; freedBytes?: number; freeBytes?: number; partials?: { id: string; size: number }[]; removed?: boolean }> {
   const args = ['-u', path.join(repo, 'scripts/managed_models.py'), '--instance-id', String(instanceId), '--action', action];
   if (action === 'delete') args.push('--lora', name!);
   const output = await command('python3', args, undefined, 45000);
@@ -80,7 +81,9 @@ export class ModelManager {
   private queue = new Set<string>(); private controller: AbortController | null = null;
   private work: Promise<void> | null = null; private refreshing: Promise<ModelsState> | null = null;
   private preparing = 0; private cancelEpoch = 0;
-  constructor(public store: Store, public connection: ConnectionManager, public repo: string, private download: DownloadWorker = downloadPinnedModels, private storage: typeof manageModelStorage = manageModelStorage) {}
+  constructor(public store: Store, public connection: ConnectionManager, public repo: string, private download: DownloadWorker = downloadPinnedModels, private storage: typeof manageModelStorage = manageModelStorage) {
+    this.state.inventories = store.value<ModelInventory[]>('model-inventories', []);
+  }
   emit() { this.store.emit('event', { type: 'models', data: this.state }); }
   async refresh(): Promise<ModelsState> {
     if (this.refreshing) return this.refreshing;
@@ -91,16 +94,20 @@ export class ModelManager {
           for (const file of this.state.files) if (!['queued', 'downloading'].includes(file.status)) Object.assign(file, { status: 'unknown', percent: null });
           this.state.error = null; this.state.checkedAt = null; this.state.installedLoras = []; this.state.diskFreeBytes = undefined; return this.state;
         }
+        const instanceId = this.store.value<number | null>('cloud-connected-instance', null), endpoint = this.connection.status.endpoint;
         const catalog: Catalog = await this.connection.client().json('/object_info');
+        const sameConnection = () => this.connection.status.state === 'online' && this.connection.status.endpoint === endpoint && this.store.value('cloud-connected-instance', null) === instanceId;
+        if (!sameConnection()) throw new Error('The GPU changed during the inventory check. Refresh its files again.');
         const installed = installedModelIds(catalog);
         for (const file of this.state.files) if (!['queued', 'downloading'].includes(file.status)) {
           if (installed.has(file.id)) Object.assign(file, { status: 'installed', percent: 100, error: null, message: 'Available on this GPU' });
-          else if (file.status !== 'failed') Object.assign(file, { status: 'missing', percent: null, message: '' });
+          else if (file.status !== 'failed') Object.assign(file, { status: 'missing', percent: null, message: '', downloaded: 0 });
         }
         this.connection.catalog = catalog;
-        const instanceId = this.store.value<number | null>('cloud-connected-instance', null);
+        let inventory: Awaited<ReturnType<typeof manageModelStorage>> | undefined;
         if (instanceId && this.connection.status.endpoint === 'http://127.0.0.1:8188') {
           const result = await this.storage(this.repo, instanceId, 'inventory');
+          inventory = result;
           this.state.installedLoras = result.loras || [];
           this.state.diskFreeBytes = Number.isFinite(result.freeBytes) && result.freeBytes! >= 0 ? result.freeBytes : undefined;
           if (result.partials) for (const file of this.state.files) if (!['installed', 'queued', 'downloading'].includes(file.status)) {
@@ -108,9 +115,26 @@ export class ModelManager {
             file.downloaded = Number.isFinite(size) && size >= 0 ? Math.min(size, pinnedModels.find(model => model.destination === file.id)!.size) : 0;
           }
         }
+        if (!sameConnection()) throw new Error('The GPU changed during the inventory check. Refresh its files again.');
         const loras = lorasFrom(catalog);
         if (JSON.stringify(loras) !== JSON.stringify(this.connection.status.loras)) { this.connection.status.loras = loras; this.connection.emit(); }
         this.state.error = null; this.state.checkedAt = new Date().toISOString();
+        // A saved inventory is informational. It never makes an offline GPU
+        // ready or authorizes downloads on another rental.
+        if (this.connection.status.state === 'online' && this.connection.status.endpoint === endpoint && this.store.value('cloud-connected-instance', null) === instanceId) {
+          const files = new Map<string, { id: string; size: number; partialSize: number; measured: boolean }>();
+          for (const id of installed) files.set(id, { id, size: pinnedModels.find(file => file.destination === id)!.size, partialSize: 0, measured: false });
+          for (const file of inventory?.files || []) if (Number.isFinite(file.size) && file.size >= 0) files.set(file.id, { id: file.id, size: file.size, partialSize: 0, measured: true });
+          for (const lora of inventory?.loras || []) files.set('loras/' + lora.name, { id: 'loras/' + lora.name, size: lora.size, partialSize: lora.partialSize || 0, measured: true });
+          for (const partial of inventory?.partials || []) {
+            const file = files.get(partial.id) || { id: partial.id, size: 0, partialSize: 0, measured: true };
+            file.partialSize = partial.size; files.set(file.id, file);
+          }
+          const snapshot: ModelInventory = { key: inventoryKey(instanceId, endpoint), instanceId, endpoint, gpu: this.connection.status.gpu || null,
+            checkedAt: this.state.checkedAt, files: [...files.values()], freeBytes: this.state.diskFreeBytes };
+          this.state.inventories = [snapshot, ...(this.state.inventories || []).filter(item => item.key !== snapshot.key)];
+          this.store.set('model-inventories', this.state.inventories);
+        }
       } catch (error) {
         this.state.error = 'Model availability could not be checked. Reconnect the GPU and refresh. ' + (error as Error).message;
         for (const file of this.state.files) if (!['queued', 'downloading'].includes(file.status)) file.status = 'unknown';

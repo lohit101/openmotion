@@ -70,6 +70,7 @@ def main():
                     'result=inventory(sys.argv[2]);result["freeBytes"]=shutil.disk_usage(sys.argv[2]).free;'
                     'from pathlib import Path;root=Path(sys.argv[2]);'
                     'result["partials"]=[{"id":f["destination"],"size":min(f["size"],p.stat().st_size)} for f in json.loads(sys.argv[3]) if (p:=root/(f["destination"]+".part")).is_file() and not p.is_symlink()];'
+                    'result["files"]=[{"id":f["destination"],"size":p.stat().st_size} for f in json.loads(sys.argv[3]) if (p:=root/f["destination"]).is_file() and not p.is_symlink() and not p.parent.is_symlink()];'
                     'print("RECAST_MODEL_STORAGE "+json.dumps(result))')
             vast.remote(config, ['python3', '-c', code, str(root / 'scripts'), str(root / 'models'), json.dumps(selected_manifest()['files'])])
             return
