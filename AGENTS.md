@@ -1,6 +1,6 @@
 # Project workflow
 
-- Processing canvases use shared `GenerationProgress`: brief stage, local blurred poster/sparkles and real current-stage percentage, with counters/elapsed/continuity facts behind the info dialog. Never fabricate an overall percentage/ETA from elapsed time; unknown counters stay indeterminate and stage percentages may restart. Errors and cancel/recovery actions stay visible; respect reduced motion. See `docs/validation/processing-view-20261028.md`.
+- Processing canvases use shared `GenerationProgress` with one monotonic 0–100 overall work estimate, not an elapsed-time estimate. Derive progress from actual preparation, model-pass, segment and transfer milestones; hold during stalls/recovery and keep session high-water marks per job. Only completed output reaches 100. The native stage bar/counters live in a replacement inline Details view with Back/Escape, never a popup. Errors and cancel/recovery actions stay visible; respect reduced motion. This supersedes the earlier stage-only view. See `docs/validation/overall-progress-20261028.md`.
 
 - New video creation in Studio temporarily permits only Viggle. Keep the Character swap / Motion transfer selector hidden and the SCAIL-2 / Wan option disabled; a restored legacy draft requires an explicit switch to Viggle before new Generate. Do not remove its models/workflows or alter existing paid-job recovery until separately authorized. See `docs/validation/viggle-only-ui-20261028.md`.
 
