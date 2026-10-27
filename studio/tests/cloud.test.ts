@@ -17,7 +17,7 @@ const rawOffer = () => ({ id: 123, ask_contract_id: 123, bundle_id: 987654321, m
   search: { gpuCostPerHour: .2, diskHour: .03, totalHour: .23 }, dph_total: .23, storage_total_cost: .03, storage_cost: .27, rentable: true, rented: false });
 async function until(predicate: () => boolean, timeout = 4000) { const start = Date.now(); while (!predicate()) { if (Date.now() - start > timeout) throw new Error('Cloud fixture timed out'); await new Promise(r => setTimeout(r, 10)); } }
 function provider() {
-  let creationState: any = {}, deleteAckOnly = false;
+  let creationState: any = {}, deleteAckOnly = false, rejectCreate = false;
   let offer = rawOffer(), instance: any = null, loseCreate = false, loseStop = false, stopAckOnly = false, omitList = false, invalidList = false, createCount = 0, sshKeys: any = [{ id: 51, public_key: publicKey, deleted_at: null }], registrationError: { status: number; msg: string; registerMatching?: boolean } | null = null; const calls: { url: URL; method: string; body: any; auth: string | null }[] = [];
   const fetcher = vi.fn<typeof fetch>(async (input, init) => {
     const url = new URL(String(input)), method = init?.method || 'GET', body = init?.body ? JSON.parse(String(init.body)) : undefined;
@@ -36,6 +36,7 @@ function provider() {
     // ask_contract_id predicate must match the same ID sent to PUT /asks/.
     else if (url.pathname === '/api/v0/bundles/') value = { offers: body.id || (body.ask_contract_id && body.ask_contract_id.eq !== offer.ask_contract_id) ? [] : [offer] };
     else if (url.pathname === '/api/v0/asks/123/' && method === 'PUT') {
+      if (rejectCreate) { createCount++; return new Response(JSON.stringify({ success: false, msg: 'This offer was rented by someone else.' }), { status: 400, headers: { 'Content-Type': 'application/json' } }); }
       createCount++; instance = { ...offer, id: 777, label: body.label, actual_status: 'running', intended_status: 'running', ssh_host: '127.0.0.1', ssh_port: 2222, disk_space: body.disk, ...creationState };
       if (loseCreate) throw new Error('response lost after acceptance'); value = { success: true, new_contract: 777 };
     } else if (url.pathname === '/api/v0/instances/777/' && method === 'GET') value = { instances: instance };
@@ -44,7 +45,7 @@ function provider() {
     else throw new Error('Unexpected fixture request ' + method + ' ' + url);
     return new Response(JSON.stringify(value), { headers: { 'Content-Type': 'application/json' } });
   });
-  return { fetcher, calls, setCreationState(value: any) { creationState = value; }, updateInstance(value: any) { Object.assign(instance, value); }, acknowledgeDeleteOnly(value = true) { deleteAckOnly = value; }, setGpu(name: string, memory: number) { offer.gpu_name = name; offer.gpu_ram = memory; }, setPrice(value: number) { offer = { ...offer, search: { ...offer.search, totalHour: value } }; }, setTransfer(value: number) { offer.inet_down_cost = value; }, setSshKeys(value: any) { sshKeys = value; }, failRegistration(error: typeof registrationError) { registrationError = error; }, loseCreateResponse() { loseCreate = true; }, loseStopResponse(value = true) { loseStop = value; }, acknowledgeStopOnly() { stopAckOnly = true; }, omitInstanceFromList() { omitList = true; }, invalidInstanceList() { invalidList = true; }, get createCount() { return createCount; } };
+  return { fetcher, calls, rejectCreateRequest(value = true) { rejectCreate = value; }, setCreationState(value: any) { creationState = value; }, updateInstance(value: any) { Object.assign(instance, value); }, acknowledgeDeleteOnly(value = true) { deleteAckOnly = value; }, setGpu(name: string, memory: number) { offer.gpu_name = name; offer.gpu_ram = memory; }, setPrice(value: number) { offer = { ...offer, search: { ...offer.search, totalHour: value } }; }, setTransfer(value: number) { offer.inet_down_cost = value; }, setSshKeys(value: any) { sshKeys = value; }, failRegistration(error: typeof registrationError) { registrationError = error; }, loseCreateResponse() { loseCreate = true; }, loseStopResponse(value = true) { loseStop = value; }, acknowledgeStopOnly() { stopAckOnly = true; }, omitInstanceFromList(value = true) { omitList = value; }, invalidInstanceList() { invalidList = true; }, get createCount() { return createCount; } };
 }
 describe('Vast marketplace, billing and lifecycle', () => {
   let store: Store | undefined, root = '', tracked: CloudManager | undefined;
@@ -58,6 +59,38 @@ describe('Vast marketplace, billing and lifecycle', () => {
     const cloud = new CloudManager(store, connection as unknown as ConnectionManager, { active: null } as Runner, process.cwd(), { fetcher: fixture.fetcher, provision, preflight, sshIdentity: identity, backgroundSafety: false, pollMs: 1, stopPollAttempts: 2, ...options }); tracked = cloud;
     vi.spyOn(cloud, 'ensureSshKey').mockResolvedValue(identity); return { cloud, fixture, provision, connection, identity, preflight };
   }
+  it('clears a cancelled definitive rejection after checking the exact label, allowing a fresh rental', async () => {
+    const { cloud, fixture } = await manager(); fixture.rejectCreateRequest();
+    const { offers } = await cloud.offers(filters);
+    const launch = cloud.launch(offers[0].quote, .23, 'rejected-first');
+    await until(() => !cloud.state.busy);
+    expect(launch.instanceId).toBeNull(); expect(launch.failureCode).toBe('setup-failed');
+    await cloud.cancel(launch);
+    expect(launch.phase).toBe('failed'); expect(launch.safetyStatus).toBe('disarmed');
+    // Recover the stale state written by older versions of Cancel.
+    launch.phase = 'unknown'; launch.safetyStatus = 'unconfirmed';
+    await cloud.refresh();
+    expect(launch.phase).toBe('failed'); expect(launch.safetyStatus).toBe('disarmed');
+    fixture.rejectCreateRequest(false);
+    const next = cloud.launch(offers[0].quote, .23, 'fresh-after-rejection');
+    await until(() => !cloud.state.busy);
+    expect(next.phase).toBe('ready'); expect(fixture.createCount).toBe(2);
+  });
+  it('keeps a lost creation response blocked until the accepted rental is recovered and stopped', async () => {
+    const { cloud, fixture } = await manager(); fixture.loseCreateResponse(); fixture.omitInstanceFromList();
+    const { offers } = await cloud.offers(filters);
+    const launch = cloud.launch(offers[0].quote, .23, 'lost-creation');
+    await until(() => !cloud.state.busy);
+    expect(launch.failureCode).toBe('request-unconfirmed'); expect(launch.instanceId).toBeNull();
+    await cloud.cancel(launch); await cloud.refresh();
+    expect(launch.phase).toBe('unknown'); expect(launch.safetyStatus).toBe('unconfirmed');
+    const next = cloud.launch(offers[0].quote, .23, 'duplicate-blocked');
+    await until(() => !cloud.state.busy);
+    expect(next.message).toContain('still unconfirmed'); expect(fixture.createCount).toBe(1);
+    fixture.omitInstanceFromList(false); await cloud.refresh();
+    expect(launch.instanceId).toBe(777);
+    await cloud.cancel(launch); expect(launch.safetyStatus).toBe('stopped');
+  });
   it('recognizes the live public_key response shape without registering the same key again', async () => {
     const { cloud, fixture, identity } = await manager(); vi.mocked(cloud.ensureSshKey).mockRestore();
     expect(await cloud.ensureSshKey()).toBe(identity); expect(fixture.calls.map(c => c.method + ' ' + c.url.pathname)).toEqual(['GET /api/v0/ssh/']);

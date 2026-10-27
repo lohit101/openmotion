@@ -1,0 +1,16 @@
+{
+  "incident": "Cancelled rejected rental became an unconfirmed blocker",
+  "launch": [
+    {
+      "id": "65c8a4c2-b894-4b89-8d2e-d03453435983",
+      "phase": "failed",
+      "instanceId": null,
+      "message": "The rental request was rejected and no matching instance exists. Choose a fresh offer; no compute stop is pending.",
+      "failureCode": "setup-failed",
+      "safetyStatus": "disarmed"
+    }
+  ],
+  "providerError": null,
+  "instances": [],
+  "remainingUnconfirmed": []
+}

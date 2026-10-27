@@ -46,6 +46,12 @@ export class PreflightError extends Error { constructor(message: string, public 
 export function computeIsStopped(instance: any) {
   return instance.actual_status === 'stopped' || (instance.actual_status === 'exited' && [instance.intended_status, instance.cur_state, instance.next_state].includes('stopped'));
 }
+function rejectedWithoutInstance(launch: CloudLaunch) {
+  // A lost response has its own request-unconfirmed code. Other recorded
+  // terminal failures without an ID happened before creation or were rejected
+  // by the provider. Refresh still checks the unique rental label first.
+  return !launch.instanceId && !!launch.failureCode && launch.failureCode !== 'request-unconfirmed';
+}
 export function fatalContainerStatus(message: unknown) {
   const value = String(message || '').trim();
   // Some hosts leave actual_status=loading after their builder has failed.
@@ -282,6 +288,10 @@ export class CloudManager {
         for (const launch of this.state.launches) {
           const instance = this.rawInstances.find(i => i.id === launch.instanceId || (!launch.instanceId && i.label === launch.label));
           if (instance && !launch.instanceId) { launch.instanceId = instance.id; if (this.activeLaunch !== launch.id) { launch.phase = 'failed'; launch.message = 'Rental recovered. Checking its compute safety before continuing.'; } }
+          if (!instance && this.activeLaunch !== launch.id && launch.phase === 'unknown' && launch.safetyStatus === 'unconfirmed' && rejectedWithoutInstance(launch)) {
+            launch.phase = 'failed'; launch.safetyStatus = 'disarmed'; launch.setupDeadline = null;
+            launch.message = 'The rental request was rejected and no matching instance exists. Choose a fresh offer; no compute stop is pending.';
+          }
           if (!instance && launch.instanceId && this.activeLaunch !== launch.id && !['checking', 'requesting'].includes(launch.phase)) {
             if (launch.autoCleanup) this.markCleanupConfirmed(launch);
             else { launch.phase = 'destroyed'; launch.setupDeadline = null; launch.safetyStatus = 'disarmed'; launch.message = 'Instance no longer exists. Local inputs and completed results remain available.'; }
@@ -429,14 +439,23 @@ export class CloudManager {
       await this.localPreflight(identity);
       const fresh = await this.verifyOffer(launch.offer, filters, ceiling, launch.approvedTransfer);
       if (this.closing || this.stopped.has(launch.id)) return;
-      launch.offer = fresh; launch.creationAttempted = true; this.change(launch, 'requesting', 'Creating your Vast instance. Billing begins when the rental starts.');
+      launch.offer = fresh; launch.failureCode = undefined; launch.lastFailure = undefined; launch.creationAttempted = true; this.change(launch, 'requesting', 'Creating your Vast instance. Billing begins when the rental starts.');
       const response = await this.client.request(`/api/v0/asks/${fresh.id}/`, 'PUT', { client_id: 'me', image: RENTAL_IMAGE, disk: fresh.disk, label: launch.label, runtype: 'ssh_direct', target_state: 'running', cancel_unavail: true, onstart: SSH_ONSTART });
       const id = Number(response?.new_contract); if (!Number.isSafeInteger(id) || id <= 0) throw new VastError('Vast accepted the request without an instance ID. Check instances before retrying.', 503, true);
       launch.instanceId = id;
       if (this.closing) { launch.needsReconnect = true; this.change(launch, 'waiting', 'Rental created. Reconnect setup to follow the existing instance.'); return; }
       if (this.stopped.has(launch.id)) { await this.stopRental(launch, 'Launch cancelled while the rental request was in progress.'); return; }
       this.change(launch, 'waiting', 'Rental created. Waiting for the container and SSH port.'); await this.prepareGuarded(launch, identity);
-    } catch (error) { if (!this.closing && !this.stopped.has(launch.id)) await this.failedSetup(launch, error); else if (launch.creationAttempted && !launch.instanceId) { launch.safetyStatus = 'unconfirmed'; launch.phase = 'unknown'; launch.lastFailure = (error as Error).message; this.emit(); } }
+    } catch (error) {
+      if (!this.closing && !this.stopped.has(launch.id)) await this.failedSetup(launch, error);
+      else if (launch.creationAttempted && !launch.instanceId) {
+        launch.lastFailure = (error as Error).message;
+        if (error instanceof VastError && !error.ambiguous) {
+          launch.failureCode = 'setup-failed'; launch.safetyStatus = 'disarmed';
+          this.change(launch, 'failed', 'The cancelled rental request was rejected. No instance was created.');
+        } else { launch.safetyStatus = 'unconfirmed'; launch.phase = 'unknown'; this.emit(); }
+      }
+    }
     finally { if (this.activeLaunch === launch.id) { this.state.busy = false; this.activeLaunch = null; this.emit(); } await this.refresh(); }
   }
   async continue(launch: CloudLaunch) {
@@ -670,6 +689,13 @@ export class CloudManager {
     if (this.activeLaunch === launch.id) { this.activeAbort?.abort(new Error('Launch cancelled.')); this.stopProvision(); }
     launch.lastFailure = 'Launch cancelled by you.'; launch.setupDeadline = null;
     if (launch.instanceId) { this.interruptLocalRender(launch.instanceId, 'The GPU launch was cancelled.'); await this.stopRental(launch, launch.lastFailure); }
+    else if (this.activeLaunch !== launch.id && rejectedWithoutInstance(launch)) {
+      // Do not convert a definitive rejection into an ambiguous paid request.
+      await this.refresh();
+      if (this.state.error) throw new Error(this.state.error);
+      if (launch.instanceId) await this.stopRental(launch, 'Cancelled rental recovered by its exact label.');
+      else { launch.safetyStatus = 'disarmed'; this.change(launch, 'failed', 'Cancelled. The rental request was rejected and no instance exists.'); }
+    }
     else if (launch.creationAttempted) { launch.safetyStatus = 'unconfirmed'; this.change(launch, 'unknown', 'Cancellation requested. Checking whether Vast accepted the rental so its compute can be stopped. No second rental will be created.'); }
     else { launch.safetyStatus = 'disarmed'; this.change(launch, 'failed', 'Launch cancelled before any rental request was sent.'); }
     return launch;
