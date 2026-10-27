@@ -1,0 +1,552 @@
+{
+  "checkedAt": "2026-10-27T07:43:51.274079+00:00",
+  "filters": {
+    "disk": 80,
+    "ram": 64,
+    "verified": true,
+    "minDownload": 500,
+    "sort": "price",
+    "minimumReportedReliabilityForRecommendations": 0.98
+  },
+  "computeCeiling": 0.7,
+  "downloadCeilingPerGB": 0.005,
+  "note": "Read-only offer search. No rental or inference. Prices in USD; storage separated. Reliability is provider reported. Returned counts are search results, not total market supply.",
+  "results": [
+    {
+      "gpu": "RTX PRO 4000",
+      "returned": 4,
+      "reliableCount": 2,
+      "cheapest": [
+        {
+          "gpu": "RTX PRO 4000",
+          "vram": 23.8935546875,
+          "ram": 128.78,
+          "verified": true,
+          "reliability": 0.9709882,
+          "computeHourly": 0.3333333333333333,
+          "storageHourly": 0.014814814814814812,
+          "totalHourly": 0.34814814814814815,
+          "downloadPerGB": 0.0026041666666666665,
+          "downloadMbps": 3495.5,
+          "pcie": 26.9,
+          "diskBandwidth": 650
+        },
+        {
+          "gpu": "RTX PRO 4000",
+          "vram": 23.8935546875,
+          "ram": 64.365,
+          "verified": true,
+          "reliability": 0.9880699,
+          "computeHourly": 0.32,
+          "storageHourly": 0.037037037037037035,
+          "totalHourly": 0.35703703703703704,
+          "downloadPerGB": 0.0026041666666666665,
+          "downloadMbps": 1963.6,
+          "pcie": 12.4,
+          "diskBandwidth": 3363
+        }
+      ],
+      "reliableCheapest": [
+        {
+          "gpu": "RTX PRO 4000",
+          "vram": 23.8935546875,
+          "ram": 64.365,
+          "verified": true,
+          "reliability": 0.9880699,
+          "computeHourly": 0.32,
+          "storageHourly": 0.037037037037037035,
+          "totalHourly": 0.35703703703703704,
+          "downloadPerGB": 0.0026041666666666665,
+          "downloadMbps": 1963.6,
+          "pcie": 12.4,
+          "diskBandwidth": 3363
+        },
+        {
+          "gpu": "RTX PRO 4000",
+          "vram": 23.8935546875,
+          "ram": 96.573,
+          "verified": true,
+          "reliability": 0.9949474,
+          "computeHourly": 0.38666666666666666,
+          "storageHourly": 0.037037037037037035,
+          "totalHourly": 0.4237037037037037,
+          "downloadPerGB": 0.0026041666666666665,
+          "downloadMbps": 826.1,
+          "pcie": 11.8,
+          "diskBandwidth": 3260
+        }
+      ],
+      "searchedAt": "2026-10-27T07:43:50.936Z"
+    },
+    {
+      "gpu": "RTX PRO 4500",
+      "returned": 0,
+      "reliableCount": 0,
+      "cheapest": [],
+      "reliableCheapest": [],
+      "searchedAt": "2026-10-27T07:43:50.918Z"
+    },
+    {
+      "gpu": "RTX PRO 5000",
+      "returned": 3,
+      "reliableCount": 3,
+      "cheapest": [
+        {
+          "gpu": "RTX PRO 5000",
+          "vram": 47.7880859375,
+          "ram": 73.676,
+          "verified": true,
+          "reliability": 0.9933424,
+          "computeHourly": 0.6666666666666666,
+          "storageHourly": 0.022222222222222223,
+          "totalHourly": 0.6888888888888889,
+          "downloadPerGB": 2.6041666666666666e-06,
+          "downloadMbps": 4252,
+          "pcie": 26.5,
+          "diskBandwidth": 7113.200000000001
+        },
+        {
+          "gpu": "RTX PRO 5000",
+          "vram": 47.7880859375,
+          "ram": 96.527,
+          "verified": true,
+          "reliability": 0.9972406,
+          "computeHourly": 0.6666666666666666,
+          "storageHourly": 0.037037037037037035,
+          "totalHourly": 0.7037037037037037,
+          "downloadPerGB": 0.00390625,
+          "downloadMbps": 2044.9,
+          "pcie": 54.3,
+          "diskBandwidth": 9623
+        }
+      ],
+      "reliableCheapest": [
+        {
+          "gpu": "RTX PRO 5000",
+          "vram": 47.7880859375,
+          "ram": 73.676,
+          "verified": true,
+          "reliability": 0.9933424,
+          "computeHourly": 0.6666666666666666,
+          "storageHourly": 0.022222222222222223,
+          "totalHourly": 0.6888888888888889,
+          "downloadPerGB": 2.6041666666666666e-06,
+          "downloadMbps": 4252,
+          "pcie": 26.5,
+          "diskBandwidth": 7113.200000000001
+        },
+        {
+          "gpu": "RTX PRO 5000",
+          "vram": 47.7880859375,
+          "ram": 96.527,
+          "verified": true,
+          "reliability": 0.9972406,
+          "computeHourly": 0.6666666666666666,
+          "storageHourly": 0.037037037037037035,
+          "totalHourly": 0.7037037037037037,
+          "downloadPerGB": 0.00390625,
+          "downloadMbps": 2044.9,
+          "pcie": 54.3,
+          "diskBandwidth": 9623
+        },
+        {
+          "gpu": "RTX PRO 5000",
+          "vram": 71.6943359375,
+          "ram": 94.178,
+          "verified": true,
+          "reliability": 0.9981739,
+          "computeHourly": 0.6933333333333334,
+          "storageHourly": 0.029629629629629624,
+          "totalHourly": 0.722962962962963,
+          "downloadPerGB": 0.0026041666666666665,
+          "downloadMbps": 1447.6,
+          "pcie": 54.9,
+          "diskBandwidth": 5609
+        }
+      ],
+      "searchedAt": "2026-10-27T07:43:50.458Z"
+    },
+    {
+      "gpu": "RTX 5090",
+      "returned": 7,
+      "reliableCount": 2,
+      "cheapest": [
+        {
+          "gpu": "RTX 5090",
+          "vram": 31.8427734375,
+          "ram": 64.397,
+          "verified": true,
+          "reliability": 0.9788085,
+          "computeHourly": 0.5333333333333333,
+          "storageHourly": 0.022222222222222227,
+          "totalHourly": 0.5555555555555556,
+          "downloadPerGB": 0.0026041666666666665,
+          "downloadMbps": 734.7,
+          "pcie": 27,
+          "diskBandwidth": 3509.2999999999997
+        },
+        {
+          "gpu": "RTX 5090",
+          "vram": 31.8427734375,
+          "ram": 128.675,
+          "verified": true,
+          "reliability": 0.9894046,
+          "computeHourly": 0.604,
+          "storageHourly": 0.014814814814814812,
+          "totalHourly": 0.6188148148148148,
+          "downloadPerGB": 0.00390625,
+          "downloadMbps": 1997,
+          "pcie": 16.8,
+          "diskBandwidth": 240
+        }
+      ],
+      "reliableCheapest": [
+        {
+          "gpu": "RTX 5090",
+          "vram": 31.8427734375,
+          "ram": 128.675,
+          "verified": true,
+          "reliability": 0.9894046,
+          "computeHourly": 0.604,
+          "storageHourly": 0.014814814814814812,
+          "totalHourly": 0.6188148148148148,
+          "downloadPerGB": 0.00390625,
+          "downloadMbps": 1997,
+          "pcie": 16.8,
+          "diskBandwidth": 240
+        },
+        {
+          "gpu": "RTX 5090",
+          "vram": 31.8427734375,
+          "ram": 128.958,
+          "verified": true,
+          "reliability": 0.9946474,
+          "computeHourly": 0.6,
+          "storageHourly": 0.09629629629629628,
+          "totalHourly": 0.6962962962962963,
+          "downloadPerGB": 1.3020833333333333e-06,
+          "downloadMbps": 852.3,
+          "pcie": 26.9,
+          "diskBandwidth": 3014.3100000000004
+        }
+      ],
+      "searchedAt": "2026-10-27T07:43:50.978Z"
+    },
+    {
+      "gpu": "L40S",
+      "returned": 1,
+      "reliableCount": 1,
+      "cheapest": [
+        {
+          "gpu": "L40S",
+          "vram": 44.98828125,
+          "ram": 128.97,
+          "verified": true,
+          "reliability": 0.9935774,
+          "computeHourly": 0.5333333333333333,
+          "storageHourly": 0.022222222222222223,
+          "totalHourly": 0.5555555555555556,
+          "downloadPerGB": 0.00390625,
+          "downloadMbps": 717.9,
+          "pcie": 25.5,
+          "diskBandwidth": 5035.22
+        }
+      ],
+      "reliableCheapest": [
+        {
+          "gpu": "L40S",
+          "vram": 44.98828125,
+          "ram": 128.97,
+          "verified": true,
+          "reliability": 0.9935774,
+          "computeHourly": 0.5333333333333333,
+          "storageHourly": 0.022222222222222223,
+          "totalHourly": 0.5555555555555556,
+          "downloadPerGB": 0.00390625,
+          "downloadMbps": 717.9,
+          "pcie": 25.5,
+          "diskBandwidth": 5035.22
+        }
+      ],
+      "searchedAt": "2026-10-27T07:43:50.771Z"
+    },
+    {
+      "gpu": "A100 PCIE",
+      "returned": 2,
+      "reliableCount": 2,
+      "cheapest": [
+        {
+          "gpu": "A100 PCIE",
+          "vram": 40,
+          "ram": 128.913,
+          "verified": true,
+          "reliability": 0.9822137,
+          "computeHourly": 0.6,
+          "storageHourly": 0.037037037037037035,
+          "totalHourly": 0.6370370370370371,
+          "downloadPerGB": 0.0026041666666666665,
+          "downloadMbps": 609,
+          "pcie": 24.4,
+          "diskBandwidth": 3471.5
+        },
+        {
+          "gpu": "A100 PCIE",
+          "vram": 40,
+          "ram": 64.474,
+          "verified": true,
+          "reliability": 0.9962032,
+          "computeHourly": 0.6666666666666666,
+          "storageHourly": 0.014814814814814812,
+          "totalHourly": 0.6814814814814815,
+          "downloadPerGB": 0.0026041666666666665,
+          "downloadMbps": 900.6,
+          "pcie": 21.8,
+          "diskBandwidth": 6976
+        }
+      ],
+      "reliableCheapest": [
+        {
+          "gpu": "A100 PCIE",
+          "vram": 40,
+          "ram": 128.913,
+          "verified": true,
+          "reliability": 0.9822137,
+          "computeHourly": 0.6,
+          "storageHourly": 0.037037037037037035,
+          "totalHourly": 0.6370370370370371,
+          "downloadPerGB": 0.0026041666666666665,
+          "downloadMbps": 609,
+          "pcie": 24.4,
+          "diskBandwidth": 3471.5
+        },
+        {
+          "gpu": "A100 PCIE",
+          "vram": 40,
+          "ram": 64.474,
+          "verified": true,
+          "reliability": 0.9962032,
+          "computeHourly": 0.6666666666666666,
+          "storageHourly": 0.014814814814814812,
+          "totalHourly": 0.6814814814814815,
+          "downloadPerGB": 0.0026041666666666665,
+          "downloadMbps": 900.6,
+          "pcie": 21.8,
+          "diskBandwidth": 6976
+        }
+      ],
+      "searchedAt": "2026-10-27T07:43:51.111Z"
+    },
+    {
+      "gpu": "RTX A6000",
+      "returned": 0,
+      "reliableCount": 0,
+      "cheapest": [],
+      "reliableCheapest": [],
+      "searchedAt": "2026-10-27T07:43:51.220Z"
+    },
+    {
+      "gpu": "A40",
+      "returned": 4,
+      "reliableCount": 3,
+      "cheapest": [
+        {
+          "gpu": "A40",
+          "vram": 47.98828125,
+          "ram": 512.984,
+          "verified": true,
+          "reliability": 0.9887968,
+          "computeHourly": 0.5333333333333333,
+          "storageHourly": 0.022222222222222223,
+          "totalHourly": 0.5555555555555556,
+          "downloadPerGB": 0.0026041666666666665,
+          "downloadMbps": 527.9,
+          "pcie": 24.9,
+          "diskBandwidth": 367.81
+        },
+        {
+          "gpu": "A40",
+          "vram": 44.98828125,
+          "ram": 512.984,
+          "verified": true,
+          "reliability": 0.9883634,
+          "computeHourly": 0.5333333333333333,
+          "storageHourly": 0.022222222222222223,
+          "totalHourly": 0.5555555555555556,
+          "downloadPerGB": 0.0026041666666666665,
+          "downloadMbps": 5850.1,
+          "pcie": 25,
+          "diskBandwidth": 366
+        }
+      ],
+      "reliableCheapest": [
+        {
+          "gpu": "A40",
+          "vram": 47.98828125,
+          "ram": 512.984,
+          "verified": true,
+          "reliability": 0.9887968,
+          "computeHourly": 0.5333333333333333,
+          "storageHourly": 0.022222222222222223,
+          "totalHourly": 0.5555555555555556,
+          "downloadPerGB": 0.0026041666666666665,
+          "downloadMbps": 527.9,
+          "pcie": 24.9,
+          "diskBandwidth": 367.81
+        },
+        {
+          "gpu": "A40",
+          "vram": 44.98828125,
+          "ram": 512.984,
+          "verified": true,
+          "reliability": 0.9883634,
+          "computeHourly": 0.5333333333333333,
+          "storageHourly": 0.022222222222222223,
+          "totalHourly": 0.5555555555555556,
+          "downloadPerGB": 0.0026041666666666665,
+          "downloadMbps": 5850.1,
+          "pcie": 25,
+          "diskBandwidth": 366
+        },
+        {
+          "gpu": "A40",
+          "vram": 44.98828125,
+          "ram": 512.984,
+          "verified": true,
+          "reliability": 0.9882126,
+          "computeHourly": 0.5333333333333333,
+          "storageHourly": 0.022222222222222223,
+          "totalHourly": 0.5555555555555556,
+          "downloadPerGB": 0.0026041666666666665,
+          "downloadMbps": 8933.2,
+          "pcie": 24.9,
+          "diskBandwidth": 3629.6667745124605
+        }
+      ],
+      "searchedAt": "2026-10-27T07:43:51.273Z"
+    },
+    {
+      "gpu": "L40",
+      "returned": 0,
+      "reliableCount": 0,
+      "cheapest": [],
+      "reliableCheapest": [],
+      "searchedAt": "2026-10-27T07:44:37.297Z"
+    },
+    {
+      "gpu": "RTX 6000Ada",
+      "returned": 0,
+      "reliableCount": 0,
+      "cheapest": [],
+      "reliableCheapest": [],
+      "searchedAt": "2026-10-27T07:44:37.275Z"
+    },
+    {
+      "gpu": "RTX 4090",
+      "returned": 18,
+      "reliableCount": 13,
+      "cheapest": [
+        {
+          "gpu": "RTX 4090",
+          "vram": 23.98828125,
+          "ram": 64.451,
+          "verified": true,
+          "reliability": 0.9080153,
+          "computeHourly": 0.4266666666666667,
+          "storageHourly": 0.022222222222222223,
+          "totalHourly": 0.4488888888888889,
+          "downloadPerGB": 0.0013020833333333333,
+          "downloadMbps": 937.8,
+          "pcie": 12.8,
+          "diskBandwidth": 3886
+        }
+      ],
+      "reliableCheapest": [
+        {
+          "gpu": "RTX 4090",
+          "vram": 23.98828125,
+          "ram": 64.397,
+          "verified": true,
+          "reliability": 0.9974521,
+          "computeHourly": 0.38666666666666666,
+          "storageHourly": 0.07407407407407407,
+          "totalHourly": 0.46074074074074073,
+          "downloadPerGB": 0.0013020833333333333,
+          "downloadMbps": 569.8,
+          "pcie": 22.5,
+          "diskBandwidth": 1281
+        },
+        {
+          "gpu": "RTX 4090",
+          "vram": 23.98828125,
+          "ram": 107.485,
+          "verified": true,
+          "reliability": 0.9899203,
+          "computeHourly": 0.45333333333333337,
+          "storageHourly": 0.022222222222222223,
+          "totalHourly": 0.47555555555555556,
+          "downloadPerGB": 0.0026041666666666665,
+          "downloadMbps": 720.5,
+          "pcie": 8.5,
+          "diskBandwidth": 5235.1
+        }
+      ],
+      "searchedAt": "2026-10-27T07:44:37.266Z"
+    },
+    {
+      "gpu": "RTX 3090",
+      "returned": 11,
+      "reliableCount": 10,
+      "cheapest": [
+        {
+          "gpu": "RTX 3090",
+          "vram": 24,
+          "ram": 64.364,
+          "verified": true,
+          "reliability": 0.9897036,
+          "computeHourly": 0.26666666666666666,
+          "storageHourly": 0.022222222222222223,
+          "totalHourly": 0.28888888888888886,
+          "downloadPerGB": 0.0026041666666666665,
+          "downloadMbps": 671.8,
+          "pcie": 11.6,
+          "diskBandwidth": 592.1613576837793
+        }
+      ],
+      "reliableCheapest": [
+        {
+          "gpu": "RTX 3090",
+          "vram": 24,
+          "ram": 64.364,
+          "verified": true,
+          "reliability": 0.9897036,
+          "computeHourly": 0.26666666666666666,
+          "storageHourly": 0.022222222222222223,
+          "totalHourly": 0.28888888888888886,
+          "downloadPerGB": 0.0026041666666666665,
+          "downloadMbps": 671.8,
+          "pcie": 11.6,
+          "diskBandwidth": 592.1613576837793
+        },
+        {
+          "gpu": "RTX 3090",
+          "vram": 24,
+          "ram": 64.139,
+          "verified": true,
+          "reliability": 0.9881622,
+          "computeHourly": 0.26,
+          "storageHourly": 0.029629629629629624,
+          "totalHourly": 0.2896296296296296,
+          "downloadPerGB": 0.0026041666666666665,
+          "downloadMbps": 932.5,
+          "pcie": 23.4,
+          "diskBandwidth": 190
+        }
+      ],
+      "searchedAt": "2026-10-27T07:44:37.269Z"
+    }
+  ],
+  "additionalSearchesCompletedAt": "2026-10-27T07:44:37.297Z",
+  "newRentals": 0,
+  "newPaidRenders": 0,
+  "modelWeightDownloads": 0
+}
