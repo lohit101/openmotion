@@ -174,11 +174,23 @@ def prepare(request, folder, model):
     atomic_png(folder / "original.png", source)
     qwen = s.get("model") == "qwen21"
     scene = qwen and request.get("version") in ("scene-anchor-v1", "scene-anchor-v2", "scene-anchor-v3", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7", "scene-anchor-v8")
-    native_mask = request.get("version") in ("native-mask-v1", "native-scene-v1", "identity-first-v1", "identity-first-v2", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7", "scene-anchor-v8")
+    body_identity = request.get('version') == 'body-identity-v1'
+    native_mask = body_identity or request.get("version") in ("native-mask-v1", "native-scene-v1", "identity-first-v1", "identity-first-v2", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7", "scene-anchor-v8")
     head_refine = (scene or native_mask) and s.get("qwenHeadRefine", False)
     reference_input, cropped = reference_field_of_view(reference, source, model) if request.get("version") == "masked-latent-v4" and not qwen else (reference, False)
     atomic_png(folder / "identity.png", padded(reference_input, 590_000 if qwen else 1_000_000, 32 if qwen else 16))
     outputs = ["target.png", "original.png", "identity.png"]
+    if body_identity and s.get('qwenNormalizeReference', False):
+        # Preserve visible anatomy while giving native Qwen a square output
+        # canvas. Padding is explicit; never stretch the reference body.
+        rh, rw = reference.shape[:2]
+        scale = 1024 / max(rh, rw)
+        cw, ch = round(rw * scale), round(rh * scale)
+        square = np.full((1024, 1024, 3), 240, np.uint8)
+        x, y = (1024 - cw) // 2, (1024 - ch) // 2
+        square[y:y + ch, x:x + cw] = cv2.resize(reference, (cw, ch), interpolation=cv2.INTER_AREA)
+        atomic_png(folder / 'body-reference-canvas.png', square)
+        outputs.append('body-reference-canvas.png')
     if local_identity:
         outputs += ['identity-anchored-target.png', 'identity-anchored-target.identity.json']
     warnings, has_face = [], False
@@ -246,7 +258,7 @@ def prepare(request, folder, model):
             mask = np.minimum(mask, cv2.GaussianBlur(mask, (0, 0), max(.1, s["feather"] / 2)))
         atomic_png(folder / "edit-mask.png", mask)
         outputs.append("edit-mask.png")
-        if scene or request.get("version") in ["masked-latent-v2", "masked-latent-v3", "masked-latent-v4", "native-mask-v1", "native-scene-v1", "identity-first-v1", "identity-first-v2"]:
+        if scene or body_identity or request.get("version") in ["masked-latent-v2", "masked-latent-v3", "masked-latent-v4", "native-mask-v1", "native-scene-v1", "identity-first-v1", "identity-first-v2"]:
             small_mask = cv2.resize(mask, (g["contentWidth"], g["contentHeight"]), interpolation=cv2.INTER_AREA)
             working_mask = cv2.copyMakeBorder(small_mask, g["y"], g["height"] - g["contentHeight"] - g["y"], g["x"], g["width"] - g["contentWidth"] - g["x"], cv2.BORDER_CONSTANT, value=0)
             atomic_png(folder / "working-mask.png", working_mask)
@@ -263,7 +275,7 @@ def prepare(request, folder, model):
         x, y, fw, fh = faces[0]["bbox"]
         sx, sy = g["contentWidth"] / source.shape[1], g["contentHeight"] / source.shape[0]
         center = (round((x + fw / 2) * sx + g["x"]), round((y + fh / 2) * sy + g["y"]))
-        axes = (max(1, round(fw * (.58 if native_mask else .72) * sx)), max(1, round(fh * (.65 if native_mask else .85) * sy)))
+        axes = (max(1, round(fw * (.44 if body_identity else .58 if native_mask else .72) * sx)), max(1, round(fh * (.46 if body_identity else .65 if native_mask else .85) * sy)))
         face_mask = np.zeros((g["height"], g["width"]), dtype=np.uint8)
         cv2.ellipse(face_mask, center, axes, 0, 0, 360, 255, -1)
         face_mask = cv2.GaussianBlur(face_mask, (0, 0), max(2, min(axes) * .08))
@@ -382,9 +394,9 @@ def finish(request, folder, model):
     atomic_png(folder / "final.png", output)
     faces = {}
     settings = request["settings"]
-    face_used = (settings.get("model") != "qwen21" and (settings["faceDetail"] or settings.get("identityRefine", False))) or (request.get("version") in ("scene-anchor-v1", "scene-anchor-v2", "scene-anchor-v3", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7", "scene-anchor-v8", "native-mask-v1", "native-scene-v1", "identity-first-v1", "identity-first-v2") and settings.get("qwenHeadRefine", False))
+    face_used = (settings.get("model") != "qwen21" and (settings["faceDetail"] or settings.get("identityRefine", False))) or (request.get("version") in ("scene-anchor-v1", "scene-anchor-v2", "scene-anchor-v3", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7", "scene-anchor-v8", "native-mask-v1", "native-scene-v1", "identity-first-v1", "identity-first-v2", "body-identity-v1") and settings.get("qwenHeadRefine", False))
     reference_file = (request.get("face") if face_used else None) or request["reference"]
-    if request.get("version") in ("native-mask-v1", "native-scene-v1", "identity-first-v1", "identity-first-v2", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7", "scene-anchor-v8") and face_used:
+    if request.get("version") in ("native-mask-v1", "native-scene-v1", "identity-first-v1", "identity-first-v2", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7", "scene-anchor-v8", "body-identity-v1") and face_used:
         reference_file = str(folder / "face.png")
     for name, image in [("source", source), ("reference", read_image(reference_file)), ("output", output)]:
         found = detect(image, model)

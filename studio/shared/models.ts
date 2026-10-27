@@ -25,11 +25,14 @@ export const imageModelFiles = repaint.files.map(file => file.destination);
 export const IMAGE_IDENTITY = 'bfs_head_v1_flux-klein_4b.safetensors';
 export const qwenImageModelFiles = qwenImage.files.map(file => file.destination);
 export const QWEN_STRUCTURE = 'model_patches/qwen_image_2.1_fun_controlnet_union.safetensors';
+export const QWEN_BODY = 'bfs_body_swap_v1.0_qwen_2.1.safetensors';
 export const QWEN_HEAD = 'bfs_head_v1.1_qwen_2.1.safetensors';
 export const QWEN_OUTFIT = 'qwen-image-2.1-outfit-swap.safetensors';
 export const QWEN_CONSISTENCY = 'qwen-image-2.1-consistency.safetensors';
 export const imageFilesForSettings = (settings: ImageSettings): string[] => settings.model === 'qwen21'
-  ? settings.qwenRecipe === 'identity-first'
+  ? settings.qwenRecipe === 'body-identity'
+    ? [...qwenImageModelFiles.filter(file => !file.startsWith('loras/')), 'loras/' + QWEN_BODY, 'loras/' + QWEN_HEAD, ...(settings.qwenRelight ? ['loras/' + QWEN_CONSISTENCY] : [])]
+    : settings.qwenRecipe === 'identity-first'
     ? [...qwenImageModelFiles.filter(file => !file.startsWith('loras/')), 'loras/' + QWEN_HEAD, 'loras/' + QWEN_OUTFIT, ...(settings.qwenRelight ? ['loras/' + QWEN_CONSISTENCY] : [])]
     : ['native-masked', 'native-scene'].includes(settings.qwenRecipe)
     ? [...qwenImageModelFiles.filter(file => !file.startsWith('loras/')), ...(settings.qwenHeadRefine ? ['loras/' + QWEN_HEAD] : [])]

@@ -3,7 +3,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { defaults, type Catalog, type Job } from '../shared/types';
 import { defaultImagePrompt, emptyImageDraft, imageDefaults, imageGeometry, imagePrompt, isImageJob, legacyImagePrompt } from '../shared/image-replacement';
-import { IMAGE_IDENTITY, QWEN_HEAD, QWEN_STRUCTURE, QWEN_OUTFIT, QWEN_CONSISTENCY, imageFilesForSettings, imageModelFiles, modelBytes, pinnedModels, qwenImageModelFiles } from '../shared/models';
+import { IMAGE_IDENTITY, QWEN_BODY, QWEN_HEAD, QWEN_STRUCTURE, QWEN_OUTFIT, QWEN_CONSISTENCY, imageFilesForSettings, imageModelFiles, modelBytes, pinnedModels, qwenImageModelFiles } from '../shared/models';
 import { compileWorkflow, validateGraph } from '../server/workflow';
 import { applyProgress } from '../server/comfy';
 import { publicJob } from '../server/store';
@@ -25,6 +25,34 @@ function fixture(): Job {
     uploads: { source: 'target.png', reference: 'identity.png', face: 'face.png', original: 'original.png', mask: 'mask.png', noiseMask: 'mask.png' }, segments: [], context: '', pendingPrompt: null, error: null, output: null, poster: null, cancelRequested: false, elapsedSeconds: null, origin: 'render', workflow: null };
 }
 describe('source-preserving Klein image replacement', () => {
+  it('transfers physique before the accepted independent head stage, without an outfit adapter that restores source anatomy', () => {
+    const job = fixture(); job.image!.version = 'body-identity-v1';
+    job.image!.settings = { ...imageDefaults, model: 'qwen21', qwenRecipe: 'body-identity', qwenHeadRefine: true, qwenNormalizeReference: true, qwenRelight: true, localIdentity: true };
+    job.uploads!.bodyReference = 'identity.png';
+    const graph = compileWorkflow({}, job);
+    expect(validateGraph(graph, catalog)).toEqual([]);
+    expect(graph['502'].inputs.model).toEqual(['102', 0]);
+    expect(graph['106'].inputs).toMatchObject({ model: ['102', 0], lora_name: QWEN_BODY });
+    expect(graph['108'].inputs['images.image_1']).toEqual(['1', 0]);
+    expect(graph['108'].inputs['images.image_2']).toEqual(['506', 0]);
+    expect(graph['108'].inputs['images.image_3']).toBeUndefined();
+    expect(graph['206'].inputs).toMatchObject({ model: ['102', 0], lora_name: QWEN_HEAD });
+    expect(graph['208'].inputs['images.image_1']).toEqual(['153', 0]);
+    expect(graph['208'].inputs['images.image_2']).toEqual(['4', 0]);
+    expect(graph['218'].inputs).toMatchObject({ seed: job.image!.settings.seed, steps: 20, sampler_name: 'res_multistep', scheduler: 'beta' });
+    expect(Object.values(graph).some(node => node.inputs.lora_name === QWEN_OUTFIT)).toBe(false);
+    expect(graph['223']).toBeUndefined();
+    expect(graph['324'].inputs.images).toEqual(['320', 0]);
+    expect(imageFilesForSettings(job.image!.settings)).toContain('loras/' + QWEN_BODY);
+    expect(imageFilesForSettings(job.image!.settings)).not.toContain('loras/' + QWEN_OUTFIT);
+    expect(imageFilesForSettings(job.image!.settings)).not.toContain(QWEN_STRUCTURE);
+    expect(imageFilesForSettings(job.image!.settings).some(file => file.includes('turbo'))).toBe(false);
+    job.image!.settings.qwenNormalizeReference = false; job.image!.settings.qwenRelight = false;
+    const direct = compileWorkflow({}, job);
+    expect(direct['501']).toBeUndefined(); expect(direct['318']).toBeUndefined();
+    expect(direct['108'].inputs['images.image_2']).toEqual(['4', 0]);
+    expect(direct['324'].inputs.images).toEqual(['220', 0]);
+  });
   it('uses a separate draft and only the existing three image models', () => {
     expect(emptyImageDraft().settings.prompt).toBe(defaultImagePrompt);
     expect(emptyImageDraft().settings.protectBackground).toBe(true);

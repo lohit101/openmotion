@@ -122,7 +122,8 @@ export class Runner {
           files.push(['structure', 'source-structure.png']);
           if (job.image!.settings.qwenHeadRefine) files.push(['faceMask', 'face-refine-mask.png'], ['bodyMask', 'body-mask.png']);
         }
-        if (['native-mask-v1', 'native-scene-v1', 'identity-first-v1', 'identity-first-v2'].includes(job.image!.version || '') && job.image!.settings.qwenHeadRefine) files.push(['faceMask', 'face-refine-mask.png']);
+        if (['native-mask-v1', 'native-scene-v1', 'identity-first-v1', 'identity-first-v2', 'body-identity-v1'].includes(job.image!.version || '') && job.image!.settings.qwenHeadRefine) files.push(['faceMask', 'face-refine-mask.png']);
+        if (job.image!.version === 'body-identity-v1' && job.image!.settings.qwenNormalizeReference) files.push(['bodyReference', 'body-reference-canvas.png']);
         const uploads: Record<string, string> = {};
         for (const [key, name] of files) { this.stage(job, 'Transferring image inputs to GPU', Object.keys(uploads).length, files.length, 'inputs'); uploads[key] = await client.upload(path.join(folder, name), job.id + '-' + key, signal); this.checkCancelled(job); }
         if (job.image!.version && job.image!.settings.protectBackground && nativeMask) uploads.noiseMask = uploads.mask;

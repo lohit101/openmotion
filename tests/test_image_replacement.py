@@ -95,6 +95,25 @@ class ImageReplacementTests(unittest.TestCase):
         np.testing.assert_array_equal(guide[mask == 0], old[mask == 0])
         self.assertTrue(np.any(guide[mask > 0]))
 
+    def test_body_reference_square_canvas_keeps_aspect_and_immutable_anatomy_pixels(self):
+        import cv2
+        import numpy as np
+        with tempfile.TemporaryDirectory() as temp, patch.object(editor, 'detect', return_value=[]):
+            _, _, request, work = self.fixture(Path(temp))
+            reference = cv2.imread(request['reference'])
+            request['version'] = 'body-identity-v1'
+            request['settings'].update(model='qwen21', faceDetail=False, qwenHeadRefine=False, qwenNormalizeReference=True)
+            editor.prepare(request, work, None)
+            canvas = cv2.imread(str(work / 'body-reference-canvas.png'))
+            self.assertEqual(canvas.shape, (1024, 1024, 3))
+            width = round(reference.shape[1] / reference.shape[0] * 1024)
+            left = (1024 - width) // 2
+            expected = cv2.resize(reference, (width, 1024), interpolation=cv2.INTER_AREA)
+            np.testing.assert_array_equal(canvas[:, left:left + width], expected)
+            self.assertTrue(np.all(canvas[:, :left] == 240))
+            self.assertTrue((work / 'working-mask.png').is_file())
+            self.assertIn('body-reference-canvas.png', json.loads((work / 'image-inputs.json').read_text())['outputs'])
+
     def test_scene_integration_preserves_protected_pixels_without_translating_actor(self):
         import cv2
         import numpy as np

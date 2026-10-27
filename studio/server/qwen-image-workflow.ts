@@ -1,3 +1,4 @@
+import { compileQwenBodyWorkflow } from './qwen-body-workflow';
 import type { Graph, Job } from '../shared/types';
 import { defaultImagePrompt, legacyImagePrompt } from '../shared/image-replacement';
 import { compileQwenSceneWorkflow } from './qwen-scene-workflow';
@@ -7,6 +8,7 @@ import { compileQwenIdentityWorkflow } from './qwen-identity-workflow';
 /** Trained whole-person adapter, using its scene-first/person-second contract. */
 export function compileQwenImageWorkflow(job: Job): Graph {
   if (!job.image || !job.uploads) throw new Error('Qwen image inputs have not been prepared.');
+  if (job.image.version === 'body-identity-v1') return compileQwenBodyWorkflow(job);
   if (['identity-first-v1', 'identity-first-v2'].includes(job.image.version || '')) return compileQwenIdentityWorkflow(job);
   if (['native-mask-v1', 'native-scene-v1'].includes(job.image.version || '')) return compileQwenNativeWorkflow(job);
   if (job.image.version?.startsWith('scene-anchor-')) return compileQwenSceneWorkflow(job);
