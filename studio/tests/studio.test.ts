@@ -277,6 +277,8 @@ describe('local app with the captured ComfyUI protocol', () => {
   it('works offline, rejects invalid media and saves drafts without probing a GPU', async () => {
     const agent = await setup(); const values = await inputs(agent);
     expect((await agent.get('/api/bootstrap')).body.connection.state).toBe('offline'); expect(mock!.calls).toEqual([]);
+    await agent.post('/api/cloud/key').send({ key: 'unused-fixture-key' }).expect(404);
+    await agent.delete('/api/cloud/key').expect(404);
     await agent.post('/api/draft').send(values).expect(200); expect(local!.store.draft().sourceId).toBe(values.sourceId);
     await agent.post('/api/jobs').set('Idempotency-Key', 'offline').send(values).expect(503);
     await agent.post('/api/assets/image').attach('file', Buffer.from('not an image'), 'invalid.png').expect(400);

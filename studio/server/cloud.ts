@@ -1,4 +1,4 @@
-import { access, chmod, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import { spawn, type ChildProcess } from 'node:child_process';
 import path from 'node:path';
@@ -176,7 +176,7 @@ export class CloudManager {
   private favouriteChecks = new Map<string, string>();
   private resuming = new Set<string>();
   constructor(public store: Store, public connection: ConnectionManager, public runner: Runner, public repo: string, options: CloudOptions = {}) {
-    this.options = options; this.keyFile = path.join(store.root, 'private', 'vast-api-key');
+    this.options = options; this.keyFile = path.join(os.homedir(), '.config', 'vastai', 'vast_api_key');
     this.client = new VastClient(() => this.key(), options.fetcher, options.base);
     const launches = store.value<CloudLaunch[]>('cloud-launches', []);
     for (const launch of launches) {
@@ -211,11 +211,19 @@ export class CloudManager {
       launch.message = 'This earlier attempt stopped before renting. The availability check has been corrected. Choose a fresh marketplace offer to try again.';
     }
     const favourites = store.value<GpuFavourite[]>('cloud-favourites', []).map(favourite => ({ ...favourite, status: 'unchecked' as const, checkedAt: null, offer: null, message: undefined }));
-    this.state = { configured: !!process.env.VAST_API_KEY || existsSync(this.keyFile), keySource: process.env.VAST_API_KEY ? 'environment' : existsSync(this.keyFile) ? 'local' : null, instances: [], launches, favourites, refreshedAt: null, error: null, busy: false };
+    this.state = { configured: !!this.readKey(), instances: [], launches, favourites, refreshedAt: null, error: null, busy: false };
     this.monitorSafety();
   }
   private options: CloudOptions;
-  async key() { const key = process.env.VAST_API_KEY || await readFile(this.keyFile, 'utf8').catch(() => ''); if (!key.trim()) throw new Error('Connect your Vast account with an API key first.'); return key.trim(); }
+  private readKey() {
+    try { return readFileSync(this.keyFile, 'utf8').trim(); }
+    catch { return ''; }
+  }
+  async key() {
+    const key = this.readKey(); this.state.configured = !!key;
+    if (!key) throw new Error('Vast credentials are unavailable. Configure the Vast CLI on this Mac, then retry.');
+    return key;
+  }
   emit() {
     this.store.set('cloud-launches', this.state.launches);
     this.store.set('cloud-favourites', (this.state.favourites || []).map(({ offer: _offer, status: _status, checkedAt: _checked, message: _message, ...saved }) => saved));
@@ -257,19 +265,6 @@ export class CloudManager {
         if (launch.instanceId) await this.stopRental(launch, launch.lastFailure);
       }
     } finally { this.safetyBusy = false; }
-  }
-  async saveKey(value: string) {
-    const candidate = new VastClient(async () => value, this.options.fetcher, this.options.base); await candidate.instances();
-    if (process.env.VAST_API_KEY) throw new Error('VAST_API_KEY is set in the server environment. Update that value instead.');
-    const folder = path.dirname(this.keyFile); await mkdir(folder, { recursive: true, mode: 0o700 }); await chmod(folder, 0o700);
-    await writeFile(this.keyFile + '.tmp', value, { mode: 0o600 }); await chmod(this.keyFile + '.tmp', 0o600); await rename(this.keyFile + '.tmp', this.keyFile);
-    this.state.configured = true; this.state.keySource = 'local'; await this.refresh();
-  }
-  async removeKey() {
-    if (this.state.busy) throw new Error('Wait for provisioning to finish before removing the key.');
-    if (this.state.launches.some(l => !['ready', 'stopped', 'destroyed'].includes(l.phase) && ['unconfirmed', 'stop_requested'].includes(l.safetyStatus || ''))) throw new Error('Confirm the pending rental stop before removing the key. It is still needed to check and stop compute.');
-    if (process.env.VAST_API_KEY) throw new Error('Remove VAST_API_KEY from the server environment instead.');
-    await rm(this.keyFile, { force: true }); this.state.configured = false; this.state.keySource = null; this.state.instances = []; this.emit();
   }
   async refresh() {
     if (this.refreshPromise) return this.refreshPromise;

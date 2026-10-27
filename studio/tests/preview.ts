@@ -22,7 +22,7 @@ local.cloud.client = new VastClient(async () => 'unused-fixture', async (input, 
     search: { gpuCostPerHour: row.dph_base, diskHour: .12 * disk / 720, totalHour: row.dph_base + .12 * disk / 720 } }));
   return new Response(JSON.stringify({ offers }), { headers: { 'Content-Type': 'application/json' } });
 });
-local.cloud.state.configured = true; local.cloud.state.keySource = 'environment';
+local.cloud.state.configured = true;
 local.cloud.state.error = 'LOCAL QA FIXTURE: example prices and hardware. No live rentals can be created.';
 local.cloud.state.instances = [
   { id: 801, label: 'recast-fixture', gpu: 'RTX 3090', count: 1, vram: 24, ram: 96, state: 'running', intendedState: 'running', message: 'LOCAL QA: example running instance', disk: 80, diskUsed: 44.2, location: 'Germany, EU', totalHourly: .1833, storageHourly: .0133, storageMonthly: 9.6, managed: true, connected: false, createdAt: null },

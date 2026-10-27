@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { Store } from '../server/store';
@@ -51,7 +51,10 @@ describe('Vast marketplace, billing and lifecycle', () => {
   let store: Store | undefined, root = '', tracked: CloudManager | undefined;
   afterEach(async () => { tracked?.dispose(); tracked = undefined; store?.close(); store = undefined; if (root) await rm(root, { recursive: true, force: true }); vi.unstubAllEnvs(); vi.restoreAllMocks(); });
   async function manager(options: ConstructorParameters<typeof CloudManager>[4] = {}) {
-    vi.stubEnv('VAST_API_KEY', 'fixture-vast-key-never-real'); root = await mkdtemp(path.join(os.tmpdir(), 'recast-cloud-')); store = new Store(root); const fixture = provider();
+    root = await mkdtemp(path.join(os.tmpdir(), 'recast-cloud-')); vi.spyOn(os, 'homedir').mockReturnValue(root);
+    await mkdir(path.join(root, '.config/vastai'), { recursive: true });
+    await writeFile(path.join(root, '.config/vastai/vast_api_key'), 'fixture-vast-key-never-real\n', { mode: 0o600 });
+    store = new Store(root); const fixture = provider();
     const identity = path.join(root, 'fixture-identity'); await writeFile(identity, 'Fixture file only. Never used for SSH.'); await writeFile(identity + '.pub', publicKey);
     const connection = { status: { state: 'offline', message: '' }, disconnect: vi.fn((): void => { connection.status.state = 'offline'; }), connect: vi.fn(async () => { connection.status.state = 'online'; }) };
     const provision = vi.fn(async (_instance, log: (line: string) => void) => { log('RECAST_STAGE Fixture installation verified'); });
@@ -215,11 +218,35 @@ describe('Vast marketplace, billing and lifecycle', () => {
     expect(matchesGpuProbe(raw, 'NVIDIA GeForce RTX 5090, 32607\n')).toBe(false);
     expect(matchesGpuProbe({ gpu_name: 'RTX 3090', gpu_ram: 24576 }, 'NVIDIA GeForce RTX 3090, [N/A]\n')).toBe(false);
   });
-  it('persists a checked API key in a private file and never exposes it in app state', async () => {
-    const { cloud } = await manager(); vi.stubEnv('VAST_API_KEY', ''); await cloud.saveKey('fixture-key-to-store');
-    expect(JSON.stringify(cloud.state)).not.toContain('fixture-key-to-store'); const file = path.join(root, 'private/vast-api-key');
-    expect((await stat(file)).mode & 0o777).toBe(0o600); expect((await stat(path.dirname(file))).mode & 0o777).toBe(0o700); expect(await readFile(file, 'utf8')).toBe('fixture-key-to-store');
-    await cloud.removeKey(); expect(cloud.state.configured).toBe(false);
+  it('uses only CLI credentials, picks up rotation and never exposes the key in app state', async () => {
+    const { cloud, fixture } = await manager();
+    vi.stubEnv('VAST_API_KEY', 'ignored-environment-key');
+    await mkdir(path.join(root, 'private'), { recursive: true });
+    await writeFile(path.join(root, 'private/vast-api-key'), 'ignored-legacy-key');
+    await cloud.refresh();
+    expect(cloud.state.configured).toBe(true);
+    expect(fixture.calls.at(-1)?.auth).toBe('Bearer fixture-vast-key-never-real');
+    await writeFile(path.join(root, '.config/vastai/vast_api_key'), '  rotated-fixture-key\n');
+    await cloud.offers(filters);
+    expect(fixture.calls.at(-1)?.auth).toBe('Bearer rotated-fixture-key');
+    expect(JSON.stringify(cloud.state)).not.toMatch(/fixture-vast-key|rotated-fixture-key|ignored-environment-key|ignored-legacy-key/);
+  });
+  it.each(['missing', 'empty'])('fails closed with %s CLI credentials despite alternate keys', async state => {
+    const { cloud, fixture } = await manager();
+    vi.stubEnv('VAST_API_KEY', 'ignored-environment-key');
+    await mkdir(path.join(root, 'private'), { recursive: true });
+    await writeFile(path.join(root, 'private/vast-api-key'), 'ignored-legacy-key');
+    const file = path.join(root, '.config/vastai/vast_api_key');
+    if (state === 'missing') await rm(file); else await writeFile(file, ' \n');
+    await cloud.refresh();
+    expect(cloud.state.configured).toBe(false);
+    expect(cloud.state.error).toContain('Configure the Vast CLI');
+    expect(fixture.calls).toHaveLength(0);
+    const reopened = new CloudManager(store!, cloud.connection, cloud.runner, cloud.repo, { backgroundSafety: false });
+    expect(reopened.state.configured).toBe(false); reopened.dispose();
+    await writeFile(file, 'restored-fixture-key'); await cloud.refresh();
+    expect(cloud.state.configured).toBe(true); expect(cloud.state.error).toBeNull();
+    expect(fixture.calls.at(-1)?.auth).toBe('Bearer restored-fixture-key');
   });
   it.each(['GB200', 'GB300'])('includes %s as ARM hardware with separate GPU memory capacity', gpu => {
     const settings = offerFiltersSchema.parse({ gpu: 'dgx' });
@@ -577,7 +604,6 @@ describe('Vast marketplace, billing and lifecycle', () => {
     const { cloud, fixture } = await manager(); const { offers } = await cloud.offers(filters);
     const launch = cloud.launch(offers[0].quote, .23, 'retry-stop'); await until(() => !cloud.state.busy);
     fixture.loseStopResponse(); await expect(cloud.action(777, 'stop')).rejects.toThrow('NOT confirmed');
-    await expect(cloud.removeKey()).rejects.toThrow('pending rental stop');
     fixture.loseStopResponse(false); await cloud.enforceSafety(); expect(launch.phase).toBe('stopped'); expect(fixture.createCount).toBe(1);
   });
   it('can stop an owned rental even when the account listing endpoint is malformed', async () => {

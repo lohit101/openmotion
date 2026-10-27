@@ -126,4 +126,4 @@ export function canRetryRental(launch: CloudLaunch) {
   return !launch.instanceId && launch.phase !== 'destroyed' && (launch.creationAttempted === false ||
     (launch.creationAttempted === undefined && launch.phase === 'failed' && /SSH key already exists|offer was rented by someone else|hourly price increased/i.test(launch.message)));
 }
-export interface CloudState { configured: boolean; keySource: 'environment' | 'local' | null; instances: CloudInstance[]; launches: CloudLaunch[]; favourites?: GpuFavourite[]; refreshedAt: string | null; error: string | null; busy: boolean; }
+export interface CloudState { configured: boolean; instances: CloudInstance[]; launches: CloudLaunch[]; favourites?: GpuFavourite[]; refreshedAt: string | null; error: string | null; busy: boolean; }
