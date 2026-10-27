@@ -23,20 +23,27 @@
 .feature-download-row { display: flex; align-items: center; gap: 8px; }
 .feature-download-row > .toggle-row { flex: 1; min-width: 0; }
 .feature-download-row > .slider-field { flex: 1; min-width: 0; }
-.required-models { margin: 15px 0 5px; padding: 11px 0; border-top: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft); }
-.required-models-summary { display: grid; grid-template-columns: 16px minmax(0, 1fr) max-content; align-items: center; gap: 10px; min-width: 0; color: var(--muted); }
-.required-models-label { display: flex; align-items: flex-start; gap: 4px; min-width: 0; }
-.required-models-label > button { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; text-align: left; gap: 4px; font-size: 11px; line-height: 1.45; }
-.required-models-label > .info-tip-trigger { width: 24px; min-width: 24px; align-items: center; justify-content: center; }
-.required-models-summary > button.model-download { width: max-content; min-width: max-content; justify-content: center; justify-self: end; }
-.required-models-label > button span { color: var(--quiet); font-size: 10px; }
-.required-models p { margin: 4px 0 0; color: var(--quiet); font-size: 10px; line-height: 1.6; }
+.required-models { margin: 0; padding: 0; border-top: 1px solid var(--line-soft); }
+.required-file-details { margin: 0; font-size: 11px; color: var(--muted); }
+.required-file-details > summary { min-height: 55px; display: flex; align-items: center; gap: 9px; list-style: none; cursor: pointer; padding: 15px 0; border-radius: 5px; }
+.required-file-details > summary::-webkit-details-marker { display: none; }
+.required-file-details > summary:hover { color: var(--text); }
+.required-models-title { color: var(--text); font-weight: 500; }
+.required-models-status { display: flex; align-items: center; gap: 5px; margin-left: auto; font-size: 10px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.required-models-status.ready > svg { color: var(--accent-text); }
+.required-models-caret { color: var(--quiet); transition: transform .16s ease; }
+.required-file-details[open] .required-models-caret { transform: rotate(180deg); }
+.required-file-list { padding: 0 0 14px; }
+.required-file-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line-soft); }
+.required-file-row > span { min-width: 0; line-height: 1.5; overflow-wrap: anywhere; font-size: 11px; }
+.required-file-row small { display: block; color: var(--quiet); font-size: 10px; margin-top: 4px; }
+.required-file-footer { display: flex; align-items: center; gap: 4px; padding-top: 13px; font-size: 10px; color: var(--quiet); }
+.required-file-footer > button:last-child:not(.info-tip-trigger) { margin-left: auto; padding: 4px 0; color: var(--accent-text); font-size: 10px; }
+.required-models-action { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 0 15px; font-size: 10px; color: var(--muted); }
+.required-models-action .model-download { padding: 8px 10px; }
+.required-models p { margin: 0 0 14px; color: var(--quiet); font-size: 10px; line-height: 1.65; }
 .required-models p button { color: var(--accent-text); padding: 0; font-size: inherit; }
-.required-file-details { margin-top: 10px; font-size: 10px; color: var(--muted); }
-.required-file-details > summary { cursor: pointer; padding-block: 3px; }
-.required-file-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line-soft); }
-.required-file-row > span { min-width: 0; line-height: 1.5; overflow-wrap: anywhere; }
-.required-file-row small { display: block; color: var(--quiet); font-size: 9px; }
+.required-models p.model-file-slow { color: var(--warning); }
 .models-workspace { min-width: 0; }
 .models-heading { display: flex; justify-content: space-between; align-items: center; gap: 20px; max-width: 1050px; margin: 0 auto 30px; }
 .models-heading h2 { font-size: 21px; font-weight: 550; letter-spacing: -.5px; margin: 8px 0; }
