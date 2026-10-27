@@ -1,9 +1,11 @@
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { copyFile, mkdir, rename, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import type { Asset, Job } from '../shared/types';
 import type { Store } from './store';
+import { frameFloor } from '../shared/clip';
 
 export function command(executable: string, args: string[], signal?: AbortSignal, timeout = 120000): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -30,6 +32,22 @@ export async function probe(file: string) {
 export async function poster(file: string, destination: string) {
   await command('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-i', file, '-frames:v', '1', '-vf', 'scale=600:600:force_original_aspect_ratio=decrease', '-q:v', '3', destination], undefined, 25000);
 }
+const pendingFilmstrips = new Map<string, Promise<string>>();
+export async function filmstrip(asset: Asset): Promise<string> {
+  if (asset.kind !== 'video' || !(asset.duration > 0)) throw new Error('Choose a readable video for trimming.');
+  const output = path.join(path.dirname(asset.path), 'filmstrip-v1.jpg');
+  if (existsSync(output)) return output;
+  const pending = pendingFilmstrips.get(output); if (pending) return pending;
+  const task = (async () => {
+    const temporary = path.join(path.dirname(asset.path), `filmstrip-${randomUUID()}.jpg`);
+    try {
+      await command('ffmpeg', ['-v', 'error', '-y', '-i', asset.path, '-an', '-vf', `tpad=stop_mode=clone:stop_duration=2,fps=12/${asset.duration},scale=112:72:force_original_aspect_ratio=increase,crop=112:72,tile=12x1:nb_frames=12`, '-frames:v', '1', '-q:v', '4', temporary], undefined, 45000);
+      await rename(temporary, output); return output;
+    } finally { await rm(temporary, { force: true }); }
+  })();
+  pendingFilmstrips.set(output, task);
+  try { return await task; } finally { pendingFilmstrips.delete(output); }
+}
 export async function ingest(store: Store, file: string, kind: Asset['kind'], name: string, copy = false, givenId?: string): Promise<Asset> {
   const meta = await probe(file); const size = (await stat(file)).size;
   if (kind === 'image' && !['png', 'mjpeg', 'jpeg', 'webp'].includes(meta.codec)) throw new Error('Use a PNG, JPEG or WebP character image.');
@@ -47,7 +65,7 @@ export async function ingest(store: Store, file: string, kind: Asset['kind'], na
 export async function prepareVideo(job: Job, source: Asset, folder: string, signal: AbortSignal) {
   const output = path.join(folder, 'prepared-source.mp4');
   const temporary = path.join(folder, `prepared-source-${randomUUID()}.mp4`);
-  const start = Math.floor(job.settings.start * job.settings.fps) / job.settings.fps;
+  const start = frameFloor(job.settings.start, job.settings.fps) / job.settings.fps;
   const duration = job.progress.targetFrames / job.settings.fps;
   const audio = source.hasAudio ? ['-map', '0:a:0', '-c:a', 'aac', '-ar', '48000', '-b:a', '192k'] : ['-an'];
   try {

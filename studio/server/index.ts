@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { Store, publicJob } from './store';
 import { ConnectionManager, localEndpoint } from './comfy';
 import { Runner } from './runner';
-import { ingest } from './media';
+import { filmstrip, ingest } from './media';
 import { seedExamples } from './seed';
 import { validateSelection } from './workflow';
 import { CloudManager } from './cloud';
@@ -22,6 +22,7 @@ import { migrateDemoPrompt, PROMPT_VERSION } from '../shared/prompts';
 import { FRAMING_VERSION, type ReferenceGeometry } from './framing';
 import { engineIssue, isViggle } from '../shared/engines';
 import { registerImageRoutes } from './image-routes';
+import { clipFrameCount } from '../shared/clip';
 import { canFinishImageLocally, isImageJob } from '../shared/image-replacement';
 
 const STUDIO = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -119,8 +120,12 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
       res.status(201).json(publicAsset(asset));
     } catch (error) { await rm(req.file.path, { force: true }); throw error; }
   });
-  app.get('/api/assets/:id/:type', (req, res) => {
+  app.get('/api/assets/:id/:type', async (req, res) => {
     const asset = store.asset(String(req.params.id)); if (!asset) return void res.status(404).json({ error: 'Input not found.' });
+    if (req.params.type === 'filmstrip') {
+      if (asset.kind !== 'video') return void res.sendStatus(404);
+      return void res.sendFile(await filmstrip(asset));
+    }
     if (!['original', 'poster'].includes(String(req.params.type))) return void res.sendStatus(404);
     res.sendFile(req.params.type === 'poster' ? asset.poster : asset.path);
   });
@@ -158,7 +163,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     validateSelection(source, reference, value.settings.start, value.settings.seconds, value.settings.fps);
     if (isViggle(value.settings) && value.settings.referencePreparation === 'prepared' && Math.abs((reference.width / reference.height) / (source.width / source.height) - 1) > 0.05) return void res.status(400).json({ error: 'An already edited source frame must keep the source video’s aspect ratio. Use automatic reference preparation for a standalone character photo.' });
     const settings = { ...value.settings, prompt: migrateDemoPrompt(value.settings.prompt, value.settings.mode) }; if (settings.randomSeed) settings.seed = randomInt(0, 0xffffffff);
-    const [width, height] = renderGeometry(settings, source), [outputWidth, outputHeight] = geometry(settings, source), target = Math.ceil(settings.seconds * settings.fps);
+    const [width, height] = renderGeometry(settings, source), [outputWidth, outputHeight] = geometry(settings, source), target = clipFrameCount(settings.seconds, settings.fps);
     const job: Job = { id: randomUUID(), title: source.name.replace(/\.[^.]+$/, '') + (isViggle(settings) ? ' / Viggle swap' : settings.mode === 'swap' ? ' / character swap' : ' / motion transfer'), status: 'queued', sourceId: source.id, referenceId: reference.id, settings, promptVersion: PROMPT_VERSION, renderVersion: 'continuous-v1', saveDiagnosticLatent: value.saveDiagnosticLatent, ...(settings.mode === 'swap' && !isViggle(settings) ? { framingVersion: FRAMING_VERSION } : {}),
       createdAt: new Date().toISOString(), favorite: false, deleted: false, width, height, ...(settings.resolution === '720' ? { outputSize: { width: outputWidth, height: outputHeight } } : {}),
       progress: { stage: 'Queued', node: null, value: null, max: null, unit: 'steps', segment: 1, segments: isViggle(settings) ? 1 : segmentCount(target, settings.framesPerPass), completedFrames: 0, targetFrames: target, updatedAt: Date.now() },
