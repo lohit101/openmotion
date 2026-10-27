@@ -3,6 +3,7 @@ import type { CloudState } from './cloud';
 import { defaultNegativePrompt, defaultPrompt } from './prompts';
 import type { ModelsState } from './models';
 import type { ImageDraft, ImageRun } from './image-replacement';
+import type { ClipEditReceipt } from './clip-editor';
 
 export const settingsSchema = z.object({
   engine: z.enum(['scail2', 'viggle']).default('scail2'),
@@ -52,7 +53,8 @@ export interface Job {
   pendingPrompt: string | null; uploads: { source: string; reference: string; preparedFrame?: string; face?: string; original?: string; mask?: string; noiseMask?: string; faceMask?: string; structure?: string; bodyMask?: string; bodyReference?: string; bodyAppearance?: string } | null;
   error: string | null; output: string | null; poster: string | null; cancelRequested: boolean;
   cancellationConfirmed?: boolean; submitting?: boolean; retryRequired?: boolean;
-  elapsedSeconds: number | null; origin: 'render' | 'import'; workflow: Record<string, GraphNode> | null;
+  elapsedSeconds: number | null; origin: 'render' | 'import' | 'edit'; workflow: Record<string, GraphNode> | null;
+  edit?: ClipEditReceipt;
   hasWorkflow?: boolean;
   promptVersion?: 'scene-v1';
   framingVersion?: 'face-v1'; referenceFraming?: ReferenceFraming; framingCheck?: FramingCheck;

@@ -25,6 +25,7 @@ import { viggleWindows } from '../shared/viggle-segments';
 import { registerImageRoutes } from './image-routes';
 import { clipFrameCount } from '../shared/clip';
 import { canFinishImageLocally, isImageJob } from '../shared/image-replacement';
+import { registerClipEditorRoutes } from './clip-editor';
 
 const STUDIO = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const REPO = path.dirname(STUDIO);
@@ -51,6 +52,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Referrer-Policy', 'same-origin'); next();
   });
   app.use(express.json({ limit: '100kb' }));
+  const clipEditor = registerClipEditorRoutes(app, store);
   const bootstrap = () => ({ assets: store.assets().map(publicAsset), jobs: store.jobs().map(publicJob), draft: store.draft(), imageDraft: store.imageDraft(), connection: connection.status, cloud: cloud.state, models: models.state });
   app.get('/api/bootstrap', (_req, res) => res.json(bootstrap()));
   app.get('/api/events', (req, res) => {
@@ -193,6 +195,12 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   });
   app.get('/api/jobs/:id/:type', (req, res) => {
     const job = store.job(String(req.params.id)); if (!job) return void res.sendStatus(404);
+    if (req.params.type === 'video' && req.query.download && job.edit?.format === 'mkv') {
+      const file = path.join(store.root, 'jobs', job.id, 'master.mkv');
+      if (!existsSync(file)) return void res.sendStatus(404);
+      res.attachment(`${job.title.replace(/[^a-zA-Z0-9 _-]/g, '').slice(0, 70) || 'recast-edit'}.mkv`);
+      return void res.sendFile(file);
+    }
     if (isImageJob(job) && ['image', 'image-source', 'face-source', 'face-reference', 'face-output', 'image-mask', 'image-structure', 'image-body', 'image-body-raw', 'image-head-raw', 'image-lighting', 'image-prepared-reference', 'image-identity-anchor', 'image-integrated-base'].includes(String(req.params.type))) {
       const name = { image: 'final.png', 'image-source': 'original.png', 'face-source': 'source-face.png', 'face-reference': 'reference-face.png', 'face-output': 'output-face.png', 'image-mask': 'edit-mask.png', 'image-structure': 'source-structure.png', 'image-body': 'body-stage.png', 'image-body-raw': 'body-raw.png', 'image-head-raw': 'head-raw.png', 'image-lighting': 'lighting-raw.png', 'image-prepared-reference': 'reference-normalized.png', 'image-identity-anchor': 'identity-anchored-target.png', 'image-integrated-base': 'integrated-base.png' }[String(req.params.type)];
       const file = path.join(store.root, 'jobs', job.id, name!);
@@ -227,10 +235,10 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     const message = error instanceof z.ZodError ? error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join(' ') : error.code === 'LIMIT_FILE_SIZE' ? 'Videos can be up to 512 MB.' : error.message || 'This action could not be completed.';
     res.status(error instanceof z.ZodError ? 422 : error instanceof multer.MulterError ? 413 : 400).json({ error: String(message).slice(0, 2000) });
   });
-  return { app, store, connection, runner, cloud, models };
+  return { app, store, connection, runner, cloud, models, clipEditor };
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
-  const { app, store, cloud, models } = await createApplication();
+  const { app, store, cloud, models, clipEditor } = await createApplication();
   const port = Number(process.env.PORT || 3000);
   const server = app.listen(port, '127.0.0.1', () => console.log(`Recast Studio: http://127.0.0.1:${port} (GPU disconnected until you connect)`));
   server.on('error', error => { console.error(error.message); cloud.dispose(); store.close(); process.exitCode = 1; });
@@ -238,7 +246,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
   const shutdown = async () => {
     if (closing) return; closing = true; server.closeAllConnections(); server.close();
     const deadline = setTimeout(() => { console.error('Shutdown could not confirm all setup stops. Check your instances in Vast.'); process.exit(1); }, 60000);
-    try { await models.cancel(); await cloud.shutdown(); clearTimeout(deadline); cloud.dispose(); store.close(); process.exit(0); }
+    try { await clipEditor.shutdown(); await models.cancel(); await cloud.shutdown(); clearTimeout(deadline); cloud.dispose(); store.close(); process.exit(0); }
     catch (error) { console.error((error as Error).message); clearTimeout(deadline); cloud.dispose(); store.close(); process.exit(1); }
   };
   process.once('SIGINT', () => void shutdown()); process.once('SIGTERM', () => void shutdown());

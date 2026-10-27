@@ -1,6 +1,6 @@
-import { CaretDoubleLeft, CaretDoubleRight, GearSix, Image, Lightning, SlidersHorizontal, SquaresFour } from '@phosphor-icons/react';
+import { CaretDoubleLeft, CaretDoubleRight, GearSix, Image, Lightning, Scissors, SlidersHorizontal, SquaresFour } from '@phosphor-icons/react';
 
-export type WorkspaceView = 'create' | 'image' | 'library' | 'gpu' | 'settings';
+export type WorkspaceView = 'create' | 'image' | 'editor' | 'library' | 'gpu' | 'settings';
 
 export function initialSidebarCollapsed() {
   try {
@@ -23,7 +23,7 @@ export default function Sidebar({ view, select, collapsed, toggle, libraryCount 
       aria-expanded={!collapsed} aria-controls="workspace-navigation" aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
       title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>{collapsed ? <CaretDoubleRight size={16} /> : <CaretDoubleLeft size={16} />}</button></div>
     <nav className="rail-main" id="workspace-navigation" aria-label="Workspace">
-      {link('create', 'Motion control', SlidersHorizontal)}{link('image', 'Image replacement', Image)}
+      {link('create', 'Motion control', SlidersHorizontal)}{link('image', 'Image replacement', Image)}{link('editor', 'Clip editor', Scissors)}
     </nav>
     <div className="rail-bottom"><nav className="rail-utilities" aria-label="Library and GPU">
       {link('library', 'My library', SquaresFour, libraryCount)}{link('gpu', 'GPU cloud', Lightning)}
