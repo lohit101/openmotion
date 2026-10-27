@@ -36,7 +36,11 @@ svg { flex-shrink: 0; }
 .app-shell { --sidebar-width: 172px; min-height: 100dvh; display: grid; grid-template-columns: var(--sidebar-width) minmax(0,1fr); grid-template-rows: 65px minmax(0,1fr); }
 .nav-rail { grid-row: 2; background: var(--surface); border-right: 1px solid var(--line-soft); position: fixed; top: 65px; bottom: 0; left: 0; width: var(--sidebar-width); z-index: 10; display: flex; flex-direction: column; padding: 0 10px; overflow-y: auto; }
 .brand-mark { display: flex; align-items: center; gap: 11px; padding: 0; color: var(--accent-text); flex-shrink: 0; }
-.rail-main { display: grid; gap: 7px; margin-top: 22px; }
+.rail-header { display: flex; align-items: center; justify-content: space-between; min-height: 48px; margin-top: 7px; padding-left: 10px; }
+.rail-header > span { color: var(--quiet); font-size: 10px; }
+.rail-toggle { display: grid; place-items: center; width: 32px; height: 32px; color: var(--muted); border-radius: 6px; }
+.rail-toggle:hover { background: var(--raised); color: var(--text); }
+.rail-main { display: grid; gap: 7px; }
 .rail-link { width: 100%; min-height: 43px; display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 7px; color: var(--muted); text-align: left; }
 .rail-link span { font-size: 11px; font-weight: 500; white-space: nowrap; }
 .rail-count { margin-left: auto; font-size: 10px; color: var(--quiet); font-variant-numeric: tabular-nums; }
@@ -45,6 +49,10 @@ svg { flex-shrink: 0; }
 .rail-bottom { margin-top: auto; display: grid; gap: 7px; padding: 16px 0; }
 .rail-utilities { display: grid; gap: 7px; }
 .rail-settings { margin-top: 3px; border-top: 1px solid var(--line); padding-top: 10px; }
+.app-shell.sidebar-collapsed { --sidebar-width: 64px; }
+.sidebar-collapsed .rail-header { justify-content: center; padding-left: 0; }
+.sidebar-collapsed .rail-link { justify-content: center; padding-inline: 0; }
+.sidebar-collapsed .rail-link > span, .sidebar-collapsed .rail-count, .sidebar-collapsed .rail-header > span { display: none; }
 .topbar { grid-column: 1 / -1; grid-row: 1; position: sticky; top: 0; z-index: 30; display: flex; align-items: center; padding: 0 23px; gap: 23px; background: var(--surface); border-bottom: 1px solid var(--line-soft); }
 .topbar-controls { margin-left: auto; display: flex; align-items: center; gap: 9px; min-width: 0; }
 .topbar-controls > .connection-button { margin-left: 0; min-width: 0; }
@@ -309,10 +317,10 @@ svg { flex-shrink: 0; }
 @media(min-width: 1500px) { .workspace { padding-inline: 40px; } .preview-stage { height: min(610px,calc(100dvh - 340px)); } }
 @media(max-height: 780px) and (min-width: 761px) { .editor-scroll { padding-top: 21px; } .asset-drop { height: 140px; } .prompt-field textarea { min-height: 100px; } .preview-stage { min-height: 330px; } .input-pair { margin-top: 17px; } }
 @media(max-width: 1120px) { .create-layout { grid-template-columns: 320px minmax(0,1fr); } .editor-scroll { padding-inline: 17px; } .generate-footer { padding-inline: 17px; } .workspace { padding: 23px 20px; } .workspace-header h2 { max-width: 240px; } .workspace-actions > .icon-button { display: none; } .asset-drop { height: 154px; } .preview-stage.has-result { padding-inline: 14px; } .recent-grid { gap: 9px; } .library { padding-inline: 25px; } .search-field { width: 180px; } }
-@media(max-width: 1120px) { .app-shell { --sidebar-width: 64px; } .rail-link { justify-content: center; padding-inline: 0; } .rail-link span, .rail-count { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } }
 @media(max-width: 920px) { .topbar { padding-inline: 20px; } .connection-button { max-width: 220px; } .library-controls { flex-wrap: wrap; gap: 10px; } .library-filters { width: 100%; } .search-field { flex: 1; width: auto; } .preview-stage { min-height: 330px; } .result-indicator { font-size: 8px; } .recent-grid { grid-template-columns: repeat(3,minmax(125px,1fr)); } }
 @media(max-width: 760px) {
-  .app-shell { --sidebar-width: 52px; grid-template-rows: 61px auto; }
+  .app-shell { --sidebar-width: 156px; grid-template-rows: 61px auto; }
+  .app-shell.sidebar-collapsed { --sidebar-width: 52px; }
   .nav-rail { top: 61px; padding-inline: 5px; }
   .topbar { height: 61px; padding: 0 14px; gap: 14px; }
   .wordmark { font-size: 22px; }

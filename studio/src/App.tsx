@@ -14,6 +14,7 @@ import { DPO, emptyModels, IMAGE_IDENTITY, imageFilesForSettings, imageModelFile
 import ModelsWorkspace, { DownloadButton, DownloadSelect, RequiredFiles, modelSize, type DownloadControls } from './ModelDownloads';
 import FramingNotice from './FramingNotice';
 import DownloadsWorkspace from './DownloadsWorkspace';
+import Sidebar, { initialSidebarCollapsed, type WorkspaceView } from './Sidebar';
 import SettingsWorkspace, { type SettingsTab } from './SettingsWorkspace';
 import { Toaster, toast } from 'sonner';
 import { emptyImageDraft, isImageJob, type ImageDraft } from '../shared/image-replacement';
@@ -77,7 +78,12 @@ function JobCard({ job, selected, onSelect, onPatch, onReuse }: { job: Job; sele
 export default function App() {
   const [data, setData] = useState<Bootstrap | null>(null), [draft, setDraft] = useState<Draft>({ sourceId: null, referenceId: null, settings: defaults });
   const [imageDraft, setImageDraft] = useState<ImageDraft>(emptyImageDraft);
-  const [view, setView] = useState<'create' | 'image' | 'library' | 'gpu' | 'settings'>('create'), [selectedId, setSelectedId] = useState<string | null>(null), [compare, setCompare] = useState(false), [advanced, setAdvanced] = useState(false);
+  const [view, setView] = useState<WorkspaceView>('create'), [selectedId, setSelectedId] = useState<string | null>(null), [compare, setCompare] = useState(false), [advanced, setAdvanced] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(initialSidebarCollapsed);
+  const toggleSidebar = () => setSidebarCollapsed(previous => {
+    try { localStorage.setItem('recast-sidebar-collapsed', String(!previous)); } catch { /* Keep the preference for this session. */ }
+    return !previous;
+  });
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('connection');
   const openModels = () => { setSettingsTab('extras'); setView('settings'); };
   const [info, setInfo] = useState(false), [message, setMessageValue] = useState(''), [creating, setCreating] = useState(false), [filter, setFilter] = useState('all'), [search, setSearch] = useState(''), [sort, setSort] = useState('newest');
@@ -207,23 +213,14 @@ export default function App() {
   const handleJobAction = async (action: 'cancel' | 'resume') => { if (!selected) return; try { await api(`/jobs/${selected.id}/${action}`, action === 'resume' ? { retryMissing: !!selected.retryRequired } : {}); } catch (e) { setMessage((e as Error).message); } };
   const setCloud = useCallback((cloud: CloudState) => setData(old => old ? { ...old, cloud } : old), []);
   if (!data) return <div className="app-loading"><Aperture size={40} weight="light" /><h1>Recast Studio</h1><span className="activity-line" /><p>{message || 'Opening your local workspace'}</p>{message && <button className="secondary-button" onClick={() => location.reload()}>Retry</button>}</div>;
-  return <div className="app-shell">
+  return <div className={`app-shell ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
     <header className="topbar">
       <button className="brand-mark" onClick={() => setView('create')} aria-label="Recast home"><Aperture weight="bold" size={28} /><span className="wordmark">recast<span>studio</span></span></button>
       <div className="topbar-controls"><button className={`connection-button ${data.cloud.busy ? 'connecting' : connection!.state}`} onClick={() => setView('gpu')} title={data.cloud.busy ? 'Preparing GPU' : online ? connection!.gpu || 'GPU connected' : connection!.state === 'connecting' ? 'Connecting' : 'GPU offline'}><span className="status-dot" />{data.cloud.busy ? 'Preparing GPU' : online ? connection!.gpu || 'GPU connected' : connection!.state === 'connecting' ? 'Connecting' : 'GPU offline'}<CaretDown size={12} /></button>
         <button className="theme-button" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}>{theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}</button>
       </div>
     </header>
-    <aside className="nav-rail">
-      <nav className="rail-main" aria-label="Workspace">
-        <button className={`rail-link ${view === 'create' ? 'active' : ''}`} aria-current={view === 'create' ? 'page' : undefined} onClick={() => setView('create')} title="Motion control"><SlidersHorizontal size={21} /><span>Motion control</span></button>
-        <button className={`rail-link ${view === 'image' ? 'active' : ''}`} aria-current={view === 'image' ? 'page' : undefined} onClick={() => setView('image')} title="Image replacement"><ImageIcon size={21} /><span>Image replacement</span></button>
-      </nav>
-      <div className="rail-bottom"><nav className="rail-utilities" aria-label="Library and GPU">
-        <button className={`rail-link ${view === 'library' ? 'active' : ''}`} aria-current={view === 'library' ? 'page' : undefined} onClick={() => setView('library')} title="My library"><SquaresFour size={21} /><span>My library</span><small className="rail-count">{jobs.filter(j => !j.deleted).length}</small></button>
-        <button className={`rail-link ${view === 'gpu' ? 'active' : ''}`} aria-current={view === 'gpu' ? 'page' : undefined} onClick={() => setView('gpu')} title="GPU cloud"><Lightning size={21} /><span>GPU cloud</span></button>
-      </nav><div className="rail-settings"><button className={`rail-link ${view === 'settings' ? 'active' : ''}`} aria-current={view === 'settings' ? 'page' : undefined} onClick={() => setView('settings')} title="Settings"><GearSix size={21} /><span>Settings</span></button></div></div>
-    </aside>
+    <Sidebar view={view} select={setView} collapsed={sidebarCollapsed} toggle={toggleSidebar} libraryCount={jobs.filter(j => !j.deleted).length} />
     {view === 'settings' ? <SettingsWorkspace tab={settingsTab} onTabChange={setSettingsTab} connection={connection!} error={setMessage} browse={() => setView('gpu')} downloads={<DownloadsWorkspace controls={downloads} required={[...new Set([...requiredFiles, ...imageFilesForSettings(imageDraft.settings)])]} refresh={refreshModels} cancel={cancelDownloads} setup={() => setView('gpu')} />} models={<ModelsWorkspace controls={downloads} required={requiredFiles} missingCustom={missingCustom} refresh={refreshModels} cancel={cancelDownloads} setup={() => setView('gpu')} useLora={name => { setDraft(old => ({ ...old, settings: { ...old.settings, engine: 'scail2', loraA: name, loraAStrength: name === SOCIAL_STYLE ? 0.35 : 0.8 } })); setView('create'); }} />} /> : view === 'gpu' ? <Suspense fallback={<main className="gpu-loading">Opening GPU cloud</main>}><GpuWorkspace cloud={data.cloud} setCloud={setCloud} notify={setMessage} onCreate={() => setView('create')} /></Suspense> : view === 'image' ? <Suspense fallback={<main className="gpu-loading">Opening image replacement</main>}><ImageWorkspace data={data} motionDraft={draft} draft={imageDraft} setDraft={setImageDraft} downloads={downloads} selectedId={selectedId} select={setSelectedId} asset={asset => setData(old => old ? { ...old, assets: [asset, ...old.assets.filter(a => a.id !== asset.id)] } : old)} job={job => setData(old => old ? { ...old, jobs: [job, ...old.jobs.filter(j => j.id !== job.id)] } : old)} error={setMessage} openModels={openModels} openGPU={() => setView('gpu')} library={() => setView('library')} motion={(asset, nextDraft) => { setDraft(nextDraft); setData(old => old ? { ...old, draft: nextDraft, assets: [asset, ...old.assets.filter(a => a.id !== asset.id)] } : old); setSelectedId(null); setView('create'); }} /></Suspense> : view === 'create' ? <main className="create-layout"><section className="editor"><div className="editor-scroll"><div className="editor-heading"><span className="section-icon"><FilmStrip size={19} /></span><h1>Motion control</h1><span className="model-tag">{engine ? 'Viggle' : 'SCAIL-2'}</span></div><p className="editor-description">New character. Same performance.</p><label className="engine-select full-label">Video model<SmallSelect label="Video model" value={draft.settings.engine} onChange={changeEngine} options={[{ value: 'scail2', label: 'SCAIL-2 · current workflow' }, { value: 'viggle', label: 'Viggle Animate · experimental' }]} /></label><div className="mode-tabs" role="group" aria-label="Generation mode"><button aria-pressed={draft.settings.mode === 'swap'} className={draft.settings.mode === 'swap' ? 'active' : ''} onClick={() => update({ mode: 'swap' })}>Character swap</button><button aria-pressed={draft.settings.mode === 'motion'} className={draft.settings.mode === 'motion' ? 'active' : ''} disabled={engine} title={engine ? 'Choose SCAIL-2 for motion transfer' : undefined} onClick={() => update({ mode: 'motion' })}>Motion transfer</button></div>
       <div className="input-pair"><AssetDrop kind="video" asset={source} onAsset={a => selectAsset('video', a)} onError={setMessage} /><AssetDrop kind="image" asset={reference} onAsset={a => selectAsset('image', a)} onError={setMessage} /></div>
       {draft.settings.mode === 'swap' && <p className="framing-hint">{engine ? 'Use a continuous shot with one main character. A source-aligned frame anchors appearance, scale and scene lighting.' : 'The reference supplies appearance. The video supplies position, scale and camera framing.'}</p>}{engine && <p className="engine-trial-note">New engine · live speed and visual quality still need validation on your GPU. Start at 480p with a short movement-focused shot; speech sync is unvalidated.</p>}
