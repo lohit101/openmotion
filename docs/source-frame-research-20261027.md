@@ -1,5 +1,7 @@
 # Source-frame replacement research · 27 October 2026
 
+Subsequent research: [latest photo boundary/lighting audit and proposed native-mask comparison](photo-consistency-audit-20261027.md). The earlier paid experiments below remain historical evidence, not a quality pass.
+
 ## What the commercial tools actually disclose
 
 [Higgsfield's engineer-authored swap guide](https://higgsfield.ai/blog/AI-Face-Character-Swap-in-Video-Photo-PRO-Guide) explicitly discusses masking, multiple passes, reusable character identities, compatible proportions, clear faces and similar lighting. Its public guide does **not** publish the production weights, conditioning graph, inference schedule or internal quality selection. Those internals cannot be reconstructed reliably from showcase videos.

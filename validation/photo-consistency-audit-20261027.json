@@ -1,0 +1,42 @@
+{
+  "date": "2026-10-27",
+  "scope": "Read-only latest-result audit and primary-source research; no production changes or inference",
+  "job": "4f20fd39-7052-4c98-9c8f-05a19734909b",
+  "recipe": "scene-anchor-v3",
+  "bodySteps": 20,
+  "headSteps": 20,
+  "cfg": 1,
+  "headRefine": true,
+  "geometryStrength": 0,
+  "turbo": false,
+  "megapixels": 2,
+  "inwardFeatherPixels": 4,
+  "endToEndSeconds": 120.502,
+  "nativeExecutionSeconds": 96.43,
+  "outputSize": [720, 1280],
+  "maskCoverageFraction": 0.6744173177083334,
+  "fractionOfNonzeroMaskPixelsWithSoftAlpha": 0.026192878047053864,
+  "outsideProcessedMaskMaxDifference": 0,
+  "faceBoxLinearSizeRatio": 0.7771520051249167,
+  "faceCenterDeltaPixels": [8.544108072916686, -60.47578938802076],
+  "faceMeasurementCaveat": "Detector geometry proxy, not facial identity accuracy or actual camera distance",
+  "modelReceivesDenoisingMask": false,
+  "modelReceivesSeparateMaskReference": false,
+  "visualFindings": [
+    "Raw body copies the appearance reference's raised hand and hard warm sunlight into a softly lit indoor target",
+    "Raw output changes tattoo lettering and head geometry and smooths skin",
+    "Final composite adds visible notches through new hair at the painted boundary",
+    "Exact outside-mask preservation does not establish seamless blending"
+  ],
+  "codeFindings": [
+    "Feathering uses the minimum of the original mask and its Gaussian blur; it cannot expand the edit area",
+    "The head mask is clipped to the working paint mask",
+    "The native-latent geometry-off recipe does not send paint-mask guidance to the model",
+    "With head refinement enabled, body alpha is applied before the head stage and again at final compositing"
+  ],
+  "newGpuRentals": 0,
+  "newPaidRenders": 0,
+  "modelWeightDownloads": 0,
+  "visualQualityPass": false,
+  "implementationStatus": "Proposed changes and controlled evaluation plan documented; not implemented"
+}
