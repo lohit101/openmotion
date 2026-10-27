@@ -9,6 +9,7 @@ import hashlib
 import json
 import math
 from pathlib import Path
+import subprocess
 import sys
 
 from reference_geometry import YuNetDetector, atomic_json, atomic_png, confident_faces, dependencies, sha256
@@ -90,13 +91,27 @@ def repair_small_mask_gaps(mask):
     return repaired, closed
 
 
-def source_structure(source, geometry, model):
+def source_structure(source, geometry, model, layout_mask=None):
     """Actual source contours, without encoding the original face's inner details."""
-    cv2, _ = dependencies()
+    cv2, np = dependencies()
     gray = cv2.cvtColor(source, cv2.COLOR_BGR2GRAY)
     edges = cv2.Canny(cv2.GaussianBlur(gray, (3, 3), .8), 60, 150)
     faces = detect(source, model)
-    if len(faces) == 1:
+    if layout_mask is not None:
+        # V7 uses only the outer body placement, never clothing, jewelry,
+        # source hair or internal facial edges. Keep the old guide unchanged
+        # for every previously paid version.
+        inside = layout_mask > 8
+        distance = cv2.distanceTransform(inside.astype(np.uint8), cv2.DIST_L2, 5)
+        band = max(4, round(source.shape[1] * .045))
+        edges[inside & (distance > band)] = 0
+        if len(faces) == 1:
+            x, y, fw, fh = faces[0]['bbox']
+            yy, _ = np.indices(inside.shape)
+            edges[inside & (yy < y + fh * 1.15)] = 0
+            cv2.ellipse(edges, (round(x + fw / 2), round(y + fh / 2)),
+                        (max(1, round(fw / 2)), max(1, round(fh / 2))), 0, 0, 360, 255, 2)
+    elif len(faces) == 1:
         x, y, fw, fh = faces[0]["bbox"]
         cv2.ellipse(edges, (round(x + fw / 2), round(y + fh / 2)), (max(1, round(fw * .38)), max(1, round(fh * .38))), 0, 0, 360, 0, -1)
     g = geometry
@@ -111,6 +126,8 @@ def fingerprint(request):
     payload = {"files": files, "settings": request["settings"], "geometry": request["geometry"]}
     if request.get("version"):
         payload["version"] = request["version"]
+    if request["settings"].get("localIdentity", False):
+        payload["localIdentityProfile"] = sha256(Path(__file__).resolve().parents[1] / 'config/local-identity.lock.json')
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
 
 
@@ -128,16 +145,24 @@ def prepare(request, folder, model):
     g, s = request["geometry"], request["settings"]
     if (source.shape[1], source.shape[0]) != (g["outputWidth"], g["outputHeight"]):
         raise ValueError("The target's decoded orientation differs from its saved dimensions. Export an upright PNG and upload it again.")
-    small = cv2.resize(source, (g["contentWidth"], g["contentHeight"]), interpolation=cv2.INTER_AREA)
+    local_identity = s.get('localIdentity', False)
+    conditioning = source
+    if local_identity:
+        run_local_identity(request['reference'], request['source'], folder / 'identity-anchored-target.png', request.get('mask'))
+        conditioning = read_image(folder / 'identity-anchored-target.png')
+    small = cv2.resize(conditioning, (g["contentWidth"], g["contentHeight"]), interpolation=cv2.INTER_AREA)
     target = cv2.copyMakeBorder(small, g["y"], g["height"] - g["contentHeight"] - g["y"], g["x"], g["width"] - g["contentWidth"] - g["x"], cv2.BORDER_REPLICATE)
     atomic_png(folder / "target.png", target)
     atomic_png(folder / "original.png", source)
     qwen = s.get("model") == "qwen21"
-    scene = qwen and request.get("version") in ("scene-anchor-v1", "scene-anchor-v2", "scene-anchor-v3")
-    head_refine = scene and s.get("qwenHeadRefine", False)
+    scene = qwen and request.get("version") in ("scene-anchor-v1", "scene-anchor-v2", "scene-anchor-v3", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7")
+    native_mask = request.get("version") in ("native-mask-v1", "native-scene-v1", "identity-first-v1", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7")
+    head_refine = (scene or native_mask) and s.get("qwenHeadRefine", False)
     reference_input, cropped = reference_field_of_view(reference, source, model) if request.get("version") == "masked-latent-v4" and not qwen else (reference, False)
     atomic_png(folder / "identity.png", padded(reference_input, 590_000 if qwen else 1_000_000, 32 if qwen else 16))
     outputs = ["target.png", "original.png", "identity.png"]
+    if local_identity:
+        outputs += ['identity-anchored-target.png', 'identity-anchored-target.identity.json']
     warnings, has_face = [], False
     if cropped:
         warnings.append("The full-body identity reference was cropped to match the target's tighter field of view. The original reference is retained.")
@@ -150,6 +175,17 @@ def prepare(request, folder, model):
             crop = face_crop(reference, faces[0]) if len(faces) == 1 else None
             if crop is None:
                 warnings.append("No unambiguous face close-up could be extracted. The full identity reference is used; add a clear close-up for stronger facial guidance.")
+        if native_mask and crop is not None:
+            # Identity refinement uses a tight crop from the original person,
+            # removing unrelated reference arms and scenery rather than making
+            # a new synthetic face reference.
+            crop_input = read_image(request["face"]) if request.get("face") else reference
+            crop_faces = detect(crop_input, model)
+            if len(crop_faces) != 1:
+                raise ValueError("The identity pass needs one clear reference face.")
+            fx, fy, fw, fh = crop_faces[0]["bbox"]
+            height, width = crop_input.shape[:2]
+            crop = crop_input[max(0, int(fy - .16 * fh)):min(height, math.ceil(fy + 1.12 * fh)), max(0, int(fx - .15 * fw)):min(width, math.ceil(fx + 1.15 * fw))]
         if crop is not None:
             atomic_png(folder / "face.png", padded(crop, 590_000 if head_refine else 1_000_000 if refine and request.get("version") == "masked-latent-v4" else 384 * 384, 32 if head_refine else 16))
             outputs.append("face.png")
@@ -170,12 +206,29 @@ def prepare(request, folder, model):
             mask, closed = repair_small_mask_gaps(mask)
             if closed:
                 warnings.append("Closed %d tiny enclosed gaps in the painted mask. The outer paint boundary was retained; disable gap repair for deliberately protected small objects." % closed)
-        # Feather inward only: a zero mask pixel never admits generated pixels.
+        # Native-mask v1 explicitly permits an outer margin. Keep historical
+        # recipes and enclosed protection holes on their original behavior.
+        if native_mask and (s.get("maskExpand", 0) or s.get("maskFillHoles", False)):
+            expansion = int(s.get("maskExpand", 0))
+            if not 0 <= expansion <= 64:
+                raise ValueError("Edit allowance must be between 0 and 64 pixels.")
+            background = (mask <= 8).astype(np.uint8)
+            _, labels = cv2.connectedComponents(background, connectivity=8)
+            border_labels = np.unique(np.concatenate((labels[0], labels[-1], labels[:, 0], labels[:, -1])))
+            protected_holes = (background > 0) & ~np.isin(labels, border_labels)
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * expansion + 1, 2 * expansion + 1))
+            mask = cv2.dilate(mask, kernel)
+            if not s.get("maskFillHoles", False):
+                mask[protected_holes] = 0
+            else:
+                mask[protected_holes] = 255
+            warnings.append("The replacement may extend %d pixels beyond the brush outline. %s" % (expansion, "Enclosed gaps may change." if s.get("maskFillHoles", False) else "Enclosed protected holes remain protected."))
+        # The transition stays inside the effective permission region.
         if s["feather"]:
             mask = np.minimum(mask, cv2.GaussianBlur(mask, (0, 0), max(.1, s["feather"] / 2)))
         atomic_png(folder / "edit-mask.png", mask)
         outputs.append("edit-mask.png")
-        if scene or request.get("version") in ["masked-latent-v2", "masked-latent-v3", "masked-latent-v4"]:
+        if scene or request.get("version") in ["masked-latent-v2", "masked-latent-v3", "masked-latent-v4", "native-mask-v1", "native-scene-v1", "identity-first-v1"]:
             small_mask = cv2.resize(mask, (g["contentWidth"], g["contentHeight"]), interpolation=cv2.INTER_AREA)
             working_mask = cv2.copyMakeBorder(small_mask, g["y"], g["height"] - g["contentHeight"] - g["y"], g["x"], g["width"] - g["contentWidth"] - g["x"], cv2.BORDER_CONSTANT, value=0)
             atomic_png(folder / "working-mask.png", working_mask)
@@ -192,7 +245,7 @@ def prepare(request, folder, model):
         x, y, fw, fh = faces[0]["bbox"]
         sx, sy = g["contentWidth"] / source.shape[1], g["contentHeight"] / source.shape[0]
         center = (round((x + fw / 2) * sx + g["x"]), round((y + fh / 2) * sy + g["y"]))
-        axes = (max(1, round(fw * .72 * sx)), max(1, round(fh * .85 * sy)))
+        axes = (max(1, round(fw * (.58 if native_mask else .72) * sx)), max(1, round(fh * (.65 if native_mask else .85) * sy)))
         face_mask = np.zeros((g["height"], g["width"]), dtype=np.uint8)
         cv2.ellipse(face_mask, center, axes, 0, 0, 360, 255, -1)
         face_mask = cv2.GaussianBlur(face_mask, (0, 0), max(2, min(axes) * .08))
@@ -212,17 +265,57 @@ def prepare(request, folder, model):
             # V1/V2 reinserting the original facial core caused the subsequent
             # head pass to retain that identity in our same-input GPU test.
             # V3 keeps the replacement already generated by the body adapter.
-            if request.get("version") == "scene-anchor-v3":
+            if request.get("version") in ("scene-anchor-v3", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7"):
                 body = working_mask.copy()
             atomic_png(folder / "body-mask.png", body)
             outputs.append("body-mask.png")
     if scene:
         if working_mask is None:
             raise ValueError("Source-anchored replacement requires a painted edit area.")
-        atomic_png(folder / "source-structure.png", source_structure(source, g, model))
+        guide_mask = read_image(request['mask'], gray=True) if request.get('version') == 'scene-anchor-v7' else None
+        if guide_mask is not None:
+            guide_mask = cv2.resize(guide_mask, (source.shape[1], source.shape[0]), interpolation=cv2.INTER_LINEAR)
+        atomic_png(folder / "source-structure.png", source_structure(source, g, model, guide_mask))
         outputs.append("source-structure.png")
     atomic_json(marker, {"fingerprint": signature, "hasFace": has_face, "warnings": warnings, "outputs": {name: sha256(folder / name) for name in outputs}})
     return {"hasFace": has_face, "warnings": warnings}
+
+
+def run_local_identity(reference, target, output, mask=None):
+    root = Path(__file__).resolve().parents[1]
+    runtime = root / '.local/facefusion-venv' / ('Scripts/python.exe' if sys.platform == 'win32' else 'bin/python')
+    if not runtime.is_file():
+        raise ValueError('Install the optional local identity runtime first: python3 scripts/local_identity.py setup. No GPU job was submitted.')
+    arguments = [str(runtime), str(root / 'scripts/local_identity.py'), 'run', '--reference', str(reference), '--target', str(target), '--output', str(output)]
+    if mask:
+        arguments += ['--mask', str(mask)]
+    result = subprocess.run(arguments, capture_output=True, text=True, timeout=60)
+    if result.returncode:
+        raise ValueError(result.stderr.strip() or 'Local identity processing failed. The paid base image is retained.')
+
+
+def integrate_scene(source, generated, mask):
+    """Transfer generated gradients with an exact protected-pixel boundary.
+
+    NORMAL_CLONE uses the replacement's gradients. MIXED_CLONE could reinsert
+    source facial features and is deliberately not used. Padding prevents the
+    old garment color at the photo edges from setting the new outfit's tone.
+    """
+    cv2, np = dependencies()
+    pad = 64
+    raw = cv2.copyMakeBorder(generated, pad, pad, pad, pad, cv2.BORDER_REFLECT)
+    destination = raw.copy()
+    destination[pad:pad + source.shape[0], pad:pad + source.shape[1]] = source
+    area = (mask > 8).astype(np.uint8) * 255
+    area = cv2.copyMakeBorder(area, pad, pad, pad, pad, cv2.BORDER_REFLECT)
+    area[:2] = 0; area[-2:] = 0; area[:, :2] = 0; area[:, -2:] = 0
+    if not np.any(area):
+        return source.copy()
+    x, y, width, height = cv2.boundingRect(area)
+    integrated = cv2.seamlessClone(raw, destination, area, (x + width // 2, y + height // 2), cv2.NORMAL_CLONE)
+    integrated = integrated[pad:pad + source.shape[0], pad:pad + source.shape[1]]
+    integrated[mask == 0] = source[mask == 0]
+    return integrated
 
 
 def finish(request, folder, model):
@@ -235,6 +328,29 @@ def finish(request, folder, model):
     warnings = list(json.loads((folder / "image-inputs.json").read_text())["warnings"])
     protected = request["settings"]["protectBackground"]
     outside_difference = None
+    if protected and request["settings"].get("qwenSceneIntegration", False):
+        candidates = ["composition-raw.png", "lighting-raw.png", "body-stage.png", "body-raw.png"]
+        raw_file = next((folder / name for name in candidates if (folder / name).is_file()), None)
+        if raw_file is not None:
+            g = request["geometry"]
+            raw = read_image(raw_file)
+            if request['settings'].get('qwenHeadRefine') and raw_file.name not in ('composition-raw.png', 'lighting-raw.png'):
+                # Keep the completed head when recovering a historical result
+                # that predates the assembled raw-stage export.
+                if not (folder / 'head-raw.png').is_file() or not (folder / 'face-refine-mask.png').is_file():
+                    raise ValueError('The assembled head stage is unavailable. Disable scene integration to finish the saved image without regenerating.')
+                head = read_image(folder / 'head-raw.png')
+                alpha = read_image(folder / 'face-refine-mask.png', gray=True).astype(np.float32)[..., None] / 255
+                raw = np.rint(head * alpha + raw * (1 - alpha)).clip(0, 255).astype(np.uint8)
+            raw = raw[g["y"]:g["y"] + g["contentHeight"], g["x"]:g["x"] + g["contentWidth"]]
+            raw = cv2.resize(raw, (source.shape[1], source.shape[0]), interpolation=cv2.INTER_AREA)
+            output = integrate_scene(source, raw, read_image(folder / "edit-mask.png", gray=True))
+        else:
+            warnings.append("The raw stage was unavailable for scene integration. The paid image was retained without submitting another render.")
+    if request['settings'].get('localIdentity', False):
+        atomic_png(folder / 'integrated-base.png', output)
+        run_local_identity(request['reference'], folder / 'integrated-base.png', folder / 'identity-refined.png', folder / 'edit-mask.png' if protected else None)
+        output = read_image(folder / 'identity-refined.png')
     if protected:
         mask = read_image(folder / "edit-mask.png", gray=True)
         outside = mask == 0
@@ -245,8 +361,10 @@ def finish(request, folder, model):
     atomic_png(folder / "final.png", output)
     faces = {}
     settings = request["settings"]
-    face_used = (settings.get("model") != "qwen21" and (settings["faceDetail"] or settings.get("identityRefine", False))) or (request.get("version") in ("scene-anchor-v1", "scene-anchor-v2", "scene-anchor-v3") and settings.get("qwenHeadRefine", False))
+    face_used = (settings.get("model") != "qwen21" and (settings["faceDetail"] or settings.get("identityRefine", False))) or (request.get("version") in ("scene-anchor-v1", "scene-anchor-v2", "scene-anchor-v3", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7", "native-mask-v1", "native-scene-v1", "identity-first-v1") and settings.get("qwenHeadRefine", False))
     reference_file = (request.get("face") if face_used else None) or request["reference"]
+    if request.get("version") in ("native-mask-v1", "native-scene-v1", "identity-first-v1", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7") and face_used:
+        reference_file = str(folder / "face.png")
     for name, image in [("source", source), ("reference", read_image(reference_file)), ("output", output)]:
         found = detect(image, model)
         faces[name] = found[0] if len(found) == 1 else None

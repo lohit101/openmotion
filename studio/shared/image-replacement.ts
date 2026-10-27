@@ -15,7 +15,7 @@ export const defaultImagePrompt = `Replace the entire person in IMAGE 1 with the
 
 export const imageSettingsSchema = z.object({
   model: z.enum(['klein4b', 'qwen21']).default('klein4b'),
-  qwenRecipe: z.enum(['whole-person', 'source-anchored']).default('whole-person'),
+  qwenRecipe: z.enum(['whole-person', 'source-anchored', 'native-masked', 'native-scene', 'identity-first']).default('whole-person'),
   qwenQuality: z.enum(['fast', 'quality']).default('fast'),
   qwenHeadRefine: z.boolean().default(false),
   structureStrength: z.number().finite().min(0).max(2).default(0.8),
@@ -24,6 +24,14 @@ export const imageSettingsSchema = z.object({
   megapixels: z.union([z.literal(1), z.literal(2)]).default(1),
   protectBackground: z.boolean().default(true),
   feather: z.number().int().min(0).max(24).default(4),
+  maskExpand: z.number().int().min(0).max(64).default(0),
+  maskFillHoles: z.boolean().default(false),
+  qwenRelight: z.boolean().default(false),
+  qwenNormalizeReference: z.boolean().default(false),
+  qwenEdgeOnly: z.boolean().default(false),
+  qwenSceneIntegration: z.boolean().default(false),
+  qwenLayoutOnly: z.boolean().default(false),
+  localIdentity: z.boolean().default(false),
   faceDetail: z.boolean().default(true),
   identityRefine: z.boolean().default(false),
   seed: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).default(20261027),
@@ -41,7 +49,7 @@ export const emptyImageDraft = (): ImageDraft => imageDraftSchema.parse({});
 export interface ImageGeometry { width: number; height: number; contentWidth: number; contentHeight: number; x: number; y: number; outputWidth: number; outputHeight: number; }
 export interface ImageReview { status: 'review' | 'warning'; warnings: string[]; backgroundProtected: boolean; outsideMaskMaxDifference: number | null; sourceFace: boolean; referenceFace: boolean; outputFace: boolean; }
 export interface ImageRun {
-  version?: 'masked-latent-v2' | 'masked-latent-v3' | 'masked-latent-v4' | 'scene-anchor-v1' | 'scene-anchor-v2' | 'scene-anchor-v3';
+  version?: 'masked-latent-v2' | 'masked-latent-v3' | 'masked-latent-v4' | 'scene-anchor-v1' | 'scene-anchor-v2' | 'scene-anchor-v3' | 'scene-anchor-v4' | 'scene-anchor-v5' | 'scene-anchor-v6' | 'scene-anchor-v7' | 'native-mask-v1' | 'native-scene-v1' | 'identity-first-v1';
   settings: ImageSettings; faceId: string | null; maskId: string | null; geometry: ImageGeometry;
   prepared?: { hasFace: boolean; warnings: string[] }; review?: ImageReview; resultAssetId?: string;
 }

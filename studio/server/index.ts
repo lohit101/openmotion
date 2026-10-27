@@ -109,7 +109,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     for (const id of [value.sourceId, value.referenceId]) if (id && !store.asset(id)) throw new Error('This input no longer exists. Upload it again.');
     store.set('draft', value); res.json(value);
   });
-  registerImageRoutes(app, store, connection, runner, cloud, models);
+  registerImageRoutes(app, store, connection, runner, cloud, models, repo);
   const upload = multer({ dest: path.join(store.root, 'uploads'), limits: { files: 1, fileSize: 512 * 1024 ** 2, fields: 0 } });
   app.post('/api/assets/:kind', upload.single('file'), async (req, res) => {
     if (!req.file) return void res.status(400).json({ error: 'Choose a file to upload.' });
@@ -185,8 +185,8 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   });
   app.get('/api/jobs/:id/:type', (req, res) => {
     const job = store.job(String(req.params.id)); if (!job) return void res.sendStatus(404);
-    if (isImageJob(job) && ['image', 'image-source', 'face-source', 'face-reference', 'face-output', 'image-mask', 'image-structure', 'image-body', 'image-body-raw', 'image-head-raw'].includes(String(req.params.type))) {
-      const name = { image: 'final.png', 'image-source': 'original.png', 'face-source': 'source-face.png', 'face-reference': 'reference-face.png', 'face-output': 'output-face.png', 'image-mask': 'edit-mask.png', 'image-structure': 'source-structure.png', 'image-body': 'body-stage.png', 'image-body-raw': 'body-raw.png', 'image-head-raw': 'head-raw.png' }[String(req.params.type)];
+    if (isImageJob(job) && ['image', 'image-source', 'face-source', 'face-reference', 'face-output', 'image-mask', 'image-structure', 'image-body', 'image-body-raw', 'image-head-raw', 'image-lighting', 'image-prepared-reference', 'image-identity-anchor', 'image-integrated-base'].includes(String(req.params.type))) {
+      const name = { image: 'final.png', 'image-source': 'original.png', 'face-source': 'source-face.png', 'face-reference': 'reference-face.png', 'face-output': 'output-face.png', 'image-mask': 'edit-mask.png', 'image-structure': 'source-structure.png', 'image-body': 'body-stage.png', 'image-body-raw': 'body-raw.png', 'image-head-raw': 'head-raw.png', 'image-lighting': 'lighting-raw.png', 'image-prepared-reference': 'reference-normalized.png', 'image-identity-anchor': 'identity-anchored-target.png', 'image-integrated-base': 'integrated-base.png' }[String(req.params.type)];
       const file = path.join(store.root, 'jobs', job.id, name!);
       if (!existsSync(file)) return void res.sendStatus(404);
       if (req.query.download) res.attachment(`${job.title.replace(/[^a-zA-Z0-9 _-]/g, '').slice(0, 70)}.png`);

@@ -26,9 +26,15 @@ export const IMAGE_IDENTITY = 'bfs_head_v1_flux-klein_4b.safetensors';
 export const qwenImageModelFiles = qwenImage.files.map(file => file.destination);
 export const QWEN_STRUCTURE = 'model_patches/qwen_image_2.1_fun_controlnet_union.safetensors';
 export const QWEN_HEAD = 'bfs_head_v1.1_qwen_2.1.safetensors';
+export const QWEN_OUTFIT = 'qwen-image-2.1-outfit-swap.safetensors';
+export const QWEN_CONSISTENCY = 'qwen-image-2.1-consistency.safetensors';
 export const imageFilesForSettings = (settings: ImageSettings): string[] => settings.model === 'qwen21'
-  ? settings.qwenRecipe === 'source-anchored'
-    ? [...qwenImageModelFiles.filter(file => settings.qwenQuality === 'fast' || !file.includes('turbo_lora')), ...(settings.structureStrength > 0 ? [QWEN_STRUCTURE] : []), ...(settings.qwenHeadRefine ? ['loras/' + QWEN_HEAD] : [])]
+  ? settings.qwenRecipe === 'identity-first'
+    ? [...qwenImageModelFiles.filter(file => !file.startsWith('loras/')), 'loras/' + QWEN_HEAD, 'loras/' + QWEN_OUTFIT, ...(settings.qwenRelight ? ['loras/' + QWEN_CONSISTENCY] : [])]
+    : ['native-masked', 'native-scene'].includes(settings.qwenRecipe)
+    ? [...qwenImageModelFiles.filter(file => !file.startsWith('loras/')), ...(settings.qwenHeadRefine ? ['loras/' + QWEN_HEAD] : [])]
+    : settings.qwenRecipe === 'source-anchored'
+    ? [...qwenImageModelFiles.filter(file => settings.qwenQuality === 'fast' || !file.includes('turbo_lora')), ...(settings.structureStrength > 0 ? [QWEN_STRUCTURE] : []), ...(settings.qwenHeadRefine ? ['loras/' + QWEN_HEAD] : []), ...(settings.qwenRelight ? ['loras/' + QWEN_CONSISTENCY] : [])]
     : qwenImageModelFiles
   : [...imageModelFiles, ...(settings.identityRefine ? ['loras/' + IMAGE_IDENTITY] : [])];
 const filename = (destination: string) => destination.split('/').at(-1)!;
@@ -64,6 +70,8 @@ const descriptions: Record<string, [string, string, 'core' | 'adapter']> = {
   'bfs_body_swap_v1.0_qwen_2.1.safetensors': ['Qwen whole-person swap · BFS', 'Trained body and outfit transfer. The unconstrained recipe failed exact framing in our comparison.', 'adapter'],
   'qwen_image_2.1_fun_controlnet_union.safetensors': ['Qwen source geometry & inpainting', 'Constrains source structure and the selected edit area during generation', 'core'],
   [QWEN_HEAD]: ['Qwen head identity · BFS v1.1', 'Separate masked head pass; matching Qwen 2.1 adapter with reduced skin softening', 'adapter'],
+  [QWEN_OUTFIT]: ['Qwen outfit consistency', 'Separate clothing pass that aims to preserve the established face and scene', 'adapter'],
+  [QWEN_CONSISTENCY]: ['Qwen edit consistency', 'Optional lighting pass on the established character; does not guarantee identity or alignment', 'adapter'],
   'flux2-vae.safetensors': ['Klein image encoder / decoder', 'Image encoding for the source frame and character reference', 'core'],
   'wan2.1_14B_SCAIL_2_int8_convrot.safetensors': ['SCAIL-2 INT8', 'Character replacement and motion generation', 'core'],
   'umt5_xxl_fp8_e4m3fn_scaled.safetensors': ['Text encoder', 'Reads the positive and negative prompts', 'core'],

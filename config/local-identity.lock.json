@@ -1,0 +1,134 @@
+{
+  "repository": "https://github.com/facefusion/facefusion.git",
+  "revision": "decc6c9d8f8e014878624452c6e8fe208726b4ec",
+  "source_directory": ".local/facefusion-eval",
+  "venv_directory": ".local/facefusion-venv",
+  "license": "OpenRAIL-AS; individual model terms also apply",
+  "total_bytes": 1222475754,
+  "files": [
+    {
+      "path": ".assets/models/arcface_w600k_r50.hash",
+      "size": 8,
+      "sha256": "e3a6d709939a81fe09e71c7d36f96d54a0deede904e31a38c191a1904e808371",
+      "url": "https://huggingface.co/facefusion/models-3.0.0/resolve/main/arcface_w600k_r50.hash"
+    },
+    {
+      "path": ".assets/models/arcface_w600k_r50.onnx",
+      "size": 174388474,
+      "sha256": "f1f79dc3b0b79a69f94799af1fffebff09fbd78fd96a275fd8f0cbbea23270d1",
+      "url": "https://huggingface.co/facefusion/models-3.0.0/resolve/main/arcface_w600k_r50.onnx"
+    },
+    {
+      "path": ".assets/models/nsfw_1.onnx",
+      "size": 80414194,
+      "sha256": "3debfd72763bc931dd308f57d1e9299ae13bb309d14ddbdc17ce8f1fd42f96af",
+      "url": "https://huggingface.co/facefusion/models-3.3.0/resolve/main/nsfw_1.onnx"
+    },
+    {
+      "path": ".assets/models/fairface.onnx",
+      "size": 85170772,
+      "sha256": "b176b1e4b0739496e7943af7ba4ff306271fecf837bca5ec5d9a48201959db37",
+      "url": "https://huggingface.co/facefusion/models-3.0.0/resolve/main/fairface.onnx"
+    },
+    {
+      "path": ".assets/models/nsfw_1.hash",
+      "size": 8,
+      "sha256": "48c61a15ffcda1ae9e6d4c790224072c8e5648d4ba2f767cf4cfe0be7e282853",
+      "url": "https://huggingface.co/facefusion/models-3.3.0/resolve/main/nsfw_1.hash"
+    },
+    {
+      "path": ".assets/models/fairface.hash",
+      "size": 8,
+      "sha256": "e232c933114a6c9ce446195e4a96bf1c3327dd31c13165849cd00f9f19a2ea62",
+      "url": "https://huggingface.co/facefusion/models-3.0.0/resolve/main/fairface.hash"
+    },
+    {
+      "path": ".assets/models/fan_68_5.onnx",
+      "size": 944321,
+      "sha256": "ea05f7d9d014ae1d9cdc6e9c72643d8f00d198b5db3fdd384148ddff499a613e",
+      "url": "https://huggingface.co/facefusion/models-3.0.0/resolve/main/fan_68_5.onnx"
+    },
+    {
+      "path": ".assets/models/hyperswap_1a_256.hash",
+      "size": 8,
+      "sha256": "70b33d0a9d6044847d9b29f9d08ce7afc140a2cada5b4b5f532bbd6440ba48c1",
+      "url": "https://huggingface.co/facefusion/models-3.3.0/resolve/main/hyperswap_1a_256.hash"
+    },
+    {
+      "path": ".assets/models/hyperswap_1a_256.onnx",
+      "size": 402742682,
+      "sha256": "c0e98a8a03a238f461ed3d2570e426b49f46745ee400854a60dceeb70c246add",
+      "url": "https://huggingface.co/facefusion/models-3.3.0/resolve/main/hyperswap_1a_256.onnx"
+    },
+    {
+      "path": ".assets/models/fan_68_5.hash",
+      "size": 8,
+      "sha256": "092d902410959b3ce01294d7c1ad157f1c602e3918238117e7ef87157be9534e",
+      "url": "https://huggingface.co/facefusion/models-3.0.0/resolve/main/fan_68_5.hash"
+    },
+    {
+      "path": ".assets/models/nsfw_2.onnx",
+      "size": 22489928,
+      "sha256": "5aae1806ce44e3c27fab0a7d44eed581dd25ca71a4387ff809a191c98239c1be",
+      "url": "https://huggingface.co/facefusion/models-3.3.0/resolve/main/nsfw_2.onnx"
+    },
+    {
+      "path": ".assets/models/yunet_2023_mar.onnx",
+      "size": 232475,
+      "sha256": "490d79bc15c0e958d91c999c566c6a338b310ead96e0274dd004e59dd6abecb9",
+      "url": "https://huggingface.co/facefusion/models-3.4.0/resolve/main/yunet_2023_mar.onnx"
+    },
+    {
+      "path": ".assets/models/yunet_2023_mar.hash",
+      "size": 8,
+      "sha256": "6166b6549b2c923af4eefc9107577ede58de24f50c94d0a2ff28433787feff0d",
+      "url": "https://huggingface.co/facefusion/models-3.4.0/resolve/main/yunet_2023_mar.hash"
+    },
+    {
+      "path": ".assets/models/nsfw_2.hash",
+      "size": 8,
+      "sha256": "64cbc0c1a4d72e181fae364281b6d2130be3b87d5784909c5a29adf436f09a01",
+      "url": "https://huggingface.co/facefusion/models-3.3.0/resolve/main/nsfw_2.hash"
+    },
+    {
+      "path": ".assets/models/nsfw_3.hash",
+      "size": 8,
+      "sha256": "b15c591d8177511959174a0c6761827e3bf9c0aa1d63aaa79645d9fc9a4e774b",
+      "url": "https://huggingface.co/facefusion/models-3.3.0/resolve/main/nsfw_3.hash"
+    },
+    {
+      "path": ".assets/models/2dfan4.hash",
+      "size": 8,
+      "sha256": "e6a6ef99b10b9fdb790c790879ca201f7afbe52560e4379248922324a9d503e8",
+      "url": "https://huggingface.co/facefusion/models-3.0.0/resolve/main/2dfan4.hash"
+    },
+    {
+      "path": ".assets/models/2dfan4.onnx",
+      "size": 97904803,
+      "sha256": "678c6fa539d52335a31c980feefdf4a6e02d781d83dce00af8a894f114557285",
+      "url": "https://huggingface.co/facefusion/models-3.0.0/resolve/main/2dfan4.onnx"
+    },
+    {
+      "path": ".assets/models/nsfw_3.onnx",
+      "size": 358188033,
+      "sha256": "778139fb930240ac39812a1480295bfc5dc2cec8a8e46ee6b453481d600c0fa2",
+      "url": "https://huggingface.co/facefusion/models-3.3.0/resolve/main/nsfw_3.onnx"
+    }
+  ],
+  "version": 1,
+  "usage": "Optional private-evaluation face identity anchor. ArcFace recognition weights are Non-Commercial. Not cleared for a hosted commercial service.",
+  "python": "3.13",
+  "packages": [
+    "flatbuffers==25.12.19",
+    "ml_dtypes==0.6.0",
+    "numpy==2.5.4",
+    "onnx==1.23.2",
+    "onnxruntime==1.31.1",
+    "opencv-python-headless==5.0.0.93",
+    "packaging==26.3",
+    "protobuf==7.36.2",
+    "scipy==1.18.1",
+    "tqdm==4.70.1",
+    "typing_extensions==4.16.0"
+  ]
+}

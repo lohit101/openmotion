@@ -122,6 +122,7 @@ export class Runner {
           files.push(['structure', 'source-structure.png']);
           if (job.image!.settings.qwenHeadRefine) files.push(['faceMask', 'face-refine-mask.png'], ['bodyMask', 'body-mask.png']);
         }
+        if (['native-mask-v1', 'native-scene-v1', 'identity-first-v1'].includes(job.image!.version || '') && job.image!.settings.qwenHeadRefine) files.push(['faceMask', 'face-refine-mask.png']);
         const uploads: Record<string, string> = {};
         for (const [key, name] of files) { this.stage(job, 'Transferring image inputs to GPU', Object.keys(uploads).length, files.length, 'inputs'); uploads[key] = await client.upload(path.join(folder, name), job.id + '-' + key, signal); this.checkCancelled(job); }
         if (job.image!.version && job.image!.settings.protectBackground && nativeMask) uploads.noiseMask = uploads.mask;
@@ -187,7 +188,7 @@ export class Runner {
           try { if (!await exists(file)) await client.download(keyframe, file, signal); job.keyframe = file; this.save(job); }
           catch (error) { if (signal.aborted) throw error; await writeFile(path.join(folder, 'keyframe-download-warning.json'), JSON.stringify({ warning: 'The reference preview could not be downloaded. The existing video run was not resubmitted.' })); }
         }
-        if (isImageJob(job)) for (const [node, name] of [['154', 'body-stage'], ['155', 'body-raw'], ['222', 'head-raw']]) {
+        if (isImageJob(job)) for (const [node, name] of [['154', 'body-stage'], ['155', 'body-raw'], ['222', 'head-raw'], ['322', 'lighting-raw'], ['324', 'composition-raw'], ['505', 'reference-normalized']]) {
           const preview = history.outputs?.[node]?.images?.[0]; if (!preview) continue;
           try { const file = path.join(folder, `${name}.png`); if (!await exists(file)) await client.download(preview, file, signal); }
           catch (error) { if (signal.aborted) throw error; await writeFile(path.join(folder, `${name}-preview-warning.json`), JSON.stringify({ warning: 'The intermediate image preview could not be downloaded. No image was resubmitted.' })); }

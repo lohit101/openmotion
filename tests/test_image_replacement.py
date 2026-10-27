@@ -60,6 +60,81 @@ class ImageReplacementTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Saved image inputs changed"):
                 editor.prepare(request, work, None)
 
+    def test_local_anchor_conditions_target_without_replacing_immutable_original(self):
+        import cv2
+        import numpy as np
+        with tempfile.TemporaryDirectory() as temp, patch.object(editor, 'detect', return_value=[]):
+            source, _, request, work = self.fixture(Path(temp))
+            request['version'] = 'scene-anchor-v7'
+            request['settings'].update(model='qwen21', faceDetail=False, localIdentity=True)
+            anchor = np.full_like(source, 77)
+            def identity(reference, target, output, mask):
+                cv2.imwrite(str(output), anchor)
+                Path(output).with_suffix('.identity.json').write_text('{}')
+            with patch.object(editor, 'run_local_identity', side_effect=identity) as run:
+                editor.prepare(request, work, None)
+                editor.prepare(request, work, None)
+                self.assertEqual(run.call_count, 1)
+            np.testing.assert_array_equal(cv2.imread(str(work / 'original.png')), source)
+            np.testing.assert_array_equal(cv2.imread(str(work / 'target.png'))[5:122, 1:94], anchor)
+            marker = json.loads((work / 'image-inputs.json').read_text())
+            self.assertIn('identity-anchored-target.png', marker['outputs'])
+
+    def test_layout_guide_removes_original_face_and_keeps_protected_scene_contours(self):
+        import cv2
+        import numpy as np
+        source = np.zeros((160, 128, 3), np.uint8)
+        cv2.rectangle(source, (12, 16), (115, 145), (255, 255, 255), 2)
+        cv2.line(source, (42, 62), (83, 62), (255, 255, 255), 3)
+        mask = np.zeros((160, 128), np.uint8); mask[30:155, 30:99] = 255
+        geometry = {'contentWidth': 128, 'contentHeight': 160, 'width': 128, 'height': 160, 'x': 0, 'y': 0}
+        with patch.object(editor, 'detect', return_value=[{'bbox': [36, 40, 56, 70]}]):
+            old = editor.source_structure(source, geometry, None)
+            guide = editor.source_structure(source, geometry, None, mask)
+        self.assertFalse(np.any(guide[58:66, 48:80]))
+        np.testing.assert_array_equal(guide[mask == 0], old[mask == 0])
+        self.assertTrue(np.any(guide[mask > 0]))
+
+    def test_scene_integration_preserves_protected_pixels_without_translating_actor(self):
+        import cv2
+        import numpy as np
+        source = np.full((160, 128, 3), 100, np.uint8)
+        raw = np.full_like(source, 150)
+        cv2.rectangle(raw, (45, 55), (75, 95), (10, 30, 60), -1)
+        mask = np.zeros((160, 128), np.uint8); mask[25:135, 25:103] = 255
+        result = editor.integrate_scene(source, raw, mask)
+        np.testing.assert_array_equal(result[mask == 0], source[mask == 0])
+        yy, xx = np.where(result[:, :, 0] < 45)
+        self.assertAlmostEqual(float(xx.mean()), 60, delta=1)
+        self.assertAlmostEqual(float(yy.mean()), 75, delta=1)
+
+    def test_native_edit_allowance_expands_outer_boundary_and_preserves_protected_holes(self):
+        import cv2
+        import numpy as np
+        with tempfile.TemporaryDirectory() as temp, patch.object(editor, "detect", return_value=[]):
+            source, mask, request, work = self.fixture(Path(temp))
+            mask[48:60, 43:53] = 0
+            cv2.imwrite(request["mask"], mask)
+            request["version"] = "native-mask-v1"
+            request["settings"].update(model="qwen21", faceDetail=False, maskExpand=6, feather=4)
+            editor.prepare(request, work, None)
+            effective = cv2.imread(str(work / "edit-mask.png"), 0)
+            self.assertGreater(effective[40, 22], 0)
+            self.assertFalse(np.any(effective[48:60, 43:53]))
+            self.assertFalse(np.any(effective[:, :18]))
+            self.assertTrue((work / "working-mask.png").is_file())
+            cv2.imwrite(str(work / "gpu-result.png"), source)
+            editor.finish(request, work, None)
+            np.testing.assert_array_equal(cv2.imread(str(work / "final.png"))[effective == 0], source[effective == 0])
+
+        with tempfile.TemporaryDirectory() as temp, patch.object(editor, "detect", return_value=[]):
+            _, mask, request, work = self.fixture(Path(temp))
+            request["version"] = "masked-latent-v4"
+            request["settings"]["maskExpand"] = 6
+            editor.prepare(request, work, None)
+            historical = cv2.imread(str(work / "edit-mask.png"), 0)
+            self.assertFalse(np.any(historical[mask == 0]))
+
     def test_empty_mask_and_wrong_output_dimensions_cannot_pass(self):
         import cv2
         import numpy as np
@@ -81,6 +156,20 @@ class ImageReplacementTests(unittest.TestCase):
             result = editor.prepare(request, work, "fixture detector")
             self.assertTrue(result["hasFace"])
             self.assertTrue((work / "face.png").is_file())
+
+    def test_native_hole_fill_is_explicit_and_can_work_without_outer_expansion(self):
+        import cv2
+        import numpy as np
+        with tempfile.TemporaryDirectory() as temp, patch.object(editor, "detect", return_value=[]):
+            _, mask, request, work = self.fixture(Path(temp))
+            mask[48:60, 43:53] = 0
+            cv2.imwrite(request["mask"], mask)
+            request["version"] = "native-scene-v1"
+            request["settings"].update(model="qwen21", faceDetail=False, maskExpand=0, maskFillHoles=True)
+            editor.prepare(request, work, None)
+            effective = cv2.imread(str(work / "edit-mask.png"), 0)
+            self.assertTrue(np.all(effective[48:60, 43:53] == 255))
+            self.assertFalse(np.any(effective[:, :25]))
 
     def test_native_sampling_mask_uses_the_same_scale_and_padding_as_the_target(self):
         import cv2
