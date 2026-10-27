@@ -1,14 +1,11 @@
 import { openAsBlob } from 'node:fs';
-import { createWriteStream } from 'node:fs';
-import { rename } from 'node:fs/promises';
-import { Readable } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
 import path from 'node:path';
 import WebSocket from 'ws';
 import type { Catalog, Connection, Graph, Job } from '../shared/types';
 import { stageNames } from '../shared/types';
 import type { Store } from './store';
 import { command } from './media';
+import { downloadOutput, type DownloadProgress } from './download';
 
 export class OfflineError extends Error {}
 const RETRYABLE_READ_STATUS = new Set([429, 500, 502, 503, 504]);
@@ -89,14 +86,9 @@ export class ComfyClient {
     const result = await response.json() as { name: string; subfolder?: string };
     return [result.subfolder, result.name].filter(Boolean).join('/');
   }
-  async download(entry: { filename: string; subfolder?: string; type?: string }, dest: string, signal: AbortSignal) {
+  async download(entry: { filename: string; subfolder?: string; type?: string }, dest: string, signal: AbortSignal, progress?: DownloadProgress) {
     const query = new URLSearchParams({ filename: entry.filename, subfolder: entry.subfolder || '', type: entry.type || 'output' });
-    try {
-      const response = await fetch(this.endpoint + '/view?' + query, { signal: AbortSignal.any([signal, AbortSignal.timeout(120000)]) });
-      if (!response.ok || !response.body) throw new OfflineError('The completed segment could not be downloaded. Reconnect and resume to retry the download.');
-      await pipeline(Readable.fromWeb(response.body as any), createWriteStream(dest + '.part'), { signal });
-      await rename(dest + '.part', dest);
-    } catch (error) { if (signal.aborted || error instanceof OfflineError) throw error; throw new OfflineError('The segment download was interrupted. Reconnect and resume to retry the download.'); }
+    await downloadOutput(this.endpoint + '/view?' + query, dest, signal, progress);
   }
   watch(clientId: string, receive: (event: any) => void): Promise<WebSocket> {
     return new Promise((resolve, reject) => {

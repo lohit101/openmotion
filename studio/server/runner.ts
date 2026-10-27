@@ -13,6 +13,7 @@ import { missingPinnedAdapters } from './models';
 import { isViggle, planForJob } from '../shared/engines';
 import { canFinishImageLocally, isImageJob, type ImageReview } from '../shared/image-replacement';
 import { ImageFinalizationError, processImage } from './image-processing';
+import { DownloadError, type DownloadProgress } from './download';
 
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 export class Runner {
@@ -40,6 +41,10 @@ export class Runner {
   }
   save(job: Job) { this.store.saveJob(job); }
   stage(job: Job, stage: string, value: number | null = null, max: number | null = null, unit = 'items') { job.progress = { ...job.progress, stage, node: null, value, max, unit, updatedAt: Date.now() }; this.save(job); }
+  transferProgress(job: Job, stage: string): DownloadProgress {
+    let last = 0;
+    return (received, total) => { if (Date.now() - last >= 500 || received === total) { last = Date.now(); this.stage(job, stage, received, total, 'bytes'); } };
+  }
   checkCancelled(job: Job) { if (this.store.job(job.id)?.cancelRequested) throw new Error('Cancelled.'); }
   async cancel(job: Job) {
     job.cancelRequested = true;
@@ -201,7 +206,7 @@ export class Runner {
           try { if (!await exists(file)) await client.download(keyframe, file, signal); job.keyframe = file; this.save(job); }
           catch (error) {
             if (signal.aborted) throw error;
-            if (job.viggleSegmentation && job.settings.referencePreparation !== 'prepared') throw new OfflineError('The original repainted frame could not be saved. Reconnect and resume its download; the completed segment will not be rendered again.');
+            if (job.viggleSegmentation && job.settings.referencePreparation !== 'prepared') throw new DownloadError('The original repainted frame could not be saved. Resume its download; the completed segment will not be rendered again.');
             await writeFile(path.join(folder, 'keyframe-download-warning.json'), JSON.stringify({ warning: 'The reference preview could not be downloaded. The existing video run was not resubmitted.' }));
           }
         }
@@ -238,11 +243,11 @@ export class Runner {
         const receipt = path.join(folder, `history_${job.segments.length}.json`);
         await writeFile(receipt + '.part', JSON.stringify(history, null, 2)); await rename(receipt + '.part', receipt);
         this.stage(job, 'Downloading completed segment');
-        if (!await exists(path.join(folder, file))) await client.download(video, path.join(folder, file), signal);
+        if (!await exists(path.join(folder, file))) await client.download(video, path.join(folder, file), signal, this.transferProgress(job, 'Downloading completed segment'));
         if (job.viggleSegmentation) {
           this.stage(job, 'Saving continuation anchor locally');
           const anchor = path.join(folder, `context_${job.segments.length}.safetensors`);
-          if (!await exists(anchor)) await client.download(context.artifact, anchor, signal);
+          if (!await exists(anchor)) await client.download(context.artifact, anchor, signal, this.transferProgress(job, 'Backing up continuity · completed segment is saved'));
         }
         if (job.saveDiagnosticLatent) {
           const latent = outputs['51']?.latents?.[0];
@@ -288,10 +293,10 @@ export class Runner {
     } catch (error) {
       if (signal.aborted && signal.reason instanceof OfflineError) error = signal.reason;
       const saved = this.store.job(job.id); const cancelled = saved?.cancelRequested && saved.cancellationConfirmed;
-      job.status = cancelled ? 'cancelled' : saved?.cancelRequested || error instanceof OfflineError || error instanceof ImageFinalizationError ? 'interrupted' : 'failed';
+      job.status = cancelled ? 'cancelled' : saved?.cancelRequested || error instanceof OfflineError || error instanceof DownloadError || error instanceof ImageFinalizationError ? 'interrupted' : 'failed';
       job.error = cancelled ? null : saved?.cancelRequested ? 'Cancellation could not be confirmed. The GPU job may still be running. Reconnect and check cancellation.' : (error instanceof Error ? error.message : String(error));
       if (error instanceof OfflineError) this.connection.disconnect('GPU connection lost. Reconnect to check and resume the existing run.');
-      job.progress.stage = cancelled ? 'Cancelled' : error instanceof ImageFinalizationError ? 'Image saved · finish local processing' : job.status === 'interrupted' ? 'Connection interrupted' : 'Generation failed';
+      job.progress.stage = cancelled ? 'Cancelled' : error instanceof DownloadError ? 'Download paused · completed render kept' : error instanceof ImageFinalizationError ? 'Image saved · finish local processing' : job.status === 'interrupted' ? 'Connection interrupted' : 'Generation failed';
       job.progress.value = null; job.progress.max = null; this.save(job);
     } finally { socket?.close(); }
   }

@@ -58,7 +58,7 @@ async function mockComfy(viggle = false) {
     }
   }
   const pending = new Map<string, any[]>(), history: Record<string, any> = {}, submissions: any[] = [], cancelled: string[] = [], calls: string[] = [];
-  let mode: 'complete' | 'hold' | 'lose-response' = 'complete', dropHistory = false, dropCancel = false, dropLatent = false, dropDownload = false, dropContext = false;
+  let mode: 'complete' | 'hold' | 'lose-response' = 'complete', dropHistory = false, dropCancel = false, dropLatent = false, dropDownload = 0, dropContext = 0;
   app.use(express.json({ limit: '5mb' })); app.use((req, _res, next) => { calls.push(req.method + ' ' + req.path); next(); });
   ws.on('connection', (socket, req) => { sockets.set(new URL(req.url!, 'http://localhost').searchParams.get('clientId')!, socket); });
   const emit = (client: string, type: string, data: unknown) => sockets.get(client)?.send(JSON.stringify({ type, data }));
@@ -117,11 +117,11 @@ async function mockComfy(viggle = false) {
     if (mode === 'complete') void complete(id);
   });
   app.post('/api/jobs/:id/cancel', (req, res) => { if (dropCancel) { dropCancel = false; req.socket.destroy(); return; } cancelled.push(req.params.id); pending.delete(req.params.id); res.json({ cancelled: true }); });
-  app.get('/view', (req, res) => { if (dropDownload || dropContext && String(req.query.filename).endsWith('.safetensors')) { dropDownload = false; dropContext = false; req.socket.destroy(); return; } const file = files.get(String(req.query.filename)); if (file) res.sendFile(file); else res.sendStatus(404); });
+  app.get('/view', (req, res) => { if (dropDownload > 0) { dropDownload--; req.socket.destroy(); return; } if (dropContext > 0 && String(req.query.filename).endsWith('.safetensors')) { dropContext--; req.socket.destroy(); return; } const file = files.get(String(req.query.filename)); if (file) res.sendFile(file); else res.sendStatus(404); });
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   const address = server.address() as { port: number };
   return { endpoint: `http://127.0.0.1:${address.port}`, calls, submissions, cancelled, pending, history, complete, emit, uploads, catalog: localCatalog,
-    setMode(value: typeof mode) { mode = value; }, loseNextHistory() { dropHistory = true; }, loseNextCancel() { dropCancel = true; }, omitNextLatent() { dropLatent = true; }, loseNextDownload() { dropDownload = true; }, loseNextContext() { dropContext = true; },
+    setMode(value: typeof mode) { mode = value; }, loseNextHistory() { dropHistory = true; }, loseNextCancel() { dropCancel = true; }, omitNextLatent() { dropLatent = true; }, loseNextDownload() { dropDownload = 3; }, loseNextContext() { dropContext = 3; },
     async close() { for (const socket of ws.clients) socket.terminate(); ws.close(); server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); }
   };
 }
@@ -335,6 +335,7 @@ describe('local app with the captured ComfyUI protocol', () => {
     await until(() => local!.runner.busy, busy => !busy);
     const stopped = local!.store.job(id)!;
     expect(stopped.status).toBe('interrupted'); expect(mock!.submissions).toHaveLength(1);
+    expect(stopped.progress.stage).toBe('Download paused · completed render kept'); expect(local!.connection.status.state).toBe('online');
     expect(stopped.progress.completedFrames).toBe(0);
     const originalPrompt = stopped.pendingPrompt!, downloaded = await readFile(path.join(root, 'jobs', id, 'segment_0000.mp4'));
     delete mock!.history[originalPrompt];

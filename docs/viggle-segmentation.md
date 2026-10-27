@@ -21,6 +21,8 @@ For example, 720 requested frames (30 seconds) use seven windows. The last start
 
 Successful ComfyUI histories are written atomically on the Mac **before** downloading previews, video or anchors. Each segment's video and five-frame anchor are downloaded before completed-frame progress advances. If a transfer fails and ComfyUI later loses in-memory history, Check & resume uses the local receipt and existing media rather than submitting that completed prompt again. Ambiguous/missing GPU requests still require the existing explicit retry choice.
 
+Output transfers now resume matching partial bytes with Range/If-Range and display actual MB progress. Their timeout measures inactivity, not total elapsed download time. A transfer error pauses output recovery without falsely marking the GPU disconnected. See [the transfer failure analysis and validation](validation/viggle-transfer-recovery-20261028.md).
+
 The first conditioning image, every submitted graph, successful histories, segments and anchors remain in the ignored local job directory. The GPU also retains its continuation anchor files. Five float32 RGB frames are approximately 25 MB at 480×864 or 58 MB at the native 736×1312 HD canvas, excluding small headers. This is per saved anchor, not new model storage. Model manifests, LoRA choices and model retirement remain unchanged.
 
 Resuming uses the same existing GPU disk and uploaded inputs. Copying a run onto a different/destroyed rental is not implemented by this feature; a local anchor backup alone does not make another host ready.
