@@ -166,9 +166,11 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     const settings = { ...value.settings, prompt: migrateDemoPrompt(value.settings.prompt, value.settings.mode) }; if (settings.randomSeed) settings.seed = randomInt(0, 0xffffffff);
     const [width, height] = renderGeometry(settings, source), [outputWidth, outputHeight] = geometry(settings, source), target = clipFrameCount(settings.seconds, settings.fps);
     const segmented = isViggle(settings) && target > 124;
-    if (segmented && ['RecastViggleAnchor', 'RecastViggleSaveContext'].some(name => !connection.catalog[name])) return void res.status(409).json({ error: 'This GPU needs the updated continuation nodes. Use Connect / retry setup in GPU cloud before generating a longer clip. Existing models are reused; no extra weights are required.' });
+    const segmentation = settings.viggleReferenceMode === 'original' ? 'five-frame-v1' as const : 'last-frame-v2' as const;
+    const continuationNodes = ['RecastViggleAnchor', 'RecastViggleSaveContext', ...(segmentation === 'last-frame-v2' ? ['RecastViggleContextReference'] : [])];
+    if (segmented && continuationNodes.some(name => !connection.catalog[name])) return void res.status(409).json({ error: 'This GPU needs the updated continuation nodes. Use Connect / retry setup in GPU cloud before generating a longer clip. Existing models are reused; no extra weights are required.' });
     const job: Job = { id: randomUUID(), title: source.name.replace(/\.[^.]+$/, '') + (isViggle(settings) ? ' / Viggle swap' : settings.mode === 'swap' ? ' / character swap' : ' / motion transfer'), status: 'queued', sourceId: source.id, referenceId: reference.id, settings, promptVersion: PROMPT_VERSION, renderVersion: 'continuous-v1', saveDiagnosticLatent: value.saveDiagnosticLatent, ...(settings.mode === 'swap' && !isViggle(settings) ? { framingVersion: FRAMING_VERSION } : {}),
-      createdAt: new Date().toISOString(), favorite: false, deleted: false, width, height, ...(segmented ? { viggleSegmentation: 'five-frame-v1' as const } : {}), ...(settings.resolution === '720' ? { outputSize: { width: outputWidth, height: outputHeight } } : {}),
+      createdAt: new Date().toISOString(), favorite: false, deleted: false, width, height, ...(segmented ? { viggleSegmentation: segmentation } : {}), ...(settings.resolution === '720' ? { outputSize: { width: outputWidth, height: outputHeight } } : {}),
       progress: { stage: 'Queued', node: null, value: null, max: null, unit: 'steps', segment: 1, segments: isViggle(settings) ? viggleWindows(target).length : segmentCount(target, settings.framesPerPass), completedFrames: 0, targetFrames: target, updatedAt: Date.now() },
       segments: [], context: '', pendingPrompt: null, uploads: null, error: null, output: null, poster: null, cancelRequested: false, elapsedSeconds: null, origin: 'render', workflow: null };
     store.addJob(job, key); res.status(201).json(publicJob(job)); void runner.kick();
@@ -201,8 +203,12 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
       return void res.sendFile(file);
     }
     if (req.params.type === 'keyframe') {
-      if (!job.keyframe) return void res.sendStatus(404);
-      return void res.sendFile(path.join(store.root, 'jobs', job.id, 'keyframe.png'));
+      const index = req.query.segment === undefined ? 0 : z.coerce.number().int().min(0).max(63).parse(req.query.segment);
+      const name = index === 0 && job.keyframe ? 'keyframe.png' : job.segments[index]?.reference;
+      if (!name || !/^(keyframe|reference_\d{4})\.png$/.test(name)) return void res.sendStatus(404);
+      const file = path.join(store.root, 'jobs', job.id, name);
+      if (!existsSync(file)) return void res.sendStatus(404);
+      return void res.sendFile(file);
     }
     if (req.params.type === 'aligned-reference') {
       if (!job.referenceFraming) return void res.sendStatus(404);

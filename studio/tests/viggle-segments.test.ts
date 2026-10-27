@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { viggleWindow, viggleWindows } from '../shared/viggle-segments';
-import { engineIssue, planForJob } from '../shared/engines';
+import { engineIssue, planForJob, referenceModeForRun } from '../shared/engines';
 import { defaults, nextSegment, type Job } from '../shared/types';
 import { compileViggleWorkflow } from '../server/viggle-workflow';
 
 describe('Viggle continuation planning', () => {
+  it('preserves the recorded appearance policy when reusing older paid settings', () => {
+    expect(referenceModeForRun({ settings: defaults, viggleSegmentation: 'five-frame-v1' })).toBe('original');
+    expect(referenceModeForRun({ settings: { ...defaults, viggleReferenceMode: 'original' }, viggleSegmentation: 'last-frame-v2' })).toBe('previous');
+  });
   it('uses native phase-aligned windows, including a nearly fully overlapped ending', () => {
     expect(viggleWindows(125)).toEqual([{ skip: 0, cap: 124, overlap: 0 }, { skip: 17, cap: 108, overlap: 107 }]);
     expect(viggleWindows(240)).toEqual([{ skip: 0, cap: 124, overlap: 0 }, { skip: 119, cap: 121, overlap: 5 }]);
@@ -61,5 +65,20 @@ describe('Viggle continuation planning', () => {
     expect(second['45'].inputs.overlap).toBe(5);
     expect(second['46'].inputs.filename_prefix).toBe('recast/long-viggle/segment_0001');
     expect(second['38'].inputs.noise_seed).toBe(job.settings.seed + 1);
+  });
+  it('chains the actual previous frame as appearance while retaining the separate five-frame motion anchor', () => {
+    expect(defaults.viggleReferenceMode).toBe('previous');
+    const job = { id: 'chain-test', settings: { ...defaults, engine: 'viggle', referencePreparation: 'auto', seconds: 14.5 },
+      viggleSegmentation: 'last-frame-v2', width: 480, height: 864, progress: { completedFrames: 124, targetFrames: 348 },
+      segments: [{ file: 'segment_0000.mp4', frames: 124, promptId: 'paid', seconds: 1 }],
+      uploads: { source: 'clip.mp4', reference: 'original.png' }, context: 'character_swap/viggle/previous.safetensors' } as unknown as Job;
+    const graph = compileViggleWorkflow(job);
+    expect(graph['4'].class_type).toBe('RecastViggleContextReference');
+    expect(graph['4'].inputs).toMatchObject({ context_path: job.context, job_id: job.id, skip_frames: 119, overlap: 5 });
+    expect(graph['4'].inputs.image).toBeUndefined(); expect(graph['121'].inputs.images).toEqual(['4', 0]);
+    expect(graph['40'].inputs.ref_image).toEqual(['121', 0]);
+    expect(graph['36'].inputs.context_version).toBe('last-frame-v2');
+    expect(graph['43'].inputs.latent_image).toEqual(['36', 0]); expect(graph['47'].inputs.version).toBe('last-frame-v2');
+    expect(graph['118']).toBeUndefined(); expect(graph['103']).toBeUndefined();
   });
 });

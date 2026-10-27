@@ -76,7 +76,7 @@ def main():
         errors = []
         # This tiny pinned node pack has no extra pip dependencies or weights.
         # Detect old cached engines before declaring the new recipe ready.
-        for name in ('ViggleAnimateConditioning', 'ViggleTextCondLoader', 'RecastViggleSource', 'RecastViggleAnchor', 'RecastViggleSaveContext', 'MiniMaxH3SigmaShift', 'Flux2Scheduler'):
+        for name in ('ViggleAnimateConditioning', 'ViggleTextCondLoader', 'RecastViggleSource', 'RecastViggleAnchor', 'RecastViggleSaveContext', 'RecastViggleContextReference', 'MiniMaxH3SigmaShift', 'Flux2Scheduler'):
             if name not in catalog:
                 errors.append('Missing pinned runtime node: ' + name)
         paths = list((ROOT / 'workflows/api').glob('*.json'))

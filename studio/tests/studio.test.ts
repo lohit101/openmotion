@@ -92,7 +92,7 @@ async function mockComfy(viggle = false) {
     if (graph['47'].class_type === 'RecastViggleSaveContext') {
       const contextName = id + '.safetensors', contextFile = path.join(fixtures, contextName);
       await writeFile(contextFile, 'Protocol fixture anchor; real tensors are checked separately in CPU ComfyUI tests.'); files.set(contextName, contextFile);
-      Object.assign(history[id].outputs['47'].context[0], { version: 'five-frame-v1', job_id: graph['47'].inputs.job_id, source_anchor_frame: graph['47'].inputs.next_skip_frames, artifact: { filename: contextName, type: 'output' } });
+      Object.assign(history[id].outputs['47'].context[0], { version: graph['47'].inputs.version || 'five-frame-v1', job_id: graph['47'].inputs.job_id, source_anchor_frame: graph['47'].inputs.next_skip_frames, artifact: { filename: contextName, type: 'output' } });
     }
     if (graph['121']) {
       const keyframe = id + '_keyframe.png'; files.set(keyframe, image);
@@ -314,10 +314,14 @@ describe('local app with the captured ComfyUI protocol', () => {
     const response = await agent.post('/api/jobs').set('Idempotency-Key', 'viggle-thirty-seconds').send(values).expect(201);
     const job = await until(() => local!.store.job(response.body.id)!, j => ['completed', 'failed', 'interrupted'].includes(j.status), 25000);
     expect(job.error).toBeNull(); expect(job.status).toBe('completed');
-    expect(job.viggleSegmentation).toBe('five-frame-v1'); expect(job.progress.completedFrames).toBe(720);
+    expect(job.viggleSegmentation).toBe('last-frame-v2'); expect(job.progress.completedFrames).toBe(720);
     expect(job.progress.segments).toBe(7); expect(job.segments).toHaveLength(7); expect(mock!.submissions).toHaveLength(7);
+    expect(job.segments[1].reference).toBe('reference_0001.png');
+    await agent.get(`/api/jobs/${job.id}/keyframe?segment=1`).expect(200);
+    await agent.get(`/api/jobs/${job.id}/keyframe?segment=-1`).expect(422);
     expect(job.segments.map(segment => segment.frames)).toEqual([124, 119, 119, 119, 119, 119, 1]);
     const last = mock!.submissions.at(-1)!.prompt;
+    expect(last['4'].class_type).toBe('RecastViggleContextReference'); expect(last['36'].inputs.context_version).toBe('last-frame-v2');
     expect(last['2'].inputs).toMatchObject({ skip_first_frames: 612, frame_load_cap: 108 });
     expect(last['36'].inputs.overlap).toBe(107); expect(last['45'].inputs.overlap).toBe(107);
     const info = JSON.parse(await command('ffprobe', ['-v', 'error', '-count_frames', '-show_streams', '-of', 'json', job.output!]));
@@ -329,7 +333,7 @@ describe('local app with the captured ComfyUI protocol', () => {
   }, 30000);
   it('resumes a completed anchor transfer without repeating its paid sample or character repaint', async () => {
     const agent = await setup(true), values = await inputs(agent);
-    Object.assign(values.settings, { engine: 'viggle', fps: 24, seconds: 5.2, start: .5 });
+    Object.assign(values.settings, { engine: 'viggle', fps: 24, seconds: 5.2, start: .5, viggleReferenceMode: 'original' });
     mock!.loseNextContext(); await connect(agent);
     const response = await agent.post('/api/jobs').set('Idempotency-Key', 'viggle-anchor-recovery').send(values).expect(201), id = response.body.id;
     await until(() => local!.runner.busy, busy => !busy);

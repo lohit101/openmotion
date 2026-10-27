@@ -8,6 +8,7 @@ export const settingsSchema = z.object({
   engine: z.enum(['scail2', 'viggle']).default('scail2'),
   referencePreparation: z.enum(['auto', 'prepared']).default('auto'),
   viggleQuality: z.enum(['fast', 'balanced']).default('fast'),
+  viggleReferenceMode: z.enum(['previous', 'original']).default('previous'),
   mode: z.enum(['swap', 'motion']).default('swap'),
   prompt: z.string().trim().max(8000).default(''),
   negativePrompt: z.string().max(4000).default(defaultNegativePrompt),
@@ -36,7 +37,7 @@ export const defaults: Settings = settingsSchema.parse({ prompt: defaultPrompt()
 export interface Asset { id: string; kind: 'video' | 'image'; name: string; path: string; width: number; height: number; duration: number; fps: number; size: number; hasAudio: boolean; poster: string; createdAt: string; sourceFrame?: { videoId: string; time: number }; maskFor?: string; }
 export type JobStatus = 'queued' | 'running' | 'reconnecting' | 'interrupted' | 'completed' | 'failed' | 'cancelled';
 export interface Progress { stage: string; node: string | null; value: number | null; max: number | null; unit: string; segment: number; segments: number; completedFrames: number; targetFrames: number; updatedAt: number; }
-export interface Segment { promptId: string; frames: number; file: string; seconds: number; }
+export interface Segment { promptId: string; frames: number; file: string; seconds: number; reference?: string; }
 export interface ReferenceFraming {
   version: 'face-v1'; status: 'aligned'; width: number; height: number; anchorFrame: number;
   scale: number; translateX: number; translateY: number; preparedSha256: string; warnings: string[];
@@ -56,7 +57,8 @@ export interface Job {
   promptVersion?: 'scene-v1';
   framingVersion?: 'face-v1'; referenceFraming?: ReferenceFraming; framingCheck?: FramingCheck;
   renderVersion?: 'continuous-v1'; saveDiagnosticLatent?: boolean;
-  viggleSegmentation?: 'five-frame-v1';
+  viggleSegmentation?: 'five-frame-v1' | 'last-frame-v2';
+  continuationSource?: { jobId: string; frames: number };
   keyframe?: string; timings?: { node: string; stage: string; seconds: number }[];
   mediaType?: 'image'; image?: ImageRun;
 }

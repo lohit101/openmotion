@@ -128,6 +128,26 @@ async def validate(comfy_root):
         final, _, _ = helpers.SwapFinalizeShot().finish(decoded, 108, 107, 24)
         assert len(final) == 1 and torch.equal(final[0], decoded[107])
         print('PASS Viggle continuation: exact end-aligned anchor, native nested noise mask, immutable input and wrong-run/offset rejection', flush=True)
+        for next_start in (119, 17):
+            receipt = helpers.RecastViggleSaveContext().save(decoded, 24, 0, next_start, 'cpu-last-frame', 'last-frame-v2')
+            info = receipt['ui']['context'][0]
+            reference = helpers.RecastViggleContextReference().reference(info['path'], 64, 96, 24, next_start, 124 - next_start, 'cpu-last-frame')[0]
+            assert torch.equal(reference, decoded[-1:])
+            payload = helpers.load_file(str(helpers.context_file(info['path'])))
+            assert ('reference_frame' in payload) == (next_start != 119)
+            assert torch.equal(payload['frames'], decoded[next_start:next_start + 5])
+            class ChainedVAE:
+                def encode(self, frames):
+                    assert torch.equal(frames, decoded[next_start:next_start + 5])
+                    return torch.zeros((1, 24, 2, 6, 4))
+            anchor_node.anchor(original, ChainedVAE(), info['path'], 64, 96, 24, next_start, 124 - next_start, 'cpu-last-frame', 'last-frame-v2')
+            try:
+                helpers.RecastViggleContextReference().reference(info['path'], 64, 96, 24, next_start, 124 - next_start, 'wrong-run')
+            except ValueError:
+                pass
+            else:
+                raise AssertionError('An unrelated run supplied the last-frame appearance reference.')
+        print('PASS previous-frame appearance: exact last accepted frame for 5/107-frame overlaps, unchanged motion anchors, no duplicated checkpoint pixels for normal overlap', flush=True)
         print("PASS helper execution: presets, optional LoRA, geometry, tail padding, exact context, overlap and audio", flush=True)
         print('PASS Viggle tensor execution: source fitting, 120→124 padding, exact export count and source-frame anchor', flush=True)
         destination = torch.rand((1, 64, 96, 3))

@@ -250,7 +250,7 @@ class RecastViggleSaveContext:
             "skip_frames": ("INT", {"default": 0, "min": 0}),
             "next_skip_frames": ("INT", {"default": 119, "min": 0}),
             "job_id": ("STRING", {"default": ""}),
-        }}
+        }, "optional": {"version": (["five-frame-v1", "last-frame-v2"], {"default": "five-frame-v1"})}}
 
     RETURN_TYPES = ("STRING", "STRING")
     RETURN_NAMES = ("context_path", "continuation_details")
@@ -258,9 +258,9 @@ class RecastViggleSaveContext:
     FUNCTION = "save"
     CATEGORY = "Character Swap/Viggle"
 
-    def save(self, images, fps, skip_frames, next_skip_frames, job_id):
+    def save(self, images, fps, skip_frames, next_skip_frames, job_id, version="five-frame-v1"):
         offset = next_skip_frames - skip_frames
-        if fps != 24 or not job_id or not 0 <= offset <= len(images) - 5:
+        if fps != 24 or not job_id or version not in ("five-frame-v1", "last-frame-v2") or not 0 <= offset <= len(images) - 5:
             raise ValueError("Viggle continuation requires an exact five-frame anchor inside the completed source window.")
         frames = images[offset:offset + 5].detach().to(device="cpu", dtype=torch.float32).contiguous()
         if not torch.isfinite(frames).all():
@@ -268,15 +268,72 @@ class RecastViggleSaveContext:
         relative = "character_swap/viggle/%s.safetensors" % uuid.uuid4().hex
         path = context_file(relative)
         path.parent.mkdir(parents=True, exist_ok=True)
-        info = {"path": relative, "version": "five-frame-v1", "job_id": job_id,
+        info = {"path": relative, "version": version, "job_id": job_id,
                 "source_end_frame": skip_frames + len(images), "source_count": len(images),
                 "source_anchor_frame": next_skip_frames, "width": images.shape[2],
                 "height": images.shape[1], "count": 5, "fps": fps}
+        tensors = {"frames": frames}
+        if version == "last-frame-v2":
+            info["reference_source_frame"] = skip_frames + len(images) - 1
+            # Normally the anchor already ends at the last accepted frame.
+            # A larger final overlap needs that last frame stored separately;
+            # using the end of the anchor would pick the wrong appearance time.
+            if next_skip_frames + 5 != info["source_end_frame"]:
+                tensors["reference_frame"] = images[-1:].detach().to(device="cpu", dtype=torch.float32).contiguous()
+                if not torch.isfinite(tensors["reference_frame"]).all():
+                    raise ValueError("The previous segment's last frame is not finite.")
         temporary = str(path) + ".part"
-        save_file({"frames": frames}, temporary, metadata={key: str(value) for key, value in info.items()})
+        save_file(tensors, temporary, metadata={key: str(value) for key, value in info.items()})
         os.replace(temporary, path)
         info["artifact"] = {"filename": path.name, "subfolder": str(Path(relative).parent), "type": "output"}
         return {"ui": {"context": [info], "text": [json.dumps(info)]}, "result": (relative, json.dumps(info, indent=2))}
+
+
+def load_viggle_context(context_path, width, height, fps, skip_frames, overlap, job_id, version):
+    dimensions(width, height)
+    path = context_file(context_path)
+    with safe_open(str(path), framework="pt", device="cpu") as file:
+        meta = file.metadata() or {}
+    expected = {"version": version, "job_id": job_id, "width": str(width),
+                "height": str(height), "count": "5", "source_anchor_frame": str(skip_frames),
+                "source_end_frame": str(skip_frames + overlap)}
+    if version not in ("five-frame-v1", "last-frame-v2") or overlap < 5 or fps != 24 or not job_id or any(meta.get(key) != value for key, value in expected.items()) or float(meta.get("fps", -1)) != fps:
+        raise ValueError("Saved Viggle anchor does not match this job, source offset, canvas or frame rate. Nothing was sampled.")
+    tensors = load_file(str(path), device="cpu")
+    frames = tensors["frames"].float()
+    if list(frames.shape) != [5, height, width, 3] or not torch.isfinite(frames).all():
+        raise ValueError("Saved Viggle anchor must contain five finite frames at the render dimensions.")
+    return meta, tensors, frames
+
+
+class RecastViggleContextReference:
+    """The actual previous accepted frame, independent of overlap length."""
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {"required": {
+            "context_path": ("STRING", {"default": ""}),
+            "width": ("INT", {"default": 480}), "height": ("INT", {"default": 864}),
+            "fps": ("FLOAT", {"default": 24.0}), "skip_frames": ("INT", {"default": 119}),
+            "overlap": ("INT", {"default": 5}), "job_id": ("STRING", {"default": ""}),
+        }}
+
+    RETURN_TYPES = ("IMAGE",)
+    FUNCTION = "reference"
+    CATEGORY = "Character Swap/Viggle"
+
+    def reference(self, context_path, width, height, fps, skip_frames, overlap, job_id):
+        meta, tensors, frames = load_viggle_context(context_path, width, height, fps, skip_frames, overlap, job_id, "last-frame-v2")
+        if meta.get("reference_source_frame") != str(skip_frames + overlap - 1):
+            raise ValueError("The appearance reference is not the previous segment's last accepted frame.")
+        reference = frames[-1:] if overlap == 5 else tensors.get("reference_frame")
+        if reference is None or list(reference.shape) != [1, height, width, 3] or not torch.isfinite(reference).all():
+            raise ValueError("The previous segment's last frame is missing or invalid. The original reference was not substituted.")
+        return (reference.float(),)
+
+    @classmethod
+    def IS_CHANGED(cls, context_path, **kwargs):
+        stat = context_file(context_path).stat()
+        return "%s:%s:%s" % (context_path, stat.st_size, stat.st_mtime_ns)
 
 
 class RecastViggleAnchor:
@@ -294,26 +351,15 @@ class RecastViggleAnchor:
             "width": ("INT", {"default": 480}), "height": ("INT", {"default": 864}),
             "fps": ("FLOAT", {"default": 24.0}), "skip_frames": ("INT", {"default": 119}),
             "overlap": ("INT", {"default": 5}), "job_id": ("STRING", {"default": ""}),
-        }}
+        }, "optional": {"context_version": (["five-frame-v1", "last-frame-v2"], {"default": "five-frame-v1"})}}
 
     RETURN_TYPES = ("LATENT",)
     FUNCTION = "anchor"
     CATEGORY = "Character Swap/Viggle"
 
-    def anchor(self, latent, vae, context_path, width, height, fps, skip_frames, overlap, job_id):
+    def anchor(self, latent, vae, context_path, width, height, fps, skip_frames, overlap, job_id, context_version="five-frame-v1"):
         import comfy.nested_tensor
-        dimensions(width, height)
-        path = context_file(context_path)
-        with safe_open(str(path), framework="pt", device="cpu") as file:
-            meta = file.metadata() or {}
-        expected = {"version": "five-frame-v1", "job_id": job_id, "width": str(width),
-                    "height": str(height), "count": "5", "source_anchor_frame": str(skip_frames),
-                    "source_end_frame": str(skip_frames + overlap)}
-        if overlap < 5 or fps != 24 or not job_id or any(meta.get(key) != value for key, value in expected.items()) or float(meta.get("fps", -1)) != fps:
-            raise ValueError("Saved Viggle anchor does not match this job, source offset, canvas or frame rate. Nothing was sampled.")
-        frames = load_file(str(path), device="cpu")["frames"].float()
-        if list(frames.shape) != [5, height, width, 3] or not torch.isfinite(frames).all():
-            raise ValueError("Saved Viggle anchor must contain five finite frames at the render dimensions.")
+        _, _, frames = load_viggle_context(context_path, width, height, fps, skip_frames, overlap, job_id, context_version)
         samples = latent["samples"]
         if not samples.is_nested:
             raise ValueError("Viggle continuation requires the native H3 video/audio latent.")
@@ -336,6 +382,7 @@ class RecastViggleAnchor:
 
 NODE_CLASS_MAPPINGS = {
     "RecastViggleSource": RecastViggleSource,
+    "RecastViggleContextReference": RecastViggleContextReference,
     "RecastViggleAnchor": RecastViggleAnchor,
     "RecastViggleSaveContext": RecastViggleSaveContext,
     "SwapControls": SwapControls,
@@ -348,6 +395,7 @@ NODE_CLASS_MAPPINGS = {
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
     "RecastViggleSource": "Prepare Viggle Source and Anchor Frame",
+    "RecastViggleContextReference": "Previous Segment Last Frame Reference",
     "RecastViggleAnchor": "Restore Exact Viggle Five-Frame Anchor",
     "RecastViggleSaveContext": "Save Next Viggle Anchor and Receipt",
     "SwapControls": "Shot Settings",

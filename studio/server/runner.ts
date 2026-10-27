@@ -157,7 +157,7 @@ export class Runner {
         const receive = (event: any) => { if (!signal.aborted && applyProgress(job, event)) this.save(job); };
         socket = await client.watch('recast-' + job.id, receive).catch(() => undefined);
         if (!job.pendingPrompt) {
-          if (job.viggleSegmentation && plan.overlap && job.settings.referencePreparation !== 'prepared' && !job.uploads?.preparedFrame) {
+          if (job.viggleSegmentation === 'five-frame-v1' && plan.overlap && job.settings.referencePreparation !== 'prepared' && !job.uploads?.preparedFrame) {
             if (!job.keyframe || !await exists(job.keyframe)) throw new Error('The original conditioning frame is unavailable. Restore it before continuing; the character will not be repainted again.');
             this.stage(job, 'Restoring the original conditioning frame');
             job.uploads!.preparedFrame = await client.upload(job.keyframe, job.id + '-prepared-frame', signal); this.save(job);
@@ -215,6 +215,12 @@ export class Runner {
           try { const file = path.join(folder, `${name}.png`); if (!await exists(file)) await client.download(preview, file, signal); }
           catch (error) { if (signal.aborted) throw error; await writeFile(path.join(folder, `${name}-preview-warning.json`), JSON.stringify({ warning: 'The intermediate image preview could not be downloaded. No image was resubmitted.' })); }
         }
+        let segmentReference: string | undefined;
+        if (job.viggleSegmentation === 'last-frame-v2' && keyframe) {
+          const name = job.segments.length === 0 ? 'keyframe.png' : `reference_${String(job.segments.length).padStart(4, '0')}.png`;
+          try { const file = path.join(folder, name); if (!await exists(file)) await client.download(keyframe, file, signal); segmentReference = name; }
+          catch (error) { if (signal.aborted) throw error; /* A missing preview never discards or resamples a paid segment. */ }
+        }
         if (history.status?.status_str === 'error') {
           const event = history.status.messages?.find((m: any[]) => m[0] === 'execution_error');
           const text = event?.[1]?.exception_message || 'Generation failed on the GPU.';
@@ -261,7 +267,7 @@ export class Runner {
             await writeFile(path.join(folder, `latent_${job.segments.length}_unavailable.json`), JSON.stringify({ warning: 'The completed video was retained but the optional latent export was unavailable.' }));
           }
         }
-        job.segments.push({ file, promptId: job.pendingPrompt!, frames, seconds: (Date.now() - segmentStart) / 1000 });
+        job.segments.push({ file, promptId: job.pendingPrompt!, frames, seconds: (Date.now() - segmentStart) / 1000, ...(segmentReference ? { reference: segmentReference } : {}) });
         job.context = context.path; job.pendingPrompt = null; job.progress.completedFrames += frames;
         if (context.source_count < plan.cap) job.progress.targetFrames = job.progress.completedFrames;
         this.save(job);

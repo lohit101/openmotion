@@ -163,6 +163,17 @@
             "default": ""
           }
         ]
+      },
+      "optional": {
+        "context_version": [
+          [
+            "five-frame-v1",
+            "last-frame-v2"
+          ],
+          {
+            "default": "five-frame-v1"
+          }
+        ]
       }
     },
     "output": [
@@ -205,6 +216,17 @@
             "default": ""
           }
         ]
+      },
+      "optional": {
+        "version": [
+          [
+            "five-frame-v1",
+            "last-frame-v2"
+          ],
+          {
+            "default": "five-frame-v1"
+          }
+        ]
       }
     },
     "output": [
@@ -216,5 +238,60 @@
       "continuation_details"
     ],
     "output_node": true
+  },
+  "RecastViggleContextReference": {
+    "input": {
+      "required": {
+        "context_path": [
+          "STRING",
+          {
+            "default": ""
+          }
+        ],
+        "width": [
+          "INT",
+          {
+            "default": 480
+          }
+        ],
+        "height": [
+          "INT",
+          {
+            "default": 864
+          }
+        ],
+        "fps": [
+          "FLOAT",
+          {
+            "default": 24.0
+          }
+        ],
+        "skip_frames": [
+          "INT",
+          {
+            "default": 119
+          }
+        ],
+        "overlap": [
+          "INT",
+          {
+            "default": 5
+          }
+        ],
+        "job_id": [
+          "STRING",
+          {
+            "default": ""
+          }
+        ]
+      }
+    },
+    "output": [
+      "IMAGE"
+    ],
+    "output_name": [
+      "IMAGE"
+    ],
+    "output_node": false
   }
 }
