@@ -114,6 +114,8 @@ svg { flex-shrink: 0; }
 .prompt-field:focus-within { border-color: #acbf7c; }
 .prompt-field > label { display: flex; align-items: center; justify-content: space-between; font-size: 11px; font-weight: 550; padding: 12px 12px 0; }
 .prompt-field label > span { font-size: 9px; color: var(--quiet); font-weight: 400; }
+.prompt-label { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11px; font-weight: 550; padding: 12px 12px 0; }
+.prompt-state { color: var(--quiet); font-size: 9px; font-weight: 400; text-align: right; }
 .prompt-field textarea { font-size: 11px; padding: 9px 12px 4px; border: 0; border-radius: 0; background: transparent; min-height: 120px; max-height: 240px; resize: vertical; outline: none; }
 .prompt-bottom { display: flex; align-items: center; justify-content: space-between; color: var(--quiet); font-size: 9px; padding: 4px 12px 10px; }
 .prompt-bottom > div { display: flex; gap: 12px; }
@@ -123,6 +125,7 @@ svg { flex-shrink: 0; }
 .settings-grid label, .full-label { display: flex; flex-direction: column; gap: 8px; font-size: 10px; color: var(--muted); }
 .settings-grid input, .full-label input, .full-label textarea { color: var(--text); font-size: 11px; }
 .full-label { margin: 17px 0; }
+.full-label.compact-field { margin: 0; }
 .label-unit { display: none; }
 .select-trigger { display: flex; align-items: center; justify-content: space-between; gap: 7px; width: 100%; height: 37px; padding: 0 10px; background: var(--input); border: 1px solid var(--line); border-radius: var(--radius-control); text-align: left; font-size: 11px; color: var(--text); min-width: 0; }
 .select-trigger > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -156,6 +159,20 @@ svg { flex-shrink: 0; }
 .slider-field { display: block; margin: 17px 0; color: var(--muted); }
 .slider-field input { margin-top: 8px; }
 .field-hint { display: block; color: var(--quiet); line-height: 1.65; font-size: 10px; }
+.field-label-row { display: inline-flex; align-items: center; gap: 4px; min-width: 0; line-height: 1.4; }
+.field-label-row > label, .field-label-row > span { min-width: 0; }
+.info-tip-trigger { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; margin: -3px 0; flex: 0 0 24px; border: 0; border-radius: 5px; background: transparent; color: var(--quiet); cursor: help; }
+.info-tip-trigger:hover, .info-tip-trigger[data-state='delayed-open'], .info-tip-trigger[data-state='instant-open'] { color: var(--text); background: var(--hover); }
+.info-tip-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; color: var(--text); }
+.info-tip-content { z-index: 300; width: max-content; max-width: min(310px, var(--radix-tooltip-content-available-width)); max-height: var(--radix-tooltip-content-available-height); overflow-y: auto; padding: 11px 13px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text); box-shadow: 0 5px 20px #0003; font-size: 12px; font-weight: 400; line-height: 1.6; text-wrap: pretty; overflow-wrap: anywhere; animation: help-appear 100ms ease-out; }
+.info-tip-arrow { fill: var(--surface); }
+.info-tip-content p { margin: 0; }
+.info-tip-content p + p { margin-top: 7px; }
+.info-tip-content code { font-size: 11px; }
+.field-label-row .info-tip-trigger { vertical-align: middle; }
+.field-meta { display: flex; align-items: center; gap: 4px; color: var(--quiet); font-size: 10px; margin: -7px 0 17px; }
+@keyframes help-appear { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .info-tip-content { animation: none; } }
 .generate-footer { padding: 17px 22px 13px; margin-top: auto; background: var(--surface); border-top: 1px solid var(--line-soft); }
 .primary-button { background: var(--accent); color: var(--accent-ink); font-size: 12px; border: 1px solid transparent; border-radius: var(--radius-control); min-height: 41px; padding: 10px 16px; display: inline-flex; align-items: center; justify-content: center; gap: 9px; font-weight: 600; white-space: nowrap; }
 .primary-button:hover { filter: brightness(.96); }

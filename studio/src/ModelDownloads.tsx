@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { ArrowClockwise, ArrowSquareOut, CaretDown, Check, CheckCircle, DownloadSimple, HardDrives, Pause, Trash, WarningCircle } from '@phosphor-icons/react';
 import { modelDefinitions, type ModelsState } from '../shared/models';
 import './models.css';
+import { InfoTip } from './InfoTip';
 
 export interface DownloadControls { state: ModelsState; online: boolean; blocked: boolean; settingUp?: boolean; download: (files: string[]) => void; remove: (name: string) => void; }
 export const modelSize = (bytes: number) => bytes >= 1e9 ? `${(bytes / 1e9).toFixed(2)} GB` : bytes >= 1e6 ? `${Math.round(bytes / 1e6)} MB` : bytes >= 1e3 ? `${Math.round(bytes / 1e3)} KB` : `${bytes} B`;
@@ -48,10 +49,10 @@ export function RequiredFiles({ files, controls, manage, setup }: { files: strin
   const ready = files.filter(id => controls.state.files.find(file => file.id === id)?.status === 'installed').length;
   const bytes = missingBytes(files, controls.state);
   const shortage = bytes > 0 && controls.state.diskFreeBytes !== undefined && bytes + 5 * 1024 ** 3 > controls.state.diskFreeBytes;
-  return <div className="required-models"><div className="required-models-summary"><HardDrives size={16} /><button onClick={() => { if (details.current) details.current.open = !details.current.open; }}>Files for these settings<span>{controls.online ? `${ready} / ${files.length} ready` : 'GPU offline'}</span></button>
+  return <div className="required-models"><div className="required-models-summary"><HardDrives size={16} /><div className="required-models-label"><button onClick={() => { if (details.current) details.current.open = !details.current.open; }}>Files for these settings<span>{controls.online ? `${ready} / ${files.length} ready` : 'GPU offline'}</span></button><InfoTip label="Required files">Download only the files for your selected settings. Changing an option starts no downloads. Installed files are reused; expand the list to download files individually.</InfoTip></div>
       <DownloadButton files={files} controls={controls} label="Files for current settings" size />
     </div>
-    <p>{controls.settingUp ? 'Starting the blank engine. Weights stay on demand.' : !controls.online ? 'Connect the engine, then download only what you need.' : ready === files.length ? 'All files for these settings are on your GPU.' : 'Click download to prepare only these settings. Changing an option starts no downloads.'} {(!controls.online || manage) && <button onClick={controls.online ? manage : setup}>{controls.online ? 'Manage LoRAs' : 'View GPU'}</button>}</p>
+    {(controls.settingUp || !controls.online || manage) && <p>{controls.settingUp ? 'Starting the blank engine. Weights stay on demand.' : !controls.online ? 'Connect the engine, then download only what you need.' : null} {(!controls.online || manage) && <button onClick={controls.online ? manage : setup}>{controls.online ? 'Manage LoRAs' : 'View GPU'}</button>}</p>}
     {shortage && <p className="model-file-slow" role="status">Needs {modelSize(bytes + 5 * 1024 ** 3)} free including working space; {modelSize(controls.state.diskFreeBytes!)} is available. Use a larger instance disk or remove unused extras before downloading this set.</p>}
     <details ref={details} className="required-file-details"><summary>View individual files</summary><div>{modelDefinitions.filter(file => files.includes(file.id)).map(file => <div className="required-file-row" key={file.id}><span>{file.label}<small>{modelSize(file.size)}</small></span><DownloadButton files={[file.id]} controls={controls} label={file.label} size /></div>)}</div></details>
   </div>;

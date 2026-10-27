@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import * as Select from '@radix-ui/react-select';
 import * as Switch from '@radix-ui/react-switch';
 import * as Dialog from '@radix-ui/react-dialog';
@@ -8,6 +8,7 @@ import { observeFullscreen, toggleFullscreen } from './fullscreen';
 import type { Asset, Job } from '../shared/types';
 import { clipTime, type ClipSelection } from '../shared/clip';
 import MediaPreviewDialog from './MediaPreviewDialog';
+import { FieldLabel } from './InfoTip';
 
 export async function api<T>(route: string, body?: unknown, method?: string): Promise<T> {
   const response = await fetch('/api' + route, { method: method || (body === undefined ? 'GET' : 'POST'), headers: body === undefined ? {} : { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
@@ -17,15 +18,16 @@ export function formatTime(seconds: number) { if (!Number.isFinite(seconds)) ret
 export function SmallSelect({ value, onChange, options, label, disabled = false }: { value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; label: string; disabled?: boolean }) {
   return <Select.Root value={value} onValueChange={onChange} disabled={disabled}><Select.Trigger className="select-trigger" aria-label={label}><Select.Value /><Select.Icon><CaretDown size={13} /></Select.Icon></Select.Trigger><Select.Portal><Select.Content className="select-content" position="popper" sideOffset={5}><Select.Viewport>{options.map(item => <Select.Item key={item.value} value={item.value} className="select-item"><Select.ItemText>{item.label}</Select.ItemText><Select.ItemIndicator><Check size={13} /></Select.ItemIndicator></Select.Item>)}</Select.Viewport></Select.Content></Select.Portal></Select.Root>;
 }
-export function Toggle({ label, checked, onChange, disabled = false, detail }: { label: string; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean; detail?: string }) {
-  return <label className="toggle-row"><span>{label}{detail && <small>{detail}</small>}</span><Switch.Root className="switch" checked={checked} onCheckedChange={onChange} disabled={disabled} aria-label={label}><Switch.Thumb className="switch-thumb" /></Switch.Root></label>;
+export function Toggle({ label, checked, onChange, disabled = false, detail, detailVisible = false }: { label: string; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean; detail?: string; detailVisible?: boolean }) {
+  const id = useId();
+  return <div className="toggle-row"><span><FieldLabel label={label} htmlFor={id} help={detailVisible ? undefined : detail} />{detail && detailVisible && <small>{detail}</small>}</span><Switch.Root id={id} className="switch" checked={checked} onCheckedChange={onChange} disabled={disabled} aria-label={label}><Switch.Thumb className="switch-thumb" /></Switch.Root></div>;
 }
 export function Modal({ open, onOpenChange, title, description, children, wide = false }: { open: boolean; onOpenChange: (v: boolean) => void; title: string; description: string; children: ReactNode; wide?: boolean }) {
   return <Dialog.Root open={open} onOpenChange={onOpenChange}><Dialog.Portal><Dialog.Overlay className="modal-overlay" /><Dialog.Content className={`modal ${wide ? 'modal-wide' : ''}`}><div className="modal-head"><div><Dialog.Title>{title}</Dialog.Title><Dialog.Description>{description}</Dialog.Description></div><Dialog.Close className="icon-button" aria-label="Close dialog"><X size={20} /></Dialog.Close></div>{children}</Dialog.Content></Dialog.Portal></Dialog.Root>;
 }
-export function AssetDrop({ kind, asset, onAsset, onError, label, emptyLabel, clip, clipFps = 24, onClip }: {
+export function AssetDrop({ kind, asset, onAsset, onError, label, emptyLabel, help, clip, clipFps = 24, onClip }: {
   kind: 'video' | 'image'; asset?: Asset; onAsset: (a: Asset | null) => void; onError: (s: string) => void;
-  label?: string; emptyLabel?: string; clip?: ClipSelection; clipFps?: number; onClip?: (selection: ClipSelection) => void;
+  label?: string; emptyLabel?: string; help?: ReactNode; clip?: ClipSelection; clipFps?: number; onClip?: (selection: ClipSelection) => void;
 }) {
   const input = useRef<HTMLInputElement>(null), request = useRef<XMLHttpRequest | null>(null);
   const [dragging, setDragging] = useState(false), [uploading, setUploading] = useState(false), [percent, setPercent] = useState(0), [checking, setChecking] = useState(false);
@@ -50,7 +52,7 @@ export function AssetDrop({ kind, asset, onAsset, onError, label, emptyLabel, cl
     xhr.onabort = () => setUploading(false);
     const form = new FormData(); form.append('file', file); xhr.send(form);
   };
-  return <div className="asset-field"><div className="field-heading"><span>{name}</span>{asset && <div className="asset-header-actions"><button className="asset-change-button" onClick={() => input.current?.click()} disabled={uploading} aria-label={`Replace ${name.toLowerCase()}`}><UploadSimple size={11} />Replace</button><button className="text-icon" onClick={() => onAsset(null)} aria-label={`Remove ${name.toLowerCase()}`}><X size={13} /></button></div>}</div>
+  return <div className="asset-field"><div className="field-heading"><FieldLabel label={name} help={help} />{asset && <div className="asset-header-actions"><button className="asset-change-button" onClick={() => input.current?.click()} disabled={uploading} aria-label={`Replace ${name.toLowerCase()}`}><UploadSimple size={11} />Replace</button><button className="text-icon" onClick={() => onAsset(null)} aria-label={`Remove ${name.toLowerCase()}`}><X size={13} /></button></div>}</div>
     <input ref={input} type="file" accept={kind === 'video' ? 'video/mp4,video/quicktime,video/webm,video/x-matroska,.mkv,.m4v' : 'image/png,image/jpeg,image/webp'} hidden onChange={e => { upload(e.target.files?.[0]); e.target.value = ''; }} />
     <button className={`asset-drop ${asset ? 'has-asset' : ''} ${dragging ? 'dragging' : ''}`} onClick={() => asset ? setPreview({ asset, pending: false }) : input.current?.click()} disabled={uploading} aria-label={asset ? `Preview ${name.toLowerCase()}${kind === 'video' && onClip ? ' and trim clip' : ''}` : `Upload ${name.toLowerCase()}`}
       onDragOver={e => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={e => { e.preventDefault(); setDragging(false); if (e.dataTransfer.files.length !== 1) { onError('Drop one file at a time.'); return; } upload(e.dataTransfer.files[0]); }}>
