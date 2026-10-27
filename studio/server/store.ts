@@ -43,4 +43,4 @@ export class Store extends EventEmitter {
   imageDraft() { const draft = imageDraftSchema.parse(this.value('image-draft', emptyImageDraft())); if (draft.settings.prompt === legacyImagePrompt) draft.settings.prompt = defaultImagePrompt; return draft; }
   close() { this.db.close(); }
 }
-export function publicJob(job: Job): Job { return { ...job, workflow: null, uploads: null, context: '', keyframe: job.keyframe ? 'ready' : undefined, output: job.output ? 'ready' : null, poster: job.poster ? 'ready' : null }; }
+export function publicJob(job: Job): Job { return { ...job, hasWorkflow: !!job.workflow, workflow: null, uploads: null, context: '', keyframe: job.keyframe ? 'ready' : undefined, output: job.output ? 'ready' : null, poster: job.poster ? 'ready' : null }; }

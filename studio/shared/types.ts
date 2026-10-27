@@ -52,6 +52,7 @@ export interface Job {
   error: string | null; output: string | null; poster: string | null; cancelRequested: boolean;
   cancellationConfirmed?: boolean; submitting?: boolean; retryRequired?: boolean;
   elapsedSeconds: number | null; origin: 'render' | 'import'; workflow: Record<string, GraphNode> | null;
+  hasWorkflow?: boolean;
   promptVersion?: 'scene-v1';
   framingVersion?: 'face-v1'; referenceFraming?: ReferenceFraming; framingCheck?: FramingCheck;
   renderVersion?: 'continuous-v1'; saveDiagnosticLatent?: boolean;

@@ -1,15 +1,14 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import * as Menu from '@radix-ui/react-dropdown-menu';
-import { Aperture, ArrowClockwise, ArrowCounterClockwise, CaretDown, CaretRight, Check, CheckCircle, Clock, Copy, DotsThree, DownloadSimple, FilmStrip, GearSix, Heart, Image as ImageIcon, Info, Lightning, MagnifyingGlass, Moon, Play, Plug, Plus, SlidersHorizontal, Sparkle, SquaresFour, Sun, Trash, WarningCircle, X } from '@phosphor-icons/react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { Aperture, ArrowCounterClockwise, CaretDown, CaretRight, Check, CheckCircle, DownloadSimple, FilmStrip, Info, Moon, Plug, SlidersHorizontal, Sparkle, Sun, WarningCircle } from '@phosphor-icons/react';
 import type { Asset, Bootstrap, Draft, Job, Settings } from '../shared/types';
 import { defaults, geometry, outputDimensions, settingsSchema } from '../shared/types';
-import { defaultPrompt, migrateDemoPrompt, promptAfterModeChange, renderPrompt } from '../shared/prompts';
-import { api, AssetDrop, formatTime, Modal, SmallSelect, Toggle, VideoPlayer } from './components';
+import { defaultPrompt, migrateDemoPrompt, promptAfterModeChange } from '../shared/prompts';
+import { api, AssetDrop, formatTime, SmallSelect, Toggle, VideoPlayer } from './components';
 import type { CloudState } from '../shared/cloud';
 import { setupNotice } from '../shared/cloud-status';
 import { framingNotice, FramingWarningTracker } from '../shared/framing-status';
-import { samplingNote, samplingOptions, samplingSteps } from '../shared/sampling-display';
-import { defaultVigglePrompt, engineIssue, engineLabel, isViggle, repaintPrompt, vigglePasses } from '../shared/engines';
+import { samplingNote, samplingOptions } from '../shared/sampling-display';
+import { defaultVigglePrompt, engineIssue, engineLabel, isViggle } from '../shared/engines';
 import { DPO, emptyModels, IMAGE_IDENTITY, imageFilesForSettings, imageModelFiles, modelDefinitions, modelFilesForSettings, presetModelFiles, RELIGHT as RELIGHT_MODEL, SOCIAL_STYLE, type ModelsState } from '../shared/models';
 import ModelsWorkspace, { DownloadButton, DownloadSelect, RequiredFiles, modelSize, type DownloadControls } from './ModelDownloads';
 import FramingNotice from './FramingNotice';
@@ -20,6 +19,9 @@ import { Toaster, toast } from 'sonner';
 import { emptyImageDraft, isImageJob, type ImageDraft } from '../shared/image-replacement';
 const GpuWorkspace = lazy(() => import('./GpuWorkspace'));
 const ImageWorkspace = lazy(() => import('./ImageWorkspace'));
+const LibraryWorkspace = lazy(() => import('./LibraryWorkspace'));
+import JobCard from './JobCard';
+import RunDetailsDialog from './RunDetailsDialog';
 
 const activeStates = ['queued', 'running', 'reconnecting'];
 const shortLora = (name: string) => name.replace(/\.safetensors$/, '').replace(/^user\//, '');
@@ -63,18 +65,6 @@ function Advanced({ settings: s, update, loras, downloads }: { settings: Setting
   </div>;
 }
 
-function JobCard({ job, selected, onSelect, onPatch, onReuse }: { job: Job; selected?: boolean; onSelect: () => void; onPatch: (v: Partial<Job>) => void; onReuse: () => void }) {
-  const preview = useRef<HTMLVideoElement>(null);
-  const done = job.status === 'completed';
-  const [width, height] = outputDimensions(job);
-  return <article className={`job-card ${selected ? 'selected' : ''}`}>
-    <button className="job-media" onClick={onSelect} onMouseEnter={() => { if (done) void preview.current?.play().catch(() => undefined); }} onMouseLeave={() => { preview.current?.pause(); if (preview.current) preview.current.currentTime = 0; }} aria-label={`Open ${job.title}`}>
-      {done && isImageJob(job) ? <img src={`/api/jobs/${job.id}/image`} alt={job.title} loading="lazy" /> : done ? <video ref={preview} muted playsInline loop preload="none" poster={`/api/jobs/${job.id}/poster`} src={`/api/jobs/${job.id}/video`} /> : <div className="job-pending"><FilmStrip size={28} /><span>{job.status === 'running' ? job.progress.stage : job.status}</span></div>}
-      {done && !isImageJob(job) && <span className="job-play"><Play size={14} weight="fill" /></span>}
-    </button><div className="job-card-content"><button className="job-title" onClick={onSelect}>{job.title}</button><Menu.Root><Menu.Trigger asChild><button className="text-icon" aria-label={`Actions for ${job.title}`}><DotsThree size={21} /></button></Menu.Trigger><Menu.Portal><Menu.Content className="dropdown-content" sideOffset={5} align="end"><Menu.Item onSelect={onReuse}><ArrowCounterClockwise size={15} />Reuse settings</Menu.Item><Menu.Item onSelect={() => onPatch({ favorite: !job.favorite })}><Heart size={15} />{job.favorite ? 'Remove favorite' : 'Add to favorites'}</Menu.Item>{done && <Menu.Item asChild><a href={`/api/jobs/${job.id}/${isImageJob(job) ? 'image' : 'video'}?download=1`}><DownloadSimple size={15} />Download {isImageJob(job) ? 'image' : 'video'}</a></Menu.Item>}<Menu.Separator /><Menu.Item onSelect={() => onPatch({ deleted: !job.deleted })}><Trash size={15} />{job.deleted ? 'Restore to library' : 'Move to trash'}</Menu.Item></Menu.Content></Menu.Portal></Menu.Root><small>{isImageJob(job) ? 'Image' : formatTime(job.progress.targetFrames / job.settings.fps)} <span>/</span> {width} × {height}{job.favorite && <Heart size={11} weight="fill" />}</small></div>
-  </article>;
-}
-
 export default function App() {
   const [data, setData] = useState<Bootstrap | null>(null), [draft, setDraft] = useState<Draft>({ sourceId: null, referenceId: null, settings: defaults });
   const [imageDraft, setImageDraft] = useState<ImageDraft>(emptyImageDraft);
@@ -86,7 +76,7 @@ export default function App() {
   });
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('connection');
   const openModels = () => { setSettingsTab('extras'); setView('settings'); };
-  const [info, setInfo] = useState(false), [message, setMessageValue] = useState(''), [creating, setCreating] = useState(false), [filter, setFilter] = useState('all'), [search, setSearch] = useState(''), [sort, setSort] = useState('newest');
+  const [info, setInfo] = useState(false), [message, setMessageValue] = useState(''), [creating, setCreating] = useState(false);
   const setMessage = useCallback((text: string) => { setMessageValue(text); if (text) toast.error(text, { duration: 10000 }); }, []);
   const seenNotices = useRef(new Set<string>());
   const renderStates = useRef(new Map<string, string>());
@@ -193,7 +183,7 @@ export default function App() {
     if (asset) setData(old => old ? { ...old, assets: [asset, ...old.assets.filter(a => a.id !== asset.id)] } : old);
     setDraft(old => ({ ...old, [kind === 'video' ? 'sourceId' : 'referenceId']: asset?.id || null, settings: { ...old.settings, prompt: migrateDemoPrompt(old.settings.prompt, old.settings.mode), ...(kind === 'video' && asset ? { start: 0, seconds: Math.min(3, Math.floor(asset.duration * old.settings.fps) / old.settings.fps) } : {}) } }));
   };
-  const patch = async (job: Job, changes: Partial<Job>) => { try { await api('/jobs/' + job.id, changes, 'PATCH'); } catch (e) { setMessage((e as Error).message); } };
+  const patch = async (job: Job, changes: Partial<Job>) => { try { const updated = await api<Job>('/jobs/' + job.id, changes, 'PATCH'); setData(old => old ? { ...old, jobs: old.jobs.map(item => item.id === updated.id ? updated : item) } : old); } catch (e) { setMessage((e as Error).message); } };
   const reuse = (job: Job) => { if (isImageJob(job) && job.image) { setImageDraft({ sourceId: job.sourceId, referenceId: job.referenceId, maskId: job.image.maskId, faceId: job.image.faceId, settings: { ...job.image.settings, randomSeed: false } }); setSelectedId(job.id); setView('image'); toast.success('Image inputs and settings loaded.'); return; } setDraft({ sourceId: job.sourceId, referenceId: job.referenceId, settings: { ...defaults, ...job.settings, prompt: migrateDemoPrompt(job.settings.prompt, job.settings.mode), randomSeed: false } }); setView('create'); setSelectedId(job.id); toast.success('Inputs and settings loaded.'); };
   const generate = useCallback(async () => {
     if (creating || !online || !valid || !modelsReady || modelState.busy) return;
@@ -205,11 +195,6 @@ export default function App() {
     } catch (e) { setMessage((e as Error).message); } finally { setCreating(false); }
   }, [creating, online, valid, draft, modelsReady, modelState.busy]);
   useEffect(() => { const key = (event: KeyboardEvent) => { if (view === 'create' && (event.metaKey || event.ctrlKey) && event.key === 'Enter') { event.preventDefault(); void generate(); } }; window.addEventListener('keydown', key); return () => window.removeEventListener('keydown', key); }, [generate, view]);
-  const visibleJobs = useMemo(() => {
-    let list = jobs.filter(j => filter === 'trash' ? j.deleted : !j.deleted && (filter !== 'favorites' || j.favorite));
-    if (search.trim()) list = list.filter(j => (j.title + ' ' + j.settings.prompt).toLowerCase().includes(search.toLowerCase()));
-    return [...list].sort((a, b) => sort === 'oldest' ? a.createdAt.localeCompare(b.createdAt) : b.createdAt.localeCompare(a.createdAt));
-  }, [jobs, filter, search, sort]);
   const handleJobAction = async (action: 'cancel' | 'resume') => { if (!selected) return; try { await api(`/jobs/${selected.id}/${action}`, action === 'resume' ? { retryMissing: !!selected.retryRequired } : {}); } catch (e) { setMessage((e as Error).message); } };
   const setCloud = useCallback((cloud: CloudState) => setData(old => old ? { ...old, cloud } : old), []);
   if (!data) return <div className="app-loading"><Aperture size={40} weight="light" /><h1>Recast Studio</h1><span className="activity-line" /><p>{message || 'Opening your local workspace'}</p>{message && <button className="secondary-button" onClick={() => location.reload()}>Retry</button>}</div>;
@@ -239,8 +224,10 @@ export default function App() {
       <div className={`preview-stage ${selected?.status === 'completed' ? 'has-result' : ''}`}>
         {selected?.status === 'completed' ? <><div className="preview-toolbar"><div className="preview-tabs"><button className={!compare ? 'active' : ''} onClick={() => setCompare(false)}>Result</button><button className={compare ? 'active' : ''} onClick={() => setCompare(true)}>Compare</button></div><span className={`result-indicator ${selectedFramingNotice ? 'needs-review' : ''}`}>{selectedFramingNotice ? <WarningCircle size={12} /> : <Check size={12} />}{selectedFramingNotice?.badge || (selected.origin === 'import' ? 'Previous GPU render' : 'Completed')}</span></div><VideoPlayer job={selected} compare={compare} /></> : selected ? <ProgressPanel job={selected} online={online} onCancel={() => void handleJobAction('cancel')} onResume={() => void handleJobAction('resume')} onReuse={() => reuse(selected)} /> : <div className="canvas-empty"><FilmStrip size={40} weight="thin" /><h2>Make the motion yours.</h2><p>Add a video and a character to create your first shot.</p></div>}
       </div><div className="workspace-bottom"><div className="recent-heading"><h3>Recent creations <span>{jobs.filter(j => !j.deleted).length}</span></h3><button onClick={() => setView('library')}>View library <CaretRight size={13} /></button></div><div className="recent-grid">{recent.map(job => <JobCard key={job.id} job={job} selected={job.id === selected?.id} onSelect={() => { setSelectedId(job.id); setCompare(false); }} onPatch={v => void patch(job, v)} onReuse={() => reuse(job)} />)}{!recent.length && <div className="empty-recent">Your generated videos will appear here.</div>}</div></div>
-    </section></main> : <main className="library"><div className="library-heading"><div><span className="workspace-overline">YOUR CREATIVE ARCHIVE</span><h1>My library<span>{jobs.filter(j => !j.deleted).length} creations</span></h1></div><button className="primary-button compact" onClick={() => { setView('create'); promptRef.current?.focus(); }}><Plus size={16} />New creation</button></div><div className="library-controls"><div className="library-filters">{[{ value: 'all', label: 'All creations' }, { value: 'favorites', label: 'Favorites' }, { value: 'trash', label: 'Trash' }].map(f => <button key={f.value} className={filter === f.value ? 'active' : ''} onClick={() => setFilter(f.value)}>{f.value === 'favorites' && <Heart size={14} />}{f.value === 'trash' && <Trash size={14} />}{f.label}</button>)}</div><label className="search-field"><MagnifyingGlass size={16} /><input aria-label="Search library" placeholder="Search your creations" value={search} onChange={e => setSearch(e.target.value)} />{search && <button className="text-icon" aria-label="Clear search" onClick={() => setSearch('')}><X size={13} /></button>}</label><SmallSelect label="Sort library" value={sort} onChange={setSort} options={[{ value: 'newest', label: 'Newest first' }, { value: 'oldest', label: 'Oldest first' }]} /></div><div className="library-grid">{visibleJobs.map(job => <JobCard key={job.id} job={job} onSelect={() => { if (job.deleted) { void patch(job, { deleted: false }); } setSelectedId(job.id); setView(isImageJob(job) ? 'image' : 'create'); setCompare(false); }} onPatch={v => void patch(job, v)} onReuse={() => reuse(job)} />)}</div>{!visibleJobs.length && <div className="library-empty"><SquaresFour size={36} weight="light" /><h2>{filter === 'favorites' ? 'Keep your best takes close.' : filter === 'trash' ? 'Nothing in trash.' : search ? 'No matching creations.' : 'Your library starts here.'}</h2><p>{filter === 'favorites' ? 'Save a creation with the heart in its menu.' : search ? 'Try a different title or prompt.' : 'Your videos stay here, even when the GPU is offline.'}</p></div>}</main>}
+    </section></main> : <Suspense fallback={<main className="gpu-loading">Opening your library</main>}><LibraryWorkspace jobs={jobs} assets={assets} patch={patch} reuse={reuse} create={() => setView('create')} openWorkspace={job => { setSelectedId(job.id); setView(isImageJob(job) ? 'image' : 'create'); }} /></Suspense>}
+
     <Toaster theme={theme === 'light' ? 'light' : 'dark'} position="bottom-right" richColors closeButton visibleToasts={3} toastOptions={{ className: 'recast-toast' }} />
-    {selected && <Modal open={info} onOpenChange={setInfo} title="Render details" description="The inputs and settings saved with this creation."><label className="full-label">Title<input defaultValue={selected.title} key={selected.id + selected.title} onBlur={e => { if (e.target.value.trim() && e.target.value !== selected.title) void patch(selected, { title: e.target.value }); }} /></label><div className="details-grid">{[['Model', engineLabel(selected.settings)], ['Resolution', outputDimensions(selected).join(' × ')], ['Frame rate', `${selected.settings.fps} fps`], ['Sampling', isViggle(selected.settings) ? `${vigglePasses(selected.settings)} video passes${selected.settings.referencePreparation !== 'prepared' ? ' + 4 image steps' : ''}` : `${samplingSteps(selected.settings.preset)} steps`], ['Seed', String(selected.settings.seed)], ['Render time', selected.elapsedSeconds ? `${Math.round(selected.elapsedSeconds)} seconds` : 'In progress']].map(([label, value]) => <div key={label}><small>{label}</small><strong>{value}</strong></div>)}</div><div className="detail-prompt"><label>Prompt sent to model</label><p>{isViggle(selected.settings) ? selected.settings.referencePreparation === 'prepared' ? 'Prepared source frame → fixed video conditioning. No video text prompt.' : repaintPrompt(selected.settings) : renderPrompt(selected.settings, selected.promptVersion) || 'Empty prompt'}</p></div>{selected.keyframe && <figure className="keyframe-review"><img src={`/api/jobs/${selected.id}/keyframe`} alt="The actual source-aligned character frame used to condition this video" /><figcaption>Conditioning frame used for this render</figcaption></figure>}<div className="modal-actions">{selected.keyframe && <a className="secondary-button" href={`/api/jobs/${selected.id}/keyframe`} target="_blank" rel="noreferrer"><ImageIcon size={14} />View conditioning frame</a>}{selected.referenceFraming?.status === 'aligned' && <a className="secondary-button" href={`/api/jobs/${selected.id}/aligned-reference`} target="_blank" rel="noreferrer"><ImageIcon size={14} />View aligned reference</a>}<button className="secondary-button" onClick={() => { reuse(selected); setInfo(false); }}><ArrowCounterClockwise size={14} />Reuse settings</button>{selected.workflow !== null || selected.output ? <a className="secondary-button" href={`/api/jobs/${selected.id}/workflow`}><DownloadSimple size={14} />Export workflow</a> : null}</div></Modal>}
+    {selected && <RunDetailsDialog job={selected} jobs={jobs} assets={assets} open={info} close={() => setInfo(false)} patch={changes => patch(selected, changes)} reuse={() => { reuse(selected); setInfo(false); }} openWorkspace={() => setInfo(false)} />}
+
   </div>;
 }
