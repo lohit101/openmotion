@@ -3,9 +3,9 @@ import { FieldLabel, InfoTip } from './InfoTip';
 import { EditorDisclosure, EditorSection, PromptEditor } from './EditorControls';
 import { Aperture, ArrowCounterClockwise, CaretDown, CaretRight, Check, CheckCircle, DownloadSimple, FilmStrip, Info, Moon, Plug, Sparkle, Sun, WarningCircle, X } from '@phosphor-icons/react';
 import type { Asset, Bootstrap, Draft, Job, Settings } from '../shared/types';
-import { defaults, geometry, outputDimensions, settingsSchema } from '../shared/types';
+import { defaults, geometry, settingsSchema } from '../shared/types';
 import { defaultPrompt, migrateDemoPrompt, promptAfterModeChange } from '../shared/prompts';
-import { api, AssetDrop, formatTime, SmallSelect, Toggle, VideoPlayer } from './components';
+import { api, AssetDrop, SmallSelect, Toggle, VideoPlayer } from './components';
 import type { CloudState } from '../shared/cloud';
 import { setupNotice } from '../shared/cloud-status';
 import { framingNotice, FramingWarningTracker } from '../shared/framing-status';
@@ -27,27 +27,10 @@ const LibraryWorkspace = lazy(() => import('./LibraryWorkspace'));
 import JobCard from './JobCard';
 import RunDetailsDialog from './RunDetailsDialog';
 import WorkspaceWelcome from './WorkspaceWelcome';
+import GenerationProgress from './GenerationProgress';
 
 const activeStates = ['queued', 'running', 'reconnecting'];
 const shortLora = (name: string) => name.replace(/\.safetensors$/, '').replace(/^user\//, '');
-
-function ProgressPanel({ job, onCancel, onResume, onReuse, online }: { job: Job; onCancel: () => void; onResume: () => void; onReuse: () => void; online: boolean }) {
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer); }, []);
-  const elapsed = job.startedAt ? Math.max(0, (now - Date.parse(job.startedAt)) / 1000) : 0;
-  const hasCounter = job.progress.max !== null && job.progress.value !== null && job.progress.max > 0;
-  const failed = ['failed', 'interrupted', 'cancelled'].includes(job.status);
-  const [width, height] = outputDimensions(job);
-  return <div className="progress-panel" aria-live="polite"><div className={`progress-mark ${failed ? 'error-mark' : ''}`}>{failed ? <WarningCircle size={32} weight="light" /> : <Aperture size={34} weight="light" />}</div>
-    <div className="progress-kicker">{job.status === 'queued' ? 'IN THE QUEUE' : failed ? 'RUN UPDATE' : 'LIVE FROM COMFYUI'}</div><h2>{job.progress.stage}</h2>
-    <p>{job.error || (job.status === 'queued' ? 'Your render will start when the GPU is available.' : 'Your character, following your motion.')}</p>
-    {!failed && <div className="generation-meter"><div className={`meter-track ${hasCounter ? '' : 'indeterminate'}`} role="progressbar" aria-label={job.progress.stage} aria-valuenow={hasCounter ? job.progress.value! : undefined} aria-valuemax={hasCounter ? job.progress.max! : undefined} aria-valuemin={0}><span style={hasCounter ? { transform: `scaleX(${job.progress.value! / job.progress.max!})` } : undefined} /></div><div className="meter-caption"><span>{hasCounter ? job.progress.unit === 'bytes' ? `${(job.progress.value! / 1048576).toFixed(1)} / ${(job.progress.max! / 1048576).toFixed(1)} MB` : `${Math.round(job.progress.value!)} / ${job.progress.max} ${job.progress.unit}` : 'Waiting for a progress counter'}</span><span>{formatTime(elapsed)} elapsed</span></div></div>}
-    <div className="render-facts"><span>{width} × {height}</span><span>{job.settings.fps} fps</span><span>Segment {job.progress.segment} of {job.progress.segments}</span></div>
-    {job.viggleSegmentation && <p className="field-hint">{(job.progress.completedFrames / job.settings.fps).toFixed(2)}s of {(job.progress.targetFrames / job.settings.fps).toFixed(2)}s saved locally. Completed segments are kept if the connection drops.</p>}
-    {job.progress.completedFrames > 0 && <small>{job.progress.completedFrames} of {job.progress.targetFrames} frames saved locally</small>}
-    <div className="progress-actions">{job.keyframe && <a className="secondary-button" href={`/api/jobs/${job.id}/keyframe`} target="_blank" rel="noreferrer">View conditioning frame</a>}{activeStates.includes(job.status) && <button className="secondary-button" onClick={onCancel}>Cancel generation</button>}{job.status === 'interrupted' && <button className="primary-button compact" disabled={!online} onClick={job.cancelRequested ? onCancel : onResume}>{job.cancelRequested ? 'Check cancellation' : job.retryRequired ? 'Render missing segment again' : 'Check & resume'}</button>}{failed && <button className="secondary-button" onClick={onReuse}>Reuse settings</button>}</div>
-  </div>;
-}
 
 function Advanced({ settings: s, update, loras, downloads }: { settings: Settings; update: (v: Partial<Settings>) => void; loras: string[]; downloads: DownloadControls }) {
   const choices = [...new Set([...loras.filter(name => !modelDefinitions.some(file => file.filename === name && file.engine !== 'scail2')), ...modelDefinitions.filter(file => file.group === 'adapter' && file.engine === 'scail2').map(file => file.filename)])];
@@ -256,7 +239,7 @@ export default function App() {
     <section className={`workspace ${selected ? '' : 'workspace-idle'}`}><div className="workspace-header"><div><span className="workspace-overline">YOUR WORKSPACE</span><h2>{selected?.title || 'Preview'}</h2></div><div className="workspace-actions">{selected?.status === 'completed' && <><button className="icon-button" title="Render details" aria-label="Render details" onClick={() => setInfo(true)}><Info size={18} /></button><button className="icon-button" title="Reuse settings" aria-label="Reuse selected render settings" onClick={() => reuse(selected)}><ArrowCounterClockwise size={18} /></button><a className="secondary-button" href={`/api/jobs/${selected.id}/video?download=1`}><DownloadSimple size={15} />Download</a></>}{selected && <button type="button" className="icon-button close-preview" aria-label="Close video preview" title="Close preview · keep inputs and settings" onClick={closePreview}><X size={18} /></button>}</div></div>
       {selected && <FramingNotice job={selected} onCompare={() => setCompare(true)} />}
       <div className={`preview-stage ${selected?.status === 'completed' ? 'has-result' : ''}`}>
-        {selected?.status === 'completed' ? <><div className="preview-toolbar"><div className="preview-tabs"><button className={!compare ? 'active' : ''} onClick={() => setCompare(false)}>Result</button><button className={compare ? 'active' : ''} onClick={() => setCompare(true)}>Compare</button></div><span className={`result-indicator ${selectedFramingNotice ? 'needs-review' : ''}`}>{selectedFramingNotice ? <WarningCircle size={12} /> : <Check size={12} />}{selectedFramingNotice?.badge || (selected.origin === 'import' ? 'Previous GPU render' : 'Completed')}</span></div><VideoPlayer job={selected} compare={compare} /></> : selected ? <ProgressPanel job={selected} online={online} onCancel={() => void handleJobAction('cancel')} onResume={() => void handleJobAction('resume')} onReuse={() => reuse(selected)} /> : <WorkspaceWelcome kind="video" library={() => setView('library')} openActive={activeVideo ? () => setSelectedId(activeVideo.id) : undefined} />}
+        {selected?.status === 'completed' ? <><div className="preview-toolbar"><div className="preview-tabs"><button className={!compare ? 'active' : ''} onClick={() => setCompare(false)}>Result</button><button className={compare ? 'active' : ''} onClick={() => setCompare(true)}>Compare</button></div><span className={`result-indicator ${selectedFramingNotice ? 'needs-review' : ''}`}>{selectedFramingNotice ? <WarningCircle size={12} /> : <Check size={12} />}{selectedFramingNotice?.badge || (selected.origin === 'import' ? 'Previous GPU render' : 'Completed')}</span></div><VideoPlayer job={selected} compare={compare} /></> : selected ? <GenerationProgress kind="video" job={selected} online={online} onCancel={() => void handleJobAction('cancel')} onResume={() => void handleJobAction('resume')} onReuse={() => reuse(selected)} /> : <WorkspaceWelcome kind="video" library={() => setView('library')} openActive={activeVideo ? () => setSelectedId(activeVideo.id) : undefined} />}
       </div>{selected && <div className="workspace-bottom"><div className="recent-heading"><h3>Recent creations <span>{jobs.filter(j => !j.deleted).length}</span></h3><button onClick={() => setView('library')}>View library <CaretRight size={13} /></button></div><div className="recent-grid">{recent.map(job => <JobCard key={job.id} job={job} selected={job.id === selected?.id} onSelect={() => { setSelectedId(job.id); setCompare(false); }} onPatch={v => void patch(job, v)} onReuse={() => reuse(job)} />)}{!recent.length && <div className="empty-recent">Your generated videos will appear here.</div>}</div></div>}
     </section></main> : <Suspense fallback={<main className="gpu-loading">Opening your library</main>}><LibraryWorkspace jobs={jobs} assets={assets} patch={patch} reuse={reuse} create={() => { closePreview(); setView('create'); }} openWorkspace={job => { setSelectedId(job.id); setView(isImageJob(job) ? 'image' : 'create'); }} /></Suspense>}
 

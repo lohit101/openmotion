@@ -1,5 +1,7 @@
 # Project workflow
 
+- Processing canvases use shared `GenerationProgress`: brief stage, local blurred poster/sparkles and real current-stage percentage, with counters/elapsed/continuity facts behind the info dialog. Never fabricate an overall percentage/ETA from elapsed time; unknown counters stay indeterminate and stage percentages may restart. Errors and cancel/recovery actions stay visible; respect reduced motion. See `docs/validation/processing-view-20261028.md`.
+
 - New video creation in Studio temporarily permits only Viggle. Keep the Character swap / Motion transfer selector hidden and the SCAIL-2 / Wan option disabled; a restored legacy draft requires an explicit switch to Viggle before new Generate. Do not remove its models/workflows or alter existing paid-job recovery until separately authorized. See `docs/validation/viggle-only-ui-20261028.md`.
 
 - Image/video previews use an explicit selected job. A null, missing, trashed or other-media selection displays the Recast welcome screen; do not silently reopen the latest result. Closing a preview clears only viewing state, never drafts, uploaded media, trim/masks or running jobs. Keep the close control visible at narrow widths and the current-render shortcut available when a job is active. See `docs/validation/workspace-welcome-20261028.md`.
