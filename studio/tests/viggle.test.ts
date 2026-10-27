@@ -70,7 +70,7 @@ describe('Viggle source-aligned two-stage replacement', () => {
     const job = fixture(); expect(planForJob(job.settings, 0, 120, nextSegment)).toEqual({ skip: 0, cap: 120, overlap: 0 });
     expect(() => planForJob(job.settings, 81, 120, nextSegment)).toThrow('cannot continue');
     expect(planForJob(defaults, 81, 120, nextSegment)).toEqual(nextSegment(81, 120, 81));
-    for (const changes of [{ fps: 16 as const }, { seconds: 6 }, { mode: 'motion' as const }, { orientation: 'portrait' as const }, { loraA: 'wan-adapter.safetensors' }]) expect(engineIssue({ ...job.settings, ...changes })).toBeTruthy();
+    for (const changes of [{ fps: 16 as const }, { seconds: 31 }, { mode: 'motion' as const }, { orientation: 'portrait' as const }, { loraA: 'wan-adapter.safetensors' }]) expect(engineIssue({ ...job.settings, ...changes })).toBeTruthy();
     expect(engineIssue({ ...job.settings, seconds: 5.16 })).toBeNull();
     job.progress.completedFrames = 81; expect(() => compileViggleWorkflow(job)).toThrow('fresh single shot');
   });

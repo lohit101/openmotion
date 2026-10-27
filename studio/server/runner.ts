@@ -148,10 +148,15 @@ export class Runner {
       while (job.progress.completedFrames < job.progress.targetFrames) {
         this.checkCancelled(job);
         job.progress.segment = job.segments.length + 1;
-        const plan = isImageJob(job) ? { skip: 0, cap: 1, overlap: 0 } : planForJob(job.settings, job.progress.completedFrames, job.progress.targetFrames, nextSegment);
+        const plan = isImageJob(job) ? { skip: 0, cap: 1, overlap: 0 } : planForJob(job.settings, job.progress.completedFrames, job.progress.targetFrames, nextSegment, job.viggleSegmentation);
         const receive = (event: any) => { if (!signal.aborted && applyProgress(job, event)) this.save(job); };
         socket = await client.watch('recast-' + job.id, receive).catch(() => undefined);
         if (!job.pendingPrompt) {
+          if (job.viggleSegmentation && plan.overlap && job.settings.referencePreparation !== 'prepared' && !job.uploads?.preparedFrame) {
+            if (!job.keyframe || !await exists(job.keyframe)) throw new Error('The original conditioning frame is unavailable. Restore it before continuing; the character will not be repainted again.');
+            this.stage(job, 'Restoring the original conditioning frame');
+            job.uploads!.preparedFrame = await client.upload(job.keyframe, job.id + '-prepared-frame', signal); this.save(job);
+          }
           this.stage(job, 'Checking workflow'); const graph = compileWorkflow(this.template, job);
           const liveCatalog = await client.json('/object_info', undefined, signal);
           const missing = missingPinnedAdapters(graph, liveCatalog);
@@ -182,13 +187,23 @@ export class Runner {
           await pause(1500);
         }
         socket?.close(); socket = undefined;
+        // Persist a successful paid receipt BEFORE any optional preview or media
+        // transfer. Recovery must never pay for a completed window a second time.
+        if (history.status?.status_str === 'success') {
+          const receipt = path.join(folder, `history_${job.segments.length}.json`);
+          await writeFile(receipt + '.part', JSON.stringify(history, null, 2)); await rename(receipt + '.part', receipt);
+        }
         // The repainted frame is an auditable intermediate, including when a
         // later sampler fails. Never generate another frame to recover it.
         const keyframe = history.outputs?.['121']?.images?.[0];
         if (isViggle(job.settings) && keyframe && !job.keyframe) {
           const file = path.join(folder, 'keyframe.png');
           try { if (!await exists(file)) await client.download(keyframe, file, signal); job.keyframe = file; this.save(job); }
-          catch (error) { if (signal.aborted) throw error; await writeFile(path.join(folder, 'keyframe-download-warning.json'), JSON.stringify({ warning: 'The reference preview could not be downloaded. The existing video run was not resubmitted.' })); }
+          catch (error) {
+            if (signal.aborted) throw error;
+            if (job.viggleSegmentation && job.settings.referencePreparation !== 'prepared') throw new OfflineError('The original repainted frame could not be saved. Reconnect and resume its download; the completed segment will not be rendered again.');
+            await writeFile(path.join(folder, 'keyframe-download-warning.json'), JSON.stringify({ warning: 'The reference preview could not be downloaded. The existing video run was not resubmitted.' }));
+          }
         }
         if (isImageJob(job)) for (const [node, name] of [['154', 'body-stage'], ['155', 'body-raw'], ['222', 'head-raw'], ['224', 'head-stage'], ['322', 'lighting-raw'], ['324', 'composition-raw'], ['505', 'reference-normalized']]) {
           const preview = history.outputs?.[node]?.images?.[0]; if (!preview) continue;
@@ -214,6 +229,7 @@ export class Runner {
         const outputs = history.outputs || {}, context = outputs['47']?.context?.[0];
         const video = outputs['46']?.gifs?.filter((f: any) => f.filename.endsWith('.mp4')).at(-1);
         if (!context || !video) throw new Error('The GPU finished without the expected video and continuity record.');
+        if (job.viggleSegmentation && (context.version !== job.viggleSegmentation || context.job_id !== job.id || context.source_count !== plan.cap || context.source_end_frame !== plan.skip + plan.cap || !context.artifact)) throw new Error('The saved Viggle segment receipt does not match its requested source range. Existing output has been retained.');
         const frames = Number(context.source_count) - plan.overlap;
         if (!(frames > 0)) throw new Error('The source ended before this segment added any frames.');
         const file = `segment_${String(job.segments.length).padStart(4, '0')}.mp4`;
@@ -223,6 +239,11 @@ export class Runner {
         await writeFile(receipt + '.part', JSON.stringify(history, null, 2)); await rename(receipt + '.part', receipt);
         this.stage(job, 'Downloading completed segment');
         if (!await exists(path.join(folder, file))) await client.download(video, path.join(folder, file), signal);
+        if (job.viggleSegmentation) {
+          this.stage(job, 'Saving continuation anchor locally');
+          const anchor = path.join(folder, `context_${job.segments.length}.safetensors`);
+          if (!await exists(anchor)) await client.download(context.artifact, anchor, signal);
+        }
         if (job.saveDiagnosticLatent) {
           const latent = outputs['51']?.latents?.[0];
           try {

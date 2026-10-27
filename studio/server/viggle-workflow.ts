@@ -1,5 +1,6 @@
 import type { Graph, Job } from '../shared/types';
 import { engineIssue, repaintPrompt, viggleSigmas } from '../shared/engines';
+import { viggleWindow, viggleWindows } from '../shared/viggle-segments';
 
 export const VIGGLE_MODEL = 'minimax_h3_ref2va_viggle_pruned_int8_convrot.safetensors';
 export const VIGGLE_DMD = 'viggle_animate_dmd_lora.safetensors';
@@ -10,17 +11,22 @@ export const VIGGLE_VAE = 'minimax_h3_video_vae_int8_convrot.safetensors';
 export function compileViggleWorkflow(job: Job): Graph {
   const issue = engineIssue(job.settings); if (issue) throw new Error(issue);
   if (!job.uploads) throw new Error('Inputs have not been transferred.');
-  if (job.progress.completedFrames || job.progress.targetFrames > 124) throw new Error('Viggle requires a fresh single shot of at most 124 frames.');
+  const segmented = job.viggleSegmentation === 'five-frame-v1';
+  if (!segmented && (job.progress.completedFrames || job.progress.targetFrames > 124)) throw new Error('Viggle requires a fresh single shot of at most 124 frames.');
+  const plan = segmented ? viggleWindow(job.progress.completedFrames, job.progress.targetFrames) : { skip: 0, cap: job.progress.targetFrames, overlap: 0 };
+  const continuing = plan.overlap > 0;
+  if (continuing && !job.context) throw new Error('The saved Viggle continuation anchor is missing. No new segment was submitted.');
+  if (continuing && job.settings.referencePreparation !== 'prepared' && !job.uploads.preparedFrame) throw new Error('The original repainted frame must be restored before continuing.');
   if (job.saveDiagnosticLatent) throw new Error('Viggle exports its conditioning frame and video. SCAIL latent diagnostics are not supported by this engine.');
   if (job.width % 32 || job.height % 32) throw new Error('Viggle render dimensions must be multiples of 32.');
   const s = job.settings, graph: Graph = {};
   const add = (id: string, class_type: string, inputs: Record<string, unknown>, title: string) => { graph[id] = { class_type, inputs, _meta: { title } }; };
-  const prefix = `recast/${job.id}/segment_0000`;
-  add('2', 'VHS_LoadVideo', { video: job.uploads.source, force_rate: 24, custom_width: 0, custom_height: 0, frame_load_cap: job.progress.targetFrames, skip_first_frames: 0, select_every_nth: 1, format: 'None' }, 'Read the selected source shot at 24 fps');
+  const prefix = `recast/${job.id}/segment_${String(job.segments.length).padStart(4, '0')}`;
+  add('2', 'VHS_LoadVideo', { video: job.uploads.source, force_rate: 24, custom_width: 0, custom_height: 0, frame_load_cap: plan.cap, skip_first_frames: plan.skip, select_every_nth: 1, format: 'None' }, 'Read the selected source window at 24 fps');
   add('3', 'RecastViggleSource', { images: ['2', 0], width: job.width, height: job.height }, 'Fit the source without cropping and pad the H3 frame grid');
-  add('4', 'LoadImage', { image: job.uploads.reference }, 'Read character appearance');
+  add('4', 'LoadImage', { image: continuing ? job.uploads.preparedFrame || job.uploads.reference : job.uploads.reference }, 'Read character appearance');
   let reference: [string, number] = ['4', 0];
-  if (s.referencePreparation !== 'prepared') {
+  if (s.referencePreparation !== 'prepared' && !continuing) {
     // Prepare at roughly one megapixel, retaining the source aspect ratio.
     const scale = Math.max(1, Math.sqrt(1_000_000 / (job.width * job.height)));
     const width = Math.round(job.width * scale / 32) * 32, height = Math.round(job.height * scale / 32) * 32;
@@ -56,15 +62,19 @@ export function compileViggleWorkflow(job: Job): Graph {
   // The pinned SaveImage returns IMAGE. Passing through it guarantees that
   // this intermediate is saved before any paid temporal sampling begins.
   add('40', 'ViggleAnimateConditioning', { cond_video: ['3', 0], ref_image: ['121', 0], text_cond: ['30', 0], vae: ['35', 0], width: job.width, height: job.height, length: 124 }, 'Video-first source-aligned conditioning');
+  if (continuing) add('36', 'RecastViggleAnchor', { latent: ['40', 1], vae: ['35', 0], context_path: job.context, width: job.width, height: job.height, fps: 24, skip_frames: plan.skip, overlap: plan.overlap, job_id: job.id }, 'Restore the saved five-frame continuation anchor');
   add('31', 'BasicGuider', { model: ['25', 0], conditioning: ['40', 0] }, 'One model evaluation per sigma interval');
-  add('38', 'RandomNoise', { noise_seed: s.seed }, 'Reproducible video noise');
+  add('38', 'RandomNoise', { noise_seed: segmented ? (s.seed + job.segments.length) % Number.MAX_SAFE_INTEGER : s.seed }, 'Reproducible video noise');
   add('41', 'KSamplerSelect', { sampler_name: 'euler' }, 'Euler distilled video sampler');
   add('42', 'ManualSigmas', { sigmas: viggleSigmas(s) }, 'Exact shifted sigma boundaries; do not shift again');
-  add('43', 'SamplerCustomAdvanced', { noise: ['38', 0], guider: ['31', 0], sampler: ['41', 0], sigmas: ['42', 0], latent_image: ['40', 1] }, 'Propagate replacement through the source motion');
+  add('43', 'SamplerCustomAdvanced', { noise: ['38', 0], guider: ['31', 0], sampler: ['41', 0], sigmas: ['42', 0], latent_image: continuing ? ['36', 0] : ['40', 1] }, 'Propagate replacement through the source motion');
   add('44', 'VAEDecode', { samples: ['43', 0], vae: ['35', 0] }, 'Decode the complete replacement shot');
-  add('45', 'SwapFinalizeShot', { images: ['44', 0], source_count: ['3', 1], overlap: 0, fps: 24, audio: ['2', 2] }, 'Trim grid padding and preserve exact source duration');
+  add('45', 'SwapFinalizeShot', { images: ['44', 0], source_count: ['3', 1], overlap: plan.overlap, fps: 24, audio: ['2', 2] }, 'Trim grid padding and accepted overlap; preserve source timing');
   add('46', 'VHS_VideoCombine', { images: ['45', 0], audio: ['45', 1], frame_rate: 24, loop_count: 0, filename_prefix: prefix, format: 'video/h264-mp4', pix_fmt: 'yuv420p', crf: 16, save_metadata: true, trim_to_audio: false, pingpong: false, save_output: true }, 'Export the replacement at native 24 fps');
-  add('47', 'SwapSaveContext', { images: ['45', 2], fps: 24, skip_frames: 0 }, 'Save completion receipt and source count');
+  if (segmented) {
+    const windows = viggleWindows(job.progress.targetFrames), next = windows[job.segments.length + 1];
+    add('47', 'RecastViggleSaveContext', { images: ['45', 2], fps: 24, skip_frames: plan.skip, next_skip_frames: next?.skip ?? plan.skip + plan.cap - 5, job_id: job.id }, 'Save the next exact anchor and segment receipt');
+  } else add('47', 'SwapSaveContext', { images: ['45', 2], fps: 24, skip_frames: 0 }, 'Save completion receipt and source count');
   if (job.outputSize) {
     add('52', 'ImageScale', { image: ['45', 0], upscale_method: 'lanczos', width: job.outputSize.width, height: job.outputSize.height, crop: 'disabled' }, 'Export exact HD dimensions');
     graph['46'].inputs.images = ['52', 0];

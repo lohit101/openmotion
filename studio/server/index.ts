@@ -21,6 +21,7 @@ import type { Asset, Catalog, Graph, Job } from '../shared/types';
 import { migrateDemoPrompt, PROMPT_VERSION } from '../shared/prompts';
 import { FRAMING_VERSION, type ReferenceGeometry } from './framing';
 import { engineIssue, isViggle } from '../shared/engines';
+import { viggleWindows } from '../shared/viggle-segments';
 import { registerImageRoutes } from './image-routes';
 import { clipFrameCount } from '../shared/clip';
 import { canFinishImageLocally, isImageJob } from '../shared/image-replacement';
@@ -164,9 +165,11 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     if (isViggle(value.settings) && value.settings.referencePreparation === 'prepared' && Math.abs((reference.width / reference.height) / (source.width / source.height) - 1) > 0.05) return void res.status(400).json({ error: 'An already edited source frame must keep the source video’s aspect ratio. Use automatic reference preparation for a standalone character photo.' });
     const settings = { ...value.settings, prompt: migrateDemoPrompt(value.settings.prompt, value.settings.mode) }; if (settings.randomSeed) settings.seed = randomInt(0, 0xffffffff);
     const [width, height] = renderGeometry(settings, source), [outputWidth, outputHeight] = geometry(settings, source), target = clipFrameCount(settings.seconds, settings.fps);
+    const segmented = isViggle(settings) && target > 124;
+    if (segmented && ['RecastViggleAnchor', 'RecastViggleSaveContext'].some(name => !connection.catalog[name])) return void res.status(409).json({ error: 'This GPU needs the updated continuation nodes. Use Connect / retry setup in GPU cloud before generating a longer clip. Existing models are reused; no extra weights are required.' });
     const job: Job = { id: randomUUID(), title: source.name.replace(/\.[^.]+$/, '') + (isViggle(settings) ? ' / Viggle swap' : settings.mode === 'swap' ? ' / character swap' : ' / motion transfer'), status: 'queued', sourceId: source.id, referenceId: reference.id, settings, promptVersion: PROMPT_VERSION, renderVersion: 'continuous-v1', saveDiagnosticLatent: value.saveDiagnosticLatent, ...(settings.mode === 'swap' && !isViggle(settings) ? { framingVersion: FRAMING_VERSION } : {}),
-      createdAt: new Date().toISOString(), favorite: false, deleted: false, width, height, ...(settings.resolution === '720' ? { outputSize: { width: outputWidth, height: outputHeight } } : {}),
-      progress: { stage: 'Queued', node: null, value: null, max: null, unit: 'steps', segment: 1, segments: isViggle(settings) ? 1 : segmentCount(target, settings.framesPerPass), completedFrames: 0, targetFrames: target, updatedAt: Date.now() },
+      createdAt: new Date().toISOString(), favorite: false, deleted: false, width, height, ...(segmented ? { viggleSegmentation: 'five-frame-v1' as const } : {}), ...(settings.resolution === '720' ? { outputSize: { width: outputWidth, height: outputHeight } } : {}),
+      progress: { stage: 'Queued', node: null, value: null, max: null, unit: 'steps', segment: 1, segments: isViggle(settings) ? viggleWindows(target).length : segmentCount(target, settings.framesPerPass), completedFrames: 0, targetFrames: target, updatedAt: Date.now() },
       segments: [], context: '', pendingPrompt: null, uploads: null, error: null, output: null, poster: null, cancelRequested: false, elapsedSeconds: null, origin: 'render', workflow: null };
     store.addJob(job, key); res.status(201).json(publicJob(job)); void runner.kick();
   });

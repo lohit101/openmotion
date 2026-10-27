@@ -45,7 +45,7 @@ async def validate(comfy_root):
         (fixtures / "output").mkdir()
         Image.new("RGB", (64, 96), (100, 120, 140)).save(fixtures / "input/reference.png")
         Image.new("RGB", (64, 96), (100, 120, 140)).save(fixtures / "input/repainted-source-frame.png")
-        for name in ['target.png', 'identity.png', 'edit-mask.png', 'face.png', 'face-refine-mask.png']:
+        for name in ['target.png', 'identity.png', 'edit-mask.png', 'face.png', 'face-refine-mask.png', 'source-structure.png', 'body-mask.png']:
             Image.new("RGB", (1024, 1024), (100, 120, 140)).save(fixtures / 'input' / name)
         (fixtures / "input/source.mp4").write_bytes(b"filename-validation-only")
         for item in selected_manifest()['files']:
@@ -92,6 +92,42 @@ async def validate(comfy_root):
         assert tuple(anchor.shape) == (1, 96, 64, 3)
         assert torch.equal(viggle_images[-1], viggle_images[119])
         assert torch.equal(anchor[0], viggle_images[0])
+        # A 125-frame job needs a full end-aligned second window starting at
+        # frame 17, not the previous window's tail at 119. Pin only its first
+        # five pixels/two H3 latents and discard all 107 accepted overlap frames.
+        from comfy.nested_tensor import NestedTensor
+        decoded = torch.arange(124, dtype=torch.float32)[:, None, None, None].expand(124, 96, 64, 3).clone() / 124
+        receipt = helpers.RecastViggleSaveContext().save(decoded, 24, 0, 17, 'cpu-long-video')
+        info = receipt['ui']['context'][0]
+        assert info['source_count'] == 124 and info['source_anchor_frame'] == 17
+        assert info['artifact']['type'] == 'output'
+        stored = helpers.load_file(str(helpers.context_file(info['path'])))['frames']
+        assert torch.equal(stored, decoded[17:22])
+        class AnchorVAE:
+            def encode(self, frames):
+                assert torch.equal(frames, decoded[17:22])
+                return torch.full((1, 24, 2, 6, 4), float(frames[0, 0, 0, 0]))
+        original = {'samples': NestedTensor((torch.zeros(1, 24, 37, 6, 4), torch.zeros(1, 32, 2, 207)))}
+        anchor_node = helpers.RecastViggleAnchor()
+        anchored = anchor_node.anchor(original, AnchorVAE(), info['path'], 64, 96, 24, 17, 107, 'cpu-long-video')[0]
+        video_latent, audio_latent = anchored['samples'].unbind()
+        video_mask, audio_mask = anchored['noise_mask'].unbind()
+        assert torch.allclose(video_latent[:, :, :2], torch.full_like(video_latent[:, :, :2], 17 / 124))
+        assert video_latent[:, :, 2:].count_nonzero() == 0 and audio_latent.count_nonzero() == 0
+        assert video_mask[:, :, :2].count_nonzero() == 0 and (video_mask[:, :, 2:] == 1).all()
+        assert (audio_mask == 1).all() and original['samples'].unbind()[0].count_nonzero() == 0
+        for changed in [dict(job_id='different-run'), dict(skip_frames=18), dict(overlap=5), dict(width=96), dict(fps=16)]:
+            args = dict(latent=original, vae=AnchorVAE(), context_path=info['path'], width=64, height=96, fps=24, skip_frames=17, overlap=107, job_id='cpu-long-video')
+            args.update(changed)
+            try:
+                anchor_node.anchor(**args)
+            except ValueError:
+                pass
+            else:
+                raise AssertionError('Mismatched anchor was accepted: ' + repr(changed))
+        final, _, _ = helpers.SwapFinalizeShot().finish(decoded, 108, 107, 24)
+        assert len(final) == 1 and torch.equal(final[0], decoded[107])
+        print('PASS Viggle continuation: exact end-aligned anchor, native nested noise mask, immutable input and wrong-run/offset rejection', flush=True)
         print("PASS helper execution: presets, optional LoRA, geometry, tail padding, exact context, overlap and audio", flush=True)
         print('PASS Viggle tensor execution: source fitting, 120→124 padding, exact export count and source-frame anchor', flush=True)
         destination = torch.rand((1, 64, 96, 3))

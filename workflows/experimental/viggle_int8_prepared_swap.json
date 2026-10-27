@@ -56,7 +56,7 @@
           "links": []
         }
       ],
-      "title": "Read the selected source shot at 24 fps",
+      "title": "Read the selected source window at 24 fps",
       "properties": {
         "Node name for S&R": "VHS_LoadVideo"
       },
@@ -700,7 +700,7 @@
           ]
         }
       ],
-      "title": "Trim grid padding and preserve exact source duration",
+      "title": "Trim grid padding and accepted overlap; preserve source timing",
       "properties": {
         "Node name for S&R": "SwapFinalizeShot"
       },

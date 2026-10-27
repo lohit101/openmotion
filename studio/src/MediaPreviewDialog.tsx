@@ -2,11 +2,11 @@ import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } fr
 import * as Dialog from '@radix-ui/react-dialog';
 import { Check, Pause, Play, Scissors, SpeakerHigh, SpeakerSlash, X } from '@phosphor-icons/react';
 import type { Asset } from '../shared/types';
-import { clipTime, MAX_CLIP_SECONDS, minimumClipFrames, normalizeClip, trimClip, type ClipSelection, type TrimAction } from '../shared/clip';
+import { clipTime, DEFAULT_CLIP_SECONDS, MAX_CLIP_SECONDS, minimumClipFrames, normalizeClip, trimClip, type ClipSelection, type TrimAction } from '../shared/clip';
 import './media-preview.css';
 
 function VideoTrimmer({ asset, initial, fps, apply }: { asset: Asset; initial?: ClipSelection; fps: number; apply?: (selection: ClipSelection) => void }) {
-  const normalized = normalizeClip(initial || { start: 0, seconds: MAX_CLIP_SECONDS }, asset.duration, fps);
+  const normalized = normalizeClip(initial || { start: 0, seconds: DEFAULT_CLIP_SECONDS }, asset.duration, fps);
   const [selection, setSelection] = useState<ClipSelection>(normalized || { start: 0, seconds: asset.duration });
   const [playing, setPlaying] = useState(false), [muted, setMuted] = useState(true), [time, setTime] = useState(selection.start), [error, setError] = useState('');
   const [strip, setStrip] = useState<'loading' | 'ready' | 'failed'>('loading');
@@ -76,7 +76,7 @@ function VideoTrimmer({ asset, initial, fps, apply }: { asset: Asset; initial?: 
 
 export default function MediaPreviewDialog({ asset, close, clip, fps = 24, apply }: { asset: Asset; close: () => void; clip?: ClipSelection; fps?: number; apply?: (selection: ClipSelection) => void }) {
   return <Dialog.Root open onOpenChange={value => { if (!value) close(); }}><Dialog.Portal><Dialog.Overlay className="modal-overlay" /><Dialog.Content className={`asset-preview-dialog ${asset.kind === 'image' ? 'photo-only' : ''}`}>
-    <header><div><Dialog.Title>{asset.name}</Dialog.Title><Dialog.Description className="visually-hidden">{asset.kind === 'image' ? 'Uploaded image preview' : apply ? 'Preview the video and choose a clip of up to five seconds.' : 'Uploaded video preview'}</Dialog.Description></div><Dialog.Close className="icon-button" aria-label="Close media preview"><X size={20} /></Dialog.Close></header>
+    <header><div><Dialog.Title>{asset.name}</Dialog.Title><Dialog.Description className="visually-hidden">{asset.kind === 'image' ? 'Uploaded image preview' : apply ? `Preview the video and choose a clip of up to ${MAX_CLIP_SECONDS} seconds.` : 'Uploaded video preview'}</Dialog.Description></div><Dialog.Close className="icon-button" aria-label="Close media preview"><X size={20} /></Dialog.Close></header>
     {asset.kind === 'image' ? <div className="asset-photo-stage"><img src={`/api/assets/${asset.id}/original`} alt={asset.name} /></div> : <VideoTrimmer key={asset.id} asset={asset} initial={clip} fps={fps} apply={apply} />}
   </Dialog.Content></Dialog.Portal></Dialog.Root>;
 }
