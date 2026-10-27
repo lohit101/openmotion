@@ -12,6 +12,7 @@ from safetensors import safe_open
 from safetensors.torch import load_file, save_file
 
 from .logic import OVERLAP, context_matches, dimensions, padded_length, viggle_length
+from .audio import RecastVigglePinAudio
 
 
 class SwapControls:
@@ -390,6 +391,7 @@ class RecastViggleAnchor:
 
 
 NODE_CLASS_MAPPINGS = {
+    "RecastVigglePinAudio": RecastVigglePinAudio,
     "RecastViggleSource": RecastViggleSource,
     "RecastViggleContextReference": RecastViggleContextReference,
     "RecastViggleAnchor": RecastViggleAnchor,
@@ -403,6 +405,7 @@ NODE_CLASS_MAPPINGS = {
     "SwapSaveContext": SwapSaveContext,
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
+    "RecastVigglePinAudio": "Pin Source Soundtrack in Viggle (Experimental)",
     "RecastViggleSource": "Prepare Viggle Source and Anchor Frame",
     "RecastViggleContextReference": "Previous Segment Last Frame Reference",
     "RecastViggleAnchor": "Restore Exact Viggle Five-Frame Anchor",

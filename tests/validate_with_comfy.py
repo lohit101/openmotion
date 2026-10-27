@@ -48,7 +48,8 @@ async def validate(comfy_root):
         for name in ['target.png', 'identity.png', 'edit-mask.png', 'face.png', 'face-refine-mask.png', 'source-structure.png', 'body-mask.png']:
             Image.new("RGB", (1024, 1024), (100, 120, 140)).save(fixtures / 'input' / name)
         (fixtures / "input/source.mp4").write_bytes(b"filename-validation-only")
-        for item in selected_manifest()['files']:
+        evaluation_models = json.loads((ROOT / 'config/viggle-audio-evaluation.lock.json').read_text())['files']
+        for item in selected_manifest()['files'] + evaluation_models:
             relative = Path(item["destination"])
             directory = fixtures / "models" / relative.parent
             directory.mkdir(parents=True, exist_ok=True)
