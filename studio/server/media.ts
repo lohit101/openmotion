@@ -32,6 +32,11 @@ export async function probe(file: string) {
 export async function poster(file: string, destination: string) {
   await command('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-i', file, '-frames:v', '1', '-vf', 'scale=600:600:force_original_aspect_ratio=decrease', '-q:v', '3', destination], undefined, 25000);
 }
+export async function videoFrameInfo(file: string, signal?: AbortSignal) {
+  const info = JSON.parse(await command('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-count_frames', '-show_entries', 'stream=nb_read_frames,start_time,duration,avg_frame_rate', '-of', 'json', file], signal, 30000));
+  const stream = info.streams?.[0];
+  return { frames: Number(stream?.nb_read_frames), start: Number(stream?.start_time || 0), duration: Number(stream?.duration) };
+}
 const pendingFilmstrips = new Map<string, Promise<string>>();
 export async function filmstrip(asset: Asset): Promise<string> {
   if (asset.kind !== 'video' || !(asset.duration > 0)) throw new Error('Choose a readable video for trimming.');
@@ -70,8 +75,10 @@ export async function prepareVideo(job: Job, source: Asset, folder: string, sign
   const audio = source.hasAudio ? ['-map', '0:a:0', '-c:a', 'aac', '-ar', '48000', '-b:a', '192k'] : ['-an'];
   try {
     await command('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-ss', String(start), '-i', source.path, '-t', String(duration),
-      '-map', '0:v:0', '-vf', `fps=${job.settings.fps},scale=${job.width}:${job.height}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad=${job.width}:${job.height}:(ow-iw)/2:(oh-ih)/2`,
+      '-map', '0:v:0', '-vf', `fps=${job.settings.fps}:start_time=0,scale=${job.width}:${job.height}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad=${job.width}:${job.height}:(ow-iw)/2:(oh-ih)/2`,
       '-frames:v', String(job.progress.targetFrames), '-c:v', 'libx264', '-preset', 'fast', '-crf', '16', '-pix_fmt', 'yuv420p', ...audio, '-movflags', '+faststart', temporary], signal, 180000);
+    const actual = await videoFrameInfo(temporary, signal);
+    if (actual.frames !== job.progress.targetFrames || Math.abs(actual.start) > .001) throw new Error(`Clip preparation produced ${actual.frames} frames instead of ${job.progress.targetFrames}, or a nonzero start timestamp. Nothing was uploaded or sampled. Select a shorter source range and retry.`);
     await rename(temporary, output);
     return output;
   } finally { await rm(temporary, { force: true }); }

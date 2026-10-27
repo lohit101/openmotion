@@ -240,7 +240,8 @@ export class Runner {
         const outputs = history.outputs || {}, context = outputs['47']?.context?.[0];
         const video = outputs['46']?.gifs?.filter((f: any) => f.filename.endsWith('.mp4')).at(-1);
         if (!context || !video) throw new Error('The GPU finished without the expected video and continuity record.');
-        if (job.viggleSegmentation && (context.version !== job.viggleSegmentation || context.job_id !== job.id || context.source_count !== plan.cap || context.source_end_frame !== plan.skip + plan.cap || !context.artifact)) throw new Error('The saved Viggle segment receipt does not match its requested source range. Existing output has been retained.');
+        const finalWindow = plan.skip + plan.cap === job.progress.targetFrames;
+        if (job.viggleSegmentation && (context.version !== job.viggleSegmentation || context.job_id !== job.id || context.source_count !== plan.cap || context.source_end_frame !== plan.skip + plan.cap || (context.terminal ? !finalWindow : !context.artifact))) throw new Error('The saved Viggle segment receipt does not match its requested source range. Existing output has been retained.');
         const frames = Number(context.source_count) - plan.overlap;
         if (!(frames > 0)) throw new Error('The source ended before this segment added any frames.');
         const file = `segment_${String(job.segments.length).padStart(4, '0')}.mp4`;
@@ -250,7 +251,7 @@ export class Runner {
         await writeFile(receipt + '.part', JSON.stringify(history, null, 2)); await rename(receipt + '.part', receipt);
         this.stage(job, 'Downloading completed segment');
         if (!await exists(path.join(folder, file))) await client.download(video, path.join(folder, file), signal, this.transferProgress(job, 'Downloading completed segment'));
-        if (job.viggleSegmentation) {
+        if (job.viggleSegmentation && !context.terminal) {
           this.stage(job, 'Saving continuation anchor locally');
           const anchor = path.join(folder, `context_${job.segments.length}.safetensors`);
           if (!await exists(anchor)) await client.download(context.artifact, anchor, signal, this.transferProgress(job, 'Backing up continuity · completed segment is saved'));

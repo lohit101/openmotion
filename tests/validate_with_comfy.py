@@ -128,6 +128,16 @@ async def validate(comfy_root):
         final, _, _ = helpers.SwapFinalizeShot().finish(decoded, 108, 107, 24)
         assert len(final) == 1 and torch.equal(final[0], decoded[107])
         print('PASS Viggle continuation: exact end-aligned anchor, native nested noise mask, immutable input and wrong-run/offset rejection', flush=True)
+        terminal = helpers.RecastViggleSaveContext().save(decoded[:121], 24, 238, 355, 'cpu-terminal', 'last-frame-v2', terminal=True)['ui']['context'][0]
+        assert terminal['terminal'] and terminal['source_count'] == 121 and terminal['source_end_frame'] == 359
+        assert terminal['path'] == '' and 'artifact' not in terminal
+        try:
+            helpers.RecastViggleSaveContext().save(decoded[:121], 24, 238, 355, 'cpu-terminal', 'last-frame-v2')
+        except ValueError:
+            pass
+        else:
+            raise AssertionError('An invalid intermediate five-frame anchor was accepted.')
+        print('PASS final receipt: exported video needs no unused next anchor; intermediate offset validation remains strict', flush=True)
         for next_start in (119, 17):
             receipt = helpers.RecastViggleSaveContext().save(decoded, 24, 0, next_start, 'cpu-last-frame', 'last-frame-v2')
             info = receipt['ui']['context'][0]

@@ -226,6 +226,12 @@
           {
             "default": "five-frame-v1"
           }
+        ],
+        "terminal": [
+          "BOOLEAN",
+          {
+            "default": false
+          }
         ]
       }
     },

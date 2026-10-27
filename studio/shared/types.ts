@@ -59,6 +59,7 @@ export interface Job {
   renderVersion?: 'continuous-v1'; saveDiagnosticLatent?: boolean;
   viggleSegmentation?: 'five-frame-v1' | 'last-frame-v2';
   continuationSource?: { jobId: string; frames: number };
+  videoRecovery?: { generatedFrames: number; leadingHoldFrames: number; reason: 'trim-timestamp'; originalFailedNode: string; recoveredAt: string };
   keyframe?: string; timings?: { node: string; stage: string; seconds: number }[];
   mediaType?: 'image'; image?: ImageRun;
 }

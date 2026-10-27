@@ -74,7 +74,7 @@ export function compileViggleWorkflow(job: Job): Graph {
   add('46', 'VHS_VideoCombine', { images: ['45', 0], audio: ['45', 1], frame_rate: 24, loop_count: 0, filename_prefix: prefix, format: 'video/h264-mp4', pix_fmt: 'yuv420p', crf: 16, save_metadata: true, trim_to_audio: false, pingpong: false, save_output: true }, 'Export the replacement at native 24 fps');
   if (segmented) {
     const windows = viggleWindows(job.progress.targetFrames), next = windows[job.segments.length + 1];
-    add('47', 'RecastViggleSaveContext', { images: ['45', 2], fps: 24, skip_frames: plan.skip, next_skip_frames: next?.skip ?? plan.skip + plan.cap - 5, job_id: job.id, ...(previousReference ? { version: 'last-frame-v2' } : {}) }, 'Save the next exact anchor and segment receipt');
+    add('47', 'RecastViggleSaveContext', { images: ['45', 2], fps: 24, skip_frames: plan.skip, next_skip_frames: next?.skip ?? plan.skip + plan.cap - 5, job_id: job.id, ...(!next ? { terminal: true } : {}), ...(previousReference ? { version: 'last-frame-v2' } : {}) }, next ? 'Save the next exact anchor and segment receipt' : 'Record final video completion without an unused continuation');
   } else add('47', 'SwapSaveContext', { images: ['45', 2], fps: 24, skip_frames: 0 }, 'Save completion receipt and source count');
   if (job.outputSize) {
     add('52', 'ImageScale', { image: ['45', 0], upscale_method: 'lanczos', width: job.outputSize.width, height: job.outputSize.height, crop: 'disabled' }, 'Export exact HD dimensions');

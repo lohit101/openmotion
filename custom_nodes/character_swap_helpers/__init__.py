@@ -250,7 +250,7 @@ class RecastViggleSaveContext:
             "skip_frames": ("INT", {"default": 0, "min": 0}),
             "next_skip_frames": ("INT", {"default": 119, "min": 0}),
             "job_id": ("STRING", {"default": ""}),
-        }, "optional": {"version": (["five-frame-v1", "last-frame-v2"], {"default": "five-frame-v1"})}}
+        }, "optional": {"version": (["five-frame-v1", "last-frame-v2"], {"default": "five-frame-v1"}), "terminal": ("BOOLEAN", {"default": False})}}
 
     RETURN_TYPES = ("STRING", "STRING")
     RETURN_NAMES = ("context_path", "continuation_details")
@@ -258,7 +258,16 @@ class RecastViggleSaveContext:
     FUNCTION = "save"
     CATEGORY = "Character Swap/Viggle"
 
-    def save(self, images, fps, skip_frames, next_skip_frames, job_id, version="five-frame-v1"):
+    def save(self, images, fps, skip_frames, next_skip_frames, job_id, version="five-frame-v1", terminal=False):
+        if terminal:
+            # A completed final window has no successor to anchor. Its receipt
+            # uses the actual count; never fail an exported video while trying
+            # to create an unused continuation beyond the source boundary.
+            if fps != 24 or not job_id or version not in ("five-frame-v1", "last-frame-v2") or len(images) < 5:
+                raise ValueError("The final Viggle receipt requires valid source frames and job metadata.")
+            info = {"path": "", "version": version, "job_id": job_id, "terminal": True,
+                    "source_end_frame": skip_frames + len(images), "source_count": len(images), "fps": fps}
+            return {"ui": {"context": [info], "text": [json.dumps(info)]}, "result": ("", json.dumps(info))}
         offset = next_skip_frames - skip_frames
         if fps != 24 or not job_id or version not in ("five-frame-v1", "last-frame-v2") or not 0 <= offset <= len(images) - 5:
             raise ValueError("Viggle continuation requires an exact five-frame anchor inside the completed source window.")

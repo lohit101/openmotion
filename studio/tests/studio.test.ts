@@ -90,9 +90,14 @@ async function mockComfy(viggle = false) {
       '46': { gifs: [{ filename, subfolder: 'recast', type: 'output' }] }, '47': { context: [{ path: '/gpu/output/context-' + id + '.safetensors', source_count: cap, source_end_frame: skip + cap, fps }] }
     } };
     if (graph['47'].class_type === 'RecastViggleSaveContext') {
-      const contextName = id + '.safetensors', contextFile = path.join(fixtures, contextName);
-      await writeFile(contextFile, 'Protocol fixture anchor; real tensors are checked separately in CPU ComfyUI tests.'); files.set(contextName, contextFile);
-      Object.assign(history[id].outputs['47'].context[0], { version: graph['47'].inputs.version || 'five-frame-v1', job_id: graph['47'].inputs.job_id, source_anchor_frame: graph['47'].inputs.next_skip_frames, artifact: { filename: contextName, type: 'output' } });
+      const receipt = history[id].outputs['47'].context[0];
+      Object.assign(receipt, { version: graph['47'].inputs.version || 'five-frame-v1', job_id: graph['47'].inputs.job_id });
+      if (graph['47'].inputs.terminal) Object.assign(receipt, { path: '', terminal: true });
+      else {
+        const contextName = id + '.safetensors', contextFile = path.join(fixtures, contextName);
+        await writeFile(contextFile, 'Protocol fixture anchor; real tensors are checked separately in CPU ComfyUI tests.'); files.set(contextName, contextFile);
+        Object.assign(receipt, { source_anchor_frame: graph['47'].inputs.next_skip_frames, artifact: { filename: contextName, type: 'output' } });
+      }
     }
     if (graph['121']) {
       const keyframe = id + '_keyframe.png'; files.set(keyframe, image);
@@ -331,7 +336,8 @@ describe('local app with the captured ComfyUI protocol', () => {
     expect(v.nb_read_frames).toBe('720'); expect(Number(v.duration)).toBeCloseTo(30, 3); expect(v.avg_frame_rate).toBe('24/1');
     expect(info.streams.filter((s: any) => s.codec_type === 'audio')).toHaveLength(1);
     const saved = await readdir(path.join(root, 'jobs', job.id));
-    for (let i = 0; i < 7; i++) { expect(saved).toContain(`history_${i}.json`); expect(saved).toContain(`context_${i}.safetensors`); }
+    for (let i = 0; i < 7; i++) { expect(saved).toContain(`history_${i}.json`); if (i < 6) expect(saved).toContain(`context_${i}.safetensors`); }
+    expect(saved).not.toContain('context_6.safetensors'); expect(last['47'].inputs.terminal).toBe(true);
   }, 30000);
   it('resumes a completed anchor transfer without repeating its paid sample or character repaint', async () => {
     const agent = await setup(true), values = await inputs(agent);

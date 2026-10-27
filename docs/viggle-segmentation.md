@@ -29,7 +29,9 @@ For example, 720 requested frames (30 seconds) use seven windows. The last start
 
 ## Recovery and storage
 
-Successful ComfyUI histories are written atomically on the Mac **before** downloading previews, video or anchors. Each segment's video and five-frame anchor are downloaded before completed-frame progress advances. If a transfer fails and ComfyUI later loses in-memory history, Check & resume uses the local receipt and existing media rather than submitting that completed prompt again. Ambiguous/missing GPU requests still require the existing explicit retry choice.
+Successful ComfyUI histories are written atomically on the Mac **before** downloading previews, video or anchors. Each segment's video and any required next-window anchor are downloaded before completed-frame progress advances. The final window saves a terminal receipt without an unused continuation file. Source count, range, version and job ID remain strict. If a transfer fails and ComfyUI later loses in-memory history, Check & resume uses the local receipt and existing media rather than submitting that completed prompt again. Ambiguous/missing GPU requests still require the existing explicit retry choice.
+
+Local clip preparation resets the output FPS timeline to zero and counts decoded frames before upload. A short/nonzero-start preparation fails before paid sampling. This fixes the fractional-seek 30→24 fps gap found in the [terminal-checkpoint incident](validation/viggle-terminal-recovery-20261028.md). Its already generated video was recovered locally with one explicitly recorded leading hold frame; this is a historical recovery, not a default padding policy for new runs.
 
 Output transfers now resume matching partial bytes with Range/If-Range and display actual MB progress. Their timeout measures inactivity, not total elapsed download time. A transfer error pauses output recovery without falsely marking the GPU disconnected. See [the transfer failure analysis and validation](validation/viggle-transfer-recovery-20261028.md).
 

@@ -49,6 +49,7 @@ describe('Viggle continuation planning', () => {
     const first = compileViggleWorkflow(job);
     expect(first['2'].inputs).toMatchObject({ frame_load_cap: 124, skip_first_frames: 0 });
     expect(first['47'].inputs.next_skip_frames).toBe(119);
+    expect(first['47'].inputs.terminal).toBeUndefined();
     expect(first['118']).toBeDefined();
     job.progress.completedFrames = 124; job.segments = [{ file: 'segment_0000.mp4', frames: 124, promptId: 'paid-first', seconds: 1 }];
     expect(() => compileViggleWorkflow(job)).toThrow('anchor is missing');
@@ -64,6 +65,7 @@ describe('Viggle continuation planning', () => {
     expect(second['2'].inputs).toMatchObject({ frame_load_cap: 121, skip_first_frames: 119 });
     expect(second['45'].inputs.overlap).toBe(5);
     expect(second['46'].inputs.filename_prefix).toBe('recast/long-viggle/segment_0001');
+    expect(second['47'].inputs.terminal).toBe(true);
     expect(second['38'].inputs.noise_seed).toBe(job.settings.seed + 1);
   });
   it('chains the actual previous frame as appearance while retaining the separate five-frame motion anchor', () => {

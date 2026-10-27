@@ -83,6 +83,37 @@ class ContinuityTests(unittest.TestCase):
 
 @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "FFmpeg is required")
 class VideoAssemblyTests(unittest.TestCase):
+    def test_explicit_one_frame_timestamp_recovery_keeps_all_generated_pixels(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / 'source.mp4'
+            subprocess.run(['ffmpeg', '-v', 'error', '-y', '-f', 'lavfi', '-i',
+                            'testsrc2=size=64x96:rate=24:duration=1', '-c:v', 'libx264', str(source)], check=True)
+            for index, (start, count) in enumerate([(0, 12), (.5, 11)]):
+                subprocess.run(['ffmpeg', '-v', 'error', '-y', '-ss', str(start), '-i', str(source),
+                                '-frames:v', str(count), '-an', '-c:v', 'libx264', str(root / ('segment_%04d.mp4' % index))], check=True)
+            def hashes(file):
+                output = subprocess.check_output(['ffmpeg', '-v', 'error', '-i', str(file), '-map', '0:v:0',
+                                                  '-f', 'framemd5', '-'], text=True)
+                return [line.split(',')[-1].strip() for line in output.splitlines() if not line.startswith('#')]
+            original = hashes(root / 'segment_0000.mp4') + hashes(root / 'segment_0001.mp4')
+            state = {'segments': [{}, {}], 'completed_frames': 24, 'leading_hold_frames': 1,
+                     'settings': {'fps': 24, 'start_seconds': 0}, 'source': str(source)}
+            render_clip.finish_video(state, root)
+            recovered = hashes(root / 'final.mp4')
+            self.assertEqual(len(recovered), 24)
+            self.assertEqual(recovered[1:], original)
+            info = json.loads(subprocess.check_output(['ffprobe', '-v', 'error', '-select_streams', 'v:0',
+                '-show_entries', 'stream=duration,start_time,avg_frame_rate:packet=pts_time,dts_time',
+                '-of', 'json', str(root / 'final.mp4')], text=True))
+            self.assertEqual(info['streams'][0]['avg_frame_rate'], '24/1')
+            self.assertEqual(float(info['streams'][0]['duration']), 1)
+            self.assertEqual(float(info['streams'][0]['start_time']), 0)
+            for index, timestamp in enumerate(sorted(float(p['pts_time']) for p in info['packets'])):
+                self.assertAlmostEqual(timestamp, index / 24, places=5)
+            decode_times = [float(p['dts_time']) for p in info['packets']]
+            self.assertTrue(all(a < b for a, b in zip(decode_times, decode_times[1:])))
+
     def test_aac_segment_preroll_does_not_shift_video_or_accumulate_gaps(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

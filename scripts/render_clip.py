@@ -134,6 +134,24 @@ def finish_video(state, directory):
     # Remove each segment's AAC preroll before concatenating video packets.
     # Otherwise FFmpeg's concat demuxer can shift video by one AAC packet.
     entries = []
+    leading_hold = state.get("leading_hold_frames", 0)
+    if type(leading_hold) is not int or leading_hold not in (0, 1):
+        raise ValueError("Local timestamp recovery supports at most one explicitly recorded leading hold frame.")
+    if leading_hold:
+        # Keep every paid segment intact. Only the added leading hold is
+        # encoded locally; the following original frames are packet-copied.
+        fps = state["settings"]["fps"]
+        held = directory / "leading_hold.mp4"
+        held_context = directory / "leading_hold_context.mp4"
+        # Retain H.264's two-frame decode lead even though only the first
+        # packet is kept. A standalone I-frame has no lead and would collide
+        # with the following generated segment's negative decode timestamps.
+        subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "warning", "-y", "-i", str(directory / "segment_0000.mp4"),
+                        "-vf", "select=eq(n\\,0),setpts=N/(%s*TB),tpad=stop_mode=clone:stop=2" % fps, "-frames:v", "3", "-r", str(fps),
+                        "-an", "-c:v", "libx264", "-preset", "fast", "-crf", "16", "-bf", "2", "-b_strategy", "0", "-pix_fmt", "yuv420p", str(held_context)], check=True)
+        subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "warning", "-y", "-i", str(held_context),
+                        "-frames:v", "1", "-c:v", "copy", str(held)], check=True)
+        entries.append("file 'leading_hold.mp4'\n")
     for index in range(len(state["segments"])):
         video = directory / ("video_%04d.mp4" % index)
         subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "warning", "-y", "-i",
