@@ -192,6 +192,129 @@
       },
       "qualityPass": false,
       "assessment": "Strong pose and natural lighting, but original identity retained."
+    },
+    {
+      "test": "I",
+      "job": "a289d9e6-3c50-4a0a-b120-e06bb64754a1",
+      "version": "scene-anchor-v7",
+      "seconds": 160.282,
+      "settings": {
+        "model": "qwen21",
+        "qwenRecipe": "source-anchored",
+        "qwenQuality": "quality",
+        "qwenHeadRefine": false,
+        "structureStrength": 0.3,
+        "repairMaskGaps": false,
+        "prompt": "Preserve the reference gray ribbed tank top with its original thin straps and no added bag strap or chain. The black Gothic lettering tattoo on the upper chest reads chance; preserve that exact spelling and placement. Do not add jewelry or garment pieces absent from the character reference.",
+        "megapixels": 2,
+        "protectBackground": true,
+        "feather": 16,
+        "maskExpand": 64,
+        "maskFillHoles": true,
+        "qwenRelight": true,
+        "qwenNormalizeReference": true,
+        "qwenEdgeOnly": true,
+        "qwenSceneIntegration": true,
+        "qwenLayoutOnly": true,
+        "localIdentity": true,
+        "faceDetail": false,
+        "identityRefine": false,
+        "seed": 20261027,
+        "randomSeed": false
+      },
+      "qualityPass": false,
+      "assessment": "Cleaner full hair and outfit, but face .803x source and 62px too high; reference hard light remains.",
+      "geometryDiagnostics": {
+        "faceSizeRatio": 0.8028515,
+        "faceCenterOffsetPixels": [
+          -2.88985,
+          -62.41386
+        ]
+      },
+      "outsideEffectiveMaskMaxDifference": 0
+    },
+    {
+      "test": "J",
+      "job": "d1f58734-d987-4da6-98cc-d8a7c6a148ba",
+      "version": "scene-anchor-v8",
+      "seconds": 149.132,
+      "settings": {
+        "model": "qwen21",
+        "qwenRecipe": "source-anchored",
+        "qwenQuality": "quality",
+        "qwenHeadRefine": false,
+        "structureStrength": 0.55,
+        "repairMaskGaps": false,
+        "prompt": "Preserve the reference gray ribbed tank top with its original thin straps and no added bag strap or chain. The black Gothic lettering tattoo on the upper chest reads chance; preserve that exact spelling and placement. Do not add jewelry or garment pieces absent from the character reference.",
+        "megapixels": 2,
+        "protectBackground": true,
+        "feather": 16,
+        "maskExpand": 64,
+        "maskFillHoles": true,
+        "qwenRelight": true,
+        "qwenNormalizeReference": true,
+        "qwenEdgeOnly": true,
+        "qwenSceneIntegration": true,
+        "qwenLayoutOnly": true,
+        "localIdentity": true,
+        "qwenIdentityGuide": true,
+        "faceDetail": false,
+        "identityRefine": false,
+        "seed": 20261027,
+        "randomSeed": false
+      },
+      "qualityPass": false,
+      "assessment": "Captured placement restored, but original hairstyle and top retained.",
+      "geometryDiagnostics": {
+        "faceSizeRatio": 0.9561293,
+        "faceCenterOffsetPixels": [
+          -8.98076,
+          2.86774
+        ]
+      },
+      "outsideEffectiveMaskMaxDifference": 0
+    },
+    {
+      "test": "K",
+      "job": "68c5d7b5-a0e9-43c1-b471-95fe1d6157c4",
+      "version": "identity-first-v2",
+      "seconds": 152.194,
+      "settings": {
+        "model": "qwen21",
+        "qwenRecipe": "identity-first",
+        "qwenQuality": "quality",
+        "qwenHeadRefine": true,
+        "structureStrength": 0,
+        "repairMaskGaps": false,
+        "prompt": "Preserve the reference gray ribbed tank top with its original thin straps and no added bag strap or chain. The black Gothic lettering tattoo on the upper chest reads chance; preserve that exact spelling and placement. Do not add jewelry or garment pieces absent from the character reference.",
+        "megapixels": 2,
+        "protectBackground": true,
+        "feather": 16,
+        "maskExpand": 64,
+        "maskFillHoles": true,
+        "qwenRelight": true,
+        "qwenNormalizeReference": false,
+        "qwenEdgeOnly": false,
+        "qwenSceneIntegration": true,
+        "qwenLayoutOnly": false,
+        "localIdentity": true,
+        "qwenIdentityGuide": false,
+        "faceDetail": false,
+        "identityRefine": false,
+        "seed": 20261027,
+        "randomSeed": false
+      },
+      "qualityPass": false,
+      "userAcceptedFacialQuality": true,
+      "assessment": "User accepted facial identity. Head/hair and gray tank transferred with soft room light; body proportions still follow target. Original jewelry remains. Full body replacement is pending.",
+      "geometryDiagnostics": {
+        "faceSizeRatio": 0.9420857,
+        "faceCenterOffsetPixels": [
+          -17.48253,
+          6.09863
+        ]
+      },
+      "outsideEffectiveMaskMaxDifference": 0
     }
   ],
   "localIdentityPrototype": {

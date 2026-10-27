@@ -32,6 +32,7 @@ export const imageSettingsSchema = z.object({
   qwenSceneIntegration: z.boolean().default(false),
   qwenLayoutOnly: z.boolean().default(false),
   localIdentity: z.boolean().default(false),
+  qwenIdentityGuide: z.boolean().default(false),
   faceDetail: z.boolean().default(true),
   identityRefine: z.boolean().default(false),
   seed: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).default(20261027),
@@ -49,7 +50,7 @@ export const emptyImageDraft = (): ImageDraft => imageDraftSchema.parse({});
 export interface ImageGeometry { width: number; height: number; contentWidth: number; contentHeight: number; x: number; y: number; outputWidth: number; outputHeight: number; }
 export interface ImageReview { status: 'review' | 'warning'; warnings: string[]; backgroundProtected: boolean; outsideMaskMaxDifference: number | null; sourceFace: boolean; referenceFace: boolean; outputFace: boolean; }
 export interface ImageRun {
-  version?: 'masked-latent-v2' | 'masked-latent-v3' | 'masked-latent-v4' | 'scene-anchor-v1' | 'scene-anchor-v2' | 'scene-anchor-v3' | 'scene-anchor-v4' | 'scene-anchor-v5' | 'scene-anchor-v6' | 'scene-anchor-v7' | 'native-mask-v1' | 'native-scene-v1' | 'identity-first-v1';
+  version?: 'masked-latent-v2' | 'masked-latent-v3' | 'masked-latent-v4' | 'scene-anchor-v1' | 'scene-anchor-v2' | 'scene-anchor-v3' | 'scene-anchor-v4' | 'scene-anchor-v5' | 'scene-anchor-v6' | 'scene-anchor-v7' | 'scene-anchor-v8' | 'native-mask-v1' | 'native-scene-v1' | 'identity-first-v1' | 'identity-first-v2';
   settings: ImageSettings; faceId: string | null; maskId: string | null; geometry: ImageGeometry;
   prepared?: { hasFace: boolean; warnings: string[] }; review?: ImageReview; resultAssetId?: string;
 }

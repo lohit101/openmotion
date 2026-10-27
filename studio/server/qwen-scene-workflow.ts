@@ -8,7 +8,7 @@ export function compileQwenSceneWorkflow(job: Job): Graph {
   if (!run || !u?.structure || !u.noiseMask || !u.mask || !u.original || !run.settings.protectBackground) throw new Error('Source-anchored replacement requires a painted area and prepared source structure.');
   const s = run.settings, g = run.geometry, graph: Graph = {};
   const head = s.qwenHeadRefine;
-  const revised = ['scene-anchor-v3', 'scene-anchor-v4', 'scene-anchor-v5', 'scene-anchor-v6', 'scene-anchor-v7'].includes(run.version || '');
+  const revised = ['scene-anchor-v3', 'scene-anchor-v4', 'scene-anchor-v5', 'scene-anchor-v6', 'scene-anchor-v7', 'scene-anchor-v8'].includes(run.version || '');
   const nativeLatent = run.version === 'scene-anchor-v2' || revised;
   const controlled = !revised || s.structureStrength > 0;
   if (head && (!u.face || !u.faceMask || !u.bodyMask)) throw new Error('The separate head pass requires one clear target face and reference face.');
@@ -25,7 +25,7 @@ export function compileQwenSceneWorkflow(job: Job): Graph {
     base = ['105', 0];
   }
   let reference: [string, number] = ['4', 0];
-  if (['scene-anchor-v4', 'scene-anchor-v5', 'scene-anchor-v6', 'scene-anchor-v7'].includes(run.version || '') && s.qwenNormalizeReference) {
+  if (['scene-anchor-v4', 'scene-anchor-v5', 'scene-anchor-v6', 'scene-anchor-v7', 'scene-anchor-v8'].includes(run.version || '') && s.qwenNormalizeReference) {
     add('501', 'TextEncodeQwenImage21', { clip: ['103', 0], prompt: 'Make a neutral studio reference photograph of the exact same person in <image1>. Keep their recognizable facial identity, facial proportions, eyes, nose, lips, jaw, skin tone, hairstyle, complete outfit, clothing details, body shape and accessories. Keep the same upper-body crop; do not invent unseen legs or shoes. Face the camera with a relaxed neutral expression. Lower both arms naturally beside the torso so the hands are below the frame. Use soft diffuse neutral indoor lighting, gentle shadows and a plain light gray background. Preserve natural photographic skin detail. Keep the person recognizable; change only pose, lighting and background.', negative_prompt: '', resolution: 0, 'images.image_1': ['4', 0], vae: ['104', 0] }, 'Normalize reference lighting and arm pose without another identity');
     add('502', 'KSampler', { model: ['102', 0], positive: ['501', 0], negative: ['501', 1], latent_image: ['501', 2], seed: s.seed + 1000, steps: 30, cfg: 1, sampler_name: 'euler', scheduler: 'simple', denoise: 1 }, 'Neutral character reference · 30 steps');
     add('503', 'VAEDecode', { samples: ['502', 0], vae: ['104', 0] }, 'Decode the normalized reference');
@@ -35,7 +35,7 @@ export function compileQwenSceneWorkflow(job: Job): Graph {
   }
   add('106', 'LoraLoaderModelOnly', { model: base, lora_name: 'bfs_body_swap_v1.0_qwen_2.1.safetensors', strength_model: 1 }, 'Body and outfit transfer');
   const extra = s.prompt.trim();
-  const prompt = (['scene-anchor-v6', 'scene-anchor-v7'].includes(run.version || '')
+  const prompt = (['scene-anchor-v6', 'scene-anchor-v7', 'scene-anchor-v8'].includes(run.version || '')
     ? 'body_swap: start with <image1> as the base photograph, keeping its camera, lighting, environment and background. Replace its entire person with the person from <image2>, preserving the reference facial identity, hair, skin tone, complete clothing, body shape and proportions. Copy the pose, eye direction, head rotation, expression, shoulder positions, arm positions and camera distance from <image1>. Keep its apparent head size and screen placement. Fit the replacement outfit to that pose. Preserve reference garment details and visible tattoo lettering without adding accessories absent from the reference. Keep the surroundings unchanged.'
     : 'body_swap: edit <image1>. Replace its person with the person and complete outfit from <image2>. Keep <image1> pose, head size, screen position, camera distance and lighting. Keep the rest of the photograph unchanged.')
     + (extra && ![defaultImagePrompt, legacyImagePrompt].includes(extra) ? ' ' + extra : '');
@@ -47,7 +47,7 @@ export function compileQwenSceneWorkflow(job: Job): Graph {
   add('142', 'LoadImage', { image: head ? u.bodyMask : u.noiseMask }, 'Source-aligned body edit mask');
   add('143', 'ImageToMask', { image: ['142', 0], channel: 'red' }, 'White regenerates; black preserves');
   if (!nativeLatent) add('144', 'VAEEncode', { pixels: ['1', 0], vae: ['104', 0] }, 'Start from the original source latent');
-  if (controlled) add('146', 'ZImageFunControlnet', { model: ['106', 0], model_patch: ['140', 0], vae: ['104', 0], image: ['141', 0], ...(['scene-anchor-v6', 'scene-anchor-v7'].includes(run.version || '') ? {} : { inpaint_image: ['1', 0], mask: ['143', 0] }), strength: s.structureStrength, start_percent: 0, end_percent: ['scene-anchor-v6', 'scene-anchor-v7'].includes(run.version || '') ? 0.6 : 1 }, 'Constrain source geometry and unpainted context during denoising');
+  if (controlled) add('146', 'ZImageFunControlnet', { model: ['106', 0], model_patch: ['140', 0], vae: ['104', 0], image: ['141', 0], ...(['scene-anchor-v6', 'scene-anchor-v7', 'scene-anchor-v8'].includes(run.version || '') ? {} : { inpaint_image: ['1', 0], mask: ['143', 0] }), strength: s.structureStrength, start_percent: 0, end_percent: ['scene-anchor-v6', 'scene-anchor-v7', 'scene-anchor-v8'].includes(run.version || '') ? 0.6 : 1 }, 'Constrain source geometry and unpainted context during denoising');
   if (!nativeLatent) add('149', 'SetLatentNoiseMask', { samples: ['144', 0], mask: ['143', 0] }, 'Denoise only the intended body region');
   add('118', 'KSampler', { model: [controlled ? '146' : '106', 0], positive: ['108', 0], negative: ['108', 1], latent_image: nativeLatent ? ['108', 2] : ['149', 0], seed: s.seed, steps, cfg, sampler_name: 'euler', scheduler: 'simple', denoise: 1 }, `Character and outfit · ${steps} steps`);
   add('119', 'VAEDecode', { samples: ['118', 0], vae: ['104', 0] }, 'Decode the body edit');
@@ -74,7 +74,7 @@ export function compileQwenSceneWorkflow(job: Job): Graph {
     add('221', 'ImageCompositeMasked', { destination: ['153', 0], source: ['220', 0], x: 0, y: 0, resize_source: false, mask: ['211', 0] }, 'Keep the finished body outside the head area');
     result = ['221', 0];
   }
-  if (['scene-anchor-v5', 'scene-anchor-v6', 'scene-anchor-v7'].includes(run.version || '') && s.qwenRelight) {
+  if (['scene-anchor-v5', 'scene-anchor-v6', 'scene-anchor-v7', 'scene-anchor-v8'].includes(run.version || '') && s.qwenRelight) {
     add('306', 'LoraLoaderModelOnly', { model: ['102', 0], lora_name: QWEN_CONSISTENCY, strength_model: 1 }, 'Separate lighting consistency adapter');
     add('308', 'TextEncodeQwenImage21', { clip: ['103', 0], prompt: 'Relight <image1> to match the illumination in <image2>. Change only lighting: light direction, softness, shadow strength, exposure, white balance and reflected room light. Preserve the exact person already in <image1>, including facial geometry, eyes, nose, lips, skin identity, expression, body shape, pose, hair and clothing. Preserve its camera and scene composition. <image2> supplies illumination only; the person and clothing remain those of <image1>. Keep ordinary photographic skin texture, focus and grain.', negative_prompt: '', resolution: 0, 'images.image_1': result, 'images.image_2': ['1', 0], vae: ['104', 0] }, 'Preserve the replacement identity while matching scene light');
     add('318', 'KSampler', { model: ['306', 0], positive: ['308', 0], negative: ['308', 1], latent_image: ['308', 2], seed: s.seed + 2, steps: 25, cfg: 1, sampler_name: 'euler', scheduler: 'simple', denoise: 1 }, 'Match scene illumination · 25 steps');
@@ -83,7 +83,7 @@ export function compileQwenSceneWorkflow(job: Job): Graph {
     add('322', 'SaveImage', { images: ['320', 0], filename_prefix: `recast/${job.id}/lighting_raw` }, 'Retain the relit character before blending');
     result = ['320', 0];
   }
-  if (run.version === 'scene-anchor-v7') add('324', 'SaveImage', { images: result, filename_prefix: `recast/${job.id}/composition_raw` }, 'Save the complete unblended character before local integration');
+  if (['scene-anchor-v7', 'scene-anchor-v8'].includes(run.version || '')) add('324', 'SaveImage', { images: result, filename_prefix: `recast/${job.id}/composition_raw` }, 'Save the complete unblended character before local integration');
   add('126', 'ImageCrop', { image: result, width: g.contentWidth, height: g.contentHeight, x: g.x, y: g.y }, 'Remove grid padding only');
   add('127', 'ImageScale', { image: ['126', 0], upscale_method: 'lanczos', width: g.outputWidth, height: g.outputHeight, crop: 'disabled' }, 'Restore the source photograph dimensions');
   add('128', 'LoadImage', { image: u.original }, 'Original source pixels');

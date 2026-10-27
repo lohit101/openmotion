@@ -7,6 +7,8 @@ export function compileQwenIdentityWorkflow(job: Job): Graph {
   const run = job.image, u = job.uploads;
   if (!run || !u?.face || !u.faceMask || !u.mask || !u.original || !run.settings.protectBackground) throw new Error('Identity-first editing needs a clear reference face and target-aligned edit masks.');
   const s = run.settings, g = run.geometry, graph: Graph = {};
+  const fullHead = run.version === 'identity-first-v2';
+  if (fullHead && !u.noiseMask) throw new Error('Full head and hair transfer needs the prepared full edit area.');
   const extra = s.prompt.trim();
   const custom = extra && ![defaultImagePrompt, legacyImagePrompt].includes(extra) ? ' Additional requirements: ' + extra : '';
   const add = (id: string, class_type: string, inputs: Record<string, unknown>, title: string) => { graph[id] = { class_type, inputs, _meta: { title } }; };
@@ -15,16 +17,20 @@ export function compileQwenIdentityWorkflow(job: Job): Graph {
   add('203', 'LoadImage', { image: u.face }, 'Tight face from original identity reference');
   add('209', 'LoadImage', { image: u.faceMask }, 'Target-aligned facial region');
   add('211', 'ImageToMask', { image: ['209', 0], channel: 'red' }, 'Facial integration region');
+  if (fullHead) {
+    add('142', 'LoadImage', { image: u.noiseMask }, 'Full person and hair edit allowance');
+    add('143', 'ImageToMask', { image: ['142', 0], channel: 'red' }, 'Allow the transferred hair to extend around the head');
+  }
   add('102', 'UNETLoader', { unet_name: 'qwen_image_2.1_int8_convrot.safetensors', weight_dtype: 'default' }, 'Shared native Qwen Image 2.1');
   add('103', 'CLIPLoader', { clip_name: 'qwen3vl_8b_int8_convrot.safetensors', type: 'qwen_image', device: 'default' }, 'Matching Qwen vision-language encoder');
   add('104', 'VAELoader', { vae_name: 'qwen_image_2.1_vae_bf16.safetensors' }, 'Matching RGBA VAE');
   add('206', 'LoraLoaderModelOnly', { model: ['102', 0], lora_name: QWEN_HEAD, strength_model: 1 }, 'Stage one · facial identity');
-  add('208', 'TextEncodeQwenImage21', { clip: ['103', 0], prompt: 'head_swap: edit <image1>. Replace the facial identity with the person from <image2>, preserving that person\'s recognizable facial proportions, eyes, nose, lips, cheeks, jaw and distinguishing features. Keep <image1> head size, position, head rotation, gaze, expression, camera distance, body pose, hands, outfit and background. Illuminate the replacement face with <image1> scene lighting. Preserve natural skin detail.', negative_prompt: '', resolution: 0, 'images.image_1': ['1', 0], 'images.image_2': ['203', 0], vae: ['104', 0] }, 'Source pose and original identity in separate slots');
+  add('208', 'TextEncodeQwenImage21', { clip: ['103', 0], prompt: fullHead ? 'head_swap: edit <image1>. Replace the entire head, face and hairstyle with the head from <image2>, preserving the reference facial identity, facial proportions, hairline, hair color, parting, hair length and texture. Remove the original hairstyle completely. Copy head rotation, gaze, expression, head size and position from <image1>. Keep its camera distance, shoulders, body pose, arm positions, hands, clothing and scene unchanged. Place the reference hair naturally over the shoulders and torso. Use the soft scene illumination, exposure and white balance of <image1>, not the lighting or raised-hand pose from <image2>. Preserve natural skin and hair detail.' : 'head_swap: edit <image1>. Replace the facial identity with the person from <image2>, preserving that person\'s recognizable facial proportions, eyes, nose, lips, cheeks, jaw and distinguishing features. Keep <image1> head size, position, head rotation, gaze, expression, camera distance, body pose, hands, outfit and background. Illuminate the replacement face with <image1> scene lighting. Preserve natural skin detail.', negative_prompt: '', resolution: 0, 'images.image_1': ['1', 0], 'images.image_2': [fullHead ? '4' : '203', 0], vae: ['104', 0] }, 'Source pose and original identity in separate slots');
   add('218', 'KSampler', { model: ['206', 0], positive: ['208', 0], negative: ['208', 1], latent_image: ['208', 2], seed: s.seed, steps: 20, cfg: 1, sampler_name: 'res_multistep', scheduler: 'beta', denoise: 1 }, 'Establish facial identity · 20 steps');
   add('219', 'VAEDecode', { samples: ['218', 0], vae: ['104', 0] }, 'Decode facial identity');
   add('220', 'SplitImageWithAlpha', { image: ['219', 0] }, 'RGB identity image');
   add('222', 'SaveImage', { images: ['220', 0], filename_prefix: `recast/${job.id}/head_raw` }, 'Save identity before clothing changes');
-  add('221', 'ImageCompositeMasked', { destination: ['1', 0], source: ['220', 0], x: 0, y: 0, resize_source: false, mask: ['211', 0] }, 'Place identity in the original target before clothing');
+  add('221', 'ImageCompositeMasked', { destination: ['1', 0], source: ['220', 0], x: 0, y: 0, resize_source: false, mask: [fullHead ? '143' : '211', 0] }, 'Place identity and hair in the original target before clothing');
   add('106', 'LoraLoaderModelOnly', { model: ['102', 0], lora_name: QWEN_OUTFIT, strength_model: 1 }, 'Stage two · clothing consistency');
   add('108', 'TextEncodeQwenImage21', { clip: ['103', 0], prompt: 'Dress the person in <image1> entirely in the outfit from <image2>, matching its fabric, color, neckline, straps, sleeves and accessories. Keep the already established facial identity, facial geometry, expression, head size, body position, pose, hands, camera and background of <image1>. Match the replacement person\'s hair color and hairstyle from <image2> while retaining the established face. Fit the garments naturally to the source pose. Preserve <image1> lighting and photographic texture.' + custom, negative_prompt: '', resolution: 0, 'images.image_1': ['221', 0], 'images.image_2': ['4', 0], vae: ['104', 0] }, 'Established identity first · outfit reference second');
   add('118', 'KSampler', { model: ['106', 0], positive: ['108', 0], negative: ['108', 1], latent_image: ['108', 2], seed: s.seed + 1, steps: 25, cfg: 1, sampler_name: 'euler', scheduler: 'simple', denoise: 1 }, 'Adapt outfit while retaining identity · 25 steps');
@@ -43,6 +49,7 @@ export function compileQwenIdentityWorkflow(job: Job): Graph {
     add('322', 'SaveImage', { images: ['320', 0], filename_prefix: `recast/${job.id}/lighting_raw` }, 'Retain the lighting stage');
     result = ['320', 0];
   }
+  if (fullHead) add('324', 'SaveImage', { images: result, filename_prefix: `recast/${job.id}/composition_raw` }, 'Retain the assembled head, hair and outfit before local integration');
   add('126', 'ImageCrop', { image: result, width: g.contentWidth, height: g.contentHeight, x: g.x, y: g.y }, 'Remove model grid padding only');
   add('127', 'ImageScale', { image: ['126', 0], upscale_method: 'lanczos', width: g.outputWidth, height: g.outputHeight, crop: 'disabled' }, 'Restore original photo dimensions');
   add('128', 'LoadImage', { image: u.original }, 'Original decoded background');

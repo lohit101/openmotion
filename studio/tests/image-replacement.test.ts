@@ -254,6 +254,19 @@ describe('source-preserving Klein image replacement', () => {
     expect(compileWorkflow({}, job)['318']).toBeUndefined();
     expect(imageFilesForSettings(job.image!.settings)).not.toContain('loras/' + QWEN_CONSISTENCY);
   });
+  it('supplies the original full head and hair to the revised staged route', () => {
+    const job = fixture(); job.image!.version = 'identity-first-v2';
+    job.image!.settings = { ...imageDefaults, model: 'qwen21', qwenRecipe: 'identity-first', qwenHeadRefine: true, localIdentity: true, qwenRelight: true };
+    job.uploads!.faceMask = 'mask.png';
+    const graph = compileWorkflow({}, job);
+    expect(validateGraph(graph, catalog)).toEqual([]);
+    expect(graph['208'].inputs['images.image_2']).toEqual(['4', 0]);
+    expect(graph['208'].inputs['images.image_3']).toBeUndefined();
+    expect(graph['208'].inputs.prompt).toContain('Remove the original hairstyle completely');
+    expect(graph['221'].inputs.mask).toEqual(['143', 0]);
+    expect(graph['223'].inputs.mask).toEqual(['211', 0]);
+    expect(graph['324'].inputs.images).toEqual(['320', 0]);
+  });
   it('keeps reference preparation and scene relighting separate from the body adapter', () => {
     const job = fixture(); job.image!.version = 'scene-anchor-v7';
     job.image!.settings = { ...imageDefaults, model: 'qwen21', qwenRecipe: 'source-anchored', qwenQuality: 'quality', qwenHeadRefine: false, structureStrength: .3, qwenNormalizeReference: true, qwenRelight: true, qwenLayoutOnly: true, localIdentity: true };
@@ -272,5 +285,11 @@ describe('source-preserving Klein image replacement', () => {
     expect(imageFilesForSettings(job.image!.settings)).toContain('loras/' + QWEN_CONSISTENCY);
     expect(imageFilesForSettings(job.image!.settings)).not.toContain('loras/' + QWEN_HEAD);
     expect(imageFilesForSettings(job.image!.settings).some(file => file.includes('turbo'))).toBe(false);
+    job.image!.version = 'scene-anchor-v8'; job.image!.settings.qwenIdentityGuide = true;
+    const identityGuide = compileWorkflow({}, job);
+    expect(validateGraph(identityGuide, catalog)).toEqual([]);
+    expect(identityGuide['146'].inputs.inpaint_image).toBeUndefined();
+    expect(identityGuide['146'].inputs.end_percent).toBe(.6);
+    expect(identityGuide['324'].inputs.images).toEqual(['320', 0]);
   });
 });
