@@ -44,6 +44,7 @@
 .workflow-layout .full-label, .workflow-layout .download-field, .workflow-layout .settings-grid label { font-size: 11px; gap: 9px; }
 .workflow-layout .settings-grid { gap: 12px; margin-top: 0; }
 .workflow-layout .select-trigger, .workflow-layout .download-select summary, .workflow-layout .full-label input { min-height: 41px; height: auto; padding: 11px; font-size: 11px; }
+.select-item[data-disabled] { opacity: .4; cursor: not-allowed; }
 .workflow-layout .settings-grid .full-label { margin: 0; }
 .workflow-layout .download-options { min-width: min(300px, 75vw); max-width: min(360px, 82vw); }
 .native-frame-rate { display: flex; align-items: center; justify-content: space-between; gap: 15px; font-size: 11px; margin-top: 17px; color: var(--muted); }

@@ -1,5 +1,7 @@
 # Project workflow
 
+- New video creation in Studio temporarily permits only Viggle. Keep the Character swap / Motion transfer selector hidden and the SCAIL-2 / Wan option disabled; a restored legacy draft requires an explicit switch to Viggle before new Generate. Do not remove its models/workflows or alter existing paid-job recovery until separately authorized. See `docs/validation/viggle-only-ui-20261028.md`.
+
 - Image/video previews use an explicit selected job. A null, missing, trashed or other-media selection displays the Recast welcome screen; do not silently reopen the latest result. Closing a preview clears only viewing state, never drafts, uploaded media, trim/masks or running jobs. Keep the close control visible at narrow widths and the current-render shortcut available when a job is active. See `docs/validation/workspace-welcome-20261028.md`.
 
 - Supporting input explanations live in the shared `InfoTip` / `FieldLabel` controls, with hover, keyboard-focus and touch access. Keep triggers outside native input labels, portal help outside scrolling panels, and preserve explicit label/control associations. Actionable setup requirements, disabled-state reasons, errors, storage/billing facts and live progress remain visible. This is a UI presentation change; do not alter model choices, defaults, generation or downloads while refining help text.
