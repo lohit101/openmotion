@@ -5,7 +5,7 @@ Open **Clip editor** in the sidebar, or open a saved video in Library and choose
 1. Drag a clip's left/right timeline edge to trim. Trims snap to decoded frame boundaries; no separate trim dialog opens. Focus an edge and use arrows for one frame, or Shift + arrows for ten.
 2. Drag a clip's body to reorder it, or use the earlier/later buttons under the timeline. Reset restores the selected clip's original range; Remove only removes it from the draft.
 3. Preview the sequence, name it and select an export format. Zoom and the timeline ruler help position cuts.
-4. Export locally. The finished video appears in Library with its source order/ranges and export settings. **Edit timeline** reopens the composition. Original video/image generation drafts remain separate.
+4. Export locally. Progress and the finished **Download** action appear immediately below the export controls. Completion/failure toasts report the outcome, and the finished video appears in Library with its source order/ranges and export settings. **Edit timeline** reopens the composition. Original video/image generation drafts remain separate.
 
 The current limit is 32 clips and ten minutes. Draft clips and trim ranges stay in this browser's storage. Exports and their receipts stay in local Studio data and run independently of the GPU queue. They use FFmpeg on this computer, without model downloads, inference or rental actions.
 

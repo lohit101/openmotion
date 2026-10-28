@@ -108,7 +108,7 @@
 .edit-error > span { min-width: 0; overflow-wrap: anywhere; }
 .edit-format-note { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 9px 18px; color: var(--warning); font-size: 11px; line-height: 1.7; padding: 11px 14px; margin-bottom: 18px; border: 1px solid color-mix(in srgb, var(--warning) 30%, var(--line)); border-radius: 7px; }
 .edit-format-note > button { color: var(--text); font-size: 11px; text-decoration: underline; text-underline-offset: 3px; }
-.edit-export-status { display: flex; align-items: center; gap: 18px; margin-top: 18px; padding: 16px 0; border-top: 1px solid var(--line); font-size: 11px; }
+.edit-export-status { display: flex; align-items: center; gap: 18px; margin: 0 0 22px; padding: 13px 15px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font-size: 11px; }
 .edit-export-status > div:first-child { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
 .edit-export-status > div:first-child > span { display: grid; gap: 6px; min-width: 0; }
 .edit-export-status strong { font-size: 11px; font-weight: 500; }
@@ -120,6 +120,8 @@
 .edit-export-status > button { font-size: 10px; color: var(--muted); }
 .edit-export-result { display: flex; align-items: center; gap: 18px; white-space: nowrap; color: var(--accent-text); font-size: 11px; }
 .edit-export-result > a { display: inline-flex; align-items: center; gap: 6px; }
+.edit-export-result .edit-download { color: var(--accent-ink); background: var(--accent); padding: 9px 12px; border-radius: 6px; font-weight: 550; }
+.edit-export-result .edit-download:hover { opacity: .85; }
 @media (max-width: 1100px) { .edit-main-grid { grid-template-columns: 190px minmax(0, 1fr); gap: 18px; } .edit-export-footer { flex-direction: column; gap: 3px; } }
 @media (max-width: 850px) { .edit-workspace-header { align-items: flex-start; } .edit-export-controls { flex-direction: column; align-items: stretch; } .edit-export-controls > div { min-width: 150px; } .edit-main-grid { grid-template-columns: 150px minmax(0, 1fr); gap: 14px; height: 330px; } .edit-source-browser { padding-right: 12px; } .edit-source-item { gap: 7px; } .edit-source-item > div { width: 37px; height: 48px; } .edit-project-title { flex-wrap: wrap; gap: 5px; } .edit-project-title > span { margin-left: 0; } }
 @media (max-width: 760px) {
