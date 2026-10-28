@@ -1,0 +1,9 @@
+# Studio sidebar navigation
+
+2026-10-28. The existing sidebar gave every destination the same row treatment, used a settings-like sliders icon for Motion control and a power-like lightning icon for GPU cloud, and had little separation between creation and editing tools.
+
+The updated sidebar keeps the app's existing Geist typography, neutral surfaces and lime accent. Create contains Motion control and Image replacement; Edit contains Clip editor. Phosphor film slate, image, scissors, stacked images, graphics card and gear icons use one consistent family. The current destination has a restrained tinted selection and duotone icon. Library/GPU cloud are larger icon-only shortcuts side by side above the separated Settings row; they stack in the collapsed rail. Portaled tooltips identify destinations on hover/keyboard focus, Library exposes its actual item count there, and buttons retain native titles/accessible names and `aria-current`.
+
+The collapse control remains inside the sidebar and uses the existing browser preference without migration. The expanded width is 188 px, compact width 68 px; narrow layouts use 176/60 px. Short viewports can scroll the sidebar. No navigation or status controls were added to the top bar.
+
+Validation: production TypeScript/build and diff whitespace checks passed. Native Brave review covered dark/light expanded layouts, the compact rail, visible keyboard focus and the Library tooltip, Library/GPU cloud/Settings activation, and the mobile breakpoint at 175% browser zoom. Reload retained the compact preference; the QA browser was restored to 100% zoom, dark theme and the original expanded preference afterward. No new tests were added for this visual-only change. User media, generation drafts, GPU compute/renders and the local backend process were left unchanged.
