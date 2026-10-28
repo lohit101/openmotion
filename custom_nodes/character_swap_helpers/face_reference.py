@@ -53,7 +53,7 @@ class RecastViggleFaceReference:
         added = []
         for crop in pixels:
             latent = vae.encode(crop[None])
-            if latent.ndim != 5 or latent.shape[0] != 1 or latent.shape[2] != 1 or not torch.isfinite(latent).all():
+            if latent.ndim != 5 or tuple(latent.shape[:3]) != (1, 24, 1) or tuple(latent.shape[-2:]) != (h // 16, w // 16) or not torch.isfinite(latent).all():
                 raise ValueError("Facial references require the matching H3 video VAE with a finite single-image latent.")
             added.append({"kind": "image", "latent_h": h // 16, "latent_w": w // 16, "latent": latent})
         result = []

@@ -34,8 +34,9 @@ start encountered a temporarily occupied port after shutdown; a subsequent
 verified start succeeded. No active user render was interrupted. This was a
 runtime-only restart, not a new rental or model download.
 
-Four CPU node tests verify native reference ordering, independent views,
-immutability, duplicate-node rejection, input bounds and wrong-VAE rejection.
+Five CPU node tests verify native reference ordering, independent views,
+immutability, duplicate-node rejection, input bounds and wrong-VAE rejection,
+including its exact 24-channel spatial contract before sampling.
 Raw inputs, graph, native history, contact sheet and paid result are in ignored
 `backups/facial-identity-20261028/`.
 

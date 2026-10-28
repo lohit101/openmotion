@@ -57,5 +57,11 @@ class FacialReferenceTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'H3 video VAE'):
             self.node.append(self.condition, vae, torch.rand(1,64,64,3), 128)
 
+    def test_wrong_channel_count_or_spatial_grid_rejected_before_sampling(self):
+        for shape in [(1,4,1,8,8), (1,24,1,4,8)]:
+            vae = VAE(); vae.encode = lambda _, shape=shape: torch.zeros(shape)
+            with self.assertRaisesRegex(ValueError, 'H3 video VAE'):
+                self.node.append(self.condition, vae, torch.rand(1,64,64,3), 128)
+
 
 if __name__ == '__main__': unittest.main()
