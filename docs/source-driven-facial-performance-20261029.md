@@ -189,6 +189,10 @@ Both application and native ComfyUI queues were checked empty before stopping th
 same instance; provider state was confirmed **exited / computeStopped: true**.
 Model/media storage was retained; temporary RAM weights disappear on stop.
 
+After that confirmed stop, the user independently resumed the same instance and
+started another generation (`3a214538-5b22-4148-88ce-4b0b4a674a47`, 22:38 UTC).
+It was left running untouched. Its usage is outside the comparison estimate.
+
 ## Requirements before selecting a production pass
 
 1. User review of these matched previews, explicitly weighing improved mouth
