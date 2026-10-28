@@ -62,7 +62,7 @@ export interface Job {
   viggleSegmentation?: 'five-frame-v1' | 'last-frame-v2';
   continuationSource?: { jobId: string; frames: number };
   videoRecovery?: { generatedFrames: number; leadingHoldFrames: number; reason: 'trim-timestamp'; originalFailedNode: string; recoveredAt: string };
-  faceRefinement?: { version: 'face-finish-v1'; parentJobId: string; referenceAssetId: string; execution: 'local CPU';
+  faceRefinement?: { version: 'face-finish-v1'; parentJobId: string; referenceAssetId: string; execution: 'local CPU' | 'remote CUDA'; instanceId?: number; gpu?: string;
     refinedFrames?: number; skippedFrames?: number; parentSHA256?: string; outputSHA256?: string };
   keyframe?: string; timings?: { node: string; stage: string; seconds: number }[];
   mediaType?: 'image'; image?: ImageRun;

@@ -3,6 +3,12 @@ import { downloadRows, modelUsage } from '../shared/downloads';
 import { emptyModels, modelDefinitions, QWEN_STRUCTURE, type ModelInventory } from '../shared/models';
 
 describe('download inventory presentation', () => {
+  it('counts CUDA face dependencies as core face files, with no custom-LoRA classification',()=>{
+    const snapshot:ModelInventory={key:'vast:1',instanceId:1,endpoint:'http://127.0.0.1:8188',gpu:'RTX A6000',checkedAt:'2026-10-28',files:[{id:'face-refinement/hyperswap_1a_256.onnx',size:402742682,partialSize:0,measured:true}]};
+    const row=downloadRows(emptyModels(),snapshot).find(item=>item.id.startsWith('face-refinement/'))!;
+    expect(row).toMatchObject({group:'core',onDisk:402742682,measured:true,usage:[{workflow:'GPU face refinement'}]});
+    expect(row.id.startsWith('loras/')).toBe(false);
+  });
   it('maps every bundled file to its actual workflow, including shared image preparation', () => {
     for (const file of modelDefinitions) expect(modelUsage(file.id).length).toBeGreaterThan(0);
     expect(modelUsage('diffusion_models/flux-2-klein-4b-fp8.safetensors').map(usage => usage.workflow)).toEqual(['Klein images', 'Viggle video']);

@@ -4,7 +4,9 @@ Open a completed character video in Library and choose **Refine face**. Recast
 creates a separate video using that run's character image. The original video,
 paid segments, continuation anchors and Viggle settings remain unchanged.
 
-This is an optional **local CPU** pass after generation, not another Viggle run.
+This is an optional face-only pass after generation, not another Viggle run.
+In Library, select **GPU · CUDA** to use your connected managed rental, or
+**This computer · CPU** to work offline. The original CPU route remains available.
 It applies a fixed facial identity reference to each detected face, with the
 existing pinned Hyperswap pipeline, XSeg occlusion mask and an additional finite
 facial edit area. Hair, body and scene outside that area remain exact in the
@@ -19,6 +21,47 @@ Multiple close-up views are deferred at the user's request. The model can still
 change expression details, struggle with extreme profiles or skip uncertain
 detections. Frame counts show processing coverage, not identity accuracy. This
 is not a zero-drift guarantee or a lip-sync repair.
+
+## GPU setup and use
+
+Connect the existing rental, open an original completed video in Library, select
+**GPU · CUDA**, and click **Prepare GPU · 1.29 GB** once on that disk. This explicitly
+installs the same pinned face weights plus an isolated ONNX Runtime CUDA environment.
+It reuses the engine's existing PyTorch/CUDA libraries through a package search
+path; it does not modify ComfyUI's environment or download PyTorch again.
+Runtime packages require additional disk space and transfer beyond the 1.29 GB
+of weights. This version supports Linux x86_64 hosts with the existing CUDA 13
+engine. It has been measured on RTX A6000; other hosts still need validation.
+
+Then choose **Refine face**. Setup, new rentals and compute resume never happen
+implicitly. Finish active ComfyUI renders/downloads first. Refinement temporarily
+unloads idle cached ComfyUI models to make VRAM available; your files are retained.
+CUDA availability and actual session providers are checked, with no silent
+whole-model CPU fallback. GPU and CPU derivatives have separate deduplication keys.
+
+The remote worker survives a dropped SSH connection. Resume on the **same instance**
+checks inputs, receipts and saved frames, then continues or retrieves its completed
+output. It never submits another Viggle segment. Cancellation requests a remote
+stop between frames and only reports confirmation after that worker acknowledges
+it. Unconfirmed cancellation remains interrupted and requires checking.
+If the final video and transport receipt already reached this Mac, Resume can
+finish their verification offline without using the GPU again.
+
+GPU PNG frame caches stay on the rental rather than transferring gigabytes back
+to the Mac. Every frame is hashed and protected pixels checked there before
+export. The MP4, complete receipt and transport provenance are downloaded and
+verified locally. CPU variants retain their existing local frame verification.
+Destroying the remote disk removes its resume cache; completed Library videos
+remain local. Downloaded face weights appear under **GPU face refinement** after
+syncing Settings → Downloads; they are separate from video-generation LoRAs.
+
+Measured same-input 10-second comparison: **36.675 seconds** of CUDA processing
+versus **198.600 seconds** locally (5.42×), with **73.037 seconds** from job start
+to Library completion including transfers and local checks. At that host's
+$0.40/hour compute rate, the processing part is about $0.0041, and the full 73-second
+interval is about $0.0085 including its storage rate, before transfer charges.
+This is face refinement only, not full video-generation performance. See
+[GPU validation and cost accounting](validation/gpu-face-refinement-20261028.md).
 
 ## Local setup
 

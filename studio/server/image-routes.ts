@@ -78,10 +78,10 @@ export function registerImageRoutes(app: Express, store: Store, connection: Conn
     }
     if (cloud.state.busy || cloud.state.launches.some(l => ['stopping', 'destroying'].includes(l.phase) || (l.instanceId && l.safetyStatus === 'unconfirmed'))) return void res.status(503).json({ error: 'Wait for GPU setup or instance actions to settle before generating.' });
     if (connection.status.state !== 'online') return void res.status(503).json({ error: 'Connect the GPU before generating. Your image draft stays local.' });
-    if (models.state.busy) return void res.status(409).json({ error: 'Finish model downloads before generating.' });
+    if (models.state.busy || runner.externalGpuBusy()) return void res.status(409).json({ error: 'Finish model downloads or GPU face refinement before generating.' });
     await models.refresh();
     const accepted = store.byKey(key); if (accepted) return void res.json(publicJob(accepted));
-    if (models.state.busy || cloud.state.busy || connection.status.state !== 'online') return void res.status(409).json({ error: 'GPU readiness changed during the check. Nothing was queued.' });
+    if (models.state.busy || cloud.state.busy || runner.externalGpuBusy() || connection.status.state !== 'online') return void res.status(409).json({ error: 'GPU readiness changed during the check. Nothing was queued.' });
     if (models.state.error) return void res.status(503).json({ error: models.state.error });
     const missing = imageFilesForSettings(value.settings).filter(id => models.state.files.find(file => file.id === id)?.status !== 'installed');
     if (missing.length) return void res.status(409).json({ error: 'Download the selected image files first. No video models are needed.', missingModels: missing });

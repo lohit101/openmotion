@@ -1,6 +1,7 @@
 import { DPO, IMAGE_IDENTITY, I2V_SPEED, NATURAL_SPEED, QWEN_HEAD, QWEN_STRUCTURE, RELIGHT, SOCIAL_STYLE, modelDefinitions, type ModelInventory, type ModelsState } from './models';
 
 export function modelUsage(id: string): { workflow: string; detail: string }[] {
+  if(id.startsWith('face-refinement/'))return [{workflow:'GPU face refinement',detail:'Separate CUDA Hyperswap pass after video generation; also includes detection, occlusion and upstream input checks.'}];
   const file = modelDefinitions.find(item => item.id === id);
   if (!file) return [{ workflow: 'Custom LoRA', detail: 'LoRA slots; check compatibility with the selected model.' }];
   if (file.engine === 'viggle') return [{ workflow: 'Viggle video', detail: 'Remotion · all Viggle quality presets' }];
@@ -27,8 +28,8 @@ export function downloadRows(state: ModelsState, inventory?: ModelInventory, liv
   const stored = new Map(inventory?.files.map(file => [file.id, file]));
   const ids = new Set([...stored.keys(), ...(live ? state.installedLoras.map(file => 'loras/' + file.name) : [])]);
   const definitions = [...modelDefinitions, ...[...ids].filter(id => !modelDefinitions.some(file => file.id === id)).map(id => ({
-    id, filename: id.replace(/^loras\//, ''), label: id.split('/').at(-1)!, description: 'Uploaded custom LoRA', size: stored.get(id)?.size || state.installedLoras.find(file => 'loras/' + file.name === id)?.size || 0,
-    group: 'adapter', included: false,
+    id, filename: id.replace(/^loras\//, ''), label: id.split('/').at(-1)!, description: id.startsWith('face-refinement/')?'Pinned face-refinement dependency in the isolated GPU runtime. Prepare it beside Refine face in Library. This is not a video-generation LoRA.':'Uploaded custom LoRA', size: stored.get(id)?.size || state.installedLoras.find(file => 'loras/' + file.name === id)?.size || 0,
+    group: id.startsWith('face-refinement/')?'core':'adapter', included: false,
   }))];
   return definitions.map(file => {
     const current = live ? state.files.find(item => item.id === file.id) : undefined, saved = stored.get(file.id);

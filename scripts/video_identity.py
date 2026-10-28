@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Explicit local facial refinement of a saved video. No GPU or model downloads on run.
+"""Explicit facial refinement of a saved video. No model downloads on run.
 
 Preserves the parent, writes a separate resumable frame sequence and result, and
-records every skipped face. This corrects visible facial appearance; it cannot
+records every skipped face. CPU is the default; CUDA is opt-in on managed hosts.
+This corrects visible facial appearance; it cannot
 recover a missing performance, hidden profile or facial detail absent in references.
 """
 import argparse
@@ -87,7 +88,7 @@ def face_permission(frame, box):
     return allowed
 
 
-def run(reference, target, output):
+def run(reference, target, output, provider='cpu'):
     invocation_started = time.monotonic()
     ready = status(verify=True)
     if not ready['ready']:
@@ -100,6 +101,8 @@ def run(reference, target, output):
     receipt_file = output/'identity-video.json'
     signature = {'version': 'face-finish-v1', 'profile': digest(LOCK), 'baseProfile': digest(ROOT/'config/local-identity.lock.json'),
                  'parentSHA256': digest(target), 'referenceSHA256': digest(reference), **info}
+    if provider == 'cuda':
+        signature.update(provider='cuda', gpuProfile=digest(ROOT/'config/gpu-video-identity.lock.json'))
     records = []; previous_elapsed = 0
     if receipt_file.exists():
         previous = json.loads(receipt_file.read_text())
@@ -115,15 +118,36 @@ def run(reference, target, output):
     sys.path.insert(0, str(source)); os.chdir(source)
     import cv2
     import numpy as np
+    session_providers = {}
+    if provider == 'cuda':
+        # Reuse the matching CUDA libraries already supplied by the engine's
+        # PyTorch environment. Never accept silent whole-model CPU fallback.
+        import torch
+        import onnxruntime as ort
+        if not torch.cuda.is_available() or 'CUDAExecutionProvider' not in ort.get_available_providers():
+            raise ValueError('CUDA face refinement is unavailable. No CPU fallback was started.')
+        ort.preload_dlls()
     from facefusion.program import create_program
     from facefusion.args import apply_args
     from facefusion import state_manager, content_analyser
     from facefusion.face_creator import get_static_faces
     from facefusion.processors.modules.face_swapper.core import swap_face
+    if provider == 'cuda':
+        from facefusion import inference_manager
+        original_session = inference_manager.create_inference_session
+        def checked_session(model_path, providers):
+            session = original_session(model_path, providers)
+            actual = session.get_providers()
+            if 'CUDAExecutionProvider' not in actual:
+                raise ValueError('CUDA session failed for ' + Path(model_path).name + '; CPU fallback is not allowed.')
+            session.disable_fallback()
+            session_providers[Path(model_path).name] = actual
+            return session
+        inference_manager.create_inference_session = checked_session
     args = vars(create_program().parse_args(['headless-run', '--processors', 'face_swapper', '--face-swapper-model', 'hyperswap_1a_256',
             '--face-swapper-pixel-boost','512x512','--face-swapper-weight','0.5','--face-detector-model','yunet',
             '--face-mask-types','box','occlusion','--face-occluder-model','xseg_1','--face-mask-blur','0.3',
-            '--execution-providers','cpu','--execution-thread-count','4']))
+            '--execution-providers',provider,'--execution-thread-count','4']))
     apply_args(args, state_manager.init_item);state_manager.init_item('download_providers', [])
     if content_analyser.analyse_image(str(reference)) or content_analyser.analyse_video(str(target), 0, info['frames']):
         raise ValueError('Unmodified upstream media check declined an input. The parent remains unchanged.')
@@ -132,12 +156,16 @@ def run(reference, target, output):
     donors = get_static_faces([donor])
     if len(donors) != 1: raise ValueError('Use one clear reference face; a character sheet must be cropped to an individual view.')
     cap = cv2.VideoCapture(str(target)); started = invocation_started; elapsed_before = previous_elapsed
-    result = {'inputs': signature, 'execution': 'local CPU', 'newPaidInference': False, 'model': 'hyperswap_1a_256',
+    result = {'inputs': signature, 'execution': 'remote CUDA' if provider == 'cuda' else 'local CPU', 'newPaidInference': provider == 'cuda', 'model': 'hyperswap_1a_256',
               'contentCheck': 'unchanged upstream image/video checks', 'usage': ready['license'], 'records': records, 'complete': False}
+    if provider == 'cuda':
+        result.update(gpu=torch.cuda.get_device_name(0), onnxruntime=ort.__version__, sessionProviders=session_providers)
     def save():
         temporary=receipt_file.with_suffix('.tmp.json'); temporary.write_text(json.dumps(result, indent=2)+'\n');os.replace(temporary, receipt_file)
     save()
     for index in range(info['frames']):
+        if (output/'CANCEL').exists():
+            raise ValueError('GPU refinement cancelled; saved frames were kept.')
         ok, frame = cap.read()
         if not ok: raise ValueError('Decoder ended before the validated frame count. No padding or paid rerender was requested.')
         file=output/f'frame-{index:06d}.png'
@@ -162,6 +190,10 @@ def run(reference, target, output):
         print(json.dumps({'frame':index+1,'frames':info['frames'],'stage':'Refining facial identity','action':record['action']}),flush=True)
     if cap.read()[0]: raise ValueError('Decoder produced extra frames; original timing was retained for review.')
     cap.release()
+    # Verify the complete saved sequence on its execution machine before export.
+    for record in records:
+        if digest(output/f"frame-{record['frame']:06d}.png") != record['sha256']:
+            raise ValueError('A saved refinement frame changed before export.')
     final=output/'final.mp4';partial=output/'final.part.mp4'
     subprocess.run(['ffmpeg','-v','error','-nostdin','-y','-framerate',info['fps'],'-i',str(output/'frame-%06d.png'),
              '-i',str(target),'-map','0:v:0','-map','1:a?','-frames:v',str(info['frames']),'-c:v','libx264','-preset','medium',
@@ -169,18 +201,18 @@ def run(reference, target, output):
     if video_info(partial) != info: raise ValueError('Refined output timing or dimensions differ; original and frames were preserved.')
     os.replace(partial,final)
     result.update(complete=True, outputSHA256=digest(final), elapsedSeconds=elapsed_before+time.monotonic()-started,
-                  refinedFrames=sum(x['action']=='refined' for x in records), skippedFrames=sum(x['action']!='refined' for x in records))
+                  framesVerified=True, refinedFrames=sum(x['action']=='refined' for x in records), skippedFrames=sum(x['action']!='refined' for x in records))
     save();return result
 
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('action',choices=['status','setup','run']);parser.add_argument('--python')
-    parser.add_argument('--reference');parser.add_argument('--target');parser.add_argument('--output');args=parser.parse_args()
+    parser.add_argument('--reference');parser.add_argument('--target');parser.add_argument('--output');parser.add_argument('--provider',choices=['cpu','cuda'],default='cpu');args=parser.parse_args()
     if args.action=='status': result=status()
     elif args.action=='setup': result=setup(args.python)
     else:
         if not all([args.reference,args.target,args.output]): raise ValueError('Reference, target and output directory are required.')
-        result=run(args.reference,args.target,args.output)
+        result=run(args.reference,args.target,args.output,args.provider)
     print(json.dumps({key:value for key,value in result.items() if key!='records'}),flush=True)
 
 

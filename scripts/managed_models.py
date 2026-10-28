@@ -66,13 +66,19 @@ def main():
     root = Path(config['remote_root'])
     if args.action != 'download':
         if args.action == 'inventory':
+            face_files=[]
+            for name in ['local-identity.lock.json','local-video-identity.lock.json']:
+                face_files.extend(json.loads((Path(__file__).resolve().parents[1]/'config'/name).read_text())['files'])
             code = ('import sys,json,shutil;sys.path.insert(0,sys.argv[1]);from model_storage import inventory;'
                     'result=inventory(sys.argv[2]);result["freeBytes"]=shutil.disk_usage(sys.argv[2]).free;'
                     'from pathlib import Path;root=Path(sys.argv[2]);'
                     'result["partials"]=[{"id":f["destination"],"size":min(f["size"],p.stat().st_size)} for f in json.loads(sys.argv[3]) if (p:=root/(f["destination"]+".part")).is_file() and not p.is_symlink()];'
                     'result["files"]=[{"id":f["destination"],"size":p.stat().st_size} for f in json.loads(sys.argv[3]) if (p:=root/f["destination"]).is_file() and not p.is_symlink() and not p.parent.is_symlink()];'
+                    'face=root.parent/"face-refinement-runtime/.local/facefusion-eval";'
+                    'result["files"] += [{"id":"face-refinement/"+Path(f["path"]).name,"size":p.stat().st_size} for f in json.loads(sys.argv[4]) if (p:=face/f["path"]).is_file() and not p.is_symlink() and not p.parent.is_symlink()];'
+                    'result["partials"] += [{"id":"face-refinement/"+Path(f["path"]).name,"size":min(f["size"],p.stat().st_size)} for f in json.loads(sys.argv[4]) if (p:=face/(f["path"]+".part")).is_file() and not p.is_symlink() and not p.parent.is_symlink()];'
                     'print("RECAST_MODEL_STORAGE "+json.dumps(result))')
-            vast.remote(config, ['python3', '-c', code, str(root / 'scripts'), str(root / 'models'), json.dumps(selected_manifest()['files'])])
+            vast.remote(config, ['python3', '-c', code, str(root / 'scripts'), str(root / 'models'), json.dumps(selected_manifest()['files']),json.dumps(face_files)])
             return
         command = ['python3', str(root / 'scripts/model_storage.py'), '--model-dir', str(root / 'models')]
         if args.action == 'delete':

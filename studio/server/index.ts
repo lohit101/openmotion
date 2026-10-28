@@ -28,6 +28,7 @@ import { canFinishImageLocally, isImageJob } from '../shared/image-replacement';
 import { registerClipEditorRoutes } from './clip-editor';
 import { startLocalServer } from './local-server';
 import { registerVideoIdentityRoutes } from './video-identity';
+import { createGpuFaceBackend } from './gpu-video-identity';
 
 const STUDIO = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const REPO = path.dirname(STUDIO);
@@ -55,7 +56,10 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   });
   app.use(express.json({ limit: '100kb' }));
   const clipEditor = registerClipEditorRoutes(app, store);
-  const videoIdentity = registerVideoIdentityRoutes(app, store, repo);
+  const videoIdentity = registerVideoIdentityRoutes(app, store, repo, createGpuFaceBackend(store,repo,connection,()=>{
+    if(runner.busy || models.state.busy || cloud.state.busy || store.jobs().some(job=>job.origin==='render' && ['queued','running','reconnecting'].includes(job.status)))throw new Error('Finish current GPU setup, downloads or rendering before GPU face refinement.');
+  }));
+  runner.externalGpuBusy=()=>videoIdentity.gpuBusy;
   const bootstrap = () => ({ assets: store.assets().map(publicAsset), jobs: store.jobs().map(publicJob), draft: store.draft(), imageDraft: store.imageDraft(), connection: connection.status, cloud: cloud.state, models: models.state });
   app.get('/api/bootstrap', (_req, res) => res.json(bootstrap()));
   app.get('/api/events', (req, res) => {
@@ -68,13 +72,13 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   app.get('/api/cloud', (_req, res) => res.json(cloud.state));
   app.get('/api/models', async (_req, res) => res.json(await models.refresh()));
   app.post('/api/models/download', async (req, res) => {
-    if (cloud.state.busy || runner.busy || store.jobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status))) return void res.status(409).json({ error: 'Finish the current setup or render before downloading models.' });
+    if (videoIdentity.gpuBusy || cloud.state.busy || runner.busy || store.jobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status))) return void res.status(409).json({ error: 'Finish the current setup or render before downloading models.' });
     const value = z.object({ files: z.array(z.string().max(300)).min(1).max(modelDefinitions.length) }).parse(req.body);
     res.status(202).json(await models.start(value.files));
   });
   app.post('/api/models/cancel', async (_req, res) => res.json(await models.cancel()));
   app.post('/api/models/delete', async (req, res) => {
-    if (cloud.state.busy || runner.busy || store.jobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status))) return void res.status(409).json({ error: 'Finish setup or rendering before removing a LoRA.' });
+    if (videoIdentity.gpuBusy || cloud.state.busy || runner.busy || store.jobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status))) return void res.status(409).json({ error: 'Finish setup or rendering before removing a LoRA.' });
     const value = z.object({ name: z.string().min(1).max(300) }).parse(req.body);
     res.json(await models.remove(value.name));
   });
@@ -146,6 +150,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     connection.disconnect(); res.json(connection.status);
   });
   app.post('/api/jobs', async (req, res) => {
+    if(videoIdentity.gpuBusy)return void res.status(409).json({error:'Wait for GPU face setup or refinement to finish.'});
     if (cloud.state.busy || cloud.state.launches.some(l => ['stopping', 'destroying'].includes(l.phase) || (l.instanceId && l.safetyStatus === 'unconfirmed'))) return void res.status(503).json({ error: 'The GPU setup or stop status is not settled. Your draft is saved; check GPU cloud before generating.' });
     const value = z.object({ sourceId: z.string(), referenceId: z.string(), settings: settingsSchema, saveDiagnosticLatent: z.boolean().default(false) }).parse(req.body);
     const issue = engineIssue(value.settings); if (issue) return void res.status(400).json({ error: issue });
@@ -156,7 +161,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     if (models.state.busy) return void res.status(409).json({ error: 'Wait for model downloads to finish before generating.' });
     await models.refresh();
     const accepted = store.byKey(key); if (accepted) return void res.json(publicJob(accepted));
-    if (models.state.busy || cloud.state.busy || connection.status.state !== 'online') return void res.status(409).json({ error: 'The GPU or model downloads changed while checking. Nothing was queued; wait for readiness before generating.' });
+    if (videoIdentity.gpuBusy || models.state.busy || cloud.state.busy || connection.status.state !== 'online') return void res.status(409).json({ error: 'The GPU or model downloads changed while checking. Nothing was queued; wait for readiness before generating.' });
     if (models.state.error) return void res.status(503).json({ error: models.state.error });
     const missing = modelFilesForSettings(value.settings).filter(id => models.state.files.find(file => file.id === id)?.status !== 'installed');
     if (missing.length) return void res.status(409).json({ error: isViggle(value.settings) && value.settings.referencePreparation !== 'prepared' && missing.some(id => imageModelFiles.includes(id))
@@ -193,6 +198,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   app.post('/api/jobs/:id/resume', async (req, res) => {
     const job = store.job(String(req.params.id)); if (!job) return void res.sendStatus(404);
     if (job.faceRefinement) { await videoIdentity.resume(job); return void res.json(publicJob(store.job(job.id)!)); }
+    if (videoIdentity.gpuBusy && !canFinishImageLocally(job)) return void res.status(409).json({error:'Finish GPU face refinement before resuming another render.'});
     if (connection.status.state !== 'online' && !canFinishImageLocally(job)) return void res.status(503).json({ error: 'Reconnect your GPU first.' });
     if (job.status !== 'interrupted') return void res.status(409).json({ error: 'Only an interrupted run can be resumed. Reuse settings to start another run.' });
     const value = z.object({ retryMissing: z.boolean().default(false) }).parse(req.body || {});

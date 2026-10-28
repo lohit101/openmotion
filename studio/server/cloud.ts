@@ -395,7 +395,7 @@ export class CloudManager {
     await check('Exact rental ask, hardware, hourly price and transfer fees', () => this.verifyOffer(selected.offer, selected.filters, selected.offer.totalHourly!));
     return { ready: checks.every(c => c.ok), checks, checkedAt: new Date().toISOString(), rentalRequests: 0 };
   }
-  assertIdle() { if (this.runner.active || this.store.jobs().some(j => j.origin === 'render' && ['queued', 'running', 'reconnecting'].includes(j.status))) throw new Error('Cancel or finish the render queue before changing GPU instances.'); }
+  assertIdle() { if (this.runner.externalGpuBusy?.() || this.runner.active || this.store.jobs().some(j => j.origin === 'render' && ['queued', 'running', 'reconnecting'].includes(j.status))) throw new Error('Cancel or finish the render queue or GPU face refinement before changing GPU instances.'); }
   change(launch: CloudLaunch, phase: CloudLaunch['phase'], message: string) { launch.phase = phase; launch.message = message; launch.updatedAt = new Date().toISOString(); this.emit(); }
   async ensureSshKey() {
     const dedicated = this.options.sshIdentity || path.join(os.homedir(), '.ssh/comfyui_vast'); let identity = existsSync(dedicated) && existsSync(dedicated + '.pub') ? dedicated : path.join(this.store.root, 'private/id_ed25519');

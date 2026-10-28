@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "date": "2026-10-28",
+  "originalJobId": "08d3a614-77a9-400a-baf5-9507fb31a757",
+  "cpuJobId": "103395d9-89d8-4330-aa0f-f4bf74463e6b",
+  "gpuJobId": "245e8fcc-a23a-4c4e-908a-262511eb67b1",
+  "hardware": "NVIDIA RTX A6000",
+  "model": "hyperswap_1a_256",
+  "cpuProcessingSeconds": 198.5997492079623,
+  "gpuProcessingSeconds": 36.6751870710068,
+  "gpuEndToEndSeconds": 73.037,
+  "width": 704,
+  "height": 1248,
+  "fps": 24,
+  "frames": 240,
+  "refinedFrames": 240,
+  "skippedFrames": 0,
+  "outputSHA256": "0b46a183f10800ee47d9fb14712fc351d0394ce9f6e5e1d12628c70607d0a830",
+  "framesVerifiedRemotely": true,
+  "sessionProviders": {
+    "nsfw_1.onnx": [
+      "CUDAExecutionProvider",
+      "CPUExecutionProvider"
+    ],
+    "nsfw_2.onnx": [
+      "CUDAExecutionProvider",
+      "CPUExecutionProvider"
+    ],
+    "nsfw_3.onnx": [
+      "CUDAExecutionProvider",
+      "CPUExecutionProvider"
+    ],
+    "yunet_2023_mar.onnx": [
+      "CUDAExecutionProvider",
+      "CPUExecutionProvider"
+    ],
+    "fan_68_5.onnx": [
+      "CUDAExecutionProvider",
+      "CPUExecutionProvider"
+    ],
+    "2dfan4.onnx": [
+      "CUDAExecutionProvider",
+      "CPUExecutionProvider"
+    ],
+    "arcface_w600k_r50.onnx": [
+      "CUDAExecutionProvider",
+      "CPUExecutionProvider"
+    ],
+    "fairface.onnx": [
+      "CUDAExecutionProvider",
+      "CPUExecutionProvider"
+    ],
+    "xseg_1.onnx": [
+      "CUDAExecutionProvider",
+      "CPUExecutionProvider"
+    ],
+    "hyperswap_1a_256.onnx": [
+      "CUDAExecutionProvider",
+      "CPUExecutionProvider"
+    ]
+  },
+  "audioPayloadMatchesOriginal": true,
+  "extraViggleInference": false,
+  "computeConfirmedStopped": true,
+  "accounting": {
+    "computeHourlyUSD": 0.4,
+    "storageHourlyUSD": 0.017777777777777778,
+    "downloadPerGBUSD": 0.0026041666666666665,
+    "authorizationUSD": 0.15,
+    "testSessionEstimateUSD": 0.04,
+    "finalProviderInvoice": false
+  },
+  "limitations": [
+    "One matched sample; processing coverage is not identity accuracy",
+    "Full PNG cache remains on the original GPU disk",
+    "Mac capture API prevented live visual UI interaction testing"
+  ]
+}

@@ -8,6 +8,7 @@ import { VideoIdentity } from '../server/video-identity';
 import { command } from '../server/media';
 import { defaults, type Job } from '../shared/types';
 import { runSummary, savedRunSettings } from '../shared/library';
+import type { GpuFaceBackend } from '../server/gpu-video-identity';
 
 const managers: VideoIdentity[]=[],stores: Store[]=[],roots: string[]=[];
 afterEach(async()=>{for(const manager of managers)await manager.shutdown();for(const store of stores)store.close();for(const root of roots)rmSync(root,{recursive:true,force:true});managers.length=stores.length=roots.length=0;});
@@ -64,4 +65,44 @@ it('startup recovery touches local refinement only and leaves paid GPU work alon
   const local={...structuredClone(f.parent),id:randomUUID(),origin:'import' as const,status:'running' as const,faceRefinement:{version:'face-finish-v1' as const,parentJobId:'parent',referenceAssetId:'reference',execution:'local CPU' as const}};f.store.addJob(local);
   const manager=new VideoIdentity(f.store,path.resolve(import.meta.dirname,'../..'),f.execute,f.status);managers.push(manager);
   expect(f.store.job(local.id)?.status).toBe('interrupted');expect(f.store.job(paid.id)).toEqual(paid);
+});
+
+async function gpuFixture() {
+  const f=await fixture();let instance=42,setupCalls=0,blocked=false,fallback=false;
+  const backend:GpuFaceBackend={
+    instance:()=>instance,assertIdle:()=>{if(blocked)throw new Error('GPU render is active');},
+    status:async()=>({...await f.status(),available:true,instanceId:instance}),setup:async()=>{setupCalls++;},
+    run:async(args,signal,progress)=>{
+      await f.execute(args,signal,progress);
+      const file=path.join(args.folder,'identity-video.json'),r=JSON.parse(readFileSync(file,'utf8'));
+      Object.assign(r,{execution:'remote CUDA',newPaidInference:true,framesVerified:true,gpu:'fixture GPU',sessionProviders:{'hyperswap_1a_256.onnx':[fallback?'CPUExecutionProvider':'CUDAExecutionProvider']}});
+      Object.assign(r.inputs,{provider:'cuda',gpuProfile:hash(path.resolve(import.meta.dirname,'../../config/gpu-video-identity.lock.json'))});
+      writeFileSync(file,JSON.stringify(r));
+      writeFileSync(path.join(args.folder,'gpu-transport.json'),JSON.stringify({instanceId:args.instanceId,jobId:args.jobId,receiptSHA256:hash(file)}));
+    },
+  };
+  const manager=new VideoIdentity(f.store,path.resolve(import.meta.dirname,'../..'),f.execute,f.status,backend);managers.push(manager);
+  return {...f,gpuManager:manager,instance:(value:number)=>{instance=value;},block:()=>{blocked=true;},fallback:()=>{fallback=true;},setupCalls:()=>setupCalls};
+}
+it('records CUDA provenance and saves a separate GPU variant without implicit setup',async()=>{
+  const f=await gpuFixture(),cpu=await f.manager.create('parent');await waitFor(()=>f.store.job(cpu.id)?.status==='completed');
+  const gpu=await f.gpuManager.create('parent',undefined,'remote CUDA');await waitFor(()=>f.store.job(gpu.id)?.status==='completed');
+  const done=f.store.job(gpu.id)!;expect(gpu.id).not.toBe(cpu.id);expect(done.faceRefinement).toMatchObject({execution:'remote CUDA',instanceId:42,gpu:'fixture GPU'});
+  expect(f.setupCalls()).toBe(0);expect(f.store.job('parent')).toEqual(f.parent);expect(savedRunSettings(done)).toMatchObject({execution:'remote CUDA'});expect(runSummary(done)).toContainEqual(['GPU processing','0.2 seconds']);
+});
+it('rejects a GPU receipt whose swap session fell back to CPU',async()=>{
+  const f=await gpuFixture();f.fallback();const job=await f.gpuManager.create('parent',undefined,'remote CUDA');await waitFor(()=>f.store.job(job.id)?.status==='interrupted');expect(f.store.job(job.id)?.error).toMatch(/CUDA provider verification/);
+});
+it('does not start refinement while another GPU render is active',async()=>{
+  const f=await gpuFixture();f.block();await expect(f.gpuManager.create('parent',undefined,'remote CUDA')).rejects.toThrow(/GPU render/);expect(f.runs()).toBe(0);expect(f.store.jobs()).toHaveLength(1);
+});
+it('requires the original instance before resuming GPU face frames',async()=>{
+  const f=await gpuFixture();f.pause(true);const job=await f.gpuManager.create('parent',undefined,'remote CUDA');await waitFor(()=>f.runs()===1);await f.gpuManager.cancel(f.store.job(job.id)!);f.instance(43);
+  expect(f.store.job(job.id)?.status).toBe('interrupted');expect(f.store.job(job.id)?.cancellationConfirmed).toBe(false);
+  await expect(f.gpuManager.resume(f.store.job(job.id)!)).rejects.toThrow(/same GPU instance/);expect(f.runs()).toBe(1);
+});
+it('finishes a downloaded GPU result locally without another worker or the original connection',async()=>{
+  const f=await gpuFixture();const job=await f.gpuManager.create('parent',undefined,'remote CUDA');await waitFor(()=>f.store.job(job.id)?.status==='completed');
+  const saved=f.store.job(job.id)!;saved.status='interrupted';f.store.saveJob(saved);f.instance(43);await f.gpuManager.resume(saved);
+  expect(f.store.job(job.id)?.status).toBe('completed');expect(f.runs()).toBe(1);
 });

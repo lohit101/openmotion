@@ -1,0 +1,10 @@
+{
+  "version": "face-cuda-v1",
+  "base": "local-video-identity.lock.json",
+  "execution": "remote CUDA",
+  "platform": "Linux x86_64, CUDA 13, existing PyTorch engine environment",
+  "packages": ["onnxruntime-gpu==1.31.1"],
+  "model_bytes": 1292800048,
+  "reserve_bytes": 5368709120,
+  "notes": "Separate venv with engine system-site-packages. Reuse existing CUDA 13/cuDNN libraries through PyTorch. No TensorRT build, quantization, model changes or implicit CPU fallback. Base CPU ORT package is excluded from this environment."
+}

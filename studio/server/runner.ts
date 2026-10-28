@@ -17,6 +17,7 @@ import { DownloadError, type DownloadProgress } from './download';
 
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 export class Runner {
+  externalGpuBusy = () => false;
   busy = false; active: Job | null = null; abort: AbortController | null = null;
   private resumes = new Map<string, Promise<void>>();
   public geometry: ReferenceGeometry;
@@ -29,7 +30,7 @@ export class Runner {
     }
   }
   async kick() {
-    if (this.busy) return;
+    if (this.busy || this.externalGpuBusy()) return;
     this.busy = true;
     try {
       while (true) {
