@@ -11,7 +11,7 @@ import type { Runner } from './runner';
 import type { CloudManager } from './cloud';
 import type { ModelManager } from './models';
 import { command, ingest, probe } from './media';
-import { imageDraftSchema, imageGeometry, isImageJob } from '../shared/image-replacement';
+import { bodyOnlyConditioningPrompt, imageDraftSchema, imageGeometry, isImageJob, referenceViewIssue } from '../shared/image-replacement';
 import { imageFilesForSettings } from '../shared/models';
 import { defaults, type Asset, type Job } from '../shared/types';
 
@@ -54,6 +54,15 @@ export function registerImageRoutes(app: Express, store: Store, connection: Conn
     if (!key || key.length > 120) return void res.status(400).json({ error: 'An image request ID is required.' });
     const previous = store.byKey(key); if (previous) return void res.status(isImageJob(previous) ? 200 : 409).json(isImageJob(previous) ? publicJob(previous) : { error: 'This request ID was used for another workflow.' });
     if (!value.sourceId || !value.referenceId) throw new Error('Add a target image and an identity reference.');
+    const bodyOnly = value.settings.model === 'qwen21' && value.settings.qwenRecipe === 'body-only';
+    if (bodyOnly) {
+      if (!value.faceId) throw new Error('Add the facial identity reference or sheet for body-only replacement.');
+      if (!value.settings.protectBackground) throw new Error('Paint an edit area to protect the source scene.');
+      for (const [view, id] of [[value.settings.bodyReferenceView, value.referenceId], [value.settings.faceReferenceView, value.faceId]] as const) {
+        const issue = referenceViewIssue(view, store.asset(id)); if (issue) throw new Error(issue);
+      }
+      Object.assign(value.settings, { qwenHeadRefine: false, structureStrength: 0, localIdentity: false, qwenIdentityGuide: false, qwenBodyPose: false, qwenNormalizeReference: false, qwenRelight: false, qwenSceneIntegration: false, qwenLayoutOnly: false, qwenEdgeOnly: false });
+    }
     if (value.settings.model === 'qwen21') { value.settings.faceDetail = false; value.settings.identityRefine = false; }
     const native = value.settings.model === 'qwen21' && ['native-masked', 'native-scene', 'identity-first', 'body-identity'].includes(value.settings.qwenRecipe);
     if (native) {
@@ -63,7 +72,7 @@ export function registerImageRoutes(app: Express, store: Store, connection: Conn
     if (value.settings.model === 'qwen21' && ['identity-first', 'body-identity'].includes(value.settings.qwenRecipe)) value.settings.qwenHeadRefine = true;
     const scene = value.settings.model === 'qwen21' && value.settings.qwenRecipe === 'source-anchored';
     if (scene && !value.settings.protectBackground) throw new Error('Source-anchored replacement requires a painted edit area. Keep background protection on.');
-    inputs([value.sourceId, value.referenceId, value.settings.faceDetail || value.settings.identityRefine || (scene || native) && value.settings.qwenHeadRefine ? value.faceId : null, value.settings.protectBackground ? value.maskId : null]);
+    inputs([value.sourceId, value.referenceId, bodyOnly || value.settings.faceDetail || value.settings.identityRefine || (scene || native) && value.settings.qwenHeadRefine ? value.faceId : null, value.settings.protectBackground ? value.maskId : null]);
     if (value.settings.protectBackground && (!value.maskId || store.asset(value.maskId)?.maskFor !== value.sourceId)) throw new Error('Paint the replacement area on this target, or turn off background protection.');
     if (value.settings.qwenRecipe === 'body-identity' && value.settings.qwenBodyPose) {
       const pose = JSON.parse(await command('python3', [path.join(repo, 'scripts/local_pose.py'), 'status'], undefined, 10000));
@@ -89,7 +98,7 @@ export function registerImageRoutes(app: Express, store: Store, connection: Conn
     const title = source.sourceFrame ? `Frame ${source.sourceFrame.time.toFixed(2)}s / Imagen` : source.name.replace(/\.[^.]+$/, '').slice(0, 80) + ' / Imagen';
     const job: Job = { id: randomUUID(), title, status: 'queued', mediaType: 'image',
       sourceId: value.sourceId, referenceId: value.referenceId, settings: { ...defaults, prompt: settings.prompt, seed: settings.seed, randomSeed: settings.randomSeed },
-      image: { version: settings.model === 'qwen21' && settings.qwenRecipe === 'body-identity' ? (settings.qwenBodyPose ? 'body-identity-v2' : 'body-identity-v1') : native ? (settings.qwenRecipe === 'identity-first' ? (settings.localIdentity ? 'identity-first-v2' : 'identity-first-v1') : settings.qwenRecipe === 'native-scene' ? 'native-scene-v1' : 'native-mask-v1') : scene ? (settings.qwenIdentityGuide ? 'scene-anchor-v8' : settings.qwenLayoutOnly || settings.localIdentity ? 'scene-anchor-v7' : settings.qwenEdgeOnly ? 'scene-anchor-v6' : settings.qwenRelight ? 'scene-anchor-v5' : settings.qwenNormalizeReference ? 'scene-anchor-v4' : 'scene-anchor-v3') : 'masked-latent-v4', settings, faceId: value.faceId, maskId: value.maskId, geometry }, width: geometry.width, height: geometry.height, outputSize: { width: source.width, height: source.height },
+      image: { version: bodyOnly ? 'body-only-v2' : settings.model === 'qwen21' && settings.qwenRecipe === 'body-identity' ? (settings.qwenBodyPose ? 'body-identity-v2' : 'body-identity-v1') : native ? (settings.qwenRecipe === 'identity-first' ? (settings.localIdentity ? 'identity-first-v2' : 'identity-first-v1') : settings.qwenRecipe === 'native-scene' ? 'native-scene-v1' : 'native-mask-v1') : scene ? (settings.qwenIdentityGuide ? 'scene-anchor-v8' : settings.qwenLayoutOnly || settings.localIdentity ? 'scene-anchor-v7' : settings.qwenEdgeOnly ? 'scene-anchor-v6' : settings.qwenRelight ? 'scene-anchor-v5' : settings.qwenNormalizeReference ? 'scene-anchor-v4' : 'scene-anchor-v3') : 'masked-latent-v4', ...(bodyOnly ? { conditioningPrompt: bodyOnlyConditioningPrompt(settings.prompt) } : {}), settings, faceId: value.faceId, maskId: value.maskId, geometry }, width: geometry.width, height: geometry.height, outputSize: { width: source.width, height: source.height },
       createdAt: new Date().toISOString(), favorite: false, deleted: false, progress: { stage: 'Queued for Imagen', node: null, value: null, max: null, unit: 'steps', segment: 1, segments: 1, completedFrames: 0, targetFrames: 1, updatedAt: Date.now() },
       segments: [], context: '', pendingPrompt: null, uploads: null, error: null, output: null, poster: null, cancelRequested: false, elapsedSeconds: null, origin: 'render', workflow: null };
     store.addJob(job, key); res.status(201).json(publicJob(job)); void runner.kick();

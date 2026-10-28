@@ -14,6 +14,47 @@ import image_replacement as editor
 
 @unittest.skipUnless(importlib.util.find_spec("cv2"), "Run in .local/geometry-venv for CPU image checks")
 class ImageReplacementTests(unittest.TestCase):
+    def test_body_only_selected_views_keep_originals_and_freeze_crop_pixels(self):
+        import cv2
+        import numpy as np
+        with tempfile.TemporaryDirectory() as temp, patch.object(editor, 'detect', side_effect=AssertionError('No implicit reference selection')):
+            source, _, request, work = self.fixture(Path(temp))
+            request['version'] = 'body-only-v2'; request['face'] = request['reference']
+            request['settings'].update(model='qwen21', faceDetail=False, bodyReferenceView={'assetId': 'body', 'x': 10, 'y': 20, 'width': 64, 'height': 64}, faceReferenceView={'assetId': 'face', 'x': 20, 'y': 30, 'width': 64, 'height': 64})
+            reference = cv2.imread(request['reference'])
+            editor.prepare(request, work, None)
+            np.testing.assert_array_equal(cv2.imread(str(work / 'identity.png')), reference[20:84, 10:74])
+            np.testing.assert_array_equal(cv2.imread(str(work / 'face.png')), reference[30:94, 20:84])
+            np.testing.assert_array_equal(cv2.imread(request['reference']), reference)
+            np.testing.assert_array_equal(cv2.imread(str(work / 'original.png')), source)
+            request['settings']['faceReferenceView']['x'] += 1
+            with self.assertRaisesRegex(ValueError, 'Saved image inputs changed'):
+                editor.prepare(request, work, None)
+
+    def test_reference_views_reject_out_of_bounds_tiny_or_fractional_crops(self):
+        import numpy as np
+        image = np.zeros((160, 128, 3), np.uint8)
+        for view in [dict(x=100, y=0, width=32, height=40), dict(x=0, y=-1, width=32, height=40), dict(x=0, y=0, width=31, height=40), dict(x=0.5, y=0, width=32, height=40)]:
+            with self.assertRaises(ValueError): editor.reference_view(image, view)
+
+    def test_body_only_preserves_three_reference_roles_without_implicit_face_selection(self):
+        import cv2
+        import numpy as np
+        with tempfile.TemporaryDirectory() as temp, patch.object(editor, 'detect', side_effect=AssertionError('Do not silently choose a face from a sheet')):
+            source, _, request, work = self.fixture(Path(temp))
+            request['version'] = 'body-only-v1'
+            request['face'] = request['reference']
+            request['settings'].update(model='qwen21', faceDetail=False, qwenHeadRefine=False, maskExpand=12, maskFillHoles=False)
+            prepared = editor.prepare(request, work, None)
+            self.assertTrue(prepared['hasFace'])
+            self.assertTrue((work / 'face.png').is_file())
+            self.assertTrue((work / 'working-mask.png').is_file())
+            np.testing.assert_array_equal(cv2.imread(str(work / 'original.png')), source)
+            self.assertEqual(editor.prepare(request, work, None), prepared)
+            cv2.imwrite(str(Path(request['face'])), np.zeros_like(source))
+            with self.assertRaisesRegex(ValueError, 'Saved image inputs changed'):
+                editor.prepare(request, work, None)
+
     def fixture(self, folder):
         import cv2
         import numpy as np

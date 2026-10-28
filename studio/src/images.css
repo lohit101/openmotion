@@ -2,6 +2,32 @@
 .image-input-roles > span { display: flex; align-items: center; gap: 8px; }
 .image-input-roles b { font-size: 9px; font-weight: 500; color: var(--accent-text); font-variant-numeric: tabular-nums; }
 .image-editor .input-pair { margin-top: 0; }
+.image-editor .input-pair > div { min-width: 0; }
+.reference-view-control { display: flex; width: 100%; gap: 10px; align-items: center; padding: 10px 0; text-align: left; color: var(--muted); }
+.reference-view-control:hover { color: var(--accent-text); }
+.reference-view-control > span:last-child { display: grid; gap: 4px; }
+.reference-view-control strong { font-size: 11px; font-weight: 500; }
+.reference-view-control small { font-size: 10px; color: var(--muted); }
+.reference-view-control > .reference-view-image { flex-shrink: 0; background: var(--raised); border-radius: 4px; }
+.reference-view-image { position: relative; display: block; overflow: hidden; }
+.reference-view-image > img { position: absolute; max-width: none; object-fit: fill; display: block; }
+.reference-view-stage { position: relative; width: 100%; margin: 0 auto; overflow: hidden; cursor: crosshair; touch-action: none; background: var(--raised); }
+.reference-view-stage > img { display: block; width: 100%; height: 100%; user-select: none; pointer-events: none; }
+.reference-view-box { position: absolute; border: 2px solid var(--accent-text); box-shadow: 0 0 0 2000px #0008; cursor: move; }
+.reference-view-handle { position: absolute; width: 13px; height: 13px; border: 2px solid var(--surface); background: var(--accent-text); }
+.reference-view-handle.nw { left: -5px; top: -5px; cursor: nwse-resize; }
+.reference-view-handle.ne { right: -5px; top: -5px; cursor: nesw-resize; }
+.reference-view-handle.sw { left: -5px; bottom: -5px; cursor: nesw-resize; }
+.reference-view-handle.se { right: -5px; bottom: -5px; cursor: nwse-resize; }
+.reference-view-footer { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 20px; }
+.reference-view-footer > span { margin-right: auto; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.reference-view-error { color: var(--danger, #ef9b92); font-size: 12px; }
+.reference-view-coordinates { margin-top: 17px; color: var(--muted); font-size: 11px; }
+.reference-view-coordinates summary { cursor: pointer; }
+.reference-view-coordinates > div { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+.reference-view-coordinates label { display: grid; gap: 5px; text-transform: capitalize; }
+.reference-view-coordinates input { width: 100%; min-width: 0; }
+.reference-use-whole { margin-top: 17px; font-size: 11px; color: var(--muted); text-decoration: underline; text-underline-offset: 4px; }
 .image-input-shortcuts { display: flex; flex-wrap: wrap; gap: 10px; margin: 9px 0 16px; }
 .image-input-shortcuts > button { display: inline-flex; align-items: center; gap: 6px; color: var(--accent-text); font-size: 10px; padding: 4px 0; }
 .image-input-shortcuts > button:disabled { color: var(--quiet); }

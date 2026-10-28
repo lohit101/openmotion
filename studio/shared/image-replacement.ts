@@ -13,10 +13,40 @@ Priority: facial identity from IMAGE 2; placement, pose, distance and framing fr
 
 export const defaultImagePrompt = `Replace the entire person in IMAGE 1 with the person from IMAGE 2, including their recognizable face, hair, body appearance, complete outfit and accessories. Dress them entirely in IMAGE 2's garments, preserving the neckline, sleeves, fabric, colors and garment length, fitted naturally to the target pose. Replace every original garment and accessory rather than combining the two outfits. Match IMAGE 1's exact pose, head size, screen position, camera distance, expression and framing. Preserve its room, objects and occlusions. Illuminate the replacement with the target scene's light direction, exposure, color temperature, reflected light and contact shadows. Match the photograph's focus, grain and natural skin texture.`;
 
+// Frozen for the first paid A–E comparisons. Preserve their original instructions.
+export const bodyOnlyPromptV1 = `Edit <image1>, the original scene photograph. <image2> shows the replacement person's physique and body proportions. <image3> shows that same person's facial identity and hair. Reference sheets show multiple views of ONE person; do not render the sheet, extra people, labels or separate panels.
+
+Replace the original person's facial identity, hair, skin tone and physique with this reference person. Use <image3> for recognizable facial geometry and <image2> for shoulder width, torso, waist, hips and limb proportions. Select the views appropriate to the target angle; preserve the target's expression, gaze and head rotation.
+
+Keep ALL clothing and accessories from <image1>: the same garments, coverage, neckline, sleeves, colors, patterns and design. Fit those original garments naturally to the replacement physique, allowing realistic changes to folds, tension and silhouette. Ignore the clothes in <image2> and <image3>.
+
+Keep <image1>'s exact camera viewpoint, framing, camera distance, subject placement, pose, contact points and hand positions. Preserve its background and foreground objects. Match its lighting, shadows, exposure, color temperature, photographic texture and focus. Reference lighting and backgrounds do not transfer. Return one opaque natural photograph at the original scene composition.`;
+
+export const bodyOnlyPrompt = bodyOnlyPromptV1 + `\n\nKeep visible occluders and visibility from <image1>. If the face is covered, offscreen or facing away, keep it hidden: do not turn the head toward the camera or invent a visible frontal face. Preserve the original hand, object or foreground obstruction and its position.`;
+
+export function bodyOnlyConditioningPrompt(prompt: string, legacy = false): string {
+  const base = legacy ? bodyOnlyPromptV1 : bodyOnlyPrompt, extra = prompt.trim();
+  return base + (extra && ![bodyOnlyPrompt, bodyOnlyPromptV1, defaultImagePrompt, legacyImagePrompt].includes(extra) ? '\nAdditional edit requirements: ' + extra : '');
+}
+
+export const imageReferenceViewSchema = z.object({
+  assetId: z.string().min(1), x: z.number().int().min(0).max(16384), y: z.number().int().min(0).max(16384),
+  width: z.number().int().min(32).max(16384), height: z.number().int().min(32).max(16384),
+});
+export type ImageReferenceView = z.infer<typeof imageReferenceViewSchema>;
+export function referenceViewIssue(view: ImageReferenceView | null | undefined, asset: Pick<Asset, 'id' | 'width' | 'height'> | null | undefined): string | null {
+  if (!view) return null;
+  if (!asset || view.assetId !== asset.id) return 'The selected view belongs to another reference. Choose the view again.';
+  if (view.x + view.width > asset.width || view.y + view.height > asset.height) return 'The selected view extends outside its reference image.';
+  return null;
+}
+
 export const imageSettingsSchema = z.object({
   model: z.enum(['klein4b', 'qwen21']).default('klein4b'),
-  qwenRecipe: z.enum(['whole-person', 'source-anchored', 'native-masked', 'native-scene', 'identity-first', 'body-identity']).default('whole-person'),
+  qwenRecipe: z.enum(['whole-person', 'source-anchored', 'native-masked', 'native-scene', 'identity-first', 'body-identity', 'body-only']).default('whole-person'),
   qwenQuality: z.enum(['fast', 'quality']).default('fast'),
+  bodyReferenceView: imageReferenceViewSchema.nullable().default(null),
+  faceReferenceView: imageReferenceViewSchema.nullable().default(null),
   qwenHeadRefine: z.boolean().default(false),
   structureStrength: z.number().finite().min(0).max(2).default(0.8),
   repairMaskGaps: z.boolean().default(false),
@@ -61,7 +91,8 @@ export const localFramingSchema = z.object({
   geometry: z.object({ headSizeRatio: z.number().finite().positive(), faceCenterOffsetPixels: z.array(z.number().finite()).length(2) }).nullable(),
 });
 export interface ImageRun {
-  version?: 'masked-latent-v2' | 'masked-latent-v3' | 'masked-latent-v4' | 'scene-anchor-v1' | 'scene-anchor-v2' | 'scene-anchor-v3' | 'scene-anchor-v4' | 'scene-anchor-v5' | 'scene-anchor-v6' | 'scene-anchor-v7' | 'scene-anchor-v8' | 'native-mask-v1' | 'native-scene-v1' | 'identity-first-v1' | 'identity-first-v2' | 'body-identity-v1' | 'body-identity-v2';
+  version?: 'masked-latent-v2' | 'masked-latent-v3' | 'masked-latent-v4' | 'scene-anchor-v1' | 'scene-anchor-v2' | 'scene-anchor-v3' | 'scene-anchor-v4' | 'scene-anchor-v5' | 'scene-anchor-v6' | 'scene-anchor-v7' | 'scene-anchor-v8' | 'native-mask-v1' | 'native-scene-v1' | 'identity-first-v1' | 'identity-first-v2' | 'body-identity-v1' | 'body-identity-v2' | 'body-only-v1' | 'body-only-v2';
+  conditioningPrompt?: string;
   settings: ImageSettings; faceId: string | null; maskId: string | null; geometry: ImageGeometry;
   prepared?: { hasFace: boolean; warnings: string[] }; review?: ImageReview; resultAssetId?: string;
   localFraming?: z.infer<typeof localFramingSchema> & { parentJobId: string };

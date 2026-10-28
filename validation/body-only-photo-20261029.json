@@ -1,0 +1,183 @@
+{
+  "date": "2026-10-29",
+  "device": "RTX A6000 48 GB",
+  "computeHourlyUSD": 0.4,
+  "downloadPerGBUSD": 0.0026041666666666665,
+  "modelBytesDownloaded": 18196405624,
+  "estimatedWeightIngressUSD": 0.04738647297916666,
+  "scope": "Body-only photo replacement retaining source garments; one source/reference pair",
+  "sourceDimensions": [
+    720,
+    1280
+  ],
+  "seed": 20261029,
+  "maskExpansionPixels": 24,
+  "featherPixels": 8,
+  "maskFillHoles": false,
+  "bodyCrop": {
+    "x": 0,
+    "y": 0,
+    "width": 285,
+    "height": 770
+  },
+  "faceCrop": {
+    "x": 285,
+    "y": 0,
+    "width": 275,
+    "height": 395
+  },
+  "runs": [
+    {
+      "label": "A",
+      "jobId": "9a3f6cbf-e0c6-4bd0-a834-a9520be37e7b",
+      "version": "body-only-v1",
+      "workingMegapixels": 1,
+      "steps": 40,
+      "turboAdapter": false,
+      "endToEndSeconds": 71.325,
+      "nativeGraphSeconds": 59.464,
+      "outsideMaskMaxDifference": 0,
+      "referenceInput": "full sheets",
+      "geometryDiagnostic": {
+        "headSizeRatio": 1.0129499016740888,
+        "faceCenterOffsetPixels": [
+          -1.3162841796875,
+          -2.7584788004556913
+        ]
+      },
+      "conditioningPromptSHA256": "00e28469f48c92bad9b160775e81785bb4e677478fadde4180dc340628da34d0",
+      "visualOutcome": "Failed: retains source face, hair and apparent physique"
+    },
+    {
+      "label": "B",
+      "jobId": "039395cf-3528-47b4-94b9-b0c38c8d83f3",
+      "version": "body-only-v1",
+      "workingMegapixels": 1,
+      "steps": 8,
+      "turboAdapter": true,
+      "endToEndSeconds": 35.955,
+      "nativeGraphSeconds": 25.597,
+      "outsideMaskMaxDifference": 0,
+      "referenceInput": "full sheets",
+      "geometryDiagnostic": {
+        "headSizeRatio": 1.0173022445629454,
+        "faceCenterOffsetPixels": [
+          -1.020111083984375,
+          -3.0906422932943087
+        ]
+      },
+      "conditioningPromptSHA256": "00e28469f48c92bad9b160775e81785bb4e677478fadde4180dc340628da34d0",
+      "visualOutcome": "Failed: retains source face, hair and apparent physique"
+    },
+    {
+      "label": "C",
+      "jobId": "5d7cecc5-e710-447e-a628-5fe1b70771b5",
+      "version": "body-only-v1",
+      "workingMegapixels": 1,
+      "steps": 8,
+      "turboAdapter": true,
+      "endToEndSeconds": 25.388,
+      "nativeGraphSeconds": 15.289,
+      "outsideMaskMaxDifference": 0,
+      "referenceInput": "separate selected views",
+      "geometryDiagnostic": {
+        "headSizeRatio": 0.9626887863766043,
+        "faceCenterOffsetPixels": [
+          -8.027765909830691,
+          -3.4375508626302462
+        ]
+      },
+      "conditioningPromptSHA256": "00e28469f48c92bad9b160775e81785bb4e677478fadde4180dc340628da34d0",
+      "visualOutcome": "Visible identity/hair and physique transfer; source garment family retained, printed detail changes; not an exact identity/anatomy/garment guarantee"
+    },
+    {
+      "label": "D",
+      "jobId": "b3a2bb96-368f-4db0-9d7c-86ac8facc363",
+      "version": "body-only-v1",
+      "workingMegapixels": 1,
+      "steps": 40,
+      "turboAdapter": false,
+      "endToEndSeconds": 50.217,
+      "nativeGraphSeconds": 38.924,
+      "outsideMaskMaxDifference": 0,
+      "referenceInput": "separate selected views",
+      "geometryDiagnostic": {
+        "headSizeRatio": 0.9593069689172128,
+        "faceCenterOffsetPixels": [
+          -7.9044342041015625,
+          -4.068562825520871
+        ]
+      },
+      "conditioningPromptSHA256": "00e28469f48c92bad9b160775e81785bb4e677478fadde4180dc340628da34d0",
+      "visualOutcome": "Visible identity/hair and physique transfer; source garment family retained, printed detail changes; not an exact identity/anatomy/garment guarantee"
+    },
+    {
+      "label": "E",
+      "jobId": "f28166a5-161c-49fe-9c7a-5122d206b27b",
+      "version": "body-only-v1",
+      "workingMegapixels": 2,
+      "steps": 8,
+      "turboAdapter": true,
+      "endToEndSeconds": 41.851,
+      "nativeGraphSeconds": 30.968,
+      "outsideMaskMaxDifference": 0,
+      "referenceInput": "separate selected views",
+      "geometryDiagnostic": {
+        "headSizeRatio": 0.8802858521128739,
+        "faceCenterOffsetPixels": [
+          -4.6338043212890625,
+          -8.682601928710824
+        ]
+      },
+      "conditioningPromptSHA256": "00e28469f48c92bad9b160775e81785bb4e677478fadde4180dc340628da34d0",
+      "visualOutcome": "Visible identity/hair and physique transfer; source garment family retained, printed detail changes; not an exact identity/anatomy/garment guarantee"
+    },
+    {
+      "label": "F",
+      "jobId": "e032110f-4827-42d1-adf5-8b4054d35e1d",
+      "version": "body-only-v2",
+      "workingMegapixels": 1,
+      "steps": 8,
+      "turboAdapter": true,
+      "endToEndSeconds": 31.039,
+      "nativeGraphSeconds": 17.876,
+      "outsideMaskMaxDifference": 0,
+      "referenceInput": "original sheets with frozen explicit crops",
+      "geometryDiagnostic": {
+        "headSizeRatio": 0.9570231632349686,
+        "faceCenterOffsetPixels": [
+          -7.45610555013026,
+          -2.7213643391926325
+        ]
+      },
+      "conditioningPromptSHA256": "a140e7ff1c550ba0cd8e77aaa85124f597cb90b2256a3aca4630fd8e859f513f",
+      "visualOutcome": "Visible identity/hair and physique transfer; source garment family retained, printed detail changes; not an exact identity/anatomy/garment guarantee"
+    }
+  ],
+  "validation": {
+    "typescriptAndBuild": "passed",
+    "typescriptTests": 62,
+    "cpuImageTests": 22,
+    "paidV1GraphsRecompiledUnchanged": 5,
+    "ui": "Desktop 1440x1000 and mobile 390x844; drag selection, save, cancel preservation, no horizontal overflow",
+    "referenceUploadVerified": true,
+    "geometryIsIdentityMetric": false,
+    "videoQualityValidated": false,
+    "cutsValidated": false,
+    "occludedOrRearOpeningValidated": false
+  },
+  "artifacts": "Original media, reference sheets, raw graphs/history and screenshots remain local under ignored studio/data and backups/body-only-20261028",
+  "billingEstimate": {
+    "notAnInvoice": true,
+    "computeUpperBoundSeconds": 1444.4755671024323,
+    "computeUpperBoundUSD": 0.1604972852336036,
+    "retainedStorageHourlyUSD": 0.017777777777777778,
+    "otherMediaTransfersExcluded": true,
+    "totalComputeAndWeightIngressUpperEstimateUSD": 0.20788375821277028
+  },
+  "computeStop": {
+    "instanceId": 58120414,
+    "confirmed": true,
+    "observedAt": "2026-10-28T18:58:28.055916+00:00"
+  }
+}

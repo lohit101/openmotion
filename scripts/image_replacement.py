@@ -36,6 +36,19 @@ def padded(image, max_pixels, grid=16):
     return cv2.copyMakeBorder(scaled, y, height - ch - y, x, width - cw - x, cv2.BORDER_REPLICATE)
 
 
+def reference_view(image, view):
+    """Explicit user-selected pixels; never guess a face from a reference sheet."""
+    if view is None:
+        return image
+    fields = [view.get(key) for key in ('x', 'y', 'width', 'height')]
+    if any(type(value) is not int for value in fields):
+        raise ValueError('The selected reference view needs whole-pixel coordinates.')
+    x, y, width, height = fields
+    if min(x, y) < 0 or min(width, height) < 32 or x + width > image.shape[1] or y + height > image.shape[0]:
+        raise ValueError('The selected view extends outside its reference image.')
+    return image[y:y + height, x:x + width].copy()
+
+
 def detect(image, model):
     if not model or not Path(model).is_file():
         return []
@@ -177,11 +190,22 @@ def prepare(request, folder, model):
     qwen = s.get("model") == "qwen21"
     scene = qwen and request.get("version") in ("scene-anchor-v1", "scene-anchor-v2", "scene-anchor-v3", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7", "scene-anchor-v8")
     body_identity = request.get('version') in ('body-identity-v1', 'body-identity-v2')
-    native_mask = body_identity or request.get("version") in ("native-mask-v1", "native-scene-v1", "identity-first-v1", "identity-first-v2", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7", "scene-anchor-v8")
+    body_only = request.get('version') in ('body-only-v1', 'body-only-v2')
+    native_mask = body_identity or body_only or request.get("version") in ("native-mask-v1", "native-scene-v1", "identity-first-v1", "identity-first-v2", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7", "scene-anchor-v8")
     head_refine = (scene or native_mask) and s.get("qwenHeadRefine", False)
     reference_input, cropped = reference_field_of_view(reference, source, model) if request.get("version") == "masked-latent-v4" and not qwen else (reference, False)
-    atomic_png(folder / "identity.png", padded(reference_input, 590_000 if qwen else 1_000_000, 32 if qwen else 16))
+    if request.get('version') == 'body-only-v2':
+        reference_input = reference_view(reference_input, s.get('bodyReferenceView'))
+    atomic_png(folder / "identity.png", padded(reference_input, 1_500_000 if body_only else 590_000 if qwen else 1_000_000, 32 if qwen else 16))
     outputs = ["target.png", "original.png", "identity.png"]
+    if body_only:
+        if not request.get('face'):
+            raise ValueError('Body-only replacement requires its facial identity reference or sheet.')
+        facial_reference = read_image(request['face'])
+        if request.get('version') == 'body-only-v2':
+            facial_reference = reference_view(facial_reference, s.get('faceReferenceView'))
+        atomic_png(folder / 'face.png', padded(facial_reference, 1_500_000, 32))
+        outputs.append('face.png')
     if request.get('version') == 'body-identity-v2':
         root = Path(__file__).resolve().parents[1]
         pose_request = folder / 'pose-request.json'
@@ -203,7 +227,7 @@ def prepare(request, folder, model):
         outputs.append('body-reference-canvas.png')
     if local_identity:
         outputs += ['identity-anchored-target.png', 'identity-anchored-target.identity.json']
-    warnings, has_face = [], False
+    warnings, has_face = [], body_only
     if cropped:
         warnings.append("The full-body identity reference was cropped to match the target's tighter field of view. The original reference is retained.")
     refine = (request.get("version") in ["masked-latent-v3", "masked-latent-v4"] and s.get("identityRefine", False)) or head_refine
@@ -268,7 +292,7 @@ def prepare(request, folder, model):
             mask = np.minimum(mask, cv2.GaussianBlur(mask, (0, 0), max(.1, s["feather"] / 2)))
         atomic_png(folder / "edit-mask.png", mask)
         outputs.append("edit-mask.png")
-        if scene or body_identity or request.get("version") in ["masked-latent-v2", "masked-latent-v3", "masked-latent-v4", "native-mask-v1", "native-scene-v1", "identity-first-v1", "identity-first-v2"]:
+        if scene or body_identity or body_only or request.get("version") in ["masked-latent-v2", "masked-latent-v3", "masked-latent-v4", "native-mask-v1", "native-scene-v1", "identity-first-v1", "identity-first-v2"]:
             small_mask = cv2.resize(mask, (g["contentWidth"], g["contentHeight"]), interpolation=cv2.INTER_AREA)
             working_mask = cv2.copyMakeBorder(small_mask, g["y"], g["height"] - g["contentHeight"] - g["y"], g["x"], g["width"] - g["contentWidth"] - g["x"], cv2.BORDER_CONSTANT, value=0)
             atomic_png(folder / "working-mask.png", working_mask)
@@ -405,7 +429,7 @@ def finish(request, folder, model):
     faces = {}
     settings = request["settings"]
     face_used = (settings.get("model") != "qwen21" and (settings["faceDetail"] or settings.get("identityRefine", False))) or (request.get("version") in ("scene-anchor-v1", "scene-anchor-v2", "scene-anchor-v3", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7", "scene-anchor-v8", "native-mask-v1", "native-scene-v1", "identity-first-v1", "identity-first-v2", "body-identity-v1", "body-identity-v2") and settings.get("qwenHeadRefine", False))
-    reference_file = (request.get("face") if face_used else None) or request["reference"]
+    reference_file = (str(folder / 'face.png') if request.get('version') == 'body-only-v2' else request.get("face") if face_used or request.get('version') == 'body-only-v1' else None) or request["reference"]
     if request.get("version") in ("native-mask-v1", "native-scene-v1", "identity-first-v1", "identity-first-v2", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7", "scene-anchor-v8", "body-identity-v1", "body-identity-v2") and face_used:
         reference_file = str(folder / "face.png")
     for name, image in [("source", source), ("reference", read_image(reference_file)), ("output", output)]:

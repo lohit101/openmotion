@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { defaults, type Catalog, type Job } from '../shared/types';
-import { defaultImagePrompt, emptyImageDraft, imageDefaults, imageGeometry, imagePrompt, isImageJob, legacyImagePrompt } from '../shared/image-replacement';
+import { bodyOnlyConditioningPrompt, bodyOnlyPromptV1, defaultImagePrompt, emptyImageDraft, imageDefaults, imageGeometry, imagePrompt, imageReferenceViewSchema, isImageJob, legacyImagePrompt, referenceViewIssue } from '../shared/image-replacement';
 import { IMAGE_IDENTITY, QWEN_BODY, QWEN_HEAD, QWEN_STRUCTURE, QWEN_OUTFIT, QWEN_CONSISTENCY, imageFilesForSettings, imageModelFiles, modelBytes, pinnedModels, qwenImageModelFiles } from '../shared/models';
 import { compileWorkflow, validateGraph } from '../server/workflow';
 import { applyProgress } from '../server/comfy';
@@ -25,6 +25,43 @@ function fixture(): Job {
     uploads: { source: 'target.png', reference: 'identity.png', face: 'face.png', original: 'original.png', mask: 'mask.png', noiseMask: 'mask.png' }, segments: [], context: '', pendingPrompt: null, error: null, output: null, poster: null, cancelRequested: false, elapsedSeconds: null, origin: 'render', workflow: null };
 }
 describe('source-preserving Klein image replacement', () => {
+  it('binds reference views to their original input and rejects invalid crop geometry', () => {
+    const asset = { id: 'sheet', width: 1881, height: 836 }, view = { assetId: 'sheet', x: 285, y: 0, width: 275, height: 395 };
+    expect(referenceViewIssue(view, asset)).toBeNull();
+    expect(referenceViewIssue(view, { ...asset, id: 'other' })).toMatch(/another reference/);
+    expect(referenceViewIssue({ ...view, x: 1800 }, asset)).toMatch(/outside/);
+    expect(imageReferenceViewSchema.safeParse({ ...view, x: 0.5 }).success).toBe(false);
+    expect(imageReferenceViewSchema.safeParse({ ...view, width: 0 }).success).toBe(false);
+  });
+  it('freezes new body-only instructions while preserving paid v1 prompts', () => {
+    const job = fixture(); job.image!.version = 'body-only-v2';
+    job.image!.settings = { ...imageDefaults, model: 'qwen21', qwenRecipe: 'body-only', prompt: '' };
+    job.image!.conditioningPrompt = bodyOnlyConditioningPrompt('Keep the blue buttons.');
+    const graph = compileWorkflow({}, job);
+    expect(validateGraph(graph, catalog)).toEqual([]);
+    expect(graph['108'].inputs.prompt).toBe(job.image!.conditioningPrompt);
+    expect(String(graph['108'].inputs.prompt)).toContain('keep it hidden');
+    expect(String(graph['108'].inputs.prompt)).toContain('Keep the blue buttons.');
+    delete job.image!.conditioningPrompt;
+    expect(() => compileWorkflow({}, job)).toThrow(/conditioning prompt is missing/);
+    job.image!.version = 'body-only-v1';
+    expect(compileWorkflow({}, job)['108'].inputs.prompt).toBe(bodyOnlyPromptV1);
+  });
+  it('keeps source clothing in a native three-reference body edit without outfit/body adapters', () => {
+    const job = fixture(); job.image!.version = 'body-only-v1'; job.image!.faceId = 'face';
+    job.image!.settings = { ...imageDefaults, model: 'qwen21', qwenRecipe: 'body-only', qwenQuality: 'quality', qwenHeadRefine: false };
+    const graph = compileWorkflow({}, job);
+    expect(validateGraph(graph, catalog)).toEqual([]);
+    expect(graph['108'].inputs).toMatchObject({ resolution: 0, 'images.image_1': ['1', 0], 'images.image_2': ['4', 0], 'images.image_3': ['5', 0] });
+    expect(String(graph['108'].inputs.prompt)).toContain('Keep ALL clothing and accessories from <image1>');
+    expect(graph['118'].inputs).toMatchObject({ cfg: 1, steps: 40, sampler_name: 'euler', scheduler: 'simple', latent_image: ['108', 2] });
+    expect(Object.values(graph).some(node => node.class_type === 'LoraLoaderModelOnly')).toBe(false);
+    expect(imageFilesForSettings(job.image!.settings)).toHaveLength(3);
+    expect(imageFilesForSettings(job.image!.settings).some(file => /body_swap|head_|outfit|turbo/.test(file))).toBe(false);
+    job.image!.settings.qwenQuality = 'fast'; const fast = compileWorkflow({}, job);
+    expect(fast['118'].inputs.steps).toBe(8); expect(fast['105'].inputs.lora_name).toContain('turbo'); expect(imageFilesForSettings(job.image!.settings)).toHaveLength(4);
+    delete job.uploads!.face; expect(() => compileWorkflow({}, job)).toThrow(/face reference/);
+  });
   it('transfers physique before the accepted independent head stage, without an outfit adapter that restores source anatomy', () => {
     const job = fixture(); job.image!.version = 'body-identity-v1';
     job.image!.settings = { ...imageDefaults, model: 'qwen21', qwenRecipe: 'body-identity', qwenHeadRefine: true, qwenNormalizeReference: true, qwenRelight: true, localIdentity: true };

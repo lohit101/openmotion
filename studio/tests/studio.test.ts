@@ -223,6 +223,16 @@ describe('local app with the captured ComfyUI protocol', () => {
     expect(missing.body.missingModels).toHaveLength(3); expect(mock!.submissions).toHaveLength(0);
     expect(mock!.calls.some(call => /download|\/prompt/.test(call))).toBe(false);
   });
+  it('requires a separate facial reference before body-only replacement can reach GPU preflight', async () => {
+    const agent = await setup(), values = await imageInputs(agent);
+    const result = await agent.post('/api/images/jobs').set('Idempotency-Key', 'body-only-no-face').send({ ...values, faceId: null, settings: { ...values.settings, model: 'qwen21', qwenRecipe: 'body-only' } }).expect(400);
+    expect(result.body.error).toContain('facial identity reference'); expect(mock!.submissions).toHaveLength(0); expect(mock!.calls).toHaveLength(0);
+  });
+  it('rejects reference crops from another image before downloads or paid submissions', async () => {
+    const agent = await setup(), values = await imageInputs(agent);
+    const result = await agent.post('/api/images/jobs').set('Idempotency-Key', 'body-only-wrong-view').send({ ...values, faceId: values.referenceId, settings: { ...values.settings, model: 'qwen21', qwenRecipe: 'body-only', protectBackground: true, bodyReferenceView: { assetId: values.sourceId, x: 0, y: 0, width: 64, height: 64 } } }).expect(400);
+    expect(result.body.error).toContain('another reference'); expect(mock!.submissions).toHaveLength(0); expect(mock!.calls).toHaveLength(0);
+  });
   it('saves one PNG image with its receipt, library entry and reproducible workflow', async () => {
     const agent = await setup(true), values = await imageInputs(agent); await connect(agent);
     const response = await agent.post('/api/images/jobs').set('Idempotency-Key', 'image-once').send(values).expect(201);
