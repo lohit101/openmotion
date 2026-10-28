@@ -1,8 +1,12 @@
 import type { Graph, Job } from '../shared/types';
 import { bodyOnlyConditioningPrompt } from '../shared/image-replacement';
+import { compileQwenBodyOnlyStagedWorkflow } from './qwen-body-only-staged-workflow';
+import { addBodyOnlyHeadDetail } from './qwen-head-detail-workflow';
 
 /** Native three-reference editor. The body/outfit-transfer BFS LoRA is excluded. */
 export function compileQwenBodyOnlyWorkflow(job: Job): Graph {
+  if (['body-only-v5', 'body-only-v6'].includes(job.image?.version || '')) return addBodyOnlyHeadDetail(job, job.image!.reusedBody ? {} : compileQwenBodyOnlyWorkflow({ ...job, image: { ...job.image!, version: 'body-only-v2' } }));
+  if (['body-only-v3', 'body-only-v4'].includes(job.image?.version || '')) return compileQwenBodyOnlyStagedWorkflow(job);
   const run = job.image, u = job.uploads;
   if (!run || !u?.source || !u.reference || !u.face || !u.original || !u.mask || !run.settings.protectBackground) throw new Error('Body-only replacement needs the target, body reference, face reference and painted edit area.');
   const s = run.settings, g = run.geometry, graph: Graph = {};

@@ -154,12 +154,17 @@ def source_structure(source, geometry, model, layout_mask=None, identity_source=
 def fingerprint(request):
     keys = ["source", "reference", "face", "mask"]
     files = {key: sha256(request[key]) if request.get(key) else None for key in keys}
+    if request.get('version') in ('body-only-v5', 'body-only-v6') and request.get('bodyBase'):
+        digest = sha256(request['bodyBase'])
+        if digest != request.get('bodyBaseSHA256'):
+            raise ValueError('The saved body image changed. No face correction was submitted and no body will be regenerated.')
+        files['bodyBase'] = digest
     payload = {"files": files, "settings": request["settings"], "geometry": request["geometry"]}
     if request.get("version"):
         payload["version"] = request["version"]
     if request["settings"].get("localIdentity", False):
         payload["localIdentityProfile"] = sha256(Path(__file__).resolve().parents[1] / 'config/local-identity.lock.json')
-    if request['settings'].get('qwenBodyPose', False):
+    if request['settings'].get('qwenBodyPose', False) or request.get('version') == 'body-only-v4' and request['settings'].get('bodyOnlyPose', False):
         payload['localPoseProfile'] = sha256(Path(__file__).resolve().parents[1] / 'config/local-pose.lock.json')
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
 
@@ -173,7 +178,7 @@ def prepare(request, folder, model):
         previous = json.loads(marker.read_text())
         if previous["fingerprint"] != signature or any(not (folder / name).is_file() or sha256(folder / name) != digest for name, digest in previous["outputs"].items()):
             raise ValueError("Saved image inputs changed or are incomplete. Reuse settings for a new job; this run will not silently change its conditioning.")
-        return {"hasFace": previous["hasFace"], "warnings": previous["warnings"]}
+        return {"hasFace": previous["hasFace"], "warnings": previous["warnings"], **({'headEdit': previous['headEdit']} if 'headEdit' in previous else {})}
     source, reference = read_image(request["source"]), read_image(request["reference"])
     g, s = request["geometry"], request["settings"]
     if (source.shape[1], source.shape[0]) != (g["outputWidth"], g["outputHeight"]):
@@ -190,11 +195,12 @@ def prepare(request, folder, model):
     qwen = s.get("model") == "qwen21"
     scene = qwen and request.get("version") in ("scene-anchor-v1", "scene-anchor-v2", "scene-anchor-v3", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7", "scene-anchor-v8")
     body_identity = request.get('version') in ('body-identity-v1', 'body-identity-v2')
-    body_only = request.get('version') in ('body-only-v1', 'body-only-v2')
+    body_only = request.get('version') in ('body-only-v1', 'body-only-v2', 'body-only-v3', 'body-only-v4', 'body-only-v5', 'body-only-v6')
+    staged_body_only = request.get('version') in ('body-only-v3', 'body-only-v4')
     native_mask = body_identity or body_only or request.get("version") in ("native-mask-v1", "native-scene-v1", "identity-first-v1", "identity-first-v2", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7", "scene-anchor-v8")
     head_refine = (scene or native_mask) and s.get("qwenHeadRefine", False)
     reference_input, cropped = reference_field_of_view(reference, source, model) if request.get("version") == "masked-latent-v4" and not qwen else (reference, False)
-    if request.get('version') == 'body-only-v2':
+    if request.get('version') in ('body-only-v2', 'body-only-v3', 'body-only-v4', 'body-only-v5', 'body-only-v6'):
         reference_input = reference_view(reference_input, s.get('bodyReferenceView'))
     atomic_png(folder / "identity.png", padded(reference_input, 1_500_000 if body_only else 590_000 if qwen else 1_000_000, 32 if qwen else 16))
     outputs = ["target.png", "original.png", "identity.png"]
@@ -202,11 +208,19 @@ def prepare(request, folder, model):
         if not request.get('face'):
             raise ValueError('Body-only replacement requires its facial identity reference or sheet.')
         facial_reference = read_image(request['face'])
-        if request.get('version') == 'body-only-v2':
+        if request.get('version') in ('body-only-v2', 'body-only-v3', 'body-only-v4', 'body-only-v5', 'body-only-v6'):
             facial_reference = reference_view(facial_reference, s.get('faceReferenceView'))
         atomic_png(folder / 'face.png', padded(facial_reference, 1_500_000, 32))
         outputs.append('face.png')
-    if request.get('version') == 'body-identity-v2':
+        if staged_body_only:
+            height, width = reference_input.shape[:2]
+            side = max(height, width)
+            square = np.full((side, side, 3), 255, np.uint8)
+            top, left = (side - height) // 2, (side - width) // 2
+            square[top:top + height, left:left + width] = reference_input
+            atomic_png(folder / 'body-reference-canvas.png', square)
+            outputs.append('body-reference-canvas.png')
+    if request.get('version') == 'body-identity-v2' or request.get('version') == 'body-only-v4' and s.get('bodyOnlyPose', False):
         root = Path(__file__).resolve().parents[1]
         pose_request = folder / 'pose-request.json'
         atomic_json(pose_request, request)
@@ -333,6 +347,36 @@ def prepare(request, folder, model):
                 body = working_mask.copy()
             atomic_png(folder / "body-mask.png", body)
             outputs.append("body-mask.png")
+    if staged_body_only:
+        faces = detect(source, model)
+        reference_faces = detect(read_image(folder / 'face.png'), model)
+        if len(faces) != 1 or len(reference_faces) != 1:
+            raise ValueError('The staged photo evaluation needs one visible source face and one clear selected reference face. No GPU render was submitted.')
+        x, y, fw, fh = faces[0]['bbox']
+        sx, sy = g['contentWidth'] / source.shape[1], g['contentHeight'] / source.shape[0]
+        face_mask = np.zeros((g['height'], g['width']), np.uint8)
+        center = (round((x + fw / 2) * sx + g['x']), round((y + fh / 2) * sy + g['y']))
+        axes = (max(1, round(fw * .60 * sx)), max(1, round(fh * .64 * sy)))
+        cv2.ellipse(face_mask, center, axes, 0, 0, 360, 255, -1)
+        face_mask = cv2.GaussianBlur(face_mask, (0, 0), max(2, min(axes) * .06))
+        if working_mask is not None:
+            face_mask = np.minimum(face_mask, working_mask)
+        if not np.any(face_mask > 64):
+            raise ValueError('Paint over the visible face before running the staged evaluation.')
+        atomic_png(folder / 'face-refine-mask.png', face_mask)
+        outputs.append('face-refine-mask.png')
+    head_edit = None
+    if request.get('version') in ('body-only-v5', 'body-only-v6'):
+        base = read_image(request['bodyBase']) if request.get('bodyBase') else source
+        if base.shape != source.shape:
+            raise ValueError('The saved body and source dimensions differ. No photo was submitted.')
+        head_edit, head_mask, head_reference = head_detail_inputs(source if request.get('version') == 'body-only-v6' else base, read_image(folder / 'face.png'), read_image(folder / 'edit-mask.png', gray=True), model)
+        atomic_png(folder / 'head-detail-mask.png', head_mask)
+        atomic_png(folder / 'head-detail-reference.png', head_reference)
+        outputs += ['head-detail-mask.png', 'head-detail-reference.png']
+        if request.get('bodyBase'):
+            atomic_png(folder / 'body-base.png', base)
+            outputs.append('body-base.png')
     if scene:
         if working_mask is None:
             raise ValueError("Source-anchored replacement requires a painted edit area.")
@@ -344,8 +388,41 @@ def prepare(request, folder, model):
             raise ValueError('The identity placement guide requires local identity anchoring.')
         atomic_png(folder / "source-structure.png", source_structure(source, g, model, guide_mask, identity_guide))
         outputs.append("source-structure.png")
-    atomic_json(marker, {"fingerprint": signature, "hasFace": has_face, "warnings": warnings, "outputs": {name: sha256(folder / name) for name in outputs}})
-    return {"hasFace": has_face, "warnings": warnings}
+    details = {'headEdit': head_edit} if head_edit else {}
+    atomic_json(marker, {"fingerprint": signature, "hasFace": has_face, "warnings": warnings, "outputs": {name: sha256(folder / name) for name in outputs}, **details})
+    return {"hasFace": has_face, "warnings": warnings, **details}
+
+
+def head_detail_inputs(base, reference, permission, model):
+    """Edit the complete facial outline, keeping original pixel coordinates and protected holes."""
+    cv2, np = dependencies()
+    faces, refs = detect(base, model), detect(reference, model)
+    if len(faces) != 1 or len(refs) != 1:
+        raise ValueError('Head detail needs one visible face in the target and one selected reference face. Select a single sheet view before generating.')
+    x, y, fw, fh = faces[0]['bbox']
+    height, width = base.shape[:2]
+    size = min(width, height, max(64, math.ceil(max(fw * 3, fh * 2.6))))
+    left = max(0, min(width - size, round(x + fw / 2 - size / 2)))
+    top = max(0, min(height - size, round(y + fh * .3 - size / 2)))
+    mask = np.zeros((height, width), np.uint8)
+    cv2.ellipse(mask, (round(x + fw / 2), round(y + fh * .35)),
+                (max(1, round(fw)), max(1, round(fh))), 0, 0, 360, 255, -1)
+    # Feather the outer head boundary, rather than averaging across the cheeks/jaw.
+    mask = cv2.GaussianBlur(mask, (0, 0), max(1, fh * .015))
+    # Keep the existing neck/accessories: a head adapter must not add the
+    # reference's necklace below the jaw while preserving the transferred body.
+    rows = np.arange(height, dtype=np.float32)[:, None]
+    neck_gate = np.clip((y + fh * 1.16 - rows) / max(1, fh * .09), 0, 1)
+    mask = np.rint(mask.astype(np.float32) * neck_gate).astype(np.uint8)
+    crop_permission = np.zeros_like(mask); crop_permission[top:top + size, left:left + size] = 255
+    mask = np.minimum(np.minimum(mask, permission), crop_permission)
+    if not np.any(mask > 128):
+        raise ValueError('Paint over the head before using head detail. Protected areas will not be overridden.')
+    rx, ry, rw, rh = refs[0]['bbox']
+    rhh, rww = reference.shape[:2]
+    ref = reference[max(0, round(ry - rh * .15)):min(rhh, math.ceil(ry + rh * 1.04)),
+                    max(0, round(rx - rw * .3)):min(rww, math.ceil(rx + rw * 1.3))]
+    return {'x': left, 'y': top, 'size': size, 'resolution': 1024}, mask, padded(ref, 590_000, 32)
 
 
 def run_local_identity(reference, target, output, mask=None):
@@ -425,11 +502,22 @@ def finish(request, folder, model):
         # decoded source pixels without applying the feather a second time.
         output[outside] = source[outside]
         outside_difference = int(np.max(np.abs(output[outside].astype(np.int16) - source[outside].astype(np.int16)))) if np.any(outside) else 0
+    outside_head = None
+    if request.get('version') in ('body-only-v5', 'body-only-v6'):
+        body_file = folder / ('body-base.png' if request.get('bodyBase') else 'body-stage.png')
+        if not body_file.is_file():
+            raise ValueError('The saved body stage is required to validate head-only pixel preservation. The paid output is retained.')
+        base = read_image(body_file)
+        head_mask = read_image(folder / 'head-detail-mask.png', gray=True)
+        protected_body = head_mask == 0
+        outside_head = int(np.max(np.abs(output[protected_body].astype(np.int16) - base[protected_body].astype(np.int16)))) if np.any(protected_body) else 0
+        if outside_head:
+            raise ValueError('The head edit changed protected body pixels. The paid result and body stage are retained for local recovery; no new inference is needed.')
     atomic_png(folder / "final.png", output)
     faces = {}
     settings = request["settings"]
     face_used = (settings.get("model") != "qwen21" and (settings["faceDetail"] or settings.get("identityRefine", False))) or (request.get("version") in ("scene-anchor-v1", "scene-anchor-v2", "scene-anchor-v3", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7", "scene-anchor-v8", "native-mask-v1", "native-scene-v1", "identity-first-v1", "identity-first-v2", "body-identity-v1", "body-identity-v2") and settings.get("qwenHeadRefine", False))
-    reference_file = (str(folder / 'face.png') if request.get('version') == 'body-only-v2' else request.get("face") if face_used or request.get('version') == 'body-only-v1' else None) or request["reference"]
+    reference_file = (str(folder / 'face.png') if request.get('version') in ('body-only-v2', 'body-only-v3', 'body-only-v4', 'body-only-v5', 'body-only-v6') else request.get("face") if face_used or request.get('version') == 'body-only-v1' else None) or request["reference"]
     if request.get("version") in ("native-mask-v1", "native-scene-v1", "identity-first-v1", "identity-first-v2", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7", "scene-anchor-v8", "body-identity-v1", "body-identity-v2") and face_used:
         reference_file = str(folder / "face.png")
     for name, image in [("source", source), ("reference", read_image(reference_file)), ("output", output)]:
@@ -449,6 +537,8 @@ def finish(request, folder, model):
         warnings.append("A face close-up could not be prepared for both images. Review facial identity in the full image.")
     review = {"status": "warning" if warnings else "review", "warnings": warnings, "backgroundProtected": protected, "outsideMaskMaxDifference": outside_difference,
               "sourceFace": bool(faces["source"]), "referenceFace": bool(faces["reference"]), "outputFace": bool(faces["output"])}
+    if outside_head is not None:
+        review['outsideHeadMaxDifference'] = outside_head
     atomic_json(folder / "image-review.json", review)
     return review
 

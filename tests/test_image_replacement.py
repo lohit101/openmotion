@@ -14,6 +14,55 @@ import image_replacement as editor
 
 @unittest.skipUnless(importlib.util.find_spec("cv2"), "Run in .local/geometry-venv for CPU image checks")
 class ImageReplacementTests(unittest.TestCase):
+    def test_head_detail_includes_old_jaw_outline_and_respects_protected_holes(self):
+        import numpy as np
+        image = np.zeros((640, 360, 3), np.uint8)
+        permission = np.full((640, 360), 255, np.uint8)
+        permission[180:200, 170:190] = 0
+        face = {'bbox': [120, 140, 100, 120]}
+        with patch.object(editor, 'detect', return_value=[face]):
+            crop, mask, ref = editor.head_detail_inputs(image, image, permission, None)
+        self.assertEqual(crop['resolution'], 1024)
+        self.assertLessEqual(crop['x'] + crop['size'], 360)
+        self.assertLessEqual(crop['y'] + crop['size'], 640)
+        self.assertGreater(mask[250, 120], 240)  # Old cheek/jaw edges may be replaced.
+        self.assertFalse(np.any(mask[180:200, 170:190]))
+        self.assertFalse(np.any(mask[400:]))  # Physique and source garments stay outside this edit.
+        self.assertGreater(ref.size, 0)
+
+    def test_head_only_reuse_is_hash_bound_and_preparation_is_recoverable(self):
+        import cv2
+        import numpy as np
+        with tempfile.TemporaryDirectory() as temp, patch.object(editor, 'detect', return_value=[{'bbox': [30, 30, 25, 30]}]):
+            source, _, request, work = self.fixture(Path(temp))
+            request.update(version='body-only-v5', face=request['reference'], bodyBase=request['source'], bodyBaseSHA256=editor.sha256(request['source']))
+            request['settings'].update(model='qwen21', faceDetail=False)
+            first = editor.prepare(request, work, None)
+            self.assertIn('headEdit', first)
+            self.assertEqual(editor.prepare(request, work, None), first)
+            np.testing.assert_array_equal(cv2.imread(str(work / 'body-base.png')), source)
+            request['bodyBaseSHA256'] = 'a' * 64
+            with self.assertRaisesRegex(ValueError, 'saved body image changed'):
+                editor.prepare(request, work, None)
+
+    def test_staged_body_reference_uses_original_anatomy_on_square_without_stretching(self):
+        import cv2
+        import numpy as np
+        with tempfile.TemporaryDirectory() as temp:
+            source, _, request, work = self.fixture(Path(temp))
+            request['version'] = 'body-only-v3'; request['face'] = request['reference']
+            request['settings'].update(model='qwen21', faceDetail=False, qwenHeadRefine=False)
+            face = {'bbox': [30, 20, 20, 25]}
+            with patch.object(editor, 'detect', return_value=[face]): editor.prepare(request, work, None)
+            square = cv2.imread(str(work / 'body-reference-canvas.png')); reference = cv2.imread(request['reference'])
+            self.assertEqual(square.shape, (117, 117, 3))
+            np.testing.assert_array_equal(square[:, 12:105], reference)
+            self.assertTrue(np.all(square[:, :12] == 255))
+            mask = cv2.imread(str(work / 'face-refine-mask.png'), 0)
+            working = cv2.imread(str(work / 'working-mask.png'), 0)
+            self.assertTrue(np.any(mask > 64)); self.assertTrue(np.all(mask <= working))
+            np.testing.assert_array_equal(cv2.imread(str(work / 'original.png')), source)
+
     def test_body_only_selected_views_keep_originals_and_freeze_crop_pixels(self):
         import cv2
         import numpy as np

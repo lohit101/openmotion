@@ -31,7 +31,9 @@ export const QWEN_OUTFIT = 'qwen-image-2.1-outfit-swap.safetensors';
 export const QWEN_CONSISTENCY = 'qwen-image-2.1-consistency.safetensors';
 export const imageFilesForSettings = (settings: ImageSettings): string[] => settings.model === 'qwen21'
   ? settings.qwenRecipe === 'body-only'
-    ? qwenImageModelFiles.filter(file => !file.startsWith('loras/') || settings.qwenQuality === 'fast' && file.includes('turbo_lora'))
+    ? settings.bodyOnlyStrategy === 'staged'
+      ? [...qwenImageModelFiles.filter(file => !file.startsWith('loras/')), 'loras/' + QWEN_BODY, 'loras/' + QWEN_OUTFIT, 'loras/' + QWEN_HEAD, ...(settings.bodyOnlyPose ? [QWEN_STRUCTURE] : [])]
+      : [...qwenImageModelFiles.filter(file => !file.startsWith('loras/') || !settings.bodyOnlyReuseId && settings.qwenQuality === 'fast' && file.includes('turbo_lora')), ...(settings.bodyOnlyStrategy === 'detail' ? ['loras/' + QWEN_HEAD] : [])]
     : settings.qwenRecipe === 'body-identity'
     ? [...qwenImageModelFiles.filter(file => !file.startsWith('loras/')), 'loras/' + QWEN_BODY, 'loras/' + QWEN_HEAD, ...(settings.qwenBodyPose ? [QWEN_STRUCTURE] : []), ...(settings.qwenRelight ? ['loras/' + QWEN_CONSISTENCY] : [])]
     : settings.qwenRecipe === 'identity-first'

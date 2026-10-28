@@ -7,6 +7,8 @@ import { IMAGE_IDENTITY, QWEN_BODY, QWEN_HEAD, QWEN_STRUCTURE, QWEN_OUTFIT, QWEN
 import { compileWorkflow, validateGraph } from '../server/workflow';
 import { applyProgress } from '../server/comfy';
 import { publicJob } from '../server/store';
+import { bodyOnlyStagedPrompts } from '../server/qwen-body-only-staged-workflow';
+import { bodyOnlyHeadPrompt } from '../server/qwen-head-detail-workflow';
 
 const repo = path.resolve(import.meta.dirname, '../..');
 const load = (file: string) => JSON.parse(readFileSync(path.join(repo, file), 'utf8'));
@@ -25,6 +27,66 @@ function fixture(): Job {
     uploads: { source: 'target.png', reference: 'identity.png', face: 'face.png', original: 'original.png', mask: 'mask.png', noiseMask: 'mask.png' }, segments: [], context: '', pendingPrompt: null, error: null, output: null, poster: null, cancelRequested: false, elapsedSeconds: null, origin: 'render', workflow: null };
 }
 describe('source-preserving Klein image replacement', () => {
+  it('runs an enlarged independent head correction without regenerating a reused paid body', () => {
+    const job = fixture(); job.image!.version = 'body-only-v5';
+    job.image!.settings = { ...imageDefaults, model: 'qwen21', qwenRecipe: 'body-only', bodyOnlyStrategy: 'detail' };
+    job.image!.conditioningPrompt = bodyOnlyConditioningPrompt(''); job.image!.headPrompt = bodyOnlyHeadPrompt;
+    job.image!.prepared = { hasFace: true, warnings: [], headEdit: { x: 120, y: 180, size: 256, resolution: 1024 } };
+    Object.assign(job.uploads!, { headReference: 'face.png', faceMask: 'mask.png' });
+    const graph = compileWorkflow({}, job);
+    expect(validateGraph(graph, catalog)).toEqual([]);
+    expect(graph['202'].inputs).toMatchObject({ width: 1024, height: 1024 });
+    expect(graph['208'].inputs).toMatchObject({ 'images.image_1': ['202', 0], 'images.image_2': ['204', 0] });
+    expect(graph['208'].inputs['images.image_3']).toBeUndefined();
+    expect(graph['206'].inputs.model).toEqual(['102', 0]);
+    expect(graph['221'].inputs).toMatchObject({ destination: ['131', 0], x: 120, y: 180, resize_source: false });
+    expect(imageFilesForSettings(job.image!.settings)).toContain('loras/' + QWEN_HEAD);
+    expect(graph['118'].inputs.steps).toBe(8);
+    job.image!.reusedBody = { jobId: 'paid-body', sha256: 'a'.repeat(64) }; job.image!.settings.bodyOnlyReuseId = 'paid-body'; job.uploads!.bodyBase = 'original.png';
+    const reuse = compileWorkflow({}, job);
+    expect(validateGraph(reuse, catalog)).toEqual([]);
+    expect(reuse['118']).toBeUndefined(); expect(reuse['105']).toBeUndefined();
+    expect(Object.values(reuse).filter(node => node.class_type === 'KSampler')).toHaveLength(1);
+    expect(reuse['221'].inputs.destination).toEqual(['501', 0]);
+    expect(imageFilesForSettings(job.image!.settings)).toHaveLength(4);
+    expect(imageFilesForSettings(job.image!.settings).some(file => /turbo|body_swap|outfit|controlnet/.test(file))).toBe(false);
+    job.image!.version = 'body-only-v6';
+    const sourceGuided = compileWorkflow({}, job);
+    expect(validateGraph(sourceGuided, catalog)).toEqual([]);
+    expect(sourceGuided['201'].inputs.image).toEqual(['601', 0]);
+    expect(sourceGuided['601'].inputs.image).toBe('original.png');
+    expect(sourceGuided['221'].inputs.destination).toEqual(['501', 0]);
+    delete job.image!.prepared; expect(() => compileWorkflow({}, job)).toThrow('frozen head detail inputs');
+  });
+  it('separates body, source clothing and face authority in the staged evaluation', () => {
+    const job = fixture(); job.image!.version = 'body-only-v3'; job.image!.faceId = 'face';
+    job.image!.settings = { ...imageDefaults, model: 'qwen21', qwenRecipe: 'body-only', bodyOnlyStrategy: 'staged', qwenQuality: 'quality' };
+    job.image!.stagedPrompts = bodyOnlyStagedPrompts(''); job.uploads!.bodyReference = 'identity.png'; job.uploads!.faceMask = 'mask.png';
+    const graph = compileWorkflow({}, job);
+    expect(validateGraph(graph, catalog)).toEqual([]);
+    expect(graph['106'].inputs).toMatchObject({ model: ['102', 0], lora_name: QWEN_BODY });
+    expect(graph['306'].inputs).toMatchObject({ model: ['102', 0], lora_name: QWEN_OUTFIT });
+    expect(graph['206'].inputs).toMatchObject({ model: ['102', 0], lora_name: QWEN_HEAD });
+    expect(graph['108'].inputs).toMatchObject({ 'images.image_1': ['1', 0], 'images.image_2': ['506', 0] });
+    expect(graph['308'].inputs).toMatchObject({ 'images.image_1': ['153', 0], 'images.image_2': ['1', 0] });
+    expect(graph['208'].inputs).toMatchObject({ 'images.image_1': ['320', 0], 'images.image_2': ['5', 0] });
+    for (const id of ['108', '308', '208']) expect(graph[id].inputs['images.image_3']).toBeUndefined();
+    expect(graph['221'].inputs).toMatchObject({ destination: ['320', 0], source: ['220', 0], mask: ['211', 0] });
+    expect(String(graph['308'].inputs.prompt)).toContain('garments and accessories');
+    expect(String(graph['308'].inputs.prompt)).toContain('Never copy the physique');
+    expect([graph['118'].inputs.steps, graph['318'].inputs.steps, graph['218'].inputs.steps]).toEqual([20, 25, 20]);
+    expect(imageFilesForSettings(job.image!.settings)).toHaveLength(6);
+    expect(imageFilesForSettings(job.image!.settings).some(file => /turbo|controlnet/.test(file))).toBe(false);
+    job.image!.version = 'body-only-v4'; job.image!.settings.bodyOnlyPose = true; job.uploads!.structure = 'target.png';
+    const guided = compileWorkflow({}, job);
+    expect(validateGraph(guided, catalog)).toEqual([]);
+    expect(guided['146'].inputs).toMatchObject({ model: ['106', 0], image: ['141', 0], strength: .65, end_percent: .8 });
+    expect(guided['146'].inputs.inpaint_image).toBeUndefined();
+    expect(guided['218'].inputs).toMatchObject({ sampler_name: 'euler', scheduler: 'simple', cfg: 1 });
+    expect(imageFilesForSettings(job.image!.settings)).toContain(QWEN_STRUCTURE);
+    delete job.uploads!.structure; expect(() => compileWorkflow({}, job)).toThrow('source-joint guide');
+    delete job.image!.stagedPrompts; expect(() => compileWorkflow({}, job)).toThrow('frozen stage prompts');
+  });
   it('binds reference views to their original input and rejects invalid crop geometry', () => {
     const asset = { id: 'sheet', width: 1881, height: 836 }, view = { assetId: 'sheet', x: 285, y: 0, width: 275, height: 395 };
     expect(referenceViewIssue(view, asset)).toBeNull();

@@ -233,6 +233,11 @@ describe('local app with the captured ComfyUI protocol', () => {
     const result = await agent.post('/api/images/jobs').set('Idempotency-Key', 'body-only-wrong-view').send({ ...values, faceId: values.referenceId, settings: { ...values.settings, model: 'qwen21', qwenRecipe: 'body-only', protectBackground: true, bodyReferenceView: { assetId: values.sourceId, x: 0, y: 0, width: 64, height: 64 } } }).expect(400);
     expect(result.body.error).toContain('another reference'); expect(mock!.submissions).toHaveLength(0); expect(mock!.calls).toHaveLength(0);
   });
+  it('rejects a missing paid body parent before GPU calls or model checks', async () => {
+    const agent = await setup(), values = await imageInputs(agent);
+    const result = await agent.post('/api/images/jobs').set('Idempotency-Key', 'body-only-invalid-parent').send({ ...values, faceId: values.referenceId, settings: { ...values.settings, model: 'qwen21', qwenRecipe: 'body-only', bodyOnlyStrategy: 'detail', bodyOnlyReuseId: randomUUID() } }).expect(400);
+    expect(result.body.error).toContain('completed body-only photo'); expect(mock!.submissions).toHaveLength(0); expect(mock!.calls).toHaveLength(0);
+  });
   it('saves one PNG image with its receipt, library entry and reproducible workflow', async () => {
     const agent = await setup(true), values = await imageInputs(agent); await connect(agent);
     const response = await agent.post('/api/images/jobs').set('Idempotency-Key', 'image-once').send(values).expect(201);

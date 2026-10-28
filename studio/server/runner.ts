@@ -131,6 +131,12 @@ export class Runner {
         if (['native-mask-v1', 'native-scene-v1', 'identity-first-v1', 'identity-first-v2', 'body-identity-v1', 'body-identity-v2'].includes(job.image!.version || '') && job.image!.settings.qwenHeadRefine) files.push(['faceMask', 'face-refine-mask.png']);
         if (['body-identity-v1', 'body-identity-v2'].includes(job.image!.version || '') && job.image!.settings.qwenNormalizeReference) files.push(['bodyReference', 'body-reference-canvas.png']);
         if (job.image!.version === 'body-identity-v2') files.push(['structure', 'source-pose.png'], ['bodyAppearance', 'body-appearance.png']);
+        if (['body-only-v3', 'body-only-v4'].includes(job.image!.version || '')) files.push(['bodyReference', 'body-reference-canvas.png'], ['faceMask', 'face-refine-mask.png']);
+        if (job.image!.version === 'body-only-v4' && job.image!.settings.bodyOnlyPose) files.push(['structure', 'source-pose.png']);
+        if (['body-only-v5', 'body-only-v6'].includes(job.image!.version || '')) {
+          files.push(['faceMask', 'head-detail-mask.png'], ['headReference', 'head-detail-reference.png']);
+          if (job.image!.reusedBody) files.push(['bodyBase', 'body-base.png']);
+        }
         const uploads: Record<string, string> = {};
         for (const [key, name] of files) { this.stage(job, 'Transferring image inputs to GPU', Object.keys(uploads).length, files.length, 'inputs'); uploads[key] = await client.upload(path.join(folder, name), job.id + '-' + key, signal); this.checkCancelled(job); }
         if (job.image!.version && job.image!.settings.protectBackground && nativeMask) uploads.noiseMask = uploads.mask;
@@ -211,7 +217,7 @@ export class Runner {
             await writeFile(path.join(folder, 'keyframe-download-warning.json'), JSON.stringify({ warning: 'The reference preview could not be downloaded. The existing video run was not resubmitted.' }));
           }
         }
-        if (isImageJob(job)) for (const [node, name] of [['154', 'body-stage'], ['155', 'body-raw'], ['222', 'head-raw'], ['224', 'head-stage'], ['322', 'lighting-raw'], ['324', 'composition-raw'], ['505', 'reference-normalized']]) {
+        if (isImageJob(job)) for (const [node, name] of [['154', 'body-stage'], ['155', 'body-raw'], ['222', 'head-raw'], ['224', 'head-stage'], ['322', 'lighting-raw'], ['324', 'composition-raw'], ['325', 'outfit-raw'], ['505', 'reference-normalized']]) {
           const preview = history.outputs?.[node]?.images?.[0]; if (!preview) continue;
           try { const file = path.join(folder, `${name}.png`); if (!await exists(file)) await client.download(preview, file, signal); }
           catch (error) { if (signal.aborted) throw error; await writeFile(path.join(folder, `${name}-preview-warning.json`), JSON.stringify({ warning: 'The intermediate image preview could not be downloaded. No image was resubmitted.' })); }

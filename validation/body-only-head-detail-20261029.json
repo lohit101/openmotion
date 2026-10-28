@@ -1,0 +1,91 @@
+{
+  "date": "2026-10-29",
+  "scope": "photo only; no video inference",
+  "hardware": "RTX A6000 48 GB",
+  "computeHourlyUSD": 0.4,
+  "ingressPerGBUSD": 0.0026041666666666665,
+  "runs": [
+    {
+      "id": "7db3f434-51bf-4670-a3a7-c6ae42c6f910",
+      "version": "body-only-v3",
+      "status": "completed",
+      "endToEndSeconds": 84.845,
+      "nativeExecutionSeconds": 58.1,
+      "graphSHA256": "ba515de6603fbfd67584c033ac9ba9929372017d92a7723f9bca1f8ec5cfc156",
+      "outputSHA256": "88e3e3fb2ed846d33dbfda81b324249b30ba23e493e9274fe339d5873fd676cd",
+      "reusedBodyJobId": null,
+      "outsideHeadMaxDifference": null
+    },
+    {
+      "id": "b029e2ce-c597-4d1d-9ee4-30f74f9208b4",
+      "version": "body-only-v4",
+      "status": "completed",
+      "endToEndSeconds": 124.531,
+      "nativeExecutionSeconds": 87.86,
+      "graphSHA256": "d31c6772700463a640bdfd43685dae539f17848921392ae03609e71b37f71f33",
+      "outputSHA256": "3c4b5210b8bf953193e1dc13104264420dc35763c79c8eaddaca6f7f7c682d01",
+      "reusedBodyJobId": null,
+      "outsideHeadMaxDifference": null
+    },
+    {
+      "id": "ab9db44c-e23c-4650-97a9-7fafe89dfba1",
+      "version": "body-only-v5",
+      "status": "completed",
+      "endToEndSeconds": 44.009,
+      "nativeExecutionSeconds": 17.7,
+      "graphSHA256": "16cbe5cc63781e8f68958e62a5a1f995119d64c2614688d190e296a04703cff1",
+      "outputSHA256": "a4ed7011052c042e98479012def95f80d5a2f854624540b392a877ba9de0b9de",
+      "reusedBodyJobId": "e7eba1ad-843f-40c8-8292-709ce8250f81",
+      "outsideHeadMaxDifference": 0
+    },
+    {
+      "id": "5d7c2a4a-b412-4635-8733-ff700ca65405",
+      "version": "body-only-v5",
+      "status": "completed",
+      "endToEndSeconds": 40.38,
+      "nativeExecutionSeconds": 17.288,
+      "graphSHA256": "0e0d1ba4721cb1629962db864aca6e8aa27ed517178dac05304ea46ac9f42eac",
+      "outputSHA256": "2674daf652722a8b365e16047a3600881f2c4015b97e16bdbc2ba6a1b2cb72cf",
+      "reusedBodyJobId": "e7eba1ad-843f-40c8-8292-709ce8250f81",
+      "outsideHeadMaxDifference": 0
+    },
+    {
+      "id": "a84ea227-4538-4432-ae9d-ed45ca550c10",
+      "version": "body-only-v5",
+      "status": "completed",
+      "endToEndSeconds": 56.871,
+      "nativeExecutionSeconds": 27.849,
+      "graphSHA256": "1a30e2526a893b93f2682fb68dd90143bf09af7ad67a0307a657b0502139e81e",
+      "outputSHA256": "f2df9e2d564105c68e97e7cde824621a7a786aea6f16545c80759600f9001df6",
+      "reusedBodyJobId": null,
+      "outsideHeadMaxDifference": 0
+    },
+    {
+      "id": "2a1352a0-4835-45c7-980d-3655260a3b74",
+      "version": "body-only-v6",
+      "status": "completed",
+      "endToEndSeconds": 35.13,
+      "nativeExecutionSeconds": 17.862,
+      "graphSHA256": "716d48a6d70929b810fb9f5d35c0009427e92aec55087c7062edd35777ff85ce",
+      "outputSHA256": "4a8d9f33ae12bec711c01da9707dd593fbd48ad639e527252df5f37b077c4e16",
+      "reusedBodyJobId": "e7eba1ad-843f-40c8-8292-709ce8250f81",
+      "outsideHeadMaxDifference": 0
+    },
+    {
+      "id": "545ff68d-173f-4acd-98bf-c805f57cea90",
+      "version": "body-only-v2",
+      "status": "completed",
+      "endToEndSeconds": 24.393,
+      "nativeExecutionSeconds": 9.837,
+      "graphSHA256": "fdc49ff7f6b3e2c2cdb919ee62ee5df1f275c53d96f2cd17ae9ce3a290e78a8b",
+      "outputSHA256": "0a926f56c1d1e6b331815e7d0f0f46f35ec4ca453898854446a838b3fb9c6d5c",
+      "reusedBodyJobId": null,
+      "outsideHeadMaxDifference": null
+    }
+  ],
+  "acceptedBaseline": "545ff68d-173f-4acd-98bf-c805f57cea90",
+  "computeStoppedConfirmed": true,
+  "identityScore": null,
+  "perfectIdentityValidated": false,
+  "historicalGraphsUnchanged": 15
+}

@@ -45,6 +45,9 @@ export const imageSettingsSchema = z.object({
   model: z.enum(['klein4b', 'qwen21']).default('klein4b'),
   qwenRecipe: z.enum(['whole-person', 'source-anchored', 'native-masked', 'native-scene', 'identity-first', 'body-identity', 'body-only']).default('whole-person'),
   qwenQuality: z.enum(['fast', 'quality']).default('fast'),
+  bodyOnlyStrategy: z.enum(['native', 'staged', 'detail']).default('native'),
+  bodyOnlyReuseId: z.string().uuid().nullable().default(null),
+  bodyOnlyPose: z.boolean().default(false),
   bodyReferenceView: imageReferenceViewSchema.nullable().default(null),
   faceReferenceView: imageReferenceViewSchema.nullable().default(null),
   qwenHeadRefine: z.boolean().default(false),
@@ -80,7 +83,7 @@ export const imageDraftSchema = z.object({
 export type ImageDraft = z.infer<typeof imageDraftSchema>;
 export const emptyImageDraft = (): ImageDraft => imageDraftSchema.parse({});
 export interface ImageGeometry { width: number; height: number; contentWidth: number; contentHeight: number; x: number; y: number; outputWidth: number; outputHeight: number; }
-export interface ImageReview { status: 'review' | 'warning'; warnings: string[]; backgroundProtected: boolean; outsideMaskMaxDifference: number | null; sourceFace: boolean; referenceFace: boolean; outputFace: boolean; }
+export interface ImageReview { status: 'review' | 'warning'; warnings: string[]; backgroundProtected: boolean; outsideMaskMaxDifference: number | null; sourceFace: boolean; referenceFace: boolean; outputFace: boolean; outsideHeadMaxDifference?: number; }
 export const localFramingSchema = z.object({
   version: z.literal('foreground-scale-v1'), parentJobId: z.string().optional(),
   scale: z.number().finite().min(1).max(1.5), matrix: z.array(z.array(z.number().finite()).length(3)).length(2),
@@ -91,10 +94,13 @@ export const localFramingSchema = z.object({
   geometry: z.object({ headSizeRatio: z.number().finite().positive(), faceCenterOffsetPixels: z.array(z.number().finite()).length(2) }).nullable(),
 });
 export interface ImageRun {
-  version?: 'masked-latent-v2' | 'masked-latent-v3' | 'masked-latent-v4' | 'scene-anchor-v1' | 'scene-anchor-v2' | 'scene-anchor-v3' | 'scene-anchor-v4' | 'scene-anchor-v5' | 'scene-anchor-v6' | 'scene-anchor-v7' | 'scene-anchor-v8' | 'native-mask-v1' | 'native-scene-v1' | 'identity-first-v1' | 'identity-first-v2' | 'body-identity-v1' | 'body-identity-v2' | 'body-only-v1' | 'body-only-v2';
+  version?: 'masked-latent-v2' | 'masked-latent-v3' | 'masked-latent-v4' | 'scene-anchor-v1' | 'scene-anchor-v2' | 'scene-anchor-v3' | 'scene-anchor-v4' | 'scene-anchor-v5' | 'scene-anchor-v6' | 'scene-anchor-v7' | 'scene-anchor-v8' | 'native-mask-v1' | 'native-scene-v1' | 'identity-first-v1' | 'identity-first-v2' | 'body-identity-v1' | 'body-identity-v2' | 'body-only-v1' | 'body-only-v2' | 'body-only-v3' | 'body-only-v4' | 'body-only-v5' | 'body-only-v6';
   conditioningPrompt?: string;
+  stagedPrompts?: { body: string; outfit: string; face: string };
+  headPrompt?: string;
+  reusedBody?: { jobId: string; sha256: string };
   settings: ImageSettings; faceId: string | null; maskId: string | null; geometry: ImageGeometry;
-  prepared?: { hasFace: boolean; warnings: string[] }; review?: ImageReview; resultAssetId?: string;
+  prepared?: { hasFace: boolean; warnings: string[]; headEdit?: { x: number; y: number; size: number; resolution: number } }; review?: ImageReview; resultAssetId?: string;
   localFraming?: z.infer<typeof localFramingSchema> & { parentJobId: string };
 }
 export const isImageJob = (job: Pick<Job, 'mediaType'>): boolean => job.mediaType === 'image';

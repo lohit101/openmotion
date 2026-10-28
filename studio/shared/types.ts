@@ -51,7 +51,7 @@ export interface Job {
   id: string; title: string; status: JobStatus; settings: Settings; sourceId: string; referenceId: string;
   createdAt: string; startedAt?: string; finishedAt?: string; favorite: boolean; deleted: boolean;
   width: number; height: number; outputSize?: { width: number; height: number }; progress: Progress; segments: Segment[]; context: string;
-  pendingPrompt: string | null; uploads: { source: string; reference: string; preparedFrame?: string; face?: string; original?: string; mask?: string; noiseMask?: string; faceMask?: string; structure?: string; bodyMask?: string; bodyReference?: string; bodyAppearance?: string } | null;
+  pendingPrompt: string | null; uploads: { source: string; reference: string; preparedFrame?: string; face?: string; original?: string; mask?: string; noiseMask?: string; faceMask?: string; structure?: string; bodyMask?: string; bodyReference?: string; bodyAppearance?: string; bodyBase?: string; headReference?: string } | null;
   error: string | null; output: string | null; poster: string | null; cancelRequested: boolean;
   cancellationConfirmed?: boolean; submitting?: boolean; retryRequired?: boolean;
   elapsedSeconds: number | null; origin: 'render' | 'import' | 'edit'; workflow: Record<string, GraphNode> | null;

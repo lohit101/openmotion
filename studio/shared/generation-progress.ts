@@ -48,7 +48,7 @@ function imagePasses(job: Job): { node: string; decoded: string[]; steps: number
   const lighting = { node: '318', decoded: ['319', '320', '322'], steps: 25 };
   const reference = { node: '502', decoded: ['503', '504', '505', '506'], steps: 30 };
   if (s.model !== 'qwen21') return [body(4), ...(s.identityRefine ? [head(4)] : [])];
-  if (s.qwenRecipe === 'body-only') return [body(s.qwenQuality === 'fast' ? 8 : 40)];
+  if (s.qwenRecipe === 'body-only') return ['body-only-v5', 'body-only-v6'].includes(job.image?.version || '') ? [...(job.image!.reusedBody ? [] : [body(s.qwenQuality === 'fast' ? 8 : 40)]), head(20)] : ['body-only-v3', 'body-only-v4'].includes(job.image?.version || '') ? [body(20), { node: '318', decoded: ['319', '320', '325'], steps: 25 }, head(20)] : [body(s.qwenQuality === 'fast' ? 8 : 40)];
   if (s.qwenRecipe === 'body-identity') return [...(s.qwenNormalizeReference ? [reference] : []), body(20), head(20), ...(s.qwenRelight ? [lighting] : [])];
   if (s.qwenRecipe === 'identity-first') return [head(20), body(25), ...(s.qwenRelight ? [lighting] : [])];
   if (s.qwenRecipe === 'source-anchored') {
