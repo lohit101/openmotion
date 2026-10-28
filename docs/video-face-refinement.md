@@ -1,10 +1,11 @@
 # One-profile video face refinement
 
-Open a completed character video in Library and choose **Refine face**. Recast
+Open a completed character video in Library and choose **Swap face**. Recast
 creates a separate video using that run's character image. The original video,
 paid segments, continuation anchors and Viggle settings remain unchanged.
 
-This is an optional face-only pass after generation, not another Viggle run.
+This is an optional direct face swap after generation. ONNX is the inference
+runtime, not a different refinement model. It does not run Viggle again.
 In Library, select **GPU · CUDA** to use your connected managed rental, or
 **This computer · CPU** to work offline. The original CPU route remains available.
 The same preference is available in **Settings → Processing → Run FaceFusion
@@ -24,7 +25,32 @@ multiple faces is rejected rather than silently choosing or blending identities.
 Multiple close-up views are deferred at the user's request. The model can still
 change expression details, struggle with extreme profiles or skip uncertain
 detections. Frame counts show processing coverage, not identity accuracy. This
-is not a zero-drift guarantee or a lip-sync repair.
+is not a zero-drift guarantee.
+
+## Expression options
+
+**Keep video expressions** is the default and retains the existing direct swap.
+It inherits the generated video's facial performance, including its errors.
+
+**Source eyes & mouth · beta** additionally swaps the same fixed donor onto the
+original prepared source, aligns both faces, and transfers only its visible eye
+and mouth regions. Source and output occlusion masks both restrict the transfer.
+The generated jaw, cheeks, hair, body and background remain outside this feature
+pass. It uses no new model weights. Feathered boundaries can retain source
+details; this is not a guarantee against all identity leakage.
+
+This option requires the exact prepared source with identical frame count,
+dimensions and timing. Historical recovery runs with explicit timing holds are
+rejected for this option. It never pads or infers an offset. Uncertain source
+tracking or incompatible poses use the direct swap; an untrackable generated
+face leaves the generated frame unchanged. Run details distinguish these counts
+from frames receiving source features. None is an identity or synchronization
+score. Faces hidden by hands and actual scene cuts remain unresolved cases.
+
+Existing GPU face installations may need **Update face tools** first. This is an
+explicit code sync using installed weights, separate from initial model setup.
+Method, source/profile hashes and device are frozen per job, including recovery.
+See the [measured 11.5-second comparison](validation/source-face-swap-20261028.md).
 
 ## GPU setup and use
 
@@ -37,7 +63,7 @@ Runtime packages require additional disk space and transfer beyond the 1.29 GB
 of weights. This version supports Linux x86_64 hosts with the existing CUDA 13
 engine. It has been measured on RTX A6000; other hosts still need validation.
 
-Then choose **Refine face**. Setup, new rentals and compute resume never happen
+Then choose **Swap face**. Setup, new rentals and compute resume never happen
 implicitly. Finish active ComfyUI renders/downloads first. Refinement temporarily
 unloads idle cached ComfyUI models to make VRAM available; your files are retained.
 CUDA availability and actual session providers are checked, with no silent

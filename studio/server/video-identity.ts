@@ -5,9 +5,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import { copyFile, mkdir, readFile, statfs } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
-import type { Job } from '../shared/types';
+import type { FaceSwapMethod, Job } from '../shared/types';
 import { outputDimensions } from '../shared/types';
-import { command, poster, videoFrameInfo } from './media';
+import { command, poster, probe, videoFrameInfo } from './media';
 import { publicJob, type Store } from './store';
 import type { GpuFaceBackend } from './gpu-video-identity';
 
@@ -15,15 +15,17 @@ const hash = (file: string) => createHash('sha256').update(readFileSync(file)).d
 const sha = z.string().regex(/^[0-9a-f]{64}$/);
 const receiptSchema = z.object({
   complete: z.literal(true), execution: z.enum(['local CPU','remote CUDA']), newPaidInference: z.boolean(), model: z.literal('hyperswap_1a_256'),
-  inputs: z.object({ version: z.literal('face-finish-v1'), profile: sha, baseProfile: sha, parentSHA256: sha, referenceSHA256: sha,
+  inputs: z.object({ version: z.enum(['face-finish-v1','face-source-v1']), profile: sha, baseProfile: sha, parentSHA256: sha, referenceSHA256: sha,
+    method:z.literal('source-performance').optional(),performanceSHA256:sha.optional(),performanceProfile:sha.optional(),
     width: z.number().int().positive(), height: z.number().int().positive(), frames: z.number().int().positive(), fps: z.string(), provider:z.literal('cuda').optional(),gpuProfile:sha.optional() }),
   framesVerified:z.boolean().optional(),gpu:z.string().optional(),sessionProviders:z.record(z.string(),z.array(z.string())).optional(),
   outputSHA256: sha, elapsedSeconds: z.number().finite().nonnegative(), refinedFrames: z.number().int().nonnegative(), skippedFrames: z.number().int().nonnegative(),
-  records: z.array(z.object({ frame: z.number().int().nonnegative(), action: z.enum(['refined','preserved']), sha256: sha, protectedPixelsExact: z.boolean().optional() })),
+  performanceFrames:z.number().int().nonnegative().optional(),fallbackFrames:z.number().int().nonnegative().optional(),
+  records: z.array(z.object({ frame: z.number().int().nonnegative(), action: z.enum(['refined','preserved']), sha256: sha, protectedPixelsExact: z.boolean().optional(),performance:z.enum(['source-features','identity-only']).optional() })),
 });
-export interface FaceToolsStatus { ready: boolean; missing: string[]; bytes: number; readyBytes: number; setup: string; license: string; }
+export interface FaceToolsStatus { ready: boolean; missing: string[]; bytes: number; readyBytes: number; setup: string; license: string; sourcePerformanceReady?: boolean; }
 type Progress = (frame: number, frames: number) => void;
-type Execute = (args: { reference: string; target: string; folder: string }, signal: AbortSignal, progress: Progress) => Promise<void>;
+type Execute = (args: { reference: string; target: string; folder: string; method?:FaceSwapMethod;performanceSource?:string }, signal: AbortSignal, progress: Progress) => Promise<void>;
 
 /** A separate refinement queue. Optional CUDA backend cannot rent or resume compute. */
 export class VideoIdentity {
@@ -52,30 +54,40 @@ export class VideoIdentity {
   private async inspectTools(): Promise<FaceToolsStatus> {
     return JSON.parse(await command('python3',[path.join(this.repo,'scripts/video_identity.py'),'status'],undefined,15000));
   }
-  async create(parentId: string, referenceId?: string, execution: 'local CPU'|'remote CUDA'='local CPU') {
+  async create(parentId: string, referenceId?: string, execution: 'local CPU'|'remote CUDA'='local CPU',method:FaceSwapMethod='direct') {
     const parent=this.store.job(parentId), reference=this.store.asset(referenceId || parent?.referenceId || '');
     if (!parent || parent.status!=='completed' || !parent.output || parent.deleted || parent.mediaType==='image' || parent.edit || parent.faceRefinement) throw new Error('Choose an original completed character video to refine. Its original stays unchanged.');
     if (!reference || reference.kind!=='image') throw new Error('Choose a saved character image with one clear face.');
     const gpu=execution==='remote CUDA';
-    const key=`face-finish-v1:${parent.id}:${reference.id}${gpu?':cuda':''}`, existing=this.store.byKey(key);
+    const sourcePerformance=method==='source-performance',version=sourcePerformance?'face-source-v1':'face-finish-v1';
+    const key=`${version}:${parent.id}:${reference.id}${gpu?':cuda':''}`, existing=this.store.byKey(key);
     if (existing) return existing;
     if(gpu && (!this.gpu || this.gpuBusy))throw new Error('Wait for the GPU face operation to finish.');
     if(gpu)this.gpu!.assertIdle();
     const tools=gpu?await this.gpu!.status():await this.status(); if (!tools.ready) throw new Error(gpu?'Click Prepare GPU refinement first. No model was downloaded and no GPU worker was submitted.':'Local face refinement needs a one-time setup on this computer: '+tools.setup+'. Nothing was downloaded or sent to a GPU.');
+    if(gpu && sourcePerformance && !tools.sourcePerformanceReady)throw new Error('Update GPU face tools before copying source expressions. No new weights are required.');
     const instanceId=gpu?this.gpu!.instance():undefined;
     if (!existsSync(parent.output)) throw new Error('The original saved video is unavailable.');
     const info=await videoFrameInfo(parent.output), frames=info.frames;
     if (!Number.isSafeInteger(frames) || frames<1 || frames>720) throw new Error('Face refinement currently supports saved clips up to 720 frames.');
     const [width,height]=outputDimensions(parent), space=await statfs(this.store.root);
+    let performanceSHA256:string|undefined,performanceProfile:string|undefined;
+    if(sourcePerformance){
+      const file=path.join(this.store.root,'jobs',parent.id,'prepared-source.mp4');
+      if(parent.videoRecovery || !existsSync(file))throw new Error('This run has no exact unmodified prepared source for performance transfer. Use direct face swap; historical timing is preserved.');
+      const p=await videoFrameInfo(file),meta=await probe(file);
+      if(p.frames!==frames || Math.abs(p.start)>.001 || Math.abs(p.duration-frames/parent.settings.fps)>.01 || meta.width!==width || meta.height!==height || Math.abs(meta.fps-parent.settings.fps)>.00001)throw new Error('Source performance timing or dimensions do not match this saved video. No padding or offset was introduced.');
+      performanceSHA256=hash(file);performanceProfile=hash(path.join(this.repo,'config/face-source-profile.json'));
+    }
     if (space.bavail*space.bsize < (gpu?1024**3:frames*width*height*3*1.2 + 1024**3)) throw new Error('Free local storage for face refinement. No GPU job was submitted.');
     // Recheck after async preflight so a double click cannot create two workers.
     const duplicate=this.store.byKey(key); if (duplicate) return duplicate;
     if(gpu){this.gpu!.assertIdle();if(this.gpuBusy)throw new Error('Another GPU face operation started. Try after it finishes.');}
     const id=randomUUID(), now=new Date().toISOString();
-    const job: Job={...structuredClone(parent),id,title:(parent.title.slice(0,90)+' / face refinement'),status:'queued',createdAt:now,startedAt:undefined,finishedAt:undefined,
+    const job: Job={...structuredClone(parent),id,title:(parent.title.slice(0,90)+(sourcePerformance?' / source face swap':' / face refinement')),status:'queued',createdAt:now,startedAt:undefined,finishedAt:undefined,
       origin:'import',favorite:false,deleted:false,workflow:null,hasWorkflow:false,segments:[],timings:[],context:'',uploads:null,pendingPrompt:null,output:null,poster:null,keyframe:undefined,
       error:null,cancelRequested:false,cancellationConfirmed:undefined,submitting:false,retryRequired:false,elapsedSeconds:null,framingCheck:undefined,videoRecovery:undefined,continuationSource:undefined,
-      faceRefinement:{version:'face-finish-v1',parentJobId:parent.id,referenceAssetId:reference.id,execution,...(instanceId?{instanceId}:{})},referenceId:reference.id,
+      faceRefinement:{version,parentJobId:parent.id,referenceAssetId:reference.id,execution,...(sourcePerformance?{method,performanceSHA256,performanceProfile}:{}),...(instanceId?{instanceId}:{})},referenceId:reference.id,
       progress:{stage:'Queued for local face refinement',node:null,value:0,max:frames,unit:'frames',segment:1,segments:1,completedFrames:0,targetFrames:frames,updatedAt:Date.now()}};
     this.store.addJob(job,key);void this.kick();return this.store.job(id)!;
   }
@@ -113,8 +125,10 @@ export class VideoIdentity {
       job.status='running';job.startedAt ||=new Date().toISOString();job.progress.stage=job.faceRefinement!.execution==='remote CUDA'?'Transferring inputs and preparing GPU facial refinement':'Preparing local facial refinement';this.store.saveJob(job);
       const folder=path.join(this.store.root,'jobs',job.id), work=path.join(folder,'face-refinement');await mkdir(folder,{recursive:true});
       const gpu=job.faceRefinement!.execution==='remote CUDA';
+      const performanceSource=job.faceRefinement!.method==='source-performance'?path.join(this.store.root,'jobs',parent.id,'prepared-source.mp4'):undefined;
+      if(performanceSource && (hash(performanceSource)!==job.faceRefinement!.performanceSHA256 || hash(path.join(this.repo,'config/face-source-profile.json'))!==job.faceRefinement!.performanceProfile))throw new Error('Saved source-performance input or settings changed. Existing accepted pixels were preserved.');
       const execute=gpu?(args:Parameters<Execute>[0],signal:AbortSignal,progress:Progress)=>this.gpu!.run({...args,jobId:job.id,instanceId:job.faceRefinement!.instanceId!},signal,progress):this.execute;
-      await execute({reference:reference.path,target:parent.output,folder:work},signal,(frame,frames)=>{
+      await execute({reference:reference.path,target:parent.output,folder:work,...(performanceSource?{method:'source-performance' as const,performanceSource}:{})},signal,(frame,frames)=>{
         if (!Number.isInteger(frame) || !Number.isInteger(frames) || frames!==job.progress.targetFrames || frame<0 || frame>frames) return;
         job.progress={...job.progress,stage:frame===frames?'Verifying refined video':gpu?'Refining facial identity on GPU':'Refining facial identity locally',value:frame,max:frames,completedFrames:frame,updatedAt:Date.now()};this.store.saveJob(job);
       });
@@ -131,6 +145,12 @@ export class VideoIdentity {
     const parent=this.store.job(job.faceRefinement!.parentJobId), reference=this.store.asset(job.faceRefinement!.referenceAssetId);
     if (!parent?.output || !reference) throw new Error('The original refinement inputs are missing.');
     const r=receiptSchema.parse(JSON.parse(await readFile(path.join(work,'identity-video.json'),'utf8'))), file=path.join(work,'final.mp4');
+    if(r.inputs.version!==job.faceRefinement!.version)throw new Error('Face swap receipt belongs to a different processing method.');
+    if(job.faceRefinement!.method==='source-performance'){
+      const source=path.join(this.store.root,'jobs',parent.id,'prepared-source.mp4');
+      if(r.inputs.method!=='source-performance' || r.inputs.performanceSHA256!==job.faceRefinement!.performanceSHA256 || r.inputs.performanceSHA256!==hash(source) || r.inputs.performanceProfile!==job.faceRefinement!.performanceProfile || r.inputs.performanceProfile!==hash(path.join(this.repo,'config/face-source-profile.json')))throw new Error('Face swap source-performance provenance failed.');
+      if(r.performanceFrames===undefined || r.fallbackFrames===undefined || r.performanceFrames+r.fallbackFrames!==r.refinedFrames || r.records.filter(item=>item.performance==='source-features').length!==r.performanceFrames || r.records.filter(item=>item.performance==='identity-only').length!==r.fallbackFrames)throw new Error('Face swap source-performance frame coverage is inconsistent.');
+    }else if(r.inputs.method)throw new Error('A direct-swap receipt unexpectedly includes another motion source.');
     const gpu=job.faceRefinement!.execution==='remote CUDA';
     if(r.execution!==job.faceRefinement!.execution || r.newPaidInference!==gpu)throw new Error('Refinement execution provenance does not match this job.');
     if(gpu){
@@ -151,15 +171,15 @@ export class VideoIdentity {
     const source=path.join(this.store.root,'jobs',parent.id,'prepared-source.mp4');if(existsSync(source) && !existsSync(path.join(folder,'prepared-source.mp4')))await copyFile(source,path.join(folder,'prepared-source.mp4'));
     const thumb=path.join(folder,'poster.jpg');await poster(file,thumb);
     signal?.throwIfAborted();
-    job.faceRefinement={...job.faceRefinement!,...(gpu?{gpu:r.gpu}:{}),parentSHA256:r.inputs.parentSHA256,outputSHA256:r.outputSHA256,refinedFrames:r.refinedFrames,skippedFrames:r.skippedFrames};
+    job.faceRefinement={...job.faceRefinement!,...(gpu?{gpu:r.gpu}:{}),...(r.inputs.method?{performanceFrames:r.performanceFrames,fallbackFrames:r.fallbackFrames}:{}),parentSHA256:r.inputs.parentSHA256,outputSHA256:r.outputSHA256,refinedFrames:r.refinedFrames,skippedFrames:r.skippedFrames};
     job.status='completed';job.finishedAt=new Date().toISOString();job.output=file;job.poster=thumb;job.elapsedSeconds=r.elapsedSeconds;job.error=null;
     job.progress={...job.progress,stage:r.skippedFrames?'Complete · review unmodified face frames':gpu?'GPU face refinement complete':'Local face refinement complete',value:r.inputs.frames,max:r.inputs.frames,completedFrames:r.inputs.frames,updatedAt:Date.now()};
     this.store.saveJob(job);
   }
-  private process(args: {reference: string;target: string;folder: string},signal: AbortSignal,progress: Progress): Promise<void> {
+  private process(args: Parameters<Execute>[0],signal: AbortSignal,progress: Progress): Promise<void> {
     return new Promise((resolve,reject)=>{
       const python=path.join(this.repo,'.local/facefusion-venv/bin/python');
-      const child=spawn(python,[path.join(this.repo,'scripts/video_identity.py'),'run','--reference',args.reference,'--target',args.target,'--output',args.folder],{stdio:['ignore','pipe','pipe'],detached:process.platform!=='win32'});
+      const child=spawn(python,[path.join(this.repo,'scripts/video_identity.py'),'run','--reference',args.reference,'--target',args.target,'--output',args.folder,...(args.performanceSource?['--method','source-performance','--performance-source',args.performanceSource]:[])],{stdio:['ignore','pipe','pipe'],detached:process.platform!=='win32'});
       let buffer='',stderr='',last=0;
       const abort=()=>{try{if(process.platform!=='win32' && child.pid)process.kill(-child.pid,'SIGTERM');else child.kill('SIGTERM');}catch{/* Already exited. */}};
       signal.addEventListener('abort',abort,{once:true});if(signal.aborted)abort();
@@ -181,8 +201,8 @@ export function registerVideoIdentityRoutes(app: Express, store: Store, repo: st
   });
   app.post('/api/video-identity/gpu/setup',async(_req,res)=>res.json(await identity.setupGpu()));
   app.post('/api/jobs/:id/refine-face',async(req,res)=>{
-    const value=z.object({referenceId:z.string().uuid().optional(),execution:z.enum(['local CPU','remote CUDA']).default('local CPU')}).parse(req.body || {});
-    res.status(202).json(publicJob(await identity.create(z.string().uuid().parse(req.params.id),value.referenceId,value.execution)));
+    const value=z.object({referenceId:z.string().uuid().optional(),execution:z.enum(['local CPU','remote CUDA']).default('local CPU'),method:z.enum(['direct','source-performance']).default('direct')}).parse(req.body || {});
+    res.status(202).json(publicJob(await identity.create(z.string().uuid().parse(req.params.id),value.referenceId,value.execution,value.method)));
   });
   return identity;
 }

@@ -21,7 +21,7 @@ export function libraryJobs(jobs: Job[], collection: LibraryCollection, media: L
 }
 
 export function savedRunSettings(job: Job): Record<string, unknown> {
-  if (job.faceRefinement) return { processing: job.faceRefinement.execution==='remote CUDA'?'GPU face refinement':'Local face refinement', model: 'Hyperswap 1a 256', execution: job.faceRefinement.execution, parentJobId: job.faceRefinement.parentJobId, fps: job.settings.fps, frames: job.progress.targetFrames, refinedFrames: job.faceRefinement.refinedFrames, skippedFrames: job.faceRefinement.skippedFrames };
+  if (job.faceRefinement) return { processing: job.faceRefinement.execution==='remote CUDA'?'GPU face refinement':'Local face refinement', model: 'Hyperswap 1a 256', execution: job.faceRefinement.execution, method:job.faceRefinement.method||'direct',performanceFrames:job.faceRefinement.performanceFrames,fallbackFrames:job.faceRefinement.fallbackFrames, parentJobId: job.faceRefinement.parentJobId, fps: job.settings.fps, frames: job.progress.targetFrames, refinedFrames: job.faceRefinement.refinedFrames, skippedFrames: job.faceRefinement.skippedFrames };
   if (job.edit) return { exportMode: job.edit.mode, processing: job.edit.method, format: job.edit.format, videoCodec: job.edit.videoCodec, width: job.edit.width, height: job.edit.height, fps: job.edit.fps, frames: job.edit.frames, duration: job.edit.duration, sourceClips: job.edit.sources.length };
   return { ...(isImageJob(job) ? job.image?.settings || {} : job.settings) };
 }

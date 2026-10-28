@@ -1,0 +1,16 @@
+{
+  "version": "source-features-v1",
+  "method": "source-performance",
+  "identity_model": "hyperswap_1a_256",
+  "identity_weight": 0.5,
+  "crop_size": 512,
+  "source_landmark_confidence": 0.75,
+  "target_landmark_confidence": 0.65,
+  "minimum_eye_distance": 18,
+  "maximum_yaw_proxy_gap": 0.25,
+  "maximum_pitch_proxy_gap": 0.35,
+  "feature_dilation": 21,
+  "feature_feather_sigma": 3,
+  "fallback": "direct identity swap on generated frame",
+  "notes": "Experimental source-timed eyes/mouth from a second donor-conditioned swap, gated by both faces' visibility and compatible pose. No original unswapped facial pixels, temporal smoothing, hallucinated hidden face or model downloads."
+}

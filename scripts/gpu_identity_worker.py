@@ -41,6 +41,9 @@ def inspect():
     if not marker.is_file() or json.loads(marker.read_text()).get('profile') != current:
         ready['missing'].append('CUDA runtime setup')
     ready.update(ready=not ready['missing'], execution='remote CUDA',location='managed GPU')
+    performance_profile=ROOT/'config/face-source-profile.json'
+    if performance_profile.is_file() and (ROOT/'scripts/source_face_performance.py').is_file():
+        ready.update(performanceProfile=digest(performance_profile))
     return ready
 
 
@@ -123,7 +126,11 @@ def worker(folder):
             if digest(folder/'target.mp4')!=inputs['parentSHA256'] or digest(folder/'reference.png')!=inputs['referenceSHA256']:
                 raise ValueError('Remote refinement inputs changed. Original media was preserved.')
             atomic(state,{'state':'running','startedAt':time.time()})
-            video_identity.run(folder/'reference.png',folder/'target.mp4',folder/'result','cuda')
+            method=inputs.get('method','direct')
+            performance_source=folder/'performance.mp4' if method=='source-performance' else None
+            if performance_source and (digest(performance_source)!=inputs.get('performanceSHA256') or digest(ROOT/'config/face-source-profile.json')!=inputs.get('performanceProfile')):
+                raise ValueError('Source face-performance input or profile changed. Saved frames were preserved.')
+            video_identity.run(folder/'reference.png',folder/'target.mp4',folder/'result','cuda',method,performance_source)
             atomic(state,{'state':'completed','finishedAt':time.time()})
         except BaseException as error:
             atomic(state,{'state':'interrupted','error':str(error)[-1500:]})

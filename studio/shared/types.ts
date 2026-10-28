@@ -37,6 +37,7 @@ export type Settings = z.infer<typeof settingsSchema>;
 export const defaults: Settings = settingsSchema.parse({ prompt: defaultPrompt() });
 export interface Asset { id: string; kind: 'video' | 'image'; name: string; path: string; width: number; height: number; duration: number; fps: number; size: number; hasAudio: boolean; poster: string; createdAt: string; sourceFrame?: { videoId: string; time: number }; maskFor?: string; }
 export type JobStatus = 'queued' | 'running' | 'reconnecting' | 'interrupted' | 'completed' | 'failed' | 'cancelled';
+export type FaceSwapMethod = 'direct' | 'source-performance';
 export interface Progress { stage: string; node: string | null; value: number | null; max: number | null; unit: string; segment: number; segments: number; completedFrames: number; targetFrames: number; updatedAt: number; }
 export interface Segment { promptId: string; frames: number; file: string; seconds: number; reference?: string; }
 export interface ReferenceFraming {
@@ -62,7 +63,8 @@ export interface Job {
   viggleSegmentation?: 'five-frame-v1' | 'last-frame-v2';
   continuationSource?: { jobId: string; frames: number };
   videoRecovery?: { generatedFrames: number; leadingHoldFrames: number; reason: 'trim-timestamp'; originalFailedNode: string; recoveredAt: string };
-  faceRefinement?: { version: 'face-finish-v1'; parentJobId: string; referenceAssetId: string; execution: 'local CPU' | 'remote CUDA'; instanceId?: number; gpu?: string;
+  faceRefinement?: { version: 'face-finish-v1' | 'face-source-v1'; parentJobId: string; referenceAssetId: string; execution: 'local CPU' | 'remote CUDA'; instanceId?: number; gpu?: string;
+    method?: FaceSwapMethod; performanceSHA256?: string; performanceProfile?: string; performanceFrames?: number; fallbackFrames?: number;
     refinedFrames?: number; skippedFrames?: number; parentSHA256?: string; outputSHA256?: string };
   keyframe?: string; timings?: { node: string; stage: string; seconds: number }[];
   mediaType?: 'image'; image?: ImageRun;

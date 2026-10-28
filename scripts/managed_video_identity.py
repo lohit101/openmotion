@@ -44,7 +44,7 @@ def shutil_which(name):
 
 def upload_runtime(config):
     root=str(Path(config['remote_root'])/'face-refinement-runtime')
-    names=['scripts/local_identity.py','scripts/video_identity.py','scripts/gpu_identity_worker.py','scripts/download_models.py',
+    names=['scripts/local_identity.py','scripts/video_identity.py','scripts/source_face_performance.py','scripts/gpu_identity_worker.py','scripts/download_models.py','config/face-source-profile.json',
            'config/local-identity.lock.json','config/local-video-identity.lock.json','config/gpu-video-identity.lock.json','config/server.json']
     with tempfile.TemporaryFile() as stream:
         with tarfile.open(fileobj=stream,mode='w:gz') as archive:
@@ -56,7 +56,7 @@ def upload_runtime(config):
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--instance-id',type=int,required=True);p.add_argument('--action',choices=['status','setup','run'],required=True)
-    p.add_argument('--job');p.add_argument('--reference');p.add_argument('--target');p.add_argument('--output');a=p.parse_args()
+    p.add_argument('--job');p.add_argument('--reference');p.add_argument('--target');p.add_argument('--output');p.add_argument('--method',choices=['direct','source-performance'],default='direct');p.add_argument('--performance-source');a=p.parse_args()
     config=vast.load();check_connection(config,a.instance_id);os.environ['RECAST_SSH_BATCH']='1'
     root=Path(config['remote_root'])/'face-refinement-runtime'
     if a.action=='status':
@@ -70,13 +70,21 @@ def main():
     if not all([a.job,a.reference,a.target,a.output]): raise ValueError('Job and immutable input/output paths are required.')
     job=str(uuid.UUID(a.job));output=Path(a.output).resolve();output.mkdir(parents=True,exist_ok=True)
     target=Path(a.target).resolve();reference=Path(a.reference).resolve();folder=root/'jobs'/job
-    if not remote(config,'status')['ready']: raise ValueError('Click Prepare GPU refinement first. Generate never downloads models.')
+    tools=remote(config,'status')
+    if not tools['ready']: raise ValueError('Click Prepare GPU refinement first. Generate never downloads models.')
+    if a.method=='source-performance' and (not a.performance_source or tools.get('performanceProfile')!=digest(ROOT/'config/face-source-profile.json')):
+        raise ValueError('Update GPU face tools explicitly before source-performance swapping. No model or runtime download was started.')
     info=video_info(target)
     inputs={'parentSHA256':digest(target),'referenceSHA256':digest(reference),'workingBytes':5*1024**3+int(info['frames']*info['width']*info['height']*3*1.2)}
+    if a.method=='source-performance':
+        performance_source=Path(a.performance_source).resolve()
+        if video_info(performance_source)!=info:raise ValueError('Performance source timing or dimensions do not match the completed video.')
+        inputs.update(method=a.method,performanceSHA256=digest(performance_source),performanceProfile=digest(ROOT/'config/face-source-profile.json'))
     vast.remote(config,['mkdir','-p',str(folder)])
     # Inputs are stable per job. Rsync resumes partial transfers and checksums
     # existing files instead of sending full frame caches back to the Mac.
     sync(config,str(target),str(folder/'target.mp4'));sync(config,str(reference),str(folder/'reference.png'))
+    if a.method=='source-performance':sync(config,str(performance_source),str(folder/'performance.mp4'))
     with tempfile.TemporaryDirectory() as temp:
         file=Path(temp)/'inputs.json';file.write_text(json.dumps(inputs));sync(config,str(file),str(folder/'inputs.json'))
     remote(config,'launch',job)

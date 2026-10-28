@@ -88,7 +88,7 @@ def face_permission(frame, box):
     return allowed
 
 
-def run(reference, target, output, provider='cpu'):
+def run(reference, target, output, provider='cpu', method='direct', performance_source=None):
     invocation_started = time.monotonic()
     ready = status(verify=True)
     if not ready['ready']:
@@ -97,10 +97,20 @@ def run(reference, target, output, provider='cpu'):
     if output == target or output == reference or output in target.parents or output in reference.parents:
         raise ValueError('Keep the refinement output in a separate directory from its inputs.')
     info = video_info(target)
+    if method not in ['direct','source-performance'] or bool(performance_source)!=(method=='source-performance'):
+        raise ValueError('Source-performance swap requires its exact prepared source video; direct swap takes no extra motion input.')
+    performance_source=Path(performance_source).resolve() if performance_source else None
+    if performance_source and (output==performance_source or output in performance_source.parents):
+        raise ValueError('Keep the face-swap output separate from its source-performance input.')
+    if performance_source and video_info(performance_source)!=info:
+        raise ValueError('Source performance and generated video must have identical dimensions, frame count and timing. No padding, offsets or inference were added.')
     output.mkdir(parents=True, exist_ok=True)
     receipt_file = output/'identity-video.json'
     signature = {'version': 'face-finish-v1', 'profile': digest(LOCK), 'baseProfile': digest(ROOT/'config/local-identity.lock.json'),
                  'parentSHA256': digest(target), 'referenceSHA256': digest(reference), **info}
+    if performance_source:
+        from source_face_performance import PROFILE
+        signature.update(version='face-source-v1',method=method,performanceSHA256=digest(performance_source),performanceProfile=digest(PROFILE))
     if provider == 'cuda':
         signature.update(provider='cuda', gpuProfile=digest(ROOT/'config/gpu-video-identity.lock.json'))
     records = []; previous_elapsed = 0
@@ -149,13 +159,14 @@ def run(reference, target, output, provider='cpu'):
             '--face-mask-types','box','occlusion','--face-occluder-model','xseg_1','--face-mask-blur','0.3',
             '--execution-providers',provider,'--execution-thread-count','4']))
     apply_args(args, state_manager.init_item);state_manager.init_item('download_providers', [])
-    if content_analyser.analyse_image(str(reference)) or content_analyser.analyse_video(str(target), 0, info['frames']):
+    if content_analyser.analyse_image(str(reference)) or content_analyser.analyse_video(str(target), 0, info['frames']) or performance_source and content_analyser.analyse_video(str(performance_source),0,info['frames']):
         raise ValueError('Unmodified upstream media check declined an input. The parent remains unchanged.')
     donor = cv2.imread(str(reference))
     if donor is None: raise ValueError('Reference image could not be decoded.')
     donors = get_static_faces([donor])
     if len(donors) != 1: raise ValueError('Use one clear reference face; a character sheet must be cropped to an individual view.')
     cap = cv2.VideoCapture(str(target)); started = invocation_started; elapsed_before = previous_elapsed
+    source_cap=cv2.VideoCapture(str(performance_source)) if performance_source else None
     result = {'inputs': signature, 'execution': 'remote CUDA' if provider == 'cuda' else 'local CPU', 'newPaidInference': provider == 'cuda', 'model': 'hyperswap_1a_256',
               'contentCheck': 'unchanged upstream image/video checks', 'usage': ready['license'], 'records': records, 'complete': False}
     if provider == 'cuda':
@@ -168,6 +179,10 @@ def run(reference, target, output, provider='cpu'):
             raise ValueError('GPU refinement cancelled; saved frames were kept.')
         ok, frame = cap.read()
         if not ok: raise ValueError('Decoder ended before the validated frame count. No padding or paid rerender was requested.')
+        source_frame=None
+        if source_cap:
+            source_ok,source_frame=source_cap.read()
+            if not source_ok:raise ValueError('Performance source ended before its validated frame count. No missing frames were invented.')
         file=output/f'frame-{index:06d}.png'
         if index < len(records):
             if records[index]['frame'] != index or not file.is_file() or digest(file) != records[index]['sha256']:
@@ -181,6 +196,15 @@ def run(reference, target, output, provider='cpu'):
             edited=np.rint(swapped*mask[...,None]+frame*(1-mask[...,None])).clip(0,255).astype(np.uint8)
             if np.any(edited[mask==0] != frame[mask==0]): raise ValueError('Protected pixels changed before encoding.')
             record.update(action='refined', protectedPixelsExact=True)
+            if source_cap:
+                from source_face_performance import compatible_faces,transfer_features
+                source_faces=get_static_faces([source_frame])
+                reason=compatible_faces(source_faces[0],faces[0]) if len(source_faces)==1 else 'ambiguous-or-missing-source-face'
+                if reason:record.update(performance='identity-only',reason=reason)
+                else:
+                    swapped_source=swap_face(donors[0],source_faces[0],donor,source_frame.copy())
+                    edited,performance=transfer_features(source_frame,source_faces[0],swapped_source,frame,faces[0],edited)
+                    record.update(performance)
         else:
             record['reason']='ambiguous-or-low-confidence-face' if faces else 'no-clear-face'
         temporary=file.with_name(file.stem+'.tmp.png')
@@ -190,6 +214,9 @@ def run(reference, target, output, provider='cpu'):
         print(json.dumps({'frame':index+1,'frames':info['frames'],'stage':'Refining facial identity','action':record['action']}),flush=True)
     if cap.read()[0]: raise ValueError('Decoder produced extra frames; original timing was retained for review.')
     cap.release()
+    if source_cap:
+        if source_cap.read()[0]:raise ValueError('Performance source has extra frames; source/output timing must match exactly.')
+        source_cap.release()
     # Verify the complete saved sequence on its execution machine before export.
     for record in records:
         if digest(output/f"frame-{record['frame']:06d}.png") != record['sha256']:
@@ -202,17 +229,20 @@ def run(reference, target, output, provider='cpu'):
     os.replace(partial,final)
     result.update(complete=True, outputSHA256=digest(final), elapsedSeconds=elapsed_before+time.monotonic()-started,
                   framesVerified=True, refinedFrames=sum(x['action']=='refined' for x in records), skippedFrames=sum(x['action']!='refined' for x in records))
+    if performance_source:
+        result.update(performanceFrames=sum(x.get('performance')=='source-features' for x in records),fallbackFrames=sum(x.get('performance')=='identity-only' for x in records))
     save();return result
 
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('action',choices=['status','setup','run']);parser.add_argument('--python')
-    parser.add_argument('--reference');parser.add_argument('--target');parser.add_argument('--output');parser.add_argument('--provider',choices=['cpu','cuda'],default='cpu');args=parser.parse_args()
+    parser.add_argument('--reference');parser.add_argument('--target');parser.add_argument('--output');parser.add_argument('--provider',choices=['cpu','cuda'],default='cpu')
+    parser.add_argument('--method',choices=['direct','source-performance'],default='direct');parser.add_argument('--performance-source');args=parser.parse_args()
     if args.action=='status': result=status()
     elif args.action=='setup': result=setup(args.python)
     else:
         if not all([args.reference,args.target,args.output]): raise ValueError('Reference, target and output directory are required.')
-        result=run(args.reference,args.target,args.output,args.provider)
+        result=run(args.reference,args.target,args.output,args.provider,args.method,args.performance_source)
     print(json.dumps({key:value for key,value in result.items() if key!='records'}),flush=True)
 
 

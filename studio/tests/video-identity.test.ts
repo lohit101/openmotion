@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { copyFileSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, expect, it } from 'vitest';
@@ -24,13 +24,15 @@ async function fixture() {
     createdAt:'2026-10-28',favorite:true,deleted:false,width:64,height:96,progress:{stage:'Complete',node:null,value:null,max:null,unit:'frames',segment:1,segments:1,completedFrames:2,targetFrames:2,updatedAt:0},
     segments:[],context:'',uploads:null,pendingPrompt:null,error:null,output:video,poster:null,cancelRequested:false,elapsedSeconds:300,origin:'render',workflow:{}};
   store.addJob(parent);const repo=path.resolve(import.meta.dirname,'../..');let runs=0,failMode='';let pause=false;
-  const execute=async(args:{reference:string;target:string;folder:string},signal:AbortSignal,progress:(frame:number,frames:number)=>void)=>{
+  const execute=async(args:{reference:string;target:string;folder:string;method?:string;performanceSource?:string},signal:AbortSignal,progress:(frame:number,frames:number)=>void)=>{
     runs++;mkdirSync(args.folder,{recursive:true});progress(1,2);
     if(pause){await new Promise<void>((_resolve,reject)=>signal.addEventListener('abort',()=>reject(new Error('fixture cancelled')),{once:true}));return;}
     const frames=[0,1].map(frame=>{const file=path.join(args.folder,`frame-${String(frame).padStart(6,'0')}.png`);writeFileSync(file,'saved frame '+frame);return {frame,sha256:hash(file),action:'refined',protectedPixelsExact:true};});
     writeFileSync(path.join(args.folder,'final.mp4'),readFileSync(video));
-    const receipt={complete:true,execution:'local CPU',newPaidInference:false,model:'hyperswap_1a_256',inputs:{version:'face-finish-v1',profile:hash(path.join(repo,'config/local-video-identity.lock.json')),baseProfile:hash(path.join(repo,'config/local-identity.lock.json')),parentSHA256:hash(video),referenceSHA256:hash(reference),width:64,height:96,frames:2,fps:failMode==='fps'?'30':'24'},
+    const source=args.method==='source-performance';
+    const receipt={complete:true,execution:'local CPU',newPaidInference:false,model:'hyperswap_1a_256',inputs:{version:source?'face-source-v1':'face-finish-v1',...(source?{method:'source-performance',performanceSHA256:hash(args.performanceSource!),performanceProfile:hash(path.join(repo,'config/face-source-profile.json'))}:{}),profile:hash(path.join(repo,'config/local-video-identity.lock.json')),baseProfile:hash(path.join(repo,'config/local-identity.lock.json')),parentSHA256:hash(video),referenceSHA256:hash(reference),width:64,height:96,frames:2,fps:failMode==='fps'?'30':'24'},
       outputSHA256:hash(video),elapsedSeconds:.2,refinedFrames:2,skippedFrames:0,records:frames};
+    if(source){Object.assign(receipt,{performanceFrames:1,fallbackFrames:1});Object.assign(frames[0],{performance:'source-features'});Object.assign(frames[1],{performance:'identity-only'});}
     if(failMode==='tamper')writeFileSync(path.join(args.folder,'frame-000001.png'),'tampered frame');
     writeFileSync(path.join(args.folder,'identity-video.json'),JSON.stringify(receipt));progress(2,2);
   };
@@ -71,7 +73,7 @@ async function gpuFixture() {
   const f=await fixture();let instance=42,setupCalls=0,blocked=false,fallback=false;
   const backend:GpuFaceBackend={
     instance:()=>instance,assertIdle:()=>{if(blocked)throw new Error('GPU render is active');},
-    status:async()=>({...await f.status(),available:true,instanceId:instance}),setup:async()=>{setupCalls++;},
+    status:async()=>({...await f.status(),available:true,instanceId:instance,sourcePerformanceReady:true}),setup:async()=>{setupCalls++;},
     run:async(args,signal,progress)=>{
       await f.execute(args,signal,progress);
       const file=path.join(args.folder,'identity-video.json'),r=JSON.parse(readFileSync(file,'utf8'));
@@ -105,4 +107,21 @@ it('finishes a downloaded GPU result locally without another worker or the origi
   const f=await gpuFixture();const job=await f.gpuManager.create('parent',undefined,'remote CUDA');await waitFor(()=>f.store.job(job.id)?.status==='completed');
   const saved=f.store.job(job.id)!;saved.status='interrupted';f.store.saveJob(saved);f.instance(43);await f.gpuManager.resume(saved);
   expect(f.store.job(job.id)?.status).toBe('completed');expect(f.runs()).toBe(1);
+});
+it('saves a separate source-performance swap with the exact source hash and frame-coverage counts',async()=>{
+  const f=await fixture(),file=path.join(path.dirname(f.video),'prepared-source.mp4');copyFileSync(f.video,file);
+  const direct=await f.manager.create('parent');await waitFor(()=>f.store.job(direct.id)?.status==='completed');
+  const job=await f.manager.create('parent',undefined,'local CPU','source-performance');await waitFor(()=>f.store.job(job.id)?.status==='completed');
+  expect(job.id).not.toBe(direct.id);expect(f.store.job(job.id)?.faceRefinement).toMatchObject({version:'face-source-v1',method:'source-performance',performanceSHA256:hash(file),performanceFrames:1,fallbackFrames:1});
+  writeFileSync(file,'changed source');await expect(f.manager.finish(f.store.job(job.id)!,path.join(f.store.root,'jobs',job.id,'face-refinement'))).rejects.toThrow(/source-performance provenance/);expect(f.store.job('parent')).toEqual(f.parent);
+});
+it('rejects missing or historically recovered motion sources before starting a worker',async()=>{
+  const f=await fixture();await expect(f.manager.create('parent',undefined,'local CPU','source-performance')).rejects.toThrow(/exact unmodified prepared source/);expect(f.runs()).toBe(0);
+  copyFileSync(f.video,path.join(path.dirname(f.video),'prepared-source.mp4'));const parent=f.store.job('parent')!;parent.videoRecovery={generatedFrames:1,leadingHoldFrames:1,reason:'trim-timestamp',originalFailedNode:'checkpoint',recoveredAt:'2026-10-28'};f.store.saveJob(parent);
+  await expect(f.manager.create('parent',undefined,'local CPU','source-performance')).rejects.toThrow(/exact unmodified/);expect(f.runs()).toBe(0);
+});
+it('keeps source-performance provenance through the CUDA transport and receipt checks',async()=>{
+  const f=await gpuFixture();copyFileSync(f.video,path.join(path.dirname(f.video),'prepared-source.mp4'));
+  const job=await f.gpuManager.create('parent',undefined,'remote CUDA','source-performance');await waitFor(()=>f.store.job(job.id)?.status==='completed');
+  expect(f.store.job(job.id)?.faceRefinement).toMatchObject({version:'face-source-v1',method:'source-performance',execution:'remote CUDA',instanceId:42,performanceFrames:1,fallbackFrames:1});expect(f.setupCalls()).toBe(0);
 });

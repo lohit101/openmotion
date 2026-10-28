@@ -1,6 +1,9 @@
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import type { Store } from './store';
+import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import type { FaceSwapMethod } from '../shared/types';
 import type { ConnectionManager } from './comfy';
 import type { FaceToolsStatus } from './video-identity';
 
@@ -9,7 +12,7 @@ export interface GpuFaceBackend {
   assertIdle(): void;
   status(): Promise<FaceToolsStatus & { instanceId?: number; available: boolean }>;
   setup(): Promise<void>;
-  run(args: { reference: string; target: string; folder: string; jobId: string; instanceId: number }, signal: AbortSignal, progress: (frame: number, frames: number) => void): Promise<void>;
+  run(args: { reference: string; target: string; folder: string; jobId: string; instanceId: number;method?:FaceSwapMethod;performanceSource?:string }, signal: AbortSignal, progress: (frame: number, frames: number) => void): Promise<void>;
 }
 
 export function createGpuFaceBackend(store: Store, repo: string, connection: ConnectionManager, idle: () => void): GpuFaceBackend {
@@ -38,9 +41,10 @@ export function createGpuFaceBackend(store: Store, repo: string, connection: Con
       const output=await command(['--instance-id',String(id),'--action','status']);
       const row=output.split('\n').find(line=>line.startsWith('RECAST_FACE '));if(!row)throw new Error('GPU face runtime returned no status.');
       if(instance()!==id)throw new Error('The connected GPU changed during the face-runtime check.');
-      return {...JSON.parse(row.slice(12)),available:true,instanceId:id,setup:'Prepare GPU refinement'};
+      const result=JSON.parse(row.slice(12)),profile=createHash('sha256').update(readFileSync(path.join(repo,'config/face-source-profile.json'))).digest('hex');
+      return {...result,sourcePerformanceReady:result.performanceProfile===profile,available:true,instanceId:id,setup:'Prepare GPU refinement'};
     },
     async setup(){idle();const id=instance();await command(['--instance-id',String(id),'--action','setup']);if(instance()!==id)throw new Error('GPU changed during setup. Refresh availability before refining.');},
-    async run(args,signal,progress){idle();if(instance()!==args.instanceId)throw new Error('Reconnect the original GPU instance to resume its face frames.');await command(['--instance-id',String(args.instanceId),'--action','run','--job',args.jobId,'--reference',args.reference,'--target',args.target,'--output',args.folder],signal,progress);},
+    async run(args,signal,progress){idle();if(instance()!==args.instanceId)throw new Error('Reconnect the original GPU instance to resume its face frames.');await command(['--instance-id',String(args.instanceId),'--action','run','--job',args.jobId,'--reference',args.reference,'--target',args.target,'--output',args.folder,...(args.performanceSource?['--method','source-performance','--performance-source',args.performanceSource]:[])],signal,progress);},
   };
 }
