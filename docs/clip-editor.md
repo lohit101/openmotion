@@ -1,6 +1,6 @@
 # Clip editor
 
-Open **Clip editor** in the sidebar, or open a saved video in Library and choose **Add to editor**. Add one or more completed local videos, then:
+Open **Clip editor** in the sidebar, or open a saved video in Library and choose **Add to editor**. Drag video files from your computer onto the timeline, use **Add videos** to choose one or more files, or add completed Library clips. A highlighted insertion point shows where dropped clips will go, in file order. Then:
 
 1. Drag a clip's left/right timeline edge to trim. Trims snap to decoded frame boundaries; no separate trim dialog opens. Focus an edge and use arrows for one frame, or Shift + arrows for ten.
 2. Drag a clip's body to reorder it, or use the earlier/later buttons under the timeline. Reset restores the selected clip's original range; Remove only removes it from the draft.
@@ -8,6 +8,8 @@ Open **Clip editor** in the sidebar, or open a saved video in Library and choose
 4. Export locally. The finished video appears in Library with its source order/ranges and export settings. **Edit timeline** reopens the composition. Original video/image generation drafts remain separate.
 
 The current limit is 32 clips and ten minutes. Draft clips and trim ranges stay in this browser's storage. Exports and their receipts stay in local Studio data and run independently of the GPU queue. They use FFmpeg on this computer, without model downloads, inference or rental actions.
+
+**Imported** keeps your explicitly added local files available across reloads, separately from generated Library creations. Upload progress uses transferred bytes; metadata preparation follows the upload. Each file can be up to 512 MB, with a readable constant frame rate. Supported decoded formats retain the same lossless export checks as Library clips. Right-angle phone orientation is respected. Other video codecs get a separate playable preview when needed; exports always read the untouched original. Importing never changes image/video generation inputs or uses GPU credits. An imported-only edit records local source IDs/ranges and export settings, without a made-up character reference or AI sampling report.
 
 ## Quality and formats
 

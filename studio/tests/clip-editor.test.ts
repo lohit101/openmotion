@@ -7,7 +7,7 @@ import path from 'node:path';
 import { createApplication } from '../server/index';
 import { command, videoFrameInfo } from '../server/media';
 import { defaults, type Job } from '../shared/types';
-import { clipSeconds, locateTimeline, timelineLayout, trimTimelineClip, type EditorSource, type TimelineClip } from '../shared/clip-editor';
+import { clipPosterUrl, clipSourceKey, clipVideoUrl, clipSeconds, editDraftSchema, locateTimeline, timelineLayout, trimTimelineClip, type EditorSource, type TimelineClip } from '../shared/clip-editor';
 import { runSummary, savedRunSettings } from '../shared/library';
 
 let root: string, local: Awaited<ReturnType<typeof createApplication>>, source: Job;
@@ -29,6 +29,54 @@ beforeAll(async () => {
 afterAll(async () => { if (local) { await local.clipEditor.shutdown(); local.cloud.dispose(); local.store.close(); } if (root) await rm(root, { recursive: true, force: true }); });
 
 describe('local lightweight clip editor', () => {
+  it('imports an external video locally and mixes exact trims with a library clip without changing drafts or originals', async () => {
+    const beforeDraft = JSON.stringify(local.store.draft()), beforeJobs = local.store.jobs().length, originalHash = await digest(source.output!);
+    const upload = await request(local.app).post('/api/assets/video').attach('file', source.output!, 'outside-library.mp4');
+    expect(upload.status).toBe(201); expect(local.store.jobs().length).toBe(beforeJobs);
+    const asset = local.store.asset(upload.body.id)!;
+    expect(await digest(asset.path)).toBe(originalHash);
+    const key = `asset:${asset.id}`, info = await request(local.app).get(`/api/clip-editor/sources/${encodeURIComponent(key)}`);
+    expect(info.status).toBe(200); expect(info.body).toMatchObject({ assetId: asset.id, frames: 72, fps: 24, title: 'outside-library.mp4' }); expect(info.body).not.toHaveProperty('jobId');
+    for (let i = 0; i < 2; i++) expect((await request(local.app).post('/api/clip-editor/imports').send({ assetId: asset.id })).status).toBe(201);
+    const imports = await request(local.app).get('/api/clip-editor/imports'); expect(imports.status).toBe(200); expect(imports.body.filter((item: EditorSource) => item.assetId === asset.id)).toHaveLength(1);
+    const clips = [{ id: randomUUID(), jobId: source.id, inFrame: 7, outFrame: 19 }, { id: randomUUID(), assetId: asset.id, inFrame: 13, outFrame: 37 }];
+    const result = await request(local.app).post('/api/clip-editor/exports').set('Idempotency-Key', randomUUID()).send({ title: 'Mixed local and library', mode: 'lossless', clips });
+    expect(result.status).toBe(202); const completed = await done(result.body.id), job = local.store.job(completed.resultJobId!)!;
+    expect(job.edit).toMatchObject({ frames: 36, duration: 1.5, format: 'mkv', sources: [{ jobId: source.id }, { assetId: asset.id }] });
+    expect(job.edit!.sources[1]).not.toHaveProperty('jobId');
+    expect(await hashes(path.join(local.store.root, 'jobs', job.id, 'master.mkv'))).toEqual([...(await hashes(source.output!, 7, 19)), ...(await hashes(asset.path, 13, 37))]);
+    expect(await digest(asset.path)).toBe(originalHash); expect(await digest(source.output!)).toBe(originalHash); expect(JSON.stringify(local.store.draft())).toBe(beforeDraft);
+    expect(local.connection.status.state).toBe('offline'); expect(local.runner.active).toBeFalsy();
+    const restored = editDraftSchema.parse({ title: job.title, mode: job.edit!.mode, clips: job.edit!.sources.map(({ id, jobId, assetId, inFrame, outFrame }) => ({ id, jobId, assetId, inFrame, outFrame })) });
+    expect(restored.clips[1].assetId).toBe(asset.id); expect(clipSourceKey(restored.clips[1])).toBe(key); expect(clipPosterUrl(restored.clips[1])).toContain(`/assets/${asset.id}/poster`); expect(clipVideoUrl(restored.clips[1])).toContain('/preview');
+    expect((await request(local.app).get(clipVideoUrl(restored.clips[1]))).status).toBe(200);
+  });
+  it('exports an imported-only rotated phone clip without losing decoded pixels or inventing a reference character', async () => {
+    const rotated = path.join(root, 'portrait-rotation.mov');
+    await command('ffmpeg', ['-v', 'error', '-y', '-display_rotation', '90', '-i', source.output!, '-c', 'copy', rotated]);
+    const uploaded = await request(local.app).post('/api/assets/video').attach('file', rotated);
+    expect(uploaded.status).toBe(201); const asset = local.store.asset(uploaded.body.id)!, hash = await digest(asset.path);
+    expect((await local.clipEditor.sourceInfo(`asset:${asset.id}`))).toMatchObject({ width: 224, height: 128, frames: 72 });
+    const result = await request(local.app).post('/api/clip-editor/exports').set('Idempotency-Key', randomUUID()).send({ title: 'Phone clip', mode: 'lossless', clips: [{ id: randomUUID(), assetId: asset.id, inFrame: 5, outFrame: 29 }] });
+    expect(result.status).toBe(202); const completed = await done(result.body.id), job = local.store.job(completed.resultJobId!)!;
+    expect(job.edit).toMatchObject({ frames: 24, width: 224, height: 128, method: 'lossless-encode' }); expect(job.referenceId).toBe(''); expect(job.sourceId).toBe(asset.id);
+    expect(savedRunSettings(job)).not.toHaveProperty('seed');
+    expect(await hashes(path.join(local.store.root, 'jobs', job.id, 'master.mkv'))).toEqual(await hashes(asset.path, 5, 29)); expect(await digest(asset.path)).toBe(hash);
+  });
+  it('makes a browser preview for an imported lossless codec while exporting from its untouched original', async () => {
+    const file = path.join(root, 'external-lossless.mkv');
+    await command('ffmpeg', ['-v', 'error', '-y', '-i', source.output!, '-an', '-c:v', 'ffv1', file]);
+    const uploaded = await request(local.app).post('/api/assets/video').attach('file', file);
+    expect(uploaded.status).toBe(201); const asset = local.store.asset(uploaded.body.id)!, hash = await digest(asset.path);
+    const response = await request(local.app).get(clipVideoUrl({ assetId: asset.id })); expect(response.status).toBe(200); expect(response.headers['content-type']).toContain('video/mp4');
+    const preview = path.join(path.dirname(asset.path), 'editor-preview-v1.mp4'); expect((await videoFrameInfo(preview)).frames).toBe(72);
+    const result = await local.clipEditor.start({ title: 'Imported lossless trim', mode: 'lossless', clips: [{ id: randomUUID(), assetId: asset.id, inFrame: 3, outFrame: 15 }] }, randomUUID());
+    const completed = await done(result.id), job = local.store.job(completed.resultJobId!)!;
+    expect(await hashes(path.join(local.store.root, 'jobs', job.id, 'master.mkv'))).toEqual(await hashes(asset.path, 3, 15)); expect(await digest(asset.path)).toBe(hash);
+    for (const bad of [{ jobId: source.id, assetId: asset.id }, { jobId: `asset:${asset.id}` }, { assetId: randomUUID() }]) {
+      const rejected = await request(local.app).post('/api/clip-editor/exports').set('Idempotency-Key', randomUUID()).send({ title: 'Invalid source', mode: 'lossless', clips: [{ id: randomUUID(), ...bad, inFrame: 0, outFrame: 1 }] }); expect(rejected.status).toBeGreaterThanOrEqual(400);
+    }
+  });
   it('trims exact non-keyframe ranges losslessly, joins them, and keeps source files and AI settings unchanged', async () => {
     const originalHash = await digest(source.output!), before = JSON.stringify(local.store.job(source.id));
     const clips = [{ id: randomUUID(), jobId: source.id, inFrame: 7, outFrame: 31 }, { id: randomUUID(), jobId: source.id, inFrame: 13, outFrame: 49 }];
