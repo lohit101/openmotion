@@ -1,0 +1,19 @@
+{
+  "version": "face-finish-v1",
+  "base": "local-identity.lock.json",
+  "files": [
+    {
+      "path": ".assets/models/xseg_1.onnx",
+      "size": 70324286,
+      "sha256": "c4d1498b8a03b5fe2a3a5d2ef2a0402ab03bd51edaf5b2d8d5fb764702a97dd3",
+      "url": "https://huggingface.co/facefusion/models-3.1.0/resolve/c9e3a503d8e84e91c5cd89ee2d510fe5e793e570/xseg_1.onnx"
+    },
+    {
+      "path": ".assets/models/xseg_1.hash",
+      "size": 8,
+      "sha256": "da3648ccecaa79f3be5ca0e1c3713f775504dd5c5dff716c095925132c02b08e",
+      "url": "https://huggingface.co/facefusion/models-3.1.0/resolve/c9e3a503d8e84e91c5cd89ee2d510fe5e793e570/xseg_1.hash"
+    }
+  ],
+  "usage": "Private evaluation only with the current recognition and swap weights. Base FaceFusion/OpenRAIL-AS, Hyperswap ResearchRAIL, InsightFace recognition non-commercial and XSeg GPL-3.0 terms apply. Not cleared for a hosted commercial service."
+}

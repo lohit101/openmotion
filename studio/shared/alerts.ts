@@ -49,7 +49,7 @@ export class ActivityAlertTracker {
     for (const job of snapshot.jobs) {
       const old = this.jobs.get(job.id), changed = old?.status !== job.status;
       const recent = old || Date.parse(job.createdAt) >= this.startedAt;
-      if (this.initialized && recent && !job.deleted && job.origin === 'render') {
+      if (this.initialized && recent && !job.deleted && (job.origin === 'render' || !!job.faceRefinement)) {
         const base = { id: `generation:${job.id}:${job.status}:${job.finishedAt || job.progress.updatedAt}`, category: 'generation' as const, target: { view: job.mediaType === 'image' ? 'image' as const : 'create' as const, jobId: job.id } };
         if (job.status === 'completed' && job.output && (changed || !old?.output)) alerts.push({ ...base, tone: 'success', title: job.mediaType === 'image' ? 'Your image is ready' : 'Your video is ready', body: 'Saved to your library. Open it to view the result.' });
         else if (changed && ['failed', 'interrupted'].includes(job.status)) alerts.push({ ...base, tone: job.status === 'failed' ? 'error' : 'warning', title: job.status === 'failed' ? 'Generation failed' : 'Generation needs attention', body: 'Open the run to review what happened. Completed files are kept.', detail: job.error || undefined });

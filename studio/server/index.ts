@@ -27,6 +27,7 @@ import { clipFrameCount } from '../shared/clip';
 import { canFinishImageLocally, isImageJob } from '../shared/image-replacement';
 import { registerClipEditorRoutes } from './clip-editor';
 import { startLocalServer } from './local-server';
+import { registerVideoIdentityRoutes } from './video-identity';
 
 const STUDIO = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const REPO = path.dirname(STUDIO);
@@ -54,6 +55,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   });
   app.use(express.json({ limit: '100kb' }));
   const clipEditor = registerClipEditorRoutes(app, store);
+  const videoIdentity = registerVideoIdentityRoutes(app, store, repo);
   const bootstrap = () => ({ assets: store.assets().map(publicAsset), jobs: store.jobs().map(publicJob), draft: store.draft(), imageDraft: store.imageDraft(), connection: connection.status, cloud: cloud.state, models: models.state });
   app.get('/api/bootstrap', (_req, res) => res.json(bootstrap()));
   app.get('/api/events', (req, res) => {
@@ -185,10 +187,12 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   app.post('/api/jobs/:id/cancel', async (req, res) => {
     const job = store.job(String(req.params.id)); if (!job) return void res.sendStatus(404);
     if (!['queued', 'running', 'reconnecting', 'interrupted'].includes(job.status)) return void res.json(publicJob(job));
+    if (job.faceRefinement) { await videoIdentity.cancel(job); return void res.json(publicJob(store.job(job.id)!)); }
     await runner.cancel(job); res.json(publicJob(store.job(job.id)!));
   });
   app.post('/api/jobs/:id/resume', async (req, res) => {
     const job = store.job(String(req.params.id)); if (!job) return void res.sendStatus(404);
+    if (job.faceRefinement) { await videoIdentity.resume(job); return void res.json(publicJob(store.job(job.id)!)); }
     if (connection.status.state !== 'online' && !canFinishImageLocally(job)) return void res.status(503).json({ error: 'Reconnect your GPU first.' });
     if (job.status !== 'interrupted') return void res.status(409).json({ error: 'Only an interrupted run can be resumed. Reuse settings to start another run.' });
     const value = z.object({ retryMissing: z.boolean().default(false) }).parse(req.body || {});
@@ -236,18 +240,18 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     const message = error instanceof z.ZodError ? error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join(' ') : error.code === 'LIMIT_FILE_SIZE' ? 'Videos can be up to 512 MB.' : error.message || 'This action could not be completed.';
     res.status(error instanceof z.ZodError ? 422 : error instanceof multer.MulterError ? 413 : 400).json({ error: String(message).slice(0, 2000) });
   });
-  return { app, store, connection, runner, cloud, models, clipEditor };
+  return { app, store, connection, runner, cloud, models, clipEditor, videoIdentity };
 }
 async function main() {
   const port = Number(process.env.PORT || 3000);
-  const { server, store, cloud, models, clipEditor } = await startLocalServer(() => createApplication(), port);
+  const { server, store, cloud, models, clipEditor, videoIdentity } = await startLocalServer(() => createApplication(), port);
   console.log(`Recast: http://127.0.0.1:${port} (GPU disconnected until you connect)`);
   server.on('error', error => { console.error(error.message); cloud.dispose(); store.close(); process.exitCode = 1; });
   let closing = false;
   const shutdown = async () => {
     if (closing) return; closing = true; server.closeAllConnections(); server.close();
     const deadline = setTimeout(() => { console.error('Shutdown could not confirm all setup stops. Check your instances in Vast.'); process.exit(1); }, 60000);
-    try { await clipEditor.shutdown(); await models.cancel(); await cloud.shutdown(); clearTimeout(deadline); cloud.dispose(); store.close(); process.exit(0); }
+    try { await videoIdentity.shutdown(); await clipEditor.shutdown(); await models.cancel(); await cloud.shutdown(); clearTimeout(deadline); cloud.dispose(); store.close(); process.exit(0); }
     catch (error) { console.error((error as Error).message); clearTimeout(deadline); cloud.dispose(); store.close(); process.exit(1); }
   };
   process.once('SIGINT', () => void shutdown()); process.once('SIGTERM', () => void shutdown());
