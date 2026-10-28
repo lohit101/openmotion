@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { defaults, type Catalog, type Job } from '../shared/types';
-import { bodyOnlyConditioningPrompt, bodyOnlyPrompt, bodyOnlyPromptV1, defaultImagePrompt, emptyImageDraft, imageDefaults, imageGeometry, imagePrompt, imageReferenceViewSchema, imageSettingsSchema, isImageJob, legacyImagePrompt, referenceViewIssue, sourceFramePreset, sourceFrameImageSettings } from '../shared/image-replacement';
+import { bodyOnlyConditioningPrompt, bodyOnlyPrompt, bodyOnlyPromptV1, defaultImagePrompt, emptyImageDraft, imageDefaults, imageGeometry, imagePrompt, imageReferenceViewSchema, imageSettingsSchema, isImageJob, legacyImagePrompt, referenceViewIssue, sourceFramePreset, sourceFrameImageSettings, singleImageConditioningPrompt } from '../shared/image-replacement';
 import { IMAGE_IDENTITY, QWEN_BODY, QWEN_HEAD, QWEN_STRUCTURE, QWEN_OUTFIT, QWEN_CONSISTENCY, imageFilesForSettings, imageModelFiles, modelBytes, pinnedModels, qwenImageModelFiles } from '../shared/models';
 import { compileWorkflow, validateGraph } from '../server/workflow';
 import { applyProgress } from '../server/comfy';
@@ -28,6 +28,17 @@ function fixture(): Job {
     uploads: { source: 'target.png', reference: 'identity.png', face: 'face.png', original: 'original.png', mask: 'mask.png', noiseMask: 'mask.png' }, segments: [], context: '', pendingPrompt: null, error: null, output: null, poster: null, cancelRequested: false, elapsedSeconds: null, origin: 'render', workflow: null };
 }
 describe('source-preserving Klein image replacement', () => {
+  it('supports a genuine source-plus-one-character photo edit without inventing a third reference', () => {
+    const job = fixture(); job.image!.version = 'body-only-single-v1'; job.image!.settings = { ...imageDefaults };
+    job.image!.conditioningPrompt = singleImageConditioningPrompt(''); delete job.uploads!.face;
+    const graph = compileWorkflow({}, job);
+    expect(validateGraph(graph, catalog)).toEqual([]);
+    expect(graph['5']).toBeUndefined(); expect(graph['108'].inputs['images.image_3']).toBeUndefined();
+    expect(graph['108'].inputs['images.image_2']).toEqual(['4', 0]);
+    expect(String(graph['108'].inputs.prompt)).not.toContain('<image3>');
+    expect(graph['118'].inputs).toMatchObject({ steps: 8, cfg: 1 });
+    expect(imageFilesForSettings(job.image!.settings)).toHaveLength(4);
+  });
   it('uses the accepted native preset for new photos and newly prepared source frames', () => {
     expect(emptyImageDraft().settings).toMatchObject(sourceFramePreset);
     expect(imageDefaults).toMatchObject({ model: 'qwen21', qwenRecipe: 'body-only', bodyOnlyStrategy: 'native', qwenQuality: 'fast', megapixels: 1, maskExpand: 64, feather: 12, maskFillHoles: true, seed: 1583893113, randomSeed: false });

@@ -23,6 +23,7 @@ import { FRAMING_VERSION, type ReferenceGeometry } from './framing';
 import { engineIssue, isViggle } from '../shared/engines';
 import { viggleWindows } from '../shared/viggle-segments';
 import { registerImageRoutes } from './image-routes';
+import { registerCharacterRoutes } from './characters';
 import { clipFrameCount } from '../shared/clip';
 import { canFinishImageLocally, isImageJob } from '../shared/image-replacement';
 import { registerClipEditorRoutes } from './clip-editor';
@@ -77,7 +78,8 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     store.jobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status) ||
       (job.faceRefinement?.execution === 'remote CUDA' && job.faceRefinement.instanceId === store.value('cloud-connected-instance', null) &&
         job.status === 'interrupted' && job.cancellationConfirmed !== true)));
-  const bootstrap = () => ({ assets: store.assets().map(publicAsset), jobs: store.jobs().map(publicJob), draft: store.draft(), imageDraft: store.imageDraft(), connection: connection.status, cloud: cloud.state, models: models.state });
+  registerCharacterRoutes(app, store);
+  const bootstrap = () => ({ assets: store.assets().map(publicAsset), characters: store.characters(), jobs: store.jobs().map(publicJob), draft: store.draft(), imageDraft: store.imageDraft(), connection: connection.status, cloud: cloud.state, models: models.state });
   app.get('/api/bootstrap', (_req, res) => res.json(bootstrap()));
   app.get('/api/events', (req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });

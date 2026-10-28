@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { Asset, Job } from './types';
+import type { CharacterSnapshot } from './characters';
 
 export const legacyImagePrompt = `Replace the main person in IMAGE 1 (target photograph) with the person from IMAGE 2 (identity reference). Produce one photorealistic photograph, with no changes beyond the replacement.
 
@@ -37,6 +38,9 @@ export const sourceFramePreset = {
 export function bodyOnlyConditioningPrompt(prompt: string, legacy = false): string {
   const base = legacy ? bodyOnlyPromptV1 : bodyOnlyPrompt, extra = prompt.trim();
   return base + (extra && ![bodyOnlyPrompt, bodyOnlyPromptV1, defaultImagePrompt, legacyImagePrompt].includes(extra) ? '\nAdditional edit requirements: ' + extra : '');
+}
+export function singleImageConditioningPrompt(prompt: string): string {
+  return bodyOnlyConditioningPrompt(prompt).replace('Edit <image1>, the original scene photograph. <image2> shows the replacement person\'s physique and body proportions. <image3> shows that same person\'s facial identity and hair.', 'Edit <image1>, the original scene photograph. <image2> supplies the replacement person\'s facial identity, hair, physique and body proportions.').replaceAll('<image3>', '<image2>');
 }
 
 export const imageReferenceViewSchema = z.object({
@@ -89,6 +93,7 @@ export function sourceFrameImageSettings(current?: ImageSettings): ImageSettings
   return imageSettingsSchema.parse({ ...sourceFramePreset, bodyReferenceView: current?.bodyReferenceView || null, faceReferenceView: current?.faceReferenceView || null });
 }
 export const imageDraftSchema = z.object({
+  referenceMode: z.enum(['images', 'character']).default('images'), characterId: z.string().nullable().default(null), characterRevision: z.number().int().positive().nullable().default(null),
   sourceId: z.string().nullable().default(null), referenceId: z.string().nullable().default(null),
   faceId: z.string().nullable().default(null), maskId: z.string().nullable().default(null),
   settings: imageSettingsSchema.default(imageDefaults),
@@ -107,7 +112,8 @@ export const localFramingSchema = z.object({
   geometry: z.object({ headSizeRatio: z.number().finite().positive(), faceCenterOffsetPixels: z.array(z.number().finite()).length(2) }).nullable(),
 });
 export interface ImageRun {
-  version?: 'masked-latent-v2' | 'masked-latent-v3' | 'masked-latent-v4' | 'scene-anchor-v1' | 'scene-anchor-v2' | 'scene-anchor-v3' | 'scene-anchor-v4' | 'scene-anchor-v5' | 'scene-anchor-v6' | 'scene-anchor-v7' | 'scene-anchor-v8' | 'native-mask-v1' | 'native-scene-v1' | 'identity-first-v1' | 'identity-first-v2' | 'body-identity-v1' | 'body-identity-v2' | 'body-only-v1' | 'body-only-v2' | 'body-only-v3' | 'body-only-v4' | 'body-only-v5' | 'body-only-v6';
+  version?: 'masked-latent-v2' | 'masked-latent-v3' | 'masked-latent-v4' | 'scene-anchor-v1' | 'scene-anchor-v2' | 'scene-anchor-v3' | 'scene-anchor-v4' | 'scene-anchor-v5' | 'scene-anchor-v6' | 'scene-anchor-v7' | 'scene-anchor-v8' | 'native-mask-v1' | 'native-scene-v1' | 'identity-first-v1' | 'identity-first-v2' | 'body-identity-v1' | 'body-identity-v2' | 'body-only-v1' | 'body-only-v2' | 'body-only-v3' | 'body-only-v4' | 'body-only-v5' | 'body-only-v6' | 'body-only-single-v1';
+  character?: CharacterSnapshot;
   conditioningPrompt?: string;
   stagedPrompts?: { body: string; outfit: string; face: string };
   headPrompt?: string;

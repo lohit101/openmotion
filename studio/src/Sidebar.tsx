@@ -1,8 +1,8 @@
 import type { ReactElement } from 'react';
 import * as Tooltip from '@radix-ui/react-tooltip';
-import { FilmSlate, GearSix, GraphicsCard, ImageSquare, Images, Scissors, SidebarSimple } from '@phosphor-icons/react';
+import { FilmSlate, GearSix, GraphicsCard, ImageSquare, Images, Scissors, SidebarSimple, UsersThree } from '@phosphor-icons/react';
 
-export type WorkspaceView = 'create' | 'image' | 'editor' | 'library' | 'gpu' | 'settings';
+export type WorkspaceView = 'create' | 'image' | 'characters' | 'editor' | 'library' | 'gpu' | 'settings';
 
 export function initialSidebarCollapsed() {
   try {
@@ -43,7 +43,7 @@ export default function Sidebar({ view, select, collapsed, toggle, libraryCount 
     </div>
     <div className="rail-navigation" id="workspace-navigation">
       <nav className="rail-main" aria-labelledby="rail-create-label">
-        {link('create', 'Remotion', FilmSlate)}{link('image', 'Imagen', ImageSquare)}
+        {link('create', 'Remotion', FilmSlate)}{link('image', 'Imagen', ImageSquare)}{link('characters', 'Characters', UsersThree)}
       </nav>
       <nav className="rail-edit" aria-label="Edit"><span className="rail-section-label" aria-hidden="true">Edit</span>
         {link('editor', 'Clip editor', Scissors)}

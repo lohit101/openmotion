@@ -14,6 +14,18 @@ import image_replacement as editor
 
 @unittest.skipUnless(importlib.util.find_spec("cv2"), "Run in .local/geometry-venv for CPU image checks")
 class ImageReplacementTests(unittest.TestCase):
+    def test_single_character_input_prepares_only_two_images_without_an_implicit_face(self):
+        import cv2
+        import numpy as np
+        with tempfile.TemporaryDirectory() as temp, patch.object(editor, 'detect', side_effect=AssertionError('No hidden face crop required')):
+            source, _, request, work = self.fixture(Path(temp))
+            request['version'] = 'body-only-single-v1'
+            request['settings'].update(model='qwen21', faceDetail=False, bodyReferenceView={'assetId': 'body', 'x': 20, 'y': 30, 'width': 64, 'height': 64})
+            prepared = editor.prepare(request, work, None)
+            self.assertFalse(prepared['hasFace']); self.assertFalse((work / 'face.png').exists())
+            np.testing.assert_array_equal(cv2.imread(str(work / 'identity.png')), cv2.imread(request['reference'])[30:94, 20:84])
+            self.assertEqual(editor.prepare(request, work, None), prepared)
+
     def test_head_detail_includes_old_jaw_outline_and_respects_protected_holes(self):
         import numpy as np
         image = np.zeros((640, 360, 3), np.uint8)

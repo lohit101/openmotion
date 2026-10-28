@@ -6,6 +6,7 @@ import type { Asset, Draft, Job } from '../shared/types';
 import { defaults } from '../shared/types';
 import { migrateDemoPrompt } from '../shared/prompts';
 import { defaultImagePrompt, emptyImageDraft, imageDraftSchema, legacyImagePrompt } from '../shared/image-replacement';
+import type { Character } from '../shared/characters';
 
 export class Store extends EventEmitter {
   db: DatabaseSync;
@@ -16,6 +17,7 @@ export class Store extends EventEmitter {
     this.db.exec(`PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;
       CREATE TABLE IF NOT EXISTS assets (id TEXT PRIMARY KEY, data TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, idem TEXT UNIQUE, data TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS characters (id TEXT PRIMARY KEY, data TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, data TEXT NOT NULL);`);
   }
   value<T>(key: string, fallback: T): T { const row = this.db.prepare('SELECT data FROM settings WHERE key=?').get(key) as { data: string } | undefined; return row ? JSON.parse(row.data) : fallback; }
@@ -23,6 +25,9 @@ export class Store extends EventEmitter {
   assets(): Asset[] { return (this.db.prepare('SELECT data FROM assets').all() as { data: string }[]).map(r => JSON.parse(r.data)); }
   asset(id: string): Asset | null { const row = this.db.prepare('SELECT data FROM assets WHERE id=?').get(id) as { data: string } | undefined; return row ? JSON.parse(row.data) : null; }
   addAsset(asset: Asset) { this.db.prepare('INSERT OR REPLACE INTO assets VALUES (?,?)').run(asset.id, JSON.stringify(asset)); this.emit('event', { type: 'asset', data: { ...asset, path: '', poster: 'ready' } }); }
+  characters(): Character[] { return (this.db.prepare('SELECT data FROM characters').all() as { data: string }[]).map(row => JSON.parse(row.data)).sort((a: Character, b: Character) => b.updatedAt.localeCompare(a.updatedAt)); }
+  character(id: string): Character | null { const row = this.db.prepare('SELECT data FROM characters WHERE id=?').get(id) as { data: string } | undefined; return row ? JSON.parse(row.data) : null; }
+  saveCharacter(character: Character) { this.db.prepare('INSERT INTO characters VALUES (?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data').run(character.id, JSON.stringify(character)); this.emit('event', { type: 'character', data: character }); }
   jobs(): Job[] { return (this.db.prepare('SELECT data FROM jobs').all() as { data: string }[]).map(r => JSON.parse(r.data)).sort((a: Job, b: Job) => b.createdAt.localeCompare(a.createdAt)); }
   job(id: string): Job | null { const row = this.db.prepare('SELECT data FROM jobs WHERE id=?').get(id) as { data: string } | undefined; return row ? JSON.parse(row.data) : null; }
   byKey(key: string): Job | null { const row = this.db.prepare('SELECT data FROM jobs WHERE idem=?').get(key) as { data: string } | undefined; return row ? JSON.parse(row.data) : null; }

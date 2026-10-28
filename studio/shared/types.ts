@@ -4,6 +4,7 @@ import { defaultNegativePrompt, defaultPrompt } from './prompts';
 import type { ModelsState } from './models';
 import type { ImageDraft, ImageRun } from './image-replacement';
 import type { ClipEditReceipt } from './clip-editor';
+import type { Character } from './characters';
 
 export const settingsSchema = z.object({
   engine: z.enum(['scail2', 'viggle']).default('scail2'),
@@ -74,7 +75,7 @@ export type Graph = Record<string, GraphNode>;
 export type Catalog = Record<string, { input: { required?: Record<string, unknown[]>; optional?: Record<string, unknown[]> }; output: string[] }>;
 export interface Connection { state: 'offline' | 'connecting' | 'online'; endpoint: string; gpu: string | null; message: string; loras: string[]; checkedAt: string | null; }
 export interface Draft { sourceId: string | null; referenceId: string | null; settings: Settings; }
-export interface Bootstrap { assets: Asset[]; jobs: Job[]; draft: Draft; connection: Connection; cloud: CloudState; models: ModelsState; imageDraft?: ImageDraft; }
+export interface Bootstrap { assets: Asset[]; jobs: Job[]; draft: Draft; connection: Connection; cloud: CloudState; models: ModelsState; imageDraft?: ImageDraft; characters?: Character[]; }
 
 function dimensionsAt(settings: Settings, source: Pick<Asset, 'width' | 'height'>, short: number, grid: number): [number, number] {
   let ratio = source.width / source.height;
