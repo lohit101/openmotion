@@ -2,7 +2,7 @@
 
 Studio starts a ComfyUI engine without downloading model weights, unused adapters or example media. This is the user's updated preference of 2026-10-25 and replaces automatic Natural-bundle installation. Engine connected and render ready are separate states. Render submission remains blocked until every file needed by the current settings is installed.
 
-In Recast, **Files for these settings** lists the exact core files and active adapters. Click its download button to prepare the current recipe, or expand **View individual files** to download a single file. Changing presets, relighting, detail or LoRA selection starts no transfer. Quality 12/16/20 does not request a speed adapter; disabled relighting requests no relighting adapter. Existing verified files are reused.
+In Remotion, **Files for these settings** lists the exact core files and active adapters. Click its download button to prepare the current recipe, or expand **View individual files** to download a single file. Changing presets, relighting, detail or LoRA selection starts no transfer. Quality 12/16/20 does not request a speed adapter; disabled relighting requests no relighting adapter. Existing verified files are reused.
 
 All adapters are opt-in under Settings → Extras, including Natural and Fast acceleration, DPO detail, relighting and style/identity LoRAs. Core checkpoints and encoders appear in the per-recipe file list, not in Extras. File downloads use up to four concurrent workers, resumable partial files, per-file locks and pinned SHA256 checks. Progress counters normally update about once a second while data is flowing; SHA256 verification is shown separately. A network stall can still delay new bytes. No artificial progress or healthy-transfer time cutoff is used.
 
@@ -12,7 +12,7 @@ A cached healthy engine skips apt/pip installation and verifies only the runtime
 
 ## Settings → Extras
 
-The Extras tab contains all optional adapters and custom uploaded LoRAs. Download buttons remain beside the corresponding quality, lighting and detail options in Recast.
+The Extras tab contains all optional adapters and custom uploaded LoRAs. Download buttons remain beside the corresponding quality, lighting and detail options in Remotion.
 
 | Extra | Download size | Purpose |
 |---|---:|---|

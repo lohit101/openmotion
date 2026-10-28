@@ -9,7 +9,7 @@ export class ImageFinalizationError extends Error {}
 export async function processImage(action: 'prepare' | 'finish', job: Job, store: Store, repo: string, folder: string, signal: AbortSignal): Promise<{ hasFace: boolean; warnings: string[] } | ImageReview> {
   if (!job.image) throw new Error('Missing image replacement settings.');
   const python = path.join(repo, '.local/geometry-venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
-  await access(python).catch(() => { throw new Error('Local image preparation is not ready. Start Remotion with bash scripts/studio.sh once. No new GPU job was submitted.'); });
+  await access(python).catch(() => { throw new Error('Local image preparation is not ready. Start Recast with bash scripts/studio.sh once. No new GPU job was submitted.'); });
   const file = path.join(folder, 'image-request.json');
   const assetPath = (id: string | null) => id ? store.asset(id)?.path || (() => { throw new Error('An image input no longer exists.'); })() : null;
   await writeFile(file, JSON.stringify({ version: job.image.version, settings: job.image.settings, geometry: job.image.geometry, source: assetPath(job.sourceId), reference: assetPath(job.referenceId),

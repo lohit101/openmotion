@@ -42,7 +42,7 @@ Completed GPU receipts are saved before image download. Reconnection checks the 
 
 ## Return to video
 
-**Use in Recast** saves the PNG as a reusable input. If the target was extracted from a known video, it restores that video and clip start, uses native 24 fps and selects **prepared frame**, avoiding a second Klein edit. A generic photograph becomes a normal character reference with **automatic preparation**; it is not mislabelled as a frame from an unrelated video. Review likeness before propagating it: video conditioning cannot repair an incorrect identity anchor.
+**Use in Remotion** saves the PNG as a reusable input. If the target was extracted from a known video, it restores that video and clip start, uses native 24 fps and selects **prepared frame**, avoiding a second Klein edit. A generic photograph becomes a normal character reference with **automatic preparation**; it is not mislabelled as a frame from an unrelated video. Review likeness before propagating it: video conditioning cannot repair an incorrect identity anchor.
 
 Viggle's **Reference preparation** menu disables **Automatic** unless all three Klein files are confirmed installed. Its adjacent download button can restore Klein explicitly when the GPU is connected and the disk has sufficient free space. It shows the required-space reason when disabled. A missing or unknown installation does not silently turn an ordinary reference into a prepared frame. The server also rejects automatic jobs with missing Klein before queuing a paid render. The prepared-frame option uses only Viggle's own model stack and remains available without Klein.
 

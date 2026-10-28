@@ -3,7 +3,7 @@ import { DPO, IMAGE_IDENTITY, I2V_SPEED, NATURAL_SPEED, QWEN_HEAD, QWEN_STRUCTUR
 export function modelUsage(id: string): { workflow: string; detail: string }[] {
   const file = modelDefinitions.find(item => item.id === id);
   if (!file) return [{ workflow: 'Custom LoRA', detail: 'LoRA slots; check compatibility with the selected model.' }];
-  if (file.engine === 'viggle') return [{ workflow: 'Viggle video', detail: 'Recast · all Viggle quality presets' }];
+  if (file.engine === 'viggle') return [{ workflow: 'Viggle video', detail: 'Remotion · all Viggle quality presets' }];
   if (id === 'loras/' + IMAGE_IDENTITY) return [{ workflow: 'Klein images', detail: 'Optional separate identity pass' }];
   if (/flux-2-klein|qwen_3_4b|flux2-vae/.test(file.filename)) return [
     { workflow: 'Klein images', detail: 'Character and outfit replacement' },

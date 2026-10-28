@@ -43,7 +43,7 @@ export default function Sidebar({ view, select, collapsed, toggle, libraryCount 
     </div>
     <div className="rail-navigation" id="workspace-navigation">
       <nav className="rail-main" aria-labelledby="rail-create-label">
-        {link('create', 'Recast', FilmSlate)}{link('image', 'Imagen', ImageSquare)}
+        {link('create', 'Remotion', FilmSlate)}{link('image', 'Imagen', ImageSquare)}
       </nav>
       <nav className="rail-edit" aria-label="Edit"><span className="rail-section-label" aria-hidden="true">Edit</span>
         {link('editor', 'Clip editor', Scissors)}

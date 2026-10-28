@@ -1,0 +1,5 @@
+# Recast app, Remotion video workspace
+
+2026-10-28. The user revised the naming decision: the app is Recast, video is Remotion, and images remain Imagen. This supersedes the previous naming report without rewriting it. Updated the browser title, header/loading/welcome branding, navigation, video heading, image-to-video actions/toasts, model guidance, launch messages, current guides and package metadata. App-related downloadable settings/graph filenames again use the recast prefix.
+
+Validation: production TypeScript/build passed. Native Brave inspection after refresh confirmed the Recast browser title and home control, Remotion video navigation/heading, Imagen navigation and recast studio welcome wordmark. Diff whitespace checks passed. No tests were added for this copy-only change. Existing preference keys, rental/SSH IDs, custom nodes, workflow paths and saved jobs remain intact. No backend restart, GPU action, download or inference was performed; backend-only message changes take effect at its next normal launch.
