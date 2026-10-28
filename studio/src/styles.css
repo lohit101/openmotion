@@ -228,9 +228,11 @@ svg { flex-shrink: 0; }
 .player { display: flex; flex-direction: column; align-items: center; height: 100%; max-height: 100%; width: 100%; min-height: 0; }
 .player-frame { height: calc(100% - 35px); max-width: 100%; min-height: 0; position: relative; overflow: hidden; background: #101113; border-radius: 4px; flex-shrink: 1; }
 .player-frame video { width: 100%; height: 100%; object-fit: contain; display: block; cursor: pointer; }
-.player:fullscreen { height: 100%; max-height: none; padding: 20px 24px; background: var(--canvas); gap: 12px; }
-.player:fullscreen .player-frame { height: calc(100% - 50px); }
-.player:fullscreen .playback-controls { width: min(760px,100%); margin-top: 0; min-height: 38px; }
+/* Fullscreen must outrank Library's popup/mobile preview size limits. The
+   flexible media row reserves space for controls at every viewport size. */
+html .player:fullscreen { width: 100vw; height: 100dvh; max-width: none; max-height: none; min-height: 0; box-sizing: border-box; padding: 16px 24px; background: var(--canvas); display: grid; grid-template-rows: minmax(0, 1fr) auto; justify-items: center; gap: 12px; overflow: hidden; }
+html .player:fullscreen .player-frame { width: 100%; height: 100%; max-width: none; max-height: none; min-height: 0; border-radius: 0; }
+html .player:fullscreen .playback-controls { width: min(760px,100%); margin: 0; min-height: 38px; }
 .before-video { position: absolute; inset: 0; pointer-events: none; }
 .big-play { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 52px; height: 52px; display: grid; place-items: center; background: #13151385; color: #f3f3f3; border: 1px solid #efefef40; backdrop-filter: blur(9px); border-radius: 50%; opacity: 0; }
 .player-frame:hover .big-play, .big-play:focus-visible { opacity: 1; }
