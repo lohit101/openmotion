@@ -1,0 +1,225 @@
+{
+  "date": "2026-10-29",
+  "purpose": "Private matched source-driven facial expression comparison; no product default enabled",
+  "parentId": "56094f66-1da4-4e8e-ab49-7651ff0eb0fe",
+  "selection": {
+    "startFrame": 0,
+    "frames": 120,
+    "fps": 24,
+    "seconds": 5,
+    "width": 704,
+    "height": 1248
+  },
+  "inputs": {
+    "cropAlignment": "Independent YuNet/2DFAN4 arcface_128 at 512 square; not official PerformRecast cropper",
+    "preparationCpuSeconds": 27.457611958961934,
+    "sha256": {
+      "commonCrops": "35ba9f60b26f4ff125449b7624eb2ca814f057d0ba4c44a576c95a858a6960e5",
+      "donor": "82d1e3701d177a44ff4b9ebcdfd53fc456e42c78aec7876bf16c9c8f1b058462"
+    }
+  },
+  "runtime": {
+    "torch": "2.11.0+cu130",
+    "onnxruntime": "1.31.1",
+    "gpu": "NVIDIA RTX A6000",
+    "commonCrop": true
+  },
+  "methods": {
+    "liveportrait-060": {
+      "loadSeconds": 0.4146077009936562,
+      "newFrames": 120,
+      "inferenceSeconds": 5.982516661097179
+    },
+    "liveportrait-100": {
+      "loadSeconds": 0.0001020219933707267,
+      "newFrames": 120,
+      "inferenceSeconds": 5.59894574797363
+    },
+    "performrecast-100": {
+      "loadSeconds": 0.5988181099965004,
+      "newFrames": 120,
+      "inferenceSeconds": 13.285625934047857
+    },
+    "source-features-cpu": {
+      "execution": "local CPU",
+      "elapsedSeconds": 197.65719520894345,
+      "refinedFrames": 118,
+      "skippedFrames": 2,
+      "performanceFrames": 118,
+      "fallbackFrames": 0
+    }
+  },
+  "models": {
+    "version": 1,
+    "total_bytes": 1020005645,
+    "files": [
+      {
+        "repo": "Glat0s/PerformRecast-onnx",
+        "revision": "onnx-v1",
+        "filename": "appearance_feature_extractor.onnx",
+        "destination": "performrecast/appearance_feature_extractor.onnx",
+        "size": 358267936,
+        "sha256": "208e4f848b430cbfa71a36dab7ec25a5b345882f846dbb27288abcfb2ae89a96",
+        "url": "https://github.com/Glat0s/PerformRecast-onnx/releases/download/onnx-v1/appearance_feature_extractor.onnx"
+      },
+      {
+        "repo": "Glat0s/PerformRecast-onnx",
+        "revision": "onnx-v1",
+        "filename": "motion_extractor.onnx",
+        "destination": "performrecast/motion_extractor.onnx",
+        "size": 113091452,
+        "sha256": "b1b26c1b6d7520eb8020175050f0381c4f402ccaa6afbaebee259da4ff9dcb6c",
+        "url": "https://github.com/Glat0s/PerformRecast-onnx/releases/download/onnx-v1/motion_extractor.onnx"
+      },
+      {
+        "repo": "Glat0s/PerformRecast-onnx",
+        "revision": "onnx-v1",
+        "filename": "spade_generator.onnx",
+        "destination": "performrecast/spade_generator.onnx",
+        "size": 343562601,
+        "sha256": "4d8127313b1c2f6b53320b65208dafc22db260550f690cfa114dec646c7a8f5f",
+        "url": "https://github.com/Glat0s/PerformRecast-onnx/releases/download/onnx-v1/spade_generator.onnx"
+      },
+      {
+        "repo": "Glat0s/PerformRecast-onnx",
+        "revision": "onnx-v1",
+        "filename": "warping_module.onnx",
+        "destination": "performrecast/warping_module.onnx",
+        "size": 205083656,
+        "sha256": "92d8a1414a31a4117237bbfb667be02e71831a085af6697c9c3465200228a0ce",
+        "url": "https://github.com/Glat0s/PerformRecast-onnx/releases/download/onnx-v1/warping_module.onnx"
+      }
+    ]
+  },
+  "actualNodeProviders": {
+    "live_portrait_feature_extractor.onnx": {
+      "CUDAExecutionProvider": 11040
+    },
+    "live_portrait_motion_extractor.onnx": {
+      "CUDAExecutionProvider": 231840
+    },
+    "live_portrait_generator.onnx": {
+      "CUDAExecutionProvider": 147840
+    },
+    "appearance_feature_extractor.onnx": {
+      "CUDAExecutionProvider": 48480,
+      "CPUExecutionProvider": 10560
+    },
+    "motion_extractor.onnx": {
+      "CUDAExecutionProvider": 85200
+    },
+    "warping_module.onnx": {
+      "CUDAExecutionProvider": 18720,
+      "CPUExecutionProvider": 10680
+    },
+    "spade_generator.onnx": {
+      "CUDAExecutionProvider": 26880,
+      "CPUExecutionProvider": 11640
+    }
+  },
+  "diagnostics": {
+    "scope": "2DFAN4 geometric opening ratios only; not identity, gaze direction, phoneme correctness, or quality scores. Anatomy and video compression affect absolute errors.",
+    "summary": {
+      "viggle": {
+        "validFrames": 120,
+        "meanAbsoluteOpeningError": {
+          "leftEyelid": 0.03489369755076207,
+          "rightEyelid": 0.03254983795624627,
+          "mouthOpening": 0.07819157334562006
+        },
+        "mouthOpeningCorrelation": 0.629208753117113
+      },
+      "liveportrait-060": {
+        "validFrames": 120,
+        "meanAbsoluteOpeningError": {
+          "leftEyelid": 0.010973561965721336,
+          "rightEyelid": 0.01494349983269209,
+          "mouthOpening": 0.02620658175076418
+        },
+        "mouthOpeningCorrelation": 0.9238722346112999
+      },
+      "liveportrait-100": {
+        "validFrames": 120,
+        "meanAbsoluteOpeningError": {
+          "leftEyelid": 0.02567592807445062,
+          "rightEyelid": 0.034245585265232095,
+          "mouthOpening": 0.040919237842183015
+        },
+        "mouthOpeningCorrelation": 0.9639114825895554
+      },
+      "performrecast-100": {
+        "validFrames": 120,
+        "meanAbsoluteOpeningError": {
+          "leftEyelid": 0.018415079678217906,
+          "rightEyelid": 0.022360529620404846,
+          "mouthOpening": 0.01813033339838494
+        },
+        "mouthOpeningCorrelation": 0.9829865237592922
+      },
+      "source-features": {
+        "validFrames": 120,
+        "meanAbsoluteOpeningError": {
+          "leftEyelid": 0.010477646104583854,
+          "rightEyelid": 0.017234777222107214,
+          "mouthOpening": 0.025041000100829207
+        },
+        "mouthOpeningCorrelation": 0.9648660369959309
+      },
+      "perform-source-eyes": {
+        "validFrames": 120,
+        "meanAbsoluteOpeningError": {
+          "leftEyelid": 0.011965964350799068,
+          "rightEyelid": 0.019978933344782894,
+          "mouthOpening": 0.01710802779496243
+        },
+        "mouthOpeningCorrelation": 0.9862100024273894
+      }
+    }
+  },
+  "preservation": {
+    "originalsUnchanged": true,
+    "newViggleInference": false,
+    "losslessCropPackagingVerified": true,
+    "protectedPixelsExactBeforeEncode": true,
+    "preview": "H264 CRF16, original audio, 120 frames/24fps/5 seconds"
+  },
+  "cost": {
+    "scope": "Timed new comparison session; earlier Imagen/session activity excluded; estimate, not invoice",
+    "computeHourlyUSD": 0.4,
+    "storageHourlyUSD": 0.01777777777777778,
+    "downloadUSDPerGB": 0.0026041666666666665,
+    "uploadUSDPerGB": 0.00390625,
+    "sessionSecondsBeforeStop": 897.55180311203,
+    "estimatedComputeUSD": 0.0997279781235589,
+    "estimatedRunningStorageUSD": 0.004432354583269285,
+    "knownModelAndInputIngressBytes": 1466090765,
+    "knownModelAndInputIngressUSD": 0.003817944700520833,
+    "knownResultEgressBytes": 65612303,
+    "retainedStorageContinues": true
+  },
+  "lifecycle": {
+    "instanceId": 58120414,
+    "idlePauseRestored": true,
+    "confirmedState": "exited",
+    "computeStopped": true
+  },
+  "decision": {
+    "bestNewMouthExpressionCandidate": "PerformRecast Replacement 1.0",
+    "gazeValidated": false,
+    "fullIdentityQualityPass": false,
+    "defaultsChanged": false,
+    "reason": "Better sampled lip shapes and expression, but detail softness and gaze mismatch remain; source-feature ablation has heavy eyelid edges."
+  },
+  "privateArtifactDirectory": "backups/lipsync-20261029",
+  "privateOutputSHA256": {
+    "perform-source-eyes.mp4": "bff964ab982a36b7e445c35ea4e198e526ac7a3f374da9fb42218d6582f5c4cb",
+    "source.mp4": "0ad28fe818e4b8e71effc0c899a0b94bb1ddb31eed0d7e988d1ef1f95f8d6c1c",
+    "viggle.mp4": "366ff114afacf4c5421cf354482263c102a6574946a476523990c14a3167b7ec",
+    "liveportrait-060.mp4": "fb314b82829a5678276e149ffe29b34f87ed67781f8d40260c1a1b1af3296f71",
+    "liveportrait-100.mp4": "b24ce25f6e83935b02632140ca20646fbee56bf72c51475171d91f5ae83c12e9",
+    "source-features.mp4": "11c86b92ca9cb7a808d6cc73ad6fcbc17d27bd9dd20fa5f52aa5b5a013b42de9",
+    "performrecast-100.mp4": "226ab13a77b03fa7a1856cf25a9cb701ab243284b1a9553d32781884391f6675",
+    "source-performance-comparison.mp4": "e2635fb646a14277d0d3478a36ceea52ae6e6d562137115a2a5bdd3a5395d80f"
+  },
+  "evaluationWorkerSHA256": "e25384727283af8500e18c1815db00f560a91004f40e0882538e25a081394e32"
+}
