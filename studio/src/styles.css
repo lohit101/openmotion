@@ -280,7 +280,17 @@ html .player:fullscreen .playback-controls { width: min(760px,100%); margin: 0; 
 .job-title:hover { color: var(--accent-text); }
 .job-card-content > small { grid-column: 1/-1; font-size: 9px; color: var(--quiet); display: flex; align-items: center; gap: 7px; }
 .job-card-content > small svg { margin-left: auto; color: var(--accent-text); }
-.job-pending { display: grid; place-content: center; justify-items: center; gap: 10px; height: 100%; color: var(--quiet); font-size: 10px; }
+.job-pending { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; padding: 10px; min-width: 0; min-height: 0; overflow: hidden; color: var(--muted); font-size: 10px; }
+.job-pending.is-active { background: radial-gradient(ellipse at 50% 100%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 85%); }
+.job-pending-label { display: flex; align-items: center; justify-content: center; gap: 5px; max-width: 100%; min-width: 0; }
+.job-pending-label > span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.job-pending-label > svg { flex-shrink: 0; }
+.job-pending.is-active .job-pending-label > svg { color: var(--accent-text); animation: job-pending-pulse 2s ease-in-out infinite; }
+.job-pending.is-failed .job-pending-label { color: var(--danger, #d88e83); }
+.job-pending-percent { color: var(--text); font-size: clamp(21px, 2vw, 30px); line-height: 1; font-weight: 550; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
+.job-pending-percent > small { font-size: .48em; letter-spacing: 0; color: var(--muted); margin-left: 2px; }
+@keyframes job-pending-pulse { 50% { opacity: .45; } }
+@media(prefers-reduced-motion: reduce) { .job-pending.is-active .job-pending-label > svg { animation: none; } }
 .dropdown-content { min-width: 180px; }
 .dropdown-content [role='menuitem'] { display: flex; align-items: center; gap: 9px; font-size: 11px; padding: 9px; border-radius: 5px; cursor: pointer; }
 .dropdown-content [role='separator'] { height: 1px; background: var(--line); margin: 4px; }
