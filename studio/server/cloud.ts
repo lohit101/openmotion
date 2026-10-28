@@ -327,7 +327,7 @@ export class CloudManager {
   saveFavourite(source: { launchId?: string; quote?: string }) {
     const launch = source.launchId ? this.state.launches.find(item => item.id === source.launchId && item.instanceId) : undefined;
     const offer = launch?.offer || (source.quote ? this.quotes.get(source.quote)?.offer : undefined);
-    if (!offer || !Number.isSafeInteger(offer.machineId) || offer.machineId <= 0) throw new Error('Choose a current offer or a previous Recast rental to save this host.');
+    if (!offer || !Number.isSafeInteger(offer.machineId) || offer.machineId <= 0) throw new Error('Choose a current offer or a previous Remotion rental to save this host.');
     const favourites = this.state.favourites ||= [];
     if (favourites.some(item => item.machineId === offer.machineId && item.gpu === offer.gpu)) return this.state;
     if (favourites.length >= 50) throw new Error('Remove a saved host before adding more than 50 favourites.');
@@ -556,7 +556,7 @@ export class CloudManager {
       throw new Error(requestError || 'Vast still reports this rental.');
     } catch (error) {
       if (launch.autoCleanup) launch.autoCleanup.lastError = (error as Error).message.slice(0, 500); launch.safetyStatus = 'unconfirmed';
-      this.change(launch, 'failed', 'Automatic deletion is not yet confirmed. Recast will keep checking and retrying cleanup. Check Vast if this persists.'); return false;
+      this.change(launch, 'failed', 'Automatic deletion is not yet confirmed. Remotion will keep checking and retrying cleanup. Check Vast if this persists.'); return false;
     }
   }
   private async sshServiceReachable(instance: any) {
@@ -698,7 +698,7 @@ export class CloudManager {
   async action(id: number, action: 'start' | 'stop' | 'destroy' | 'connect', confirmation?: string) {
     if (action === 'start' || action === 'connect') this.assertIdle();
     await this.refresh(); if (this.state.error && (action === 'start' || action === 'connect')) throw new Error(this.state.error);
-    const launch = this.state.launches.find(l => l.instanceId === id); if (!launch) throw new Error('This instance was created outside Recast. Manage it in Vast; Recast controls only its own rentals.');
+    const launch = this.state.launches.find(l => l.instanceId === id); if (!launch) throw new Error('This instance was created outside Remotion. Manage it in Vast; Remotion controls only its own rentals.');
     if (!this.state.error && !this.rawInstances.some(i => i.id === id)) throw new Error('This instance no longer exists.');
     if (action === 'destroy' && confirmation !== String(id)) throw new Error('Enter the instance ID to confirm permanent deletion of its remote disk.');
     if (action === 'start' || action === 'connect') return this.continue(launch);

@@ -1,6 +1,6 @@
-# Image replacement
+# Imagen
 
-Open **Image replacement** in the left sidebar. It has its own saved draft. **Image model** selects the Klein baseline or the Qwen 2.1 trained whole-person evaluation recipe. The current rental has Qwen installed in place of Klein. Changing the model never starts a download. Neither image recipe loads Viggle, SCAIL, SAM or video LoRAs.
+Open **Imagen** in the left sidebar. It has its own saved draft. **Image model** selects the Klein baseline or the Qwen 2.1 trained whole-person evaluation recipe. The current rental has Qwen installed in place of Klein. Changing the model never starts a download. Neither image recipe loads Viggle, SCAIL, SAM or video LoRAs.
 
 1. Add a **target photo** and an **identity reference**. The target supplies composition, pose, apparent head/body size, camera distance, expression and scene lighting; the reference supplies the replacement's face, hair and outfit.
 2. To edit a frame from the current video, choose **Use motion frame**. The original video ID and exact 24 fps clip time are retained. **Use motion character** copies the selected character into the separate image draft.
@@ -42,7 +42,7 @@ Completed GPU receipts are saved before image download. Reconnection checks the 
 
 ## Return to video
 
-**Use in Motion control** saves the PNG as a reusable input. If the target was extracted from a known video, it restores that video and clip start, uses native 24 fps and selects **prepared frame**, avoiding a second Klein edit. A generic photograph becomes a normal character reference with **automatic preparation**; it is not mislabelled as a frame from an unrelated video. Review likeness before propagating it: video conditioning cannot repair an incorrect identity anchor.
+**Use in Recast** saves the PNG as a reusable input. If the target was extracted from a known video, it restores that video and clip start, uses native 24 fps and selects **prepared frame**, avoiding a second Klein edit. A generic photograph becomes a normal character reference with **automatic preparation**; it is not mislabelled as a frame from an unrelated video. Review likeness before propagating it: video conditioning cannot repair an incorrect identity anchor.
 
 Viggle's **Reference preparation** menu disables **Automatic** unless all three Klein files are confirmed installed. Its adjacent download button can restore Klein explicitly when the GPU is connected and the disk has sufficient free space. It shows the required-space reason when disabled. A missing or unknown installation does not silently turn an ordinary reference into a prepared frame. The server also rejects automatic jobs with missing Klein before queuing a paid render. The prepared-frame option uses only Viggle's own model stack and remains available without Klein.
 

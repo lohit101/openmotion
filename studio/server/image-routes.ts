@@ -86,11 +86,11 @@ export function registerImageRoutes(app: Express, store: Store, connection: Conn
     const missing = imageFilesForSettings(value.settings).filter(id => models.state.files.find(file => file.id === id)?.status !== 'installed');
     if (missing.length) return void res.status(409).json({ error: 'Download the selected image files first. No video models are needed.', missingModels: missing });
     const settings = { ...value.settings }; if (settings.randomSeed) settings.seed = randomInt(0, 0xffffffff);
-    const title = source.sourceFrame ? `Frame ${source.sourceFrame.time.toFixed(2)}s / image replacement` : source.name.replace(/\.[^.]+$/, '').slice(0, 80) + ' / image replacement';
+    const title = source.sourceFrame ? `Frame ${source.sourceFrame.time.toFixed(2)}s / Imagen` : source.name.replace(/\.[^.]+$/, '').slice(0, 80) + ' / Imagen';
     const job: Job = { id: randomUUID(), title, status: 'queued', mediaType: 'image',
       sourceId: value.sourceId, referenceId: value.referenceId, settings: { ...defaults, prompt: settings.prompt, seed: settings.seed, randomSeed: settings.randomSeed },
       image: { version: settings.model === 'qwen21' && settings.qwenRecipe === 'body-identity' ? (settings.qwenBodyPose ? 'body-identity-v2' : 'body-identity-v1') : native ? (settings.qwenRecipe === 'identity-first' ? (settings.localIdentity ? 'identity-first-v2' : 'identity-first-v1') : settings.qwenRecipe === 'native-scene' ? 'native-scene-v1' : 'native-mask-v1') : scene ? (settings.qwenIdentityGuide ? 'scene-anchor-v8' : settings.qwenLayoutOnly || settings.localIdentity ? 'scene-anchor-v7' : settings.qwenEdgeOnly ? 'scene-anchor-v6' : settings.qwenRelight ? 'scene-anchor-v5' : settings.qwenNormalizeReference ? 'scene-anchor-v4' : 'scene-anchor-v3') : 'masked-latent-v4', settings, faceId: value.faceId, maskId: value.maskId, geometry }, width: geometry.width, height: geometry.height, outputSize: { width: source.width, height: source.height },
-      createdAt: new Date().toISOString(), favorite: false, deleted: false, progress: { stage: 'Queued for image replacement', node: null, value: null, max: null, unit: 'steps', segment: 1, segments: 1, completedFrames: 0, targetFrames: 1, updatedAt: Date.now() },
+      createdAt: new Date().toISOString(), favorite: false, deleted: false, progress: { stage: 'Queued for Imagen', node: null, value: null, max: null, unit: 'steps', segment: 1, segments: 1, completedFrames: 0, targetFrames: 1, updatedAt: Date.now() },
       segments: [], context: '', pendingPrompt: null, uploads: null, error: null, output: null, poster: null, cancelRequested: false, elapsedSeconds: null, origin: 'render', workflow: null };
     store.addJob(job, key); res.status(201).json(publicJob(job)); void runner.kick();
   });

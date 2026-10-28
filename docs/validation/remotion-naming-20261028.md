@@ -1,0 +1,7 @@
+# Remotion product names
+
+2026-10-28. User-requested names: Remotion for the app, Recast for the video workspace and Imagen for the image workspace. Updated the browser title, loading/welcome branding, header wordmark, sidebar labels/tooltips, workspace headings, cross-workspace actions/toasts, download guidance, current documentation, local launch messages and package metadata. Newly created image runs use Imagen in their default titles; historical saved titles are not rewritten.
+
+Compatibility identifiers remain unchanged: saved browser preferences/drafts, managed rental labels, SSH host aliases, ComfyUI custom-node names, output paths and historical settings/graphs. No Remotion rendering dependency was added, and no model or sampling change was made. Source-side server message/download filename changes take effect on the next ordinary backend launch; the live backend was not restarted for copy changes.
+
+Validation: production TypeScript/build and diff whitespace checks passed. Native Brave inspection confirmed the Remotion browser title/home branding and welcome wordmark, Recast sidebar/heading, and Imagen sidebar/heading. Existing inputs, library items and preferences remained present. No additional tests were introduced for this naming-only change. No GPU lifecycle action, model download or paid inference was needed; user compute and the active Chrome workspace were left alone.

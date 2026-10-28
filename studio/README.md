@@ -1,4 +1,4 @@
-# Recast Studio
+# Remotion
 
 A local dashboard for the project's SCAIL-2 INT8 character swap workflow. The browser and library run on your Mac. NVIDIA inference stays on the rented Vast GPU, accessed through the saved private SSH tunnel.
 
@@ -20,11 +20,11 @@ Open **http://127.0.0.1:3000**. The launcher checks Node.js 24+, npm, Python 3, 
 
 No generation request or connection probe happens on launch. The Generate button remains disabled until you explicitly connect to a CUDA ComfyUI server and finish required setup and install any extras required by your selected settings. See [required setup and optional extras](../docs/model-downloads.md). Loading the app is safe while the Vast instance is stopped.
 
-The header contains the brand, GPU status and a compact theme icon. Motion control stays at the top of the sidebar; My library and GPU cloud sit at the bottom, above a divider and Settings. Settings has Connection and Extras tabs. Model-management links in the editor open Settings → Extras directly. Extras shows optional downloads, installed LoRA sizes and removal controls; required files are handled by GPU setup.
+The header contains the brand, GPU status and a compact theme icon. Recast stays at the top of the sidebar; My library and GPU cloud sit at the bottom, above a divider and Settings. Settings has Connection and Extras tabs. Model-management links in the editor open Settings → Extras directly. Extras shows optional downloads, installed LoRA sizes and removal controls; required files are handled by GPU setup.
 
 ## Rent and manage a GPU inside the app
 
-Open **GPU cloud**. All Vast operations use the existing Vast CLI credential at `~/.config/vastai/vast_api_key` as their single source of truth. Recast reads it for each request, so replacing it also updates marketplace search, favourites, preflight and instance controls without copying the key or restarting the server. There are no in-app key controls, credential write/delete endpoints, environment overrides or app-local credential fallbacks. If credentials are unavailable, configure the Vast CLI and select **Retry connection**. The key stays server-side and is never returned by the API, logged, stored in the browser or sent to the GPU. It needs offer search, instance read/write and SSH public-key read/registration permissions.
+Open **GPU cloud**. All Vast operations use the existing Vast CLI credential at `~/.config/vastai/vast_api_key` as their single source of truth. Remotion reads it for each request, so replacing it also updates marketplace search, favourites, preflight and instance controls without copying the key or restarting the server. There are no in-app key controls, credential write/delete endpoints, environment overrides or app-local credential fallbacks. If credentials are unavailable, configure the Vast CLI and select **Retry connection**. The key stays server-side and is never returned by the API, logged, stored in the browser or sent to the GPU. It needs offer search, instance read/write and SSH public-key read/registration permissions.
 
 The marketplace fetches live compatible single-GPU NVIDIA offers, sorted by the quoted running total. Select 3090, 4090, 5090 or **Datacenter / A-series** (A10, A30, A40, A100 PCIe/SXM4, A800 PCIe and compatible RTX A cards), or browse All GPUs. Only offers meeting the existing memory, RAM, CUDA 13, driver, storage and SSH requirements appear. The A40 has one matched-input benchmark below; other datacenter families still need their own measurements. Select an offer to inspect VRAM, allocated RAM/CPU, host reliability and verification, driver/CUDA support, disk/PCIe/network bandwidth, storage price and transfer fees. The model transfer estimate covers the automatic required bundle. Fresh setup downloads its eight files while installing the runtime. Natural swap with DPO and relighting needs **29.739 GB**, excluding the unused Fast adapter; runtime downloads and setup compute are additional. No speed or quality ranking is invented.
 
@@ -34,7 +34,7 @@ Set disk space **before renting** (64 GB minimum, 80 GB recommended), select you
 
 New rentals include a small startup hook that repairs root SSH directory/key ownership and permissions without replacing keys or disabling OpenSSH checks. This addresses the confirmed RTX A6000 host failure recorded in [the SSH diagnosis](../validation/ssh-permissions-57550828.json). Updating an existing failed rental’s startup configuration is a separate repair; the future-rental hook alone does not alter its current container. Authentication rejection and host-key verification failures now produce different messages.
 
-On instance 57550828, Vast accepted the updated startup script but a normal stop/start reused the old container without applying it. Recreating its empty container in place applied the hook and restored SSH, with root-owned `.ssh` at 0700 and `authorized_keys` at 0600. This was an explicitly authorized repair of a container that had never reached project installation; see [the live repair verification](../validation/ssh-repair-57550828.json). Do not recycle a populated container as a routine retry: Vast's [recycle operation](https://docs.vast.ai/api-reference/instances/recycle-instance) destroys and recreates the container, so its files must be preserved first. Recast does not perform this operation automatically.
+On instance 57550828, Vast accepted the updated startup script but a normal stop/start reused the old container without applying it. Recreating its empty container in place applied the hook and restored SSH, with root-owned `.ssh` at 0700 and `authorized_keys` at 0600. This was an explicitly authorized repair of a container that had never reached project installation; see [the live repair verification](../validation/ssh-repair-57550828.json). Do not recycle a populated container as a routine retry: Vast's [recycle operation](https://docs.vast.ai/api-reference/instances/recycle-instance) destroys and recreates the container, so its files must be preserved first. Remotion does not perform this operation automatically.
 
 Setup runs on the remote host under a lock. The app displays the actual stages and setup logs. Retry follows or repairs the same rental and reuses verified model files and partial downloads. An ambiguous create response is recovered by its unique instance label; it is never blindly retried as another rental. The app requests a compute stop after recovering a failed or unconfirmed setup. Use **Start & connect** to resume that existing disk deliberately.
 
@@ -55,7 +55,7 @@ API contracts and pricing/lifecycle behavior are based on [Vast's offer search](
 1. Start the existing instance in Vast. Keep its retained disk. ComfyUI and the models are already installed there.
 2. In the app, open **GPU offline**, keep `http://127.0.0.1:8188` and **Restore saved SSH tunnel**, then click **Connect GPU**. The helper starts the existing remote ComfyUI service if necessary and restores the tunnel using `.local/connection.json` and the SSH key already on your Mac.
 3. Wait for the actual NVIDIA device name. Review the inputs and settings, then Generate. No automatic demo render is submitted.
-4. Stop a Recast-created instance in **GPU cloud → My instances**, or a manually created one in Vast. Disconnecting or closing this app does not stop compute billing.
+4. Stop a Remotion-created instance in **GPU cloud → My instances**, or a manually created one in Vast. Disconnecting or closing this app does not stop compute billing.
 
 If Vast changes the instance's SSH address or port, update it first:
 
@@ -63,7 +63,7 @@ If Vast changes the instance's SSH address or port, update it first:
 python3 scripts/vast.py configure --ssh-command 'ssh -p PORT root@HOST'
 ```
 
-The original manually rented instance was destroyed by the user. Its workflow, inputs and outputs are backed up locally. Subsequent tests use a Recast-managed retained RTX 3090 instance, which was confirmed paused after the latest test. The manual connection helper remains available for other existing instances. Verified models are reused when an instance retains its disk.
+The original manually rented instance was destroyed by the user. Its workflow, inputs and outputs are backed up locally. Subsequent tests use a Remotion-managed retained RTX 3090 instance, which was confirmed paused after the latest test. The manual connection helper remains available for other existing instances. Verified models are reused when an instance retains its disk.
 
 ## What happens on Generate
 

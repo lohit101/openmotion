@@ -47,7 +47,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   app.use((req, res, next) => {
     const origin = req.headers.origin;
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && origin) {
-      try { const url = new URL(origin); if (!['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)) return void res.status(403).json({ error: 'Open the local Recast Studio to make changes.' }); }
+      try { const url = new URL(origin); if (!['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)) return void res.status(403).json({ error: 'Open the local Remotion app to make changes.' }); }
       catch { return void res.status(403).json({ error: 'Invalid origin.' }); }
     }
     res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Referrer-Policy', 'same-origin'); next();
@@ -158,7 +158,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     if (models.state.error) return void res.status(503).json({ error: models.state.error });
     const missing = modelFilesForSettings(value.settings).filter(id => models.state.files.find(file => file.id === id)?.status !== 'installed');
     if (missing.length) return void res.status(409).json({ error: isViggle(value.settings) && value.settings.referencePreparation !== 'prepared' && missing.some(id => imageModelFiles.includes(id))
-      ? 'Automatic frame preparation requires Klein. Download it beside Reference preparation, or create a frame in Image replacement and select Use an already edited source frame. Nothing was queued.'
+      ? 'Automatic frame preparation requires Klein. Download it beside Reference preparation, or create a frame in Imagen and select Use an already edited source frame. Nothing was queued.'
       : 'Download the required files in Models before generating. Nothing was queued.', missingModels: missing });
     for (const name of [value.settings.loraA, value.settings.loraB]) if (name !== 'None' && !connection.status.loras.includes(name)) return void res.status(409).json({ error: 'Upload the selected custom LoRA before generating: ' + name });
     const source = store.asset(value.sourceId), reference = store.asset(value.referenceId); if (!source || !reference) throw new Error('Upload both inputs before generating.');
@@ -199,7 +199,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     if (req.params.type === 'video' && req.query.download && job.edit?.format === 'mkv') {
       const file = path.join(store.root, 'jobs', job.id, 'master.mkv');
       if (!existsSync(file)) return void res.sendStatus(404);
-      res.attachment(`${job.title.replace(/[^a-zA-Z0-9 _-]/g, '').slice(0, 70) || 'recast-edit'}.mkv`);
+      res.attachment(`${job.title.replace(/[^a-zA-Z0-9 _-]/g, '').slice(0, 70) || 'remotion-edit'}.mkv`);
       return void res.sendFile(file);
     }
     if (isImageJob(job) && ['image', 'image-source', 'face-source', 'face-reference', 'face-output', 'image-mask', 'image-structure', 'image-body', 'image-body-raw', 'image-head-raw', 'image-lighting', 'image-prepared-reference', 'image-identity-anchor', 'image-integrated-base'].includes(String(req.params.type))) {
@@ -222,7 +222,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
       return void res.sendFile(path.join(store.root, 'jobs', job.id, 'aligned-reference.png'));
     }
     const type = String(req.params.type);
-    if (type === 'workflow') { if (!job.workflow) return void res.status(404).json({ error: 'This run has not submitted a workflow yet.' }); res.attachment(`recast-${job.id}-workflow.json`).json(job.workflow); return; }
+    if (type === 'workflow') { if (!job.workflow) return void res.status(404).json({ error: 'This run has not submitted a workflow yet.' }); res.attachment(`remotion-${job.id}-workflow.json`).json(job.workflow); return; }
     const file = type === 'video' ? job.output : type === 'poster' ? job.poster : type === 'source' ? path.join(store.root, 'jobs', job.id, 'prepared-source.mp4') : null;
     const fallback = type === 'source' ? store.asset(job.sourceId)?.path : null;
     const target = file && existsSync(file) ? file : fallback;
@@ -241,7 +241,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
 async function main() {
   const port = Number(process.env.PORT || 3000);
   const { server, store, cloud, models, clipEditor } = await startLocalServer(() => createApplication(), port);
-  console.log(`Recast Studio: http://127.0.0.1:${port} (GPU disconnected until you connect)`);
+  console.log(`Remotion: http://127.0.0.1:${port} (GPU disconnected until you connect)`);
   server.on('error', error => { console.error(error.message); cloud.dispose(); store.close(); process.exitCode = 1; });
   let closing = false;
   const shutdown = async () => {

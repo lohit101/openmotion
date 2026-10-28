@@ -6,7 +6,7 @@ export async function startLocalServer<T extends { app: RequestListener }>(facto
   const server = createServer((request, response) => {
     if (application) { application(request, response); return; }
     response.writeHead(503, { 'Content-Type': 'application/json', 'Retry-After': '1', 'X-Content-Type-Options': 'nosniff' });
-    response.end(JSON.stringify({ error: 'Recast Studio is starting. Retry in a moment.' }));
+    response.end(JSON.stringify({ error: 'Remotion is starting. Retry in a moment.' }));
   });
   await new Promise<void>((resolve, reject) => {
     const failed = (error: Error) => reject(error);
