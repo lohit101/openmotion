@@ -3,6 +3,7 @@ import { ArrowCounterClockwise, Check, Crop } from '@phosphor-icons/react';
 import type { Asset } from '../shared/types';
 import { referenceViewIssue, type ImageReferenceView } from '../shared/image-replacement';
 import { Modal } from './components';
+import './reference-views.css';
 
 export function ReferenceViewImage({ asset, view, alt, thumbnail = false }: { asset: Asset; view: ImageReferenceView | null | undefined; alt: string; thumbnail?: boolean }) {
   const crop = view && !referenceViewIssue(view, asset) ? view : { x: 0, y: 0, width: asset.width, height: asset.height };

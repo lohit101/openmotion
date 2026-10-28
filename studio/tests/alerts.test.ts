@@ -17,6 +17,12 @@ const models = (files: ModelFileState[], busy = false): ModelsState => ({ ...emp
 const exported = (status: LocalExport['status'], id = 'export'): LocalExport => ({ id, status, title: 'Local edit', stage: '', percent: status === 'completed' ? 100 : 0, error: status === 'failed' ? 'Fixture error' : null, resultJobId: status === 'completed' ? 'export-job' : null, mode: 'lossless', createdAt: new Date(now + 100).toISOString() });
 
 describe('activity alert transitions', () => {
+  it('does not announce intermediate segment photos as completed final generations', () => {
+    const tracker = new ActivityAlertTracker(now); tracker.collect(snapshot());
+    const child = job('child', 'running', { mediaType: 'image', image: { segmentRepaint: { videoJobId: 'parent', segment: 2, frame: 123 } } as Job['image'] });
+    expect(tracker.collect(snapshot([child]))).toEqual([]);
+    expect(tracker.collect(snapshot([{ ...child, status: 'completed', output: 'ready' }]))).toEqual([]);
+  });
   it('delivers one idle-pause alert only after confirmation, and a distinct error for an unconfirmed stop', () => {
     const tracker = new ActivityAlertTracker(now), data = snapshot(); tracker.collect(data);
     data.cloud.idle = { enabled: true, timeoutSeconds: 300, instanceId: 777, idleSince: null, pauseAt: null, status: 'pausing', message: '', lastPause: { id: 'idle-event', instanceId: 777, requestedAt: new Date(now).toISOString() } };

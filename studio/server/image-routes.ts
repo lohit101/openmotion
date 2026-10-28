@@ -124,8 +124,13 @@ export function registerImageRoutes(app: Express, store: Store, connection: Conn
     if (!asset) { asset = await ingest(store, job.output, 'image', job.title + '.png', true); job.image.resultAssetId = asset.id; store.saveJob(job); }
     const source = store.asset(job.sourceId), frame = source?.sourceFrame, video = frame ? store.asset(frame.videoId) : null;
     const draft = store.draft(); draft.referenceId = asset.id;
-    draft.settings = { ...draft.settings, engine: 'viggle', mode: 'swap', fps: 24, orientation: 'source', loraA: 'None', loraB: 'None', referencePreparation: frame && video?.kind === 'video' ? 'prepared' : 'auto', seconds: Math.min(5, draft.settings.seconds) };
-    if (frame && video?.kind === 'video') { draft.sourceId = video.id; draft.settings.start = frame.time; draft.settings.seconds = Math.min(5, draft.settings.seconds, Math.floor((video.duration - frame.time) * 24) / 24); }
+    const character = job.image.character;
+    const selectedDuration = character && frame && draft.sourceId === video?.id && Math.abs(draft.settings.start - frame.time) < 1 / 48 ? draft.settings.seconds : Math.min(5, draft.settings.seconds);
+    draft.settings = { ...draft.settings, engine: 'viggle', mode: 'swap', fps: 24, orientation: 'source', loraA: 'None', loraB: 'None', referencePreparation: frame && video?.kind === 'video' ? 'prepared' : 'auto', seconds: selectedDuration,
+      imagenRepaint: character?.bodyView && character.faceView && frame && video?.kind === 'video' ? { characterId: character.id, revision: character.revision, bodyView: character.bodyView, faceView: character.faceView, sourceImageJobId: job.id } : null,
+      imagenRepaintEnabled: !!(character?.bodyView && character.faceView && frame && video?.kind === 'video'),
+      ...(character ? { viggleReferenceMode: 'previous' as const } : {}) };
+    if (frame && video?.kind === 'video') { draft.sourceId = video.id; draft.settings.start = frame.time; draft.settings.seconds = Math.min(30, draft.settings.seconds, Math.floor((video.duration - frame.time) * 24) / 24); }
     store.set('draft', draft); res.json({ asset: publicAsset(asset), draft });
   });
 }

@@ -114,6 +114,8 @@ export const localFramingSchema = z.object({
 export interface ImageRun {
   version?: 'masked-latent-v2' | 'masked-latent-v3' | 'masked-latent-v4' | 'scene-anchor-v1' | 'scene-anchor-v2' | 'scene-anchor-v3' | 'scene-anchor-v4' | 'scene-anchor-v5' | 'scene-anchor-v6' | 'scene-anchor-v7' | 'scene-anchor-v8' | 'native-mask-v1' | 'native-scene-v1' | 'identity-first-v1' | 'identity-first-v2' | 'body-identity-v1' | 'body-identity-v2' | 'body-only-v1' | 'body-only-v2' | 'body-only-v3' | 'body-only-v4' | 'body-only-v5' | 'body-only-v6' | 'body-only-single-v1';
   character?: CharacterSnapshot;
+  scopeMaskId?: string;
+  segmentRepaint?: { videoJobId: string; segment: number; frame: number };
   conditioningPrompt?: string;
   stagedPrompts?: { body: string; outfit: string; face: string };
   headPrompt?: string;

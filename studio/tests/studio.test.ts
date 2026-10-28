@@ -20,6 +20,7 @@ import type { ReferenceGeometry } from '../server/framing';
 import prompts from '../../config/prompts.json';
 import type { Asset, Catalog, Graph, Job, Settings } from '../shared/types';
 import { imageDefaults } from '../shared/image-replacement';
+import { fileSHA256 } from '../server/segment-repaint';
 import { ImageFinalizationError } from '../server/image-processing';
 
 const repo = path.resolve(import.meta.dirname, '../..');
@@ -52,13 +53,13 @@ async function mockComfy(viggle = false) {
   const localCatalog = structuredClone(catalog), sockets = new Map<string, WebSocket>(), uploads = new Map<string, string>(), files = new Map<string, string>();
   (localCatalog.LoraLoaderModelOnly.input.required!.lora_name[0] as string[]).push(NATURAL_SPEED);
   if (viggle) {
-    Object.assign(localCatalog, JSON.parse(readFileSync(path.join(repo, 'integration-snapshot/viggle-node-schemas.json'), 'utf8')));
+    Object.assign(localCatalog, JSON.parse(readFileSync(path.join(repo, 'integration-snapshot/viggle-node-schemas.json'), 'utf8')), JSON.parse(readFileSync(path.join(repo, 'integration-snapshot/qwen21-node-schemas.json'), 'utf8')));
     for (const schema of Object.values(localCatalog)) for (const [name, rule] of Object.entries({ ...schema.input.required, ...schema.input.optional })) {
       if (['unet_name', 'vae_name', 'clip_name', 'lora_name', 'text_cond'].includes(name) && Array.isArray(rule[0])) rule[0] = [...rule[0], ...pinnedModels.map(f => f.destination.split('/').at(-1))];
     }
   }
   const pending = new Map<string, any[]>(), history: Record<string, any> = {}, submissions: any[] = [], cancelled: string[] = [], calls: string[] = [];
-  let mode: 'complete' | 'hold' | 'lose-response' = 'complete', dropHistory = false, dropCancel = false, dropLatent = false, dropDownload = 0, dropContext = 0;
+  let mode: 'complete' | 'hold' | 'lose-response' = 'complete', dropHistory = false, dropCancel = false, dropLatent = false, dropDownload = 0, dropContext = 0, holdPhotos = false, failPhotos = 0;
   app.use(express.json({ limit: '5mb' })); app.use((req, _res, next) => { calls.push(req.method + ' ' + req.path); next(); });
   ws.on('connection', (socket, req) => { sockets.set(new URL(req.url!, 'http://localhost').searchParams.get('clientId')!, socket); });
   const emit = (client: string, type: string, data: unknown) => sockets.get(client)?.send(JSON.stringify({ type, data }));
@@ -75,6 +76,7 @@ async function mockComfy(viggle = false) {
   async function complete(id: string) {
     const entry = pending.get(id); if (!entry) return;
     if (entry[2]['46'].class_type === 'SaveImage') {
+      if (failPhotos) { failPhotos--; history[id] = { prompt: entry, status: { status_str: 'error', messages: [['execution_error', { exception_message: 'Fixture native photo failure' }]] }, outputs: {} }; pending.delete(id); emit(entry[3].client_id, 'executing', { prompt_id: id, node: null }); return; }
       // Protocol only: return the uploaded source, never synthetic model quality.
       const graph = entry[2] as Graph, filename = id + '.png';
       const source = uploads.get(String((graph['128'] || graph['1']).inputs.image))!;
@@ -114,18 +116,19 @@ async function mockComfy(viggle = false) {
     submissions.push({ id, ...req.body, socketReady: sockets.get(req.body.client_id)?.readyState === WebSocket.OPEN }); pending.set(id, entry);
     if (mode === 'lose-response') { req.socket.destroy(); return; }
     emit(req.body.client_id, 'execution_start', { prompt_id: id });
-    const imageRun = req.body.prompt['46'].class_type === 'SaveImage', stepNode = req.body.prompt[imageRun ? '115' : '42'], node = imageRun ? '118' : '43';
+    const imageRun = req.body.prompt['46'].class_type === 'SaveImage', stepNode = req.body.prompt[imageRun ? req.body.prompt['115'] ? '115' : '118' : '42'], node = imageRun ? '118' : '43';
     emit(req.body.client_id, 'executing', { prompt_id: id, node });
     const steps = stepNode.class_type === 'ManualSigmas' ? String(stepNode.inputs.sigmas).split(',').length - 1 : stepNode.inputs.steps;
     emit(req.body.client_id, 'progress', { prompt_id: id, node, value: 2, max: typeof steps === 'number' ? steps : 6 });
     res.json({ prompt_id: id, node_errors: {} });
-    if (mode === 'complete') void complete(id);
+    if (mode === 'complete' && !(imageRun && holdPhotos)) void complete(id);
   });
   app.post('/api/jobs/:id/cancel', (req, res) => { if (dropCancel) { dropCancel = false; req.socket.destroy(); return; } cancelled.push(req.params.id); pending.delete(req.params.id); res.json({ cancelled: true }); });
   app.get('/view', (req, res) => { if (dropDownload > 0) { dropDownload--; req.socket.destroy(); return; } if (dropContext > 0 && String(req.query.filename).endsWith('.safetensors')) { dropContext--; req.socket.destroy(); return; } const file = files.get(String(req.query.filename)); if (file) res.sendFile(file); else res.sendStatus(404); });
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   const address = server.address() as { port: number };
   return { endpoint: `http://127.0.0.1:${address.port}`, calls, submissions, cancelled, pending, history, complete, emit, uploads, catalog: localCatalog,
+    holdPhotos(value: boolean) { holdPhotos = value; }, failNextPhoto() { failPhotos++; },
     setMode(value: typeof mode) { mode = value; }, loseNextHistory() { dropHistory = true; }, loseNextCancel() { dropCancel = true; }, omitNextLatent() { dropLatent = true; }, loseNextDownload() { dropDownload = 3; }, loseNextContext() { dropContext = 3; },
     async close() { for (const socket of ws.clients) socket.terminate(); ws.close(); server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); }
   };
@@ -199,6 +202,100 @@ describe('local app with the captured ComfyUI protocol', () => {
     await agent.post('/api/connection/connect').send({ endpoint: mock!.endpoint, useSSH: false }).expect(202);
     await until(() => local!.connection.status.state, state => state === 'online');
   }
+  async function repaintInputs(agent: ReturnType<typeof request>) {
+    const values = await inputs(agent);
+    const body = (await agent.post('/api/assets/image').attach('file', image).expect(201)).body;
+    const face = (await agent.post('/api/assets/image').attach('file', image).expect(201)).body;
+    const character = (await agent.post('/api/characters').send({ name: 'Protocol character', bodyId: body.id, faceId: face.id,
+      bodyView: { assetId: body.id, x: 0, y: 0, width: 96, height: 160 }, faceView: { assetId: face.id, x: 0, y: 0, width: 96, height: 160 } }).expect(201)).body;
+    Object.assign(values.settings, { engine: 'viggle', referencePreparation: 'prepared', orientation: 'source', fps: 24, seconds: 5.25, viggleReferenceMode: 'previous', imagenRepaintEnabled: true,
+      imagenRepaint: { characterId: character.id, revision: character.revision, bodyView: character.bodyView, faceView: character.faceView, sourceImageJobId: null } });
+    // Protocol seam only: actual raw anchors and face scopes have CPU tests.
+    local!.runner.repaintTargetPreparer = async (_job, folder) => {
+      await copyFile(image, path.join(folder, 'target.png')); await copyFile(image, path.join(folder, 'scope-mask.png'));
+      return { outputs: { 'target.png': await fileSHA256(image), 'scope-mask.png': await fileSHA256(image) }, inputs: { anchorSHA256: 'a'.repeat(64) }, repaint: true, warning: null };
+    };
+    local!.runner.imageProcessor = async (action, job, store, _repo, folder) => {
+      if (action === 'prepare') {
+        for (const name of ['target.png', 'original.png']) await copyFile(store.asset(job.sourceId)!.path, path.join(folder, name));
+        await copyFile(store.asset(job.referenceId)!.path, path.join(folder, 'identity.png'));
+        await copyFile(store.asset(job.image!.faceId!)!.path, path.join(folder, 'face.png'));
+        for (const name of ['edit-mask.png', 'working-mask.png']) await copyFile(store.asset(job.image!.maskId!)!.path, path.join(folder, name));
+        return { hasFace: true, warnings: [] };
+      }
+      await copyFile(path.join(folder, 'gpu-result.png'), path.join(folder, 'final.png'));
+      return { status: 'review', warnings: [], backgroundProtected: true, outsideMaskMaxDifference: 0, sourceFace: true, referenceFace: true, outputFace: true };
+    };
+    return values;
+  }
+  it('serializes video → saved Imagen repaint → video with unchanged raw continuity anchors', async () => {
+    const agent = await setup(true), values = await repaintInputs(agent); await connect(agent);
+    const response = await agent.post('/api/jobs').set('Idempotency-Key', 'imagen-segment-flow').send(values).expect(201);
+    const job = await until(() => local!.store.job(response.body.id)!, j => ['completed', 'failed', 'interrupted'].includes(j.status), 18000);
+    expect(job.error).toBeNull(); expect(job.status).toBe('completed'); expect(job.segments).toHaveLength(2); expect(job.progress.completedFrames).toBe(126);
+    expect(mock!.submissions.map(s => s.prompt['46'].class_type)).toEqual(['VHS_VideoCombine', 'SaveImage', 'VHS_VideoCombine']);
+    const photo = local!.store.job(job.viggleRepaint!.records[1].photoJobId!)!;
+    expect(photo.status).toBe('completed'); expect(photo.image!.character).toEqual(job.viggleRepaint!.character);
+    expect(photo.image!.scopeMaskId).toBe(photo.image!.maskId);
+    expect(job.viggleRepaint!.records[1]).toMatchObject({ segment: 2, frame: 123, status: 'completed', referenceSHA256: expect.stringMatching(/^[a-f0-9]{64}$/) });
+    expect(mock!.submissions[2].prompt['4'].class_type).toBe('LoadImage'); expect(mock!.submissions[2].prompt['4'].inputs.image).toContain('imagen-reference-1');
+    expect(mock!.submissions[2].prompt['36'].inputs).toMatchObject({ context_version: 'last-frame-v2', job_id: job.id, overlap: 107 });
+  }, 22000);
+  it('recovers an already paid boundary photo download without rerendering that photo or the accepted video prefix', async () => {
+    const agent = await setup(true), values = await repaintInputs(agent); await connect(agent);
+    const prepare = local!.runner.repaintTargetPreparer!; local!.runner.repaintTargetPreparer = async (...args) => { const result = await prepare(...args); mock!.loseNextDownload(); return result; };
+    const response = await agent.post('/api/jobs').set('Idempotency-Key', 'imagen-segment-download').send(values).expect(201), id = response.body.id;
+    const stopped = await until(() => local!.store.job(id)!, j => ['interrupted', 'failed', 'completed'].includes(j.status), 18000);
+    expect(stopped.status).toBe('interrupted'); expect(local!.connection.status.state).toBe('online'); expect(stopped.segments).toHaveLength(1);
+    const prefix = await readFile(path.join(root, 'jobs', id, 'segment_0000.mp4')), photoId = stopped.viggleRepaint!.activePhotoId!;
+    expect(mock!.submissions).toHaveLength(2); expect(await readdir(path.join(root, 'jobs', photoId))).toContain('history_0.json');
+    await agent.post(`/api/jobs/${id}/resume`).send({}).expect(200);
+    const job = await until(() => local!.store.job(id)!, j => ['completed', 'failed', 'interrupted'].includes(j.status), 18000);
+    expect(job.status).toBe('completed'); expect(job.error).toBeNull(); expect(mock!.submissions).toHaveLength(3);
+    expect(job.viggleRepaint!.records[1].photoJobId).toBe(photoId); expect(await readFile(path.join(root, 'jobs', id, 'segment_0000.mp4'))).toEqual(prefix);
+  }, 35000);
+  it('cancels the in-flight child photo when the video is cancelled, keeping its completed first segment', async () => {
+    const agent = await setup(true), values = await repaintInputs(agent); mock!.holdPhotos(true); await connect(agent);
+    const response = await agent.post('/api/jobs').set('Idempotency-Key', 'imagen-segment-cancel').send(values).expect(201), id = response.body.id;
+    await until(() => local!.store.job(id)!, j => !!j.viggleRepaint?.activePhotoId && !!local!.store.job(j.viggleRepaint.activePhotoId)?.pendingPrompt, 18000);
+    const parent = local!.store.job(id)!, child = local!.store.job(parent.viggleRepaint!.activePhotoId!)!;
+    await agent.post(`/api/jobs/${id}/cancel`).send({}).expect(200); await until(() => local!.runner.busy, busy => !busy);
+    expect(mock!.cancelled).toContain(child.pendingPrompt); expect(local!.store.job(id)!.status).toBe('cancelled'); expect(local!.store.job(child.id)!.status).toBe('cancelled');
+    expect(local!.store.job(id)!.segments).toHaveLength(1); expect(mock!.submissions).toHaveLength(2); expect(mock!.pending.size).toBe(0);
+  }, 25000);
+  it('requires an explicit photo retry after native failure and retains the failed attempt and video prefix', async () => {
+    const agent = await setup(true), values = await repaintInputs(agent); mock!.failNextPhoto(); await connect(agent);
+    const response = await agent.post('/api/jobs').set('Idempotency-Key', 'imagen-segment-failed-photo').send(values).expect(201), id = response.body.id;
+    const first = await until(() => local!.store.job(id)!, j => ['interrupted', 'failed', 'completed'].includes(j.status), 18000);
+    expect(first.status).toBe('interrupted'); expect(first.retryRequired).toBe(true); expect(mock!.submissions).toHaveLength(2);
+    const failedId = first.viggleRepaint!.activePhotoId!, prefix = await readFile(path.join(root, 'jobs', id, 'segment_0000.mp4'));
+    expect(await readdir(path.join(root, 'jobs', failedId))).toContain('native-error_0.json');
+    await agent.post(`/api/jobs/${id}/resume`).send({}).expect(200); await until(() => local!.runner.busy, busy => !busy);
+    expect(mock!.submissions).toHaveLength(2); expect(local!.store.job(id)!.status).toBe('interrupted');
+    await agent.post(`/api/jobs/${id}/resume`).send({ retryMissing: true }).expect(200);
+    const job = await until(() => local!.store.job(id)!, j => ['completed', 'failed', 'interrupted'].includes(j.status), 18000);
+    expect(job.error).toBeNull(); expect(job.status).toBe('completed'); expect(mock!.submissions).toHaveLength(4);
+    expect(job.viggleRepaint!.records[1].previousPhotoJobIds).toEqual([failedId]); expect(local!.store.job(failedId)!.status).toBe('failed');
+    expect(await readFile(path.join(root, 'jobs', id, 'segment_0000.mp4'))).toEqual(prefix);
+  }, 35000);
+  it('hands an approved character photo into Remotion with frozen profile and selected long duration', async () => {
+    const agent = await setup(true), values = await repaintInputs(agent); await connect(agent); await agent.post('/api/draft').send(values).expect(200);
+    const profile = values.settings.imagenRepaint!, character = local!.store.character(profile.characterId)!;
+    const frame = (await agent.post('/api/images/source-frame').send({ sourceId: values.sourceId, time: 0 }).expect(201)).body;
+    const mask = (await agent.post(`/api/images/mask/${frame.id}`).attach('file', image).expect(201)).body;
+    const response = await agent.post('/api/images/jobs').set('Idempotency-Key', 'starting-character-photo').send({ sourceId: frame.id, referenceId: character.bodyId, faceId: character.faceId, maskId: mask.id,
+      referenceMode: 'character', characterId: character.id, characterRevision: character.revision, settings: { ...imageDefaults, bodyReferenceView: profile.bodyView, faceReferenceView: profile.faceView } }).expect(201);
+    const photo = await until(() => local!.store.job(response.body.id)!, j => ['completed', 'failed'].includes(j.status)); expect(photo.status).toBe('completed');
+    const handoff = (await agent.post(`/api/images/jobs/${photo.id}/use`).send({}).expect(200)).body;
+    expect(handoff.draft.settings).toMatchObject({ imagenRepaintEnabled: true, referencePreparation: 'prepared', seconds: 5.25, viggleReferenceMode: 'previous' });
+    expect(handoff.draft.settings.imagenRepaint.sourceImageJobId).toBe(photo.id);
+    local!.store.saveCharacter({ ...character, revision: 2, archived: true, name: 'Changed later' });
+    const request = await agent.post('/api/jobs').set('Idempotency-Key', 'video-from-frozen-photo').send(handoff.draft).expect(201);
+    const job = await until(() => local!.store.job(request.body.id)!, j => ['completed', 'failed', 'interrupted'].includes(j.status), 18000);
+    expect(job.error).toBeNull(); expect(job.status).toBe('completed'); expect(job.viggleRepaint!.character.revision).toBe(1);
+    expect(job.viggleRepaint!.initialImageJobId).toBe(photo.id); expect(job.viggleRepaint!.records[0].status).toBe('provided');
+    expect(mock!.submissions.map(s => s.prompt['46'].class_type)).toEqual(['SaveImage', 'VHS_VideoCombine', 'SaveImage', 'VHS_VideoCombine']);
+  }, 30000);
   async function imageInputs(agent: ReturnType<typeof request>) {
     const source = await agent.post('/api/assets/image').attach('file', image).expect(201), reference = await agent.post('/api/assets/image').attach('file', image).expect(201);
     local!.runner.imageProcessor = async (action, job, store, _repo, folder) => {

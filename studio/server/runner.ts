@@ -14,6 +14,7 @@ import { isViggle, planForJob } from '../shared/engines';
 import { canFinishImageLocally, isImageJob, type ImageReview } from '../shared/image-replacement';
 import { ImageFinalizationError, processImage } from './image-processing';
 import { DownloadError, type DownloadProgress } from './download';
+import { prepareSegmentRepaint, replaceFailedRepaint, RepaintWaitError, type RepaintTargetPreparer } from './segment-repaint';
 
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 export class Runner {
@@ -22,6 +23,7 @@ export class Runner {
   private resumes = new Map<string, Promise<void>>();
   public geometry: ReferenceGeometry;
   public imageProcessor = processImage;
+  public repaintTargetPreparer?: RepaintTargetPreparer;
   constructor(public store: Store, public connection: ConnectionManager, public template: Graph, public repo: string, geometry?: ReferenceGeometry) { this.geometry = geometry || localReferenceGeometry(repo); }
   interrupt(reason: string) {
     this.abort?.abort(new OfflineError(reason));
@@ -40,7 +42,16 @@ export class Runner {
       }
     } finally { this.busy = false; this.active = null; this.abort = null; }
   }
-  save(job: Job) { this.store.saveJob(job); }
+  save(job: Job) {
+    this.store.saveJob(job);
+    const parent = this.active, repaint = job.image?.segmentRepaint;
+    if (repaint && parent && repaint.videoJobId === parent.id && parent.viggleRepaint?.activePhotoId === job.id) {
+      parent.viggleRepaint.photoProgress = { stage: job.progress.stage, value: job.progress.value, max: job.progress.max };
+      parent.progress.stage = `Imagen face refresh · segment ${repaint.segment} · ${job.progress.stage}`;
+      parent.progress.node = null; parent.progress.value = job.progress.value; parent.progress.max = job.progress.max; parent.progress.unit = job.progress.unit; parent.progress.updatedAt = Date.now();
+      this.store.saveJob(parent);
+    }
+  }
   stage(job: Job, stage: string, value: number | null = null, max: number | null = null, unit = 'items') { job.progress = { ...job.progress, stage, node: null, value, max, unit, updatedAt: Date.now() }; this.save(job); }
   transferProgress(job: Job, stage: string): DownloadProgress {
     let last = 0;
@@ -51,6 +62,9 @@ export class Runner {
     job.cancelRequested = true;
     this.store.saveJob(job, false);
     try {
+      const photoId = job.viggleRepaint?.activePhotoId;
+      const photo = photoId && this.store.job(photoId);
+      if (photo && !['completed', 'cancelled'].includes(photo.status)) await this.cancel(photo);
       if (job.submitting && !job.pendingPrompt) {
         for (let i = 0; i < 30 && !job.pendingPrompt; i++) { await pause(400); job.pendingPrompt = this.store.job(job.id)?.pendingPrompt || (this.active?.id === job.id ? this.active.pendingPrompt : null) || null; }
         if (!job.pendingPrompt) await this.recoverPending(job);
@@ -91,6 +105,17 @@ export class Runner {
     try { await task; } finally { this.resumes.delete(job.id); }
   }
   private async resumeChecked(job: Job, retryMissing: boolean) {
+    if (retryMissing && job.viggleRepaint?.activePhotoId) {
+      const photo = this.store.job(job.viggleRepaint.activePhotoId);
+      if (!photo || !(['failed', 'cancelled'].includes(photo.status) || photo.retryRequired)) throw new Error('This photo is still recoverable. Check & resume its existing work before requesting another paid render.');
+      if (canFinishImageLocally(photo)) throw new Error('The paid photo is already saved. Finish its local processing instead of rendering it again.');
+      if (photo.submitting && !photo.pendingPrompt) { await this.recoverPending(photo); this.store.saveJob(photo); }
+      if (photo.pendingPrompt) {
+        const client = this.connection.client(), history = await client.json('/history/' + photo.pendingPrompt), queue = await client.json('/queue');
+        if (history[photo.pendingPrompt]?.status?.status_str === 'success' || [...queue.queue_running, ...queue.queue_pending].some((entry: any[]) => entry[1] === photo.pendingPrompt)) throw new Error('The existing photo is complete or still running. Check & resume it; no paid retry was submitted.');
+      }
+      replaceFailedRepaint(this.store, job, photo);
+    }
     if (job.submitting && !job.pendingPrompt) await this.recoverPending(job);
     let missing = !!job.submitting && !job.pendingPrompt;
     if (job.pendingPrompt) {
@@ -140,7 +165,7 @@ export class Runner {
         const uploads: Record<string, string> = {};
         for (const [key, name] of files) { this.stage(job, 'Transferring image inputs to GPU', Object.keys(uploads).length, files.length, 'inputs'); uploads[key] = await client.upload(path.join(folder, name), job.id + '-' + key, signal); this.checkCancelled(job); }
         if (job.image!.version && job.image!.settings.protectBackground && nativeMask) uploads.noiseMask = uploads.mask;
-        job.uploads = uploads as NonNullable<Job['uploads']>; this.save(job);
+        job.uploads = { ...uploads, source: uploads.source, reference: uploads.reference }; this.save(job);
       }
       if (!job.uploads && !isImageJob(job)) {
         this.stage(job, 'Preparing your clip');
@@ -164,6 +189,13 @@ export class Runner {
         const receive = (event: any) => { if (!signal.aborted && applyProgress(job, event)) this.save(job); };
         socket = await client.watch('recast-' + job.id, receive).catch(() => undefined);
         if (!job.pendingPrompt) {
+          if (job.viggleRepaint && job.segments.length) {
+            let reference: string;
+            try { reference = await prepareSegmentRepaint({ store: this.store, repo: this.repo, save: j => this.save(j), stage: (j, text) => this.stage(j, text), runPhoto: (photo, childSignal) => this.run(photo, childSignal), recoverPhoto: photo => this.resumeChecked(photo, false), targetPreparer: this.repaintTargetPreparer }, job, signal); }
+            catch (error) { if (signal.aborted || error instanceof OfflineError) throw error; throw error instanceof RepaintWaitError ? error : new RepaintWaitError('The segment face refresh needs attention: ' + (error as Error).message + ' Earlier video segments are saved; no video segment was resubmitted.'); }
+            this.checkCancelled(job);
+            job.uploads!.preparedFrame = await client.upload(reference, job.id + `-imagen-reference-${job.segments.length}`, signal); job.uploads!.repaintSegment = job.segments.length; this.save(job);
+          }
           if (job.viggleSegmentation === 'five-frame-v1' && plan.overlap && job.settings.referencePreparation !== 'prepared' && !job.uploads?.preparedFrame) {
             if (!job.keyframe || !await exists(job.keyframe)) throw new Error('The original conditioning frame is unavailable. Restore it before continuing; the character will not be repainted again.');
             this.stage(job, 'Restoring the original conditioning frame');
@@ -229,6 +261,10 @@ export class Runner {
           catch (error) { if (signal.aborted) throw error; /* A missing preview never discards or resamples a paid segment. */ }
         }
         if (history.status?.status_str === 'error') {
+          if (job.viggleRepaint || job.image?.segmentRepaint) {
+            const receipt = path.join(folder, `native-error_${job.segments.length}.json`);
+            await writeFile(receipt + '.part', JSON.stringify(history, null, 2)); await rename(receipt + '.part', receipt);
+          }
           const event = history.status.messages?.find((m: any[]) => m[0] === 'execution_error');
           const text = event?.[1]?.exception_message || 'Generation failed on the GPU.';
           throw new Error(/out of memory/i.test(text) ? 'The GPU ran out of memory. Try 480p or fewer frames per pass, then reuse these settings.' : String(text).slice(0, 1800));
@@ -307,10 +343,14 @@ export class Runner {
     } catch (error) {
       if (signal.aborted && signal.reason instanceof OfflineError) error = signal.reason;
       const saved = this.store.job(job.id); const cancelled = saved?.cancelRequested && saved.cancellationConfirmed;
-      job.status = cancelled ? 'cancelled' : saved?.cancelRequested || error instanceof OfflineError || error instanceof DownloadError || error instanceof ImageFinalizationError ? 'interrupted' : 'failed';
+      job.status = cancelled ? 'cancelled' : saved?.cancelRequested || error instanceof OfflineError || error instanceof DownloadError || error instanceof ImageFinalizationError || error instanceof RepaintWaitError ? 'interrupted' : 'failed';
       job.error = cancelled ? null : saved?.cancelRequested ? 'Cancellation could not be confirmed. The GPU job may still be running. Reconnect and check cancellation.' : (error instanceof Error ? error.message : String(error));
+      if (error instanceof RepaintWaitError && job.viggleRepaint?.activePhotoId) {
+        const photo = this.store.job(job.viggleRepaint.activePhotoId);
+        job.retryRequired = !!photo && (['failed', 'cancelled'].includes(photo.status) || !!photo.retryRequired);
+      }
       if (error instanceof OfflineError) this.connection.disconnect('GPU connection lost. Reconnect to check and resume the existing run.');
-      job.progress.stage = cancelled ? 'Cancelled' : error instanceof DownloadError ? 'Download paused · completed render kept' : error instanceof ImageFinalizationError ? 'Image saved · finish local processing' : job.status === 'interrupted' ? 'Connection interrupted' : 'Generation failed';
+      job.progress.stage = cancelled ? 'Cancelled' : error instanceof DownloadError ? 'Download paused · completed render kept' : error instanceof ImageFinalizationError ? 'Image saved · finish local processing' : error instanceof RepaintWaitError ? 'Imagen refresh needs attention · earlier segments saved' : job.status === 'interrupted' ? 'Connection interrupted' : 'Generation failed';
       job.progress.value = null; job.progress.max = null; this.save(job);
     } finally { socket?.close(); }
   }

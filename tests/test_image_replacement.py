@@ -14,6 +14,25 @@ import image_replacement as editor
 
 @unittest.skipUnless(importlib.util.find_spec("cv2"), "Run in .local/geometry-venv for CPU image checks")
 class ImageReplacementTests(unittest.TestCase):
+    def test_segment_face_scope_caps_mask_growth_and_preserves_existing_body_pixels(self):
+        import cv2
+        import numpy as np
+        with tempfile.TemporaryDirectory() as temp, patch.object(editor, 'detect', return_value=[]):
+            source, _, request, work = self.fixture(Path(temp))
+            scope = np.zeros(source.shape[:2], np.uint8); scope[25:55, 35:60] = 255
+            scope_file = Path(temp) / 'scope.png'; cv2.imwrite(str(scope_file), scope)
+            request.update(version='body-only-v2', face=request['reference'], scopeMask=str(scope_file))
+            request['settings'].update(model='qwen21', faceDetail=False, maskExpand=64, maskFillHoles=True)
+            editor.prepare(request, work, None)
+            self.assertFalse(cv2.imread(str(work / 'edit-mask.png'), 0)[scope == 0].any())
+            cv2.imwrite(str(work / 'gpu-result.png'), np.full_like(source, 99))
+            review = editor.finish(request, work, None)
+            np.testing.assert_array_equal(cv2.imread(str(work / 'final.png'))[scope == 0], source[scope == 0])
+            self.assertEqual(review['outsideMaskMaxDifference'], 0)
+            cv2.imwrite(str(scope_file), np.full_like(scope, 255))
+            with self.assertRaisesRegex(ValueError, 'Saved image inputs changed'):
+                editor.prepare(request, work, None)
+
     def test_single_character_input_prepares_only_two_images_without_an_implicit_face(self):
         import cv2
         import numpy as np

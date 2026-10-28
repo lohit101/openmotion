@@ -22,6 +22,7 @@ import { clipFrameCount, normalizeClip, DEFAULT_CLIP_SECONDS, MAX_CLIP_SECONDS }
 import { viggleWindows } from '../shared/viggle-segments';
 import { emptyImageDraft, isImageJob, type ImageDraft } from '../shared/image-replacement';
 import { useCharacterDraft, type Character } from '../shared/characters';
+import RemotionCharacterRefresh from './RemotionCharacterRefresh';
 import './characters.css';
 const CharactersWorkspace = lazy(() => import('./CharactersWorkspace'));
 const GpuWorkspace = lazy(() => import('./GpuWorkspace'));
@@ -48,12 +49,12 @@ function Advanced({ settings: s, update, loras, downloads }: { settings: Setting
   const kleinReady = imageModelFiles.every(id => downloads.state.files.find(file => file.id === id)?.status === 'installed');
   if (isViggle(s)) return <div className="advanced-body">
     <div className="full-label"><FieldLabel label="Reference preparation" help={s.referencePreparation === 'prepared' ? 'Upload a frame from this exact shot with the character already replaced. This skips image editing and its downloads.' : 'The image editor first puts your character into a source frame, preserving pose, camera distance and scene lighting. Changing an option starts no downloads.'} />
-      <DownloadSelect label="Reference preparation" value={s.referencePreparation} controls={downloads} onChange={v => update({ referencePreparation: v as Settings['referencePreparation'] })} options={[{ value: 'auto', label: 'Automatic · match character to source frame', files: imageModelFiles, disabled: !kleinReady, disabledReason: downloads.online ? 'Download the three Klein files to enable automatic frame preparation.' : 'Connect your GPU to check whether Klein is installed.' }, { value: 'prepared', label: 'Use an already edited source frame', files: [] }]} />
+      <DownloadSelect label="Reference preparation" value={s.referencePreparation} controls={downloads} onChange={v => update({ referencePreparation: v as Settings['referencePreparation'] })} options={[{ value: 'auto', label: 'Automatic · match character to source frame', files: imageModelFiles, disabled: !kleinReady || s.imagenRepaintEnabled, disabledReason: s.imagenRepaintEnabled ? 'Segment refresh uses an already edited starting frame.' : downloads.online ? 'Download the three Klein files to enable automatic frame preparation.' : 'Connect your GPU to check whether Klein is installed.' }, { value: 'prepared', label: 'Use an already edited source frame', files: [] }]} />
     </div>
     {!kleinReady && s.referencePreparation === 'auto' && <p className="field-hint">Automatic preparation needs Klein. Prepare a frame in Imagen, or download Klein beside Automatic.</p>}
-    <div className="full-label"><FieldLabel label="Segment reference" help={<>{s.viggleReferenceMode === 'previous' ? 'Long clips carry appearance from the last generated frame into the next segment. Small identity errors can also carry forward.' : 'Long clips keep the original prepared frame as the appearance reference for every segment.'} Both modes retain five-frame motion anchors.</>} />
+    {!s.imagenRepaintEnabled && <div className="full-label"><FieldLabel label="Segment reference" help={<>{s.viggleReferenceMode === 'previous' ? 'Long clips carry appearance from the last generated frame into the next segment. Small identity errors can also carry forward.' : 'Long clips keep the original prepared frame as the appearance reference for every segment.'} Both modes retain five-frame motion anchors.</>} />
       <SmallSelect label="Segment reference" value={s.viggleReferenceMode} onChange={v => update({ viggleReferenceMode: v as Settings['viggleReferenceMode'] })} options={[{ value: 'previous', label: 'Previous segment’s last frame' }, { value: 'original', label: 'Original prepared frame' }]} />
-    </div>
+    </div>}
     <Toggle label="Random seed" checked={s.randomSeed} onChange={v => update({ randomSeed: v })} detail="Use a new seed for each generation. Turn off to keep a fixed seed." />
     {!s.randomSeed && <label className="full-label">Seed<input type="number" min="0" max={Number.MAX_SAFE_INTEGER} value={s.seed} onChange={e => update({ seed: Number(e.target.value) })} /></label>}
   </div>;
@@ -76,6 +77,7 @@ function Advanced({ settings: s, update, loras, downloads }: { settings: Setting
 export default function App() {
   const [data, setData] = useState<Bootstrap | null>(null), [draft, setDraft] = useState<Draft>({ sourceId: null, referenceId: null, settings: defaults });
   const [imageDraft, setImageDraft] = useState<ImageDraft>(emptyImageDraft);
+  const [preparingFrame, setPreparingFrame] = useState(false);
   const [editorIntent, setEditorIntent] = useState<EditorIntent | null>(null);
   const [view, setView] = useState<WorkspaceView>('create'), [selectedId, setSelectedId] = useState<string | null>(null), [compare, setCompare] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(initialSidebarCollapsed);
@@ -96,6 +98,7 @@ export default function App() {
   useActivityAlerts(data, openAlert);
   const seenNotices = useRef(new Set<string>());
   const renderStates = useRef(new Map<string, string>());
+  useEffect(() => { for (const job of data?.jobs || []) if (job.status === 'running') for (const record of job.viggleRepaint?.records || []) { const key = `repaint-skip-${job.id}-${record.segment}`; if (record.warning && !seenNotices.current.has(key)) { seenNotices.current.add(key); toast.warning('Face refresh skipped', { description: record.warning, duration: 10000 }); } } }, [data?.jobs]);
   useEffect(() => {
     for (const job of data?.jobs || []) {
       const state = `${job.status}:${job.error || ''}`, previous = renderStates.current.get(job.id);
@@ -184,7 +187,13 @@ export default function App() {
     [draft.settings.loraA, draft.settings.loraB].every(name => name === 'None' || connection?.loras.includes(name));
   const downloads: DownloadControls = { state: modelState, online, blocked: !!data?.cloud.busy || jobs.some(job => activeStates.includes(job.status)), settingUp: !!data?.cloud.busy, download: downloadModels, remove: removeLora };
   const [width, height] = geometry(draft.settings, source || { width: 480, height: 832 });
-  const engine = isViggle(draft.settings), engineError = engineIssue(draft.settings);
+  const repaintProfile = draft.settings.imagenRepaint;
+  const startingPhoto = repaintProfile?.sourceImageJobId ? jobs.find(j => j.id === repaintProfile.sourceImageJobId) : null;
+  const startingFrame = assets.find(a => a.id === startingPhoto?.sourceId)?.sourceFrame;
+  const selectedRepaintCharacter = repaintProfile && !repaintProfile.sourceImageJobId ? data?.characters?.find(c => c.id === repaintProfile.characterId) : null;
+  const repaintProfileIssue = draft.settings.imagenRepaintEnabled && repaintProfile && !repaintProfile.sourceImageJobId && (!selectedRepaintCharacter || selectedRepaintCharacter.archived || selectedRepaintCharacter.revision !== repaintProfile.revision) ? 'Reload the saved character before generating.' : null;
+  const repaintFrameIssue = draft.settings.imagenRepaintEnabled && startingFrame && (startingFrame.videoId !== draft.sourceId || Math.abs(startingFrame.time - draft.settings.start) > 1 / 48) ? 'Prepare a starting frame that matches this video and clip start.' : null;
+  const engine = isViggle(draft.settings), engineError = engineIssue(draft.settings) || repaintProfileIssue || repaintFrameIssue || (draft.settings.imagenRepaintEnabled && !data?.capabilities?.imagenSegmentRepaint ? 'The local app update must finish before segment refresh can run.' : null);
   const valid = engine && !engineError && settingsSchema.safeParse(draft.settings).success && draft.settings.seconds <= MAX_CLIP_SECONDS && !!source && !!reference && draft.settings.start + draft.settings.seconds <= (source?.duration || 0) + 1 / draft.settings.fps && draft.settings.seconds * draft.settings.fps >= 5;
   const update = (changes: Partial<Settings>) => setDraft(old => {
     const settings = { ...old.settings, ...(changes.mode && changes.prompt === undefined ? { prompt: promptAfterModeChange(old.settings.prompt, changes.mode) } : {}), ...changes };
@@ -201,7 +210,19 @@ export default function App() {
   const selectAsset = (kind: 'video' | 'image', asset: Asset | null) => {
     if (kind === 'video' && asset && !normalizeClip({ start: 0, seconds: DEFAULT_CLIP_SECONDS }, asset.duration, draft.settings.fps)) { setMessage('This video is too short. Choose a video with at least five frames.'); return; }
     if (asset) setData(old => old ? { ...old, assets: [asset, ...old.assets.filter(a => a.id !== asset.id)] } : old);
-    setDraft(old => ({ ...old, [kind === 'video' ? 'sourceId' : 'referenceId']: asset?.id || null, settings: { ...old.settings, prompt: migrateDemoPrompt(old.settings.prompt, old.settings.mode), ...(kind === 'video' && asset ? normalizeClip({ start: 0, seconds: DEFAULT_CLIP_SECONDS }, asset.duration, old.settings.fps) : {}) } }));
+    setDraft(old => ({ ...old, [kind === 'video' ? 'sourceId' : 'referenceId']: asset?.id || null, settings: { ...old.settings, ...(kind === 'image' && old.settings.imagenRepaint ? { imagenRepaint: { ...old.settings.imagenRepaint, sourceImageJobId: null } } : {}), prompt: migrateDemoPrompt(old.settings.prompt, old.settings.mode), ...(kind === 'video' && asset ? normalizeClip({ start: 0, seconds: DEFAULT_CLIP_SECONDS }, asset.duration, old.settings.fps) : {}) } }));
+  };
+  const prepareCharacterFrame = async () => {
+    const profile = draft.settings.imagenRepaint, character = data?.characters?.find(c => c.id === profile?.characterId && !c.archived);
+    if (preparingFrame || !draft.sourceId || !profile?.bodyView || !profile.faceView || !character) return;
+    if (character.revision !== profile.revision) { setMessage('Reload the character before preparing a new starting frame.'); return; }
+    setPreparingFrame(true);
+    try {
+      const frame = await api<Asset>('/images/source-frame', { sourceId: draft.sourceId, time: draft.settings.start });
+      setData(old => old ? { ...old, assets: [frame, ...old.assets.filter(a => a.id !== frame.id)] } : old);
+      const next = useCharacterDraft({ ...emptyImageDraft(), sourceId: frame.id }, character); next.settings.bodyReferenceView = profile.bodyView; next.settings.faceReferenceView = profile.faceView;
+      setImageDraft(next); setSelectedId(null); setView('image'); toast.success('Starting frame ready in Imagen', { description: 'Paint the replacement area, generate your starting frame, then use it in Remotion.' });
+    } catch (e) { setMessage((e as Error).message); } finally { setPreparingFrame(false); }
   };
   const patch = async (job: Job, changes: Partial<Job>) => { try { const updated = await api<Job>('/jobs/' + job.id, changes, 'PATCH'); setData(old => old ? { ...old, jobs: old.jobs.map(item => item.id === updated.id ? updated : item) } : old); } catch (e) { setMessage((e as Error).message); } };
   const editVideo = (job: Job) => { setEditorIntent({ id: crypto.randomUUID(), ...(job.edit ? { receipt: job.edit, title: job.title } : { jobId: job.id }) }); setView('editor'); };
@@ -240,12 +261,13 @@ export default function App() {
         <div className="input-pair"><AssetDrop kind="video" help="The video supplies motion, timing, screen position, scale and camera framing. Click the preview to choose the clip range." asset={source} onAsset={a => selectAsset('video', a)} onError={setMessage} clip={{ start: draft.settings.start, seconds: draft.settings.seconds }} clipFps={draft.settings.fps} onClip={clip => update(clip)} /><AssetDrop kind="image" help={engine ? "Use a source-aligned edited frame to anchor character appearance, scale and scene lighting." : "The reference supplies the replacement character’s appearance."} asset={reference} onAsset={a => selectAsset('image', a)} onError={setMessage} /></div>
         {engine && <p className="editor-inline-note">Use one continuous shot with one main character.</p>}
       </EditorSection>
+      {engine && <RemotionCharacterRefresh data={data} draft={draft} update={update} manage={() => setView('characters')} prepare={() => void prepareCharacterFrame()} preparing={preparingFrame} />}
       <PromptEditor id="prompt" inputRef={promptRef} label={engine ? 'Frame edit prompt' : 'Prompt'} value={draft.settings.prompt} onChange={prompt => update({ prompt })} defaultValue={engine ? defaultVigglePrompt : defaultPrompt(draft.settings.mode)} disabled={engine && draft.settings.referencePreparation === 'prepared'} help={engine ? 'Used only for automatic frame preparation. An already edited frame controls character appearance directly.' : 'Leave empty to use the default prompt. Add only the details you want to refine.'} />
       <EditorSection title="Output">
         <div className="settings-grid"><div className="download-field"><FieldLabel label="Quality" help={engine ? "Viggle uses its matching distilled adapter: Fast runs three video passes; Balanced runs five." : samplingNote(draft.settings.preset)} />{engine ? <SmallSelect label="Viggle quality" value={draft.settings.viggleQuality} onChange={v => update({ viggleQuality: v as Settings['viggleQuality'] })} options={[{ value: 'fast', label: 'Fast · 3 video passes' }, { value: 'balanced', label: 'Balanced · 5 video passes' }]} /> : <DownloadSelect label="Quality preset" value={draft.settings.preset} onChange={v => update({ preset: v as Settings['preset'] })} options={samplingOptions.map(option => ({ ...option, files: presetModelFiles(option.value, draft.settings.mode) }))} controls={downloads} />}</div><div className="full-label compact-field"><FieldLabel label="Resolution" help="720p exports render slightly larger, then downsample the full frame. This takes more time and memory than 704p." /><SmallSelect label="Resolution" value={draft.settings.resolution} onChange={v => update({ resolution: v as Settings['resolution'] })} options={[{ value: '480', label: '480p' }, { value: '704', label: '704p' }, { value: '720', label: '720p / HD export' }]} /></div></div>
         {engine ? <div className="native-frame-rate"><span>Frame rate</span><strong>24 fps <small>Native</small></strong></div> : <label className="full-label">Frame rate<SmallSelect label="Frame rate" value={String(draft.settings.fps)} onChange={v => update({ fps: Number(v) as 16 | 24 | 30 })} options={[{ value: '16', label: '16 fps' }, { value: '24', label: '24 fps' }, { value: '30', label: '30 fps' }]} /></label>}
         {source && <dl className="output-summary"><div><dt>Dimensions</dt><dd>{width} × {height}</dd></div><div><dt>Length</dt><dd>{draft.settings.seconds.toFixed(2)}s</dd></div><div><dt>Frames</dt><dd>{clipFrameCount(draft.settings.seconds, draft.settings.fps)}</dd></div></dl>}
-        {engine && draft.settings.seconds * 24 > 124 && draft.settings.seconds <= MAX_CLIP_SECONDS && <div className="segment-summary"><span><strong>{viggleWindows(clipFrameCount(draft.settings.seconds, 24)).length} segments</strong><small>Longer clips use more compute.</small></span><InfoTip label="Video segments">{draft.settings.viggleReferenceMode === 'previous' ? 'Previous-frame appearance handoff.' : 'Original-frame appearance reference.'} Each segment and its anchor are saved before the next starts. Use one continuous shot for the best continuity.</InfoTip></div>}
+        {engine && draft.settings.seconds * 24 > 124 && draft.settings.seconds <= MAX_CLIP_SECONDS && <div className="segment-summary"><span><strong>{viggleWindows(clipFrameCount(draft.settings.seconds, 24)).length} segments</strong><small>Longer clips use more compute.</small></span><InfoTip label="Video segments">{draft.settings.imagenRepaintEnabled ? 'Imagen refreshes facial identity before each new segment.' : draft.settings.viggleReferenceMode === 'previous' ? 'Previous-frame appearance handoff.' : 'Original-frame appearance reference.'} Each segment and its anchor are saved before the next starts. Use one continuous shot for the best continuity.</InfoTip></div>}
         {!engine && draft.settings.mode === 'motion' && <div className="preset-note"><Info size={15} /><span>Motion transfer uses the reference scene. This mode has not been GPU-tested in this app.</span></div>}
       </EditorSection>
       {engineError && <p className="model-page-error" role="alert">{engineError}</p>}

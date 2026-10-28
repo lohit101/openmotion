@@ -8,6 +8,7 @@ import { compileWorkflow, validateGraph } from '../server/workflow';
 import { compileViggleWorkflow, VIGGLE_DMD, VIGGLE_MODEL, VIGGLE_VAE } from '../server/viggle-workflow';
 import { applyProgress } from '../server/comfy';
 import { publicJob } from '../server/store';
+import { sourceFrameImageSettings } from '../shared/image-replacement';
 
 const repo = path.resolve(import.meta.dirname, '../..');
 const load = (name: string) => JSON.parse(readFileSync(path.join(repo, name), 'utf8'));
@@ -25,6 +26,20 @@ function fixture(): Job {
 }
 
 describe('Viggle source-aligned two-stage replacement', () => {
+  it('requires each segment’s saved Imagen reference, keeps five-frame motion anchors and downloads only needed files', () => {
+    const job = fixture(), view = { assetId: 'sheet', x: 0, y: 0, width: 64, height: 96 };
+    Object.assign(job.settings, { referencePreparation: 'prepared', seconds: 10, imagenRepaintEnabled: true, imagenRepaint: { characterId: 'character', revision: 1, bodyView: view, faceView: view, sourceImageJobId: null } });
+    job.viggleSegmentation = 'last-frame-v2'; job.context = '/context'; job.progress.completedFrames = 124; job.progress.targetFrames = 240;
+    job.segments = [{ file: 'paid.mp4', frames: 124, promptId: 'paid', seconds: 1 }];
+    job.viggleRepaint = { version: 'imagen-face-v1', character: { id: 'character', revision: 1, name: 'Frozen', bodyId: 'body', faceId: 'face', bodyView: view, faceView: view }, imageSettings: sourceFrameImageSettings(), records: [{ segment: 2, frame: 123, status: 'completed', referenceSHA256: 'a'.repeat(64) }] };
+    job.uploads!.preparedFrame = 'character.png'; job.uploads!.repaintSegment = 1;
+    const graph = compileViggleWorkflow(job); expect(validateGraph(graph, catalog)).toEqual([]);
+    expect(graph['4'].class_type).toBe('LoadImage'); expect(graph['36'].inputs.context_version).toBe('last-frame-v2');
+    expect(modelFilesForSettings(job.settings)).toHaveLength(8);
+    expect(modelFilesForSettings(job.settings).some(f => /klein|body_swap|bfs_head|outfit|controlnet/.test(f))).toBe(false);
+    expect(modelFilesForSettings({ ...job.settings, seconds: 5 })).toHaveLength(4);
+    job.uploads!.repaintSegment = 0; expect(() => compileViggleWorkflow(job)).toThrow('matching Imagen segment reference');
+  });
   it('keeps legacy jobs and missing engine fields on SCAIL without mutating settings', () => {
     expect(settingsSchema.parse({}).engine).toBe('scail2');
     expect(isViggle({ engine: undefined } as any)).toBe(false);

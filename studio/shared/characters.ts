@@ -6,6 +6,12 @@ export const characterInputSchema = z.object({
   bodyView: imageReferenceViewSchema.nullable().default(null), faceView: imageReferenceViewSchema.nullable().default(null),
 });
 export type CharacterInput = z.infer<typeof characterInputSchema>;
+export const imagenRepaintProfileSchema = z.object({
+  characterId: z.string().min(1), revision: z.number().int().positive(),
+  bodyView: imageReferenceViewSchema.nullable().default(null), faceView: imageReferenceViewSchema.nullable().default(null),
+  sourceImageJobId: z.string().nullable().default(null),
+});
+export type ImagenRepaintProfile = z.infer<typeof imagenRepaintProfileSchema>;
 export interface Character extends CharacterInput { id: string; revision: number; createdAt: string; updatedAt: string; archived: boolean; }
 export interface CharacterSnapshot { id: string; name: string; revision: number; bodyId: string; faceId: string; bodyView: ImageReferenceView | null; faceView: ImageReferenceView | null; }
 export function snapshotCharacter(character: Character, bodyView = character.bodyView, faceView = character.faceView): CharacterSnapshot {

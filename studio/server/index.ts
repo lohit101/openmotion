@@ -24,6 +24,7 @@ import { engineIssue, isViggle } from '../shared/engines';
 import { viggleWindows } from '../shared/viggle-segments';
 import { registerImageRoutes } from './image-routes';
 import { registerCharacterRoutes } from './characters';
+import { assertRepaintReady, resolveRepaintProfile } from './segment-repaint';
 import { clipFrameCount } from '../shared/clip';
 import { canFinishImageLocally, isImageJob } from '../shared/image-replacement';
 import { registerClipEditorRoutes } from './clip-editor';
@@ -79,7 +80,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
       (job.faceRefinement?.execution === 'remote CUDA' && job.faceRefinement.instanceId === store.value('cloud-connected-instance', null) &&
         job.status === 'interrupted' && job.cancellationConfirmed !== true)));
   registerCharacterRoutes(app, store);
-  const bootstrap = () => ({ assets: store.assets().map(publicAsset), characters: store.characters(), jobs: store.jobs().map(publicJob), draft: store.draft(), imageDraft: store.imageDraft(), connection: connection.status, cloud: cloud.state, models: models.state });
+  const bootstrap = () => ({ assets: store.assets().map(publicAsset), characters: store.characters(), capabilities: { imagenSegmentRepaint: true }, jobs: store.jobs().map(publicJob), draft: store.draft(), imageDraft: store.imageDraft(), connection: connection.status, cloud: cloud.state, models: models.state });
   app.get('/api/bootstrap', (_req, res) => res.json(bootstrap()));
   app.get('/api/events', (req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
@@ -177,6 +178,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     if (isViggle(value.settings) && value.saveDiagnosticLatent) return void res.status(400).json({ error: 'Viggle exports its conditioning frame and video; SCAIL latent diagnostics are not available.' });
     const key = req.get('Idempotency-Key'); if (!key || key.length > 120) return void res.status(400).json({ error: 'A request ID is required.' });
     const existing = store.byKey(key); if (existing) return void res.json(publicJob(existing));
+    const repaint = resolveRepaintProfile(store, value.settings, value.referenceId, value.sourceId);
     if (connection.status.state !== 'online') return void res.status(503).json({ error: 'Connect the GPU before generating. Your draft is saved locally.' });
     if (models.state.busy) return void res.status(409).json({ error: 'Wait for model downloads to finish before generating.' });
     await models.refresh();
@@ -194,11 +196,12 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     const settings = { ...value.settings, prompt: migrateDemoPrompt(value.settings.prompt, value.settings.mode) }; if (settings.randomSeed) settings.seed = randomInt(0, 0xffffffff);
     const [width, height] = renderGeometry(settings, source), [outputWidth, outputHeight] = geometry(settings, source), target = clipFrameCount(settings.seconds, settings.fps);
     const segmented = isViggle(settings) && target > 124;
+    if (segmented && repaint && !runner.repaintTargetPreparer) await assertRepaintReady(repo, store, repaint);
     const segmentation = settings.viggleReferenceMode === 'original' ? 'five-frame-v1' as const : 'last-frame-v2' as const;
     const continuationNodes = ['RecastViggleAnchor', 'RecastViggleSaveContext', ...(segmentation === 'last-frame-v2' ? ['RecastViggleContextReference'] : [])];
     if (segmented && (continuationNodes.some(name => !connection.catalog[name]) || !connection.catalog.RecastViggleSaveContext?.input.optional?.terminal)) return void res.status(409).json({ error: 'This GPU needs the updated continuation nodes. Use Connect / retry setup in GPU cloud before generating a longer clip. Existing models are reused; no extra weights are required.' });
     const job: Job = { id: randomUUID(), title: source.name.replace(/\.[^.]+$/, '') + (isViggle(settings) ? ' / Viggle swap' : settings.mode === 'swap' ? ' / character swap' : ' / motion transfer'), status: 'queued', sourceId: source.id, referenceId: reference.id, settings, promptVersion: PROMPT_VERSION, renderVersion: 'continuous-v1', saveDiagnosticLatent: value.saveDiagnosticLatent, ...(settings.mode === 'swap' && !isViggle(settings) ? { framingVersion: FRAMING_VERSION } : {}),
-      createdAt: new Date().toISOString(), favorite: false, deleted: false, width, height, ...(segmented ? { viggleSegmentation: segmentation } : {}), ...(settings.resolution === '720' ? { outputSize: { width: outputWidth, height: outputHeight } } : {}),
+      createdAt: new Date().toISOString(), favorite: false, deleted: false, width, height, ...(repaint ? { viggleRepaint: repaint } : {}), ...(segmented ? { viggleSegmentation: segmentation } : {}), ...(settings.resolution === '720' ? { outputSize: { width: outputWidth, height: outputHeight } } : {}),
       progress: { stage: 'Queued', node: null, value: null, max: null, unit: 'steps', segment: 1, segments: isViggle(settings) ? viggleWindows(target).length : segmentCount(target, settings.framesPerPass), completedFrames: 0, targetFrames: target, updatedAt: Date.now() },
       segments: [], context: '', pendingPrompt: null, uploads: null, error: null, output: null, poster: null, cancelRequested: false, elapsedSeconds: null, origin: 'render', workflow: null };
     store.addJob(job, key); res.status(201).json(publicJob(job)); void runner.kick();

@@ -154,6 +154,8 @@ def source_structure(source, geometry, model, layout_mask=None, identity_source=
 def fingerprint(request):
     keys = ["source", "reference", "face", "mask"]
     files = {key: sha256(request[key]) if request.get(key) else None for key in keys}
+    if request.get('scopeMask'):
+        files['scopeMask'] = sha256(request['scopeMask'])
     if request.get('version') in ('body-only-v5', 'body-only-v6') and request.get('bodyBase'):
         digest = sha256(request['bodyBase'])
         if digest != request.get('bodyBaseSHA256'):
@@ -301,6 +303,12 @@ def prepare(request, folder, model):
             else:
                 mask[protected_holes] = 255
             warnings.append("The replacement may extend %d pixels beyond the brush outline. %s" % (expansion, "Enclosed gaps may change." if s.get("maskFillHoles", False) else "Enclosed protected holes remain protected."))
+        if request.get('scopeMask'):
+            limit = read_image(request['scopeMask'], gray=True)
+            if limit.shape != mask.shape:
+                raise ValueError('The segment face scope does not match its exact saved frame. No repaint was submitted.')
+            mask = np.minimum(mask, limit)
+            warnings.append('Segment identity refresh edits only the recorded head area; existing body and scene pixels remain protected.')
         # The transition stays inside the effective permission region.
         if s["feather"]:
             mask = np.minimum(mask, cv2.GaussianBlur(mask, (0, 0), max(.1, s["feather"] / 2)))

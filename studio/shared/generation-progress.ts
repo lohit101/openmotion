@@ -25,7 +25,11 @@ function videoProgress(job: Job): number {
   let phase = 0;
   // Fixed work budgets are estimates, not elapsed-time or invented frame counts.
   // Each window retains space for decode, export and both saved transfers.
-  if (/backing up continuity|saving continuation anchor/.test(stage)) phase = .975 + .025 * ratio;
+  if (job.viggleRepaint?.activePhotoId) {
+    const photo = job.viggleRepaint.photoProgress;
+    phase = .02 + .1 * (photo?.max && photo.value !== null ? Math.max(0, Math.min(1, photo.value / photo.max)) : 0);
+  }
+  else if (/backing up continuity|saving continuation anchor/.test(stage)) phase = .975 + .025 * ratio;
   else if (/downloading completed segment/.test(stage)) phase = .94 + .035 * ratio;
   else if (p.node === '43') phase = .2 + .55 * ratio;
   else if (p.node === '44') phase = .75 + .12 * ratio;

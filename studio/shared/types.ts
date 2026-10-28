@@ -5,12 +5,16 @@ import type { ModelsState } from './models';
 import type { ImageDraft, ImageRun } from './image-replacement';
 import type { ClipEditReceipt } from './clip-editor';
 import type { Character } from './characters';
+import { imagenRepaintProfileSchema } from './characters';
+import type { ViggleRepaintRun } from './segment-repaint';
 
 export const settingsSchema = z.object({
   engine: z.enum(['scail2', 'viggle']).default('scail2'),
   referencePreparation: z.enum(['auto', 'prepared']).default('auto'),
   viggleQuality: z.enum(['fast', 'balanced']).default('fast'),
   viggleReferenceMode: z.enum(['previous', 'original']).default('previous'),
+  imagenRepaint: imagenRepaintProfileSchema.nullable().default(null),
+  imagenRepaintEnabled: z.boolean().default(false),
   mode: z.enum(['swap', 'motion']).default('swap'),
   prompt: z.string().trim().max(8000).default(''),
   negativePrompt: z.string().max(4000).default(defaultNegativePrompt),
@@ -52,7 +56,7 @@ export interface Job {
   id: string; title: string; status: JobStatus; settings: Settings; sourceId: string; referenceId: string;
   createdAt: string; startedAt?: string; finishedAt?: string; favorite: boolean; deleted: boolean;
   width: number; height: number; outputSize?: { width: number; height: number }; progress: Progress; segments: Segment[]; context: string;
-  pendingPrompt: string | null; uploads: { source: string; reference: string; preparedFrame?: string; face?: string; original?: string; mask?: string; noiseMask?: string; faceMask?: string; structure?: string; bodyMask?: string; bodyReference?: string; bodyAppearance?: string; bodyBase?: string; headReference?: string } | null;
+  pendingPrompt: string | null; uploads: { source: string; reference: string; preparedFrame?: string; face?: string; original?: string; mask?: string; noiseMask?: string; faceMask?: string; structure?: string; bodyMask?: string; bodyReference?: string; bodyAppearance?: string; bodyBase?: string; headReference?: string; repaintSegment?: number } | null;
   error: string | null; output: string | null; poster: string | null; cancelRequested: boolean;
   cancellationConfirmed?: boolean; submitting?: boolean; retryRequired?: boolean;
   elapsedSeconds: number | null; origin: 'render' | 'import' | 'edit'; workflow: Record<string, GraphNode> | null;
@@ -62,6 +66,7 @@ export interface Job {
   framingVersion?: 'face-v1'; referenceFraming?: ReferenceFraming; framingCheck?: FramingCheck;
   renderVersion?: 'continuous-v1'; saveDiagnosticLatent?: boolean;
   viggleSegmentation?: 'five-frame-v1' | 'last-frame-v2';
+  viggleRepaint?: ViggleRepaintRun;
   continuationSource?: { jobId: string; frames: number };
   videoRecovery?: { generatedFrames: number; leadingHoldFrames: number; reason: 'trim-timestamp'; originalFailedNode: string; recoveredAt: string };
   faceRefinement?: { version: 'face-finish-v1' | 'face-source-v1'; parentJobId: string; referenceAssetId: string; execution: 'local CPU' | 'remote CUDA'; instanceId?: number; gpu?: string;
@@ -75,7 +80,7 @@ export type Graph = Record<string, GraphNode>;
 export type Catalog = Record<string, { input: { required?: Record<string, unknown[]>; optional?: Record<string, unknown[]> }; output: string[] }>;
 export interface Connection { state: 'offline' | 'connecting' | 'online'; endpoint: string; gpu: string | null; message: string; loras: string[]; checkedAt: string | null; }
 export interface Draft { sourceId: string | null; referenceId: string | null; settings: Settings; }
-export interface Bootstrap { assets: Asset[]; jobs: Job[]; draft: Draft; connection: Connection; cloud: CloudState; models: ModelsState; imageDraft?: ImageDraft; characters?: Character[]; }
+export interface Bootstrap { assets: Asset[]; jobs: Job[]; draft: Draft; connection: Connection; cloud: CloudState; models: ModelsState; imageDraft?: ImageDraft; characters?: Character[]; capabilities?: { imagenSegmentRepaint: boolean }; }
 
 function dimensionsAt(settings: Settings, source: Pick<Asset, 'width' | 'height'>, short: number, grid: number): [number, number] {
   let ratio = source.width / source.height;

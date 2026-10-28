@@ -24,7 +24,11 @@ export function compileViggleWorkflow(job: Job): Graph {
   const prefix = `recast/${job.id}/segment_${String(job.segments.length).padStart(4, '0')}`;
   add('2', 'VHS_LoadVideo', { video: job.uploads.source, force_rate: 24, custom_width: 0, custom_height: 0, frame_load_cap: plan.cap, skip_first_frames: plan.skip, select_every_nth: 1, format: 'None' }, 'Read the selected source window at 24 fps');
   add('3', 'RecastViggleSource', { images: ['2', 0], width: job.width, height: job.height }, 'Fit the source without cropping and pad the H3 frame grid');
-  if (continuing && previousReference) add('4', 'RecastViggleContextReference', { context_path: job.context, width: job.width, height: job.height, fps: 24, skip_frames: plan.skip, overlap: plan.overlap, job_id: job.id }, 'Use the previous segment’s last generated frame as appearance reference');
+  if (continuing && job.viggleRepaint) {
+    if (!job.uploads.preparedFrame || job.uploads.repaintSegment !== job.segments.length || !job.viggleRepaint.records.some(record => record.segment === job.segments.length + 1 && ['completed', 'skipped'].includes(record.status) && record.referenceSHA256)) throw new Error('The matching Imagen segment reference is not ready. No video segment was submitted.');
+    add('4', 'LoadImage', { image: job.uploads.preparedFrame }, 'Use this segment’s saved Imagen facial identity refresh');
+  }
+  else if (continuing && previousReference) add('4', 'RecastViggleContextReference', { context_path: job.context, width: job.width, height: job.height, fps: 24, skip_frames: plan.skip, overlap: plan.overlap, job_id: job.id }, 'Use the previous segment’s last generated frame as appearance reference');
   else add('4', 'LoadImage', { image: continuing ? job.uploads.preparedFrame || job.uploads.reference : job.uploads.reference }, 'Read character appearance');
   let reference: [string, number] = ['4', 0];
   if (s.referencePreparation !== 'prepared' && !continuing) {
