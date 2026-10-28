@@ -34,6 +34,7 @@ import { useOutputPresentation } from './useGenerationProgress';
 import { useActivityAlerts } from './useActivityAlerts';
 import type { AlertTarget } from '../shared/alerts';
 import type { EditorIntent } from './ClipEditorWorkspace';
+import GpuPowerControl from './GpuPowerControl';
 
 const activeStates = ['queued', 'running', 'reconnecting'];
 const shortLora = (name: string) => name.replace(/\.safetensors$/, '').replace(/^user\//, '');
@@ -219,6 +220,7 @@ export default function App() {
     <header className="topbar">
       <button className="brand-mark" onClick={() => setView('create')} aria-label="Recast home"><Aperture weight="bold" size={28} /><span className="wordmark">recast<span>studio</span></span></button>
       <div className="topbar-controls"><button className={`connection-button ${data.cloud.busy ? 'connecting' : connection!.state}`} onClick={() => setView('gpu')} title={data.cloud.busy ? 'Preparing GPU' : online ? connection!.gpu || 'GPU connected' : connection!.state === 'connecting' ? 'Connecting' : 'GPU offline'}><span className="status-dot" />{data.cloud.busy ? 'Preparing GPU' : online ? connection!.gpu || 'GPU connected' : connection!.state === 'connecting' ? 'Connecting' : 'GPU offline'}<CaretDown size={12} /></button>
+        <GpuPowerControl cloud={data.cloud} setCloud={setCloud} activeWork={modelState.busy || jobs.some(job => activeStates.includes(job.status) && !job.faceRefinement)} browse={() => setView('gpu')} />
         <button className="theme-button" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}>{theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}</button>
       </div>
     </header>
