@@ -1,0 +1,309 @@
+{
+  "date": "2026-10-29",
+  "parentId": "56094f66-1da4-4e8e-ab49-7651ff0eb0fe",
+  "selection": {
+    "frames": 120,
+    "fps": 24,
+    "seconds": 5,
+    "width": 704,
+    "height": 1248
+  },
+  "donor": {
+    "description": "Same immutable prepared character reference as previous comparison",
+    "referenceSHA256": "82d1e3701d177a44ff4b9ebcdfd53fc456e42c78aec7876bf16c9c8f1b058462",
+    "embeddingVectorCommitted": false
+  },
+  "upstreamChecks": "Unmodified upstream image/video checks accepted original reference, source and generated inputs",
+  "commonCropEvaluation": true,
+  "previousAcceptedCropsReusedUnchanged": true,
+  "regionalWeights": {
+    "structure": 0,
+    "depth": 0,
+    "eyes": 0.8,
+    "brows": 0.9,
+    "mouth": 1,
+    "cheeks": 0.2,
+    "jaw": 0.15
+  },
+  "faceSwapper": {
+    "name": "hyperswap_1a_256",
+    "pixelBoost": 512,
+    "embeddingBalanceSetting": 0.5,
+    "donor": "Same original prepared reference",
+    "blend": [
+      1.0,
+      0.6
+    ]
+  },
+  "models": {
+    "files": [
+      {
+        "repo": "Glat0s/PerformRecast-onnx",
+        "revision": "onnx-v1",
+        "filename": "appearance_feature_extractor.onnx",
+        "destination": "performrecast/appearance_feature_extractor.onnx",
+        "size": 358267936,
+        "sha256": "208e4f848b430cbfa71a36dab7ec25a5b345882f846dbb27288abcfb2ae89a96",
+        "url": "https://github.com/Glat0s/PerformRecast-onnx/releases/download/onnx-v1/appearance_feature_extractor.onnx"
+      },
+      {
+        "repo": "Glat0s/PerformRecast-onnx",
+        "revision": "onnx-v1",
+        "filename": "motion_extractor.onnx",
+        "destination": "performrecast/motion_extractor.onnx",
+        "size": 113091452,
+        "sha256": "b1b26c1b6d7520eb8020175050f0381c4f402ccaa6afbaebee259da4ff9dcb6c",
+        "url": "https://github.com/Glat0s/PerformRecast-onnx/releases/download/onnx-v1/motion_extractor.onnx"
+      },
+      {
+        "repo": "Glat0s/PerformRecast-onnx",
+        "revision": "onnx-v1",
+        "filename": "spade_generator.onnx",
+        "destination": "performrecast/spade_generator.onnx",
+        "size": 343562601,
+        "sha256": "4d8127313b1c2f6b53320b65208dafc22db260550f690cfa114dec646c7a8f5f",
+        "url": "https://github.com/Glat0s/PerformRecast-onnx/releases/download/onnx-v1/spade_generator.onnx"
+      },
+      {
+        "repo": "Glat0s/PerformRecast-onnx",
+        "revision": "onnx-v1",
+        "filename": "warping_module.onnx",
+        "destination": "performrecast/warping_module.onnx",
+        "size": 205083656,
+        "sha256": "92d8a1414a31a4117237bbfb667be02e71831a085af6697c9c3465200228a0ce",
+        "url": "https://github.com/Glat0s/PerformRecast-onnx/releases/download/onnx-v1/warping_module.onnx"
+      },
+      {
+        "destination": "identity/hyperswap_1a_256.onnx",
+        "repo": "facefusion/models-3.3.0",
+        "revision": "main",
+        "filename": "hyperswap_1a_256.onnx",
+        "url": "https://huggingface.co/facefusion/models-3.3.0/resolve/main/hyperswap_1a_256.onnx",
+        "size": 402742682,
+        "sha256": "c0e98a8a03a238f461ed3d2570e426b49f46745ee400854a60dceeb70c246add"
+      }
+    ]
+  },
+  "runtime": {
+    "torch": "2.11.0+cu130",
+    "onnxruntime": "1.31.1",
+    "gpu": "NVIDIA RTX A6000",
+    "commonCrop": true,
+    "fps": 24,
+    "frames": 120,
+    "methods": {}
+  },
+  "sessionLoadSeconds": 1.161283913999796,
+  "componentsSeconds": {
+    "regional": 13.231509301011101,
+    "swapBase": 4.589727266007685,
+    "regionalAfterSwap": 12.985710810986347,
+    "swapRegional": 4.468319016028545,
+    "swapAccepted": 4.226239720956073
+  },
+  "combinedMeasuredComponentSeconds": {
+    "regionalOnly": 13.231509301011101,
+    "swapThenRegional": 17.575438076994033,
+    "regionalThenSwap": 17.699828317039646,
+    "additionalSwapOnPreviousAccepted": 4.226239720956073,
+    "note": "Excludes detection/alignment, transfer, compositing and export; partial blends reuse full model outputs"
+  },
+  "metrics": {
+    "scope": "2DFAN4 geometric opening ratios only; not identity, gaze direction, phoneme correctness, or quality scores. Anatomy and video compression affect absolute errors.",
+    "summary": {
+      "accepted": {
+        "validFrames": 120,
+        "meanAbsoluteOpeningError": {
+          "leftEyelid": 0.018415079678217906,
+          "rightEyelid": 0.022360529620404846,
+          "mouthOpening": 0.01813033339838494
+        },
+        "mouthOpeningCorrelation": 0.9829865237592922,
+        "recognitionEmbeddingCosineDiagnostic": {
+          "samples": 20,
+          "mean": 0.49909807741642,
+          "minimum": 0.4251721501350403,
+          "warning": "Same ArcFace family used to condition Hyperswap; biased diagnostic, not independent identity accuracy or a guarantee"
+        }
+      },
+      "regional": {
+        "validFrames": 120,
+        "meanAbsoluteOpeningError": {
+          "leftEyelid": 0.009477066645031968,
+          "rightEyelid": 0.01515493023138711,
+          "mouthOpening": 0.0254453249479293
+        },
+        "mouthOpeningCorrelation": 0.9814666555705367,
+        "recognitionEmbeddingCosineDiagnostic": {
+          "samples": 20,
+          "mean": 0.535226882994175,
+          "minimum": 0.4437129497528076,
+          "warning": "Same ArcFace family used to condition Hyperswap; biased diagnostic, not independent identity accuracy or a guarantee"
+        }
+      },
+      "swap-only": {
+        "validFrames": 120,
+        "meanAbsoluteOpeningError": {
+          "leftEyelid": 0.034198895780791404,
+          "rightEyelid": 0.03330428679441192,
+          "mouthOpening": 0.07797649959722662
+        },
+        "mouthOpeningCorrelation": 0.6186965926179036,
+        "recognitionEmbeddingCosineDiagnostic": {
+          "samples": 20,
+          "mean": 0.6209146738052368,
+          "minimum": 0.49841201305389404,
+          "warning": "Same ArcFace family used to condition Hyperswap; biased diagnostic, not independent identity accuracy or a guarantee"
+        }
+      },
+      "swap-then-regional": {
+        "validFrames": 120,
+        "meanAbsoluteOpeningError": {
+          "leftEyelid": 0.009243004211773102,
+          "rightEyelid": 0.014833265225047501,
+          "mouthOpening": 0.02750454051702227
+        },
+        "mouthOpeningCorrelation": 0.9836677130567965,
+        "recognitionEmbeddingCosineDiagnostic": {
+          "samples": 20,
+          "mean": 0.5891370519995689,
+          "minimum": 0.48119428753852844,
+          "warning": "Same ArcFace family used to condition Hyperswap; biased diagnostic, not independent identity accuracy or a guarantee"
+        }
+      },
+      "regional-then-swap": {
+        "validFrames": 120,
+        "meanAbsoluteOpeningError": {
+          "leftEyelid": 0.009686071212141672,
+          "rightEyelid": 0.012288707631273627,
+          "mouthOpening": 0.025018236602115163
+        },
+        "mouthOpeningCorrelation": 0.9637747467683224,
+        "recognitionEmbeddingCosineDiagnostic": {
+          "samples": 20,
+          "mean": 0.6715709865093231,
+          "minimum": 0.5337826013565063,
+          "warning": "Same ArcFace family used to condition Hyperswap; biased diagnostic, not independent identity accuracy or a guarantee"
+        }
+      },
+      "regional-then-swap-060": {
+        "validFrames": 120,
+        "meanAbsoluteOpeningError": {
+          "leftEyelid": 0.00942922493314454,
+          "rightEyelid": 0.014982238513334243,
+          "mouthOpening": 0.02417846116084047
+        },
+        "mouthOpeningCorrelation": 0.9791416230379001,
+        "recognitionEmbeddingCosineDiagnostic": {
+          "samples": 20,
+          "mean": 0.6269952923059463,
+          "minimum": 0.48119956254959106,
+          "warning": "Same ArcFace family used to condition Hyperswap; biased diagnostic, not independent identity accuracy or a guarantee"
+        }
+      },
+      "accepted-then-swap": {
+        "validFrames": 120,
+        "meanAbsoluteOpeningError": {
+          "leftEyelid": 0.013759720808664114,
+          "rightEyelid": 0.017957271790840022,
+          "mouthOpening": 0.014934937564165949
+        },
+        "mouthOpeningCorrelation": 0.9647775638253943,
+        "recognitionEmbeddingCosineDiagnostic": {
+          "samples": 20,
+          "mean": 0.7993243306875228,
+          "minimum": 0.6255679130554199,
+          "warning": "Same ArcFace family used to condition Hyperswap; biased diagnostic, not independent identity accuracy or a guarantee"
+        }
+      },
+      "accepted-then-swap-060": {
+        "validFrames": 120,
+        "meanAbsoluteOpeningError": {
+          "leftEyelid": 0.01496651423247058,
+          "rightEyelid": 0.020515059080808522,
+          "mouthOpening": 0.013122332572723374
+        },
+        "mouthOpeningCorrelation": 0.9762518016262727,
+        "recognitionEmbeddingCosineDiagnostic": {
+          "samples": 20,
+          "mean": 0.720559611916542,
+          "minimum": 0.5602575540542603,
+          "warning": "Same ArcFace family used to condition Hyperswap; biased diagnostic, not independent identity accuracy or a guarantee"
+        }
+      }
+    },
+    "recognitionDiagnosticWarning": "Recognition cosine uses the same encoder family conditioning Hyperswap, is biased, and is not independent identity accuracy or an acceptance gate. No raw embeddings included."
+  },
+  "composition": {
+    "protectedPixelsExactBeforeEncode": true,
+    "frames": 120,
+    "fps": 24,
+    "seconds": 5,
+    "codec": "H264 CRF16; not lossless",
+    "privateOutputsSHA256": {
+      "swap-only.mp4": "cc757ad0037b311c91959068b3f05ab2fb4d2bbd614175d2f70525d3261239df",
+      "regional-identity-comparison.mp4": "343872f518e31dd42dfc5b492aa0f48fcaf27fa317c6bc95ee97712ceef944c1",
+      "accepted-then-swap-060.mp4": "f56a6d206f7e73245869864d817d7f6211687664b343d50d43035219fb5f0c5d",
+      "swap-then-regional.mp4": "3274246d92f7ad758a8c72ca2bdbee6994fc094a8880508ff52ff54c607097ae",
+      "regional-then-swap-060.mp4": "ff4237393e0fe98b5e45a06a41bbafacda01034391d00c0ce79a4f8cac366b75",
+      "regional-then-swap.mp4": "62c3a69c915efb6f5adaec054250a85d791e866d65c9be953b8b39ec6ef2b029",
+      "regional.mp4": "54663d1c4e90eeb07a2108e6cff6df2196e1fca123de4848397b8af0e2bb69ef",
+      "accepted-then-swap.mp4": "b5aab4768cb4fdf505d675e5bb52a149c758cc9947a020d11f917a7094d68bf5",
+      "regional-identity-comparison-v2.mp4": "927748ae24f9638ea219e950c6e9c4e9fe4f7f4d105c3a4993decc3075598be8"
+    }
+  },
+  "actualProviders": {
+    "appearance_feature_extractor.onnx": {
+      "CUDAExecutionProvider": 96960,
+      "CPUExecutionProvider": 21120
+    },
+    "motion_extractor.onnx": {
+      "CUDAExecutionProvider": 170400
+    },
+    "warping_module.onnx": {
+      "CUDAExecutionProvider": 37440,
+      "CPUExecutionProvider": 21360
+    },
+    "spade_generator.onnx": {
+      "CUDAExecutionProvider": 53760,
+      "CPUExecutionProvider": 23280
+    },
+    "hyperswap_1a_256.onnx": {
+      "CUDAExecutionProvider": 748800
+    }
+  },
+  "lifecycle": {
+    "time": 1793228505.926945,
+    "instanceId": 58120414,
+    "state": "exited",
+    "computeStopped": true,
+    "launchPhase": "stopped",
+    "launchMessage": "The previous instance request could not be confirmed. Compute is confirmed stopped. Retained storage is still billed.",
+    "idleRestored": true,
+    "note": "First stop HTTP response reported unconfirmed; subsequent independent provider refresh records final state. No new rental or resume."
+  },
+  "costEstimate": {
+    "scope": "Conservative wall interval through independent stopped-state confirmation; estimate, not invoice",
+    "intervalSeconds": 548.5561819076538,
+    "computeHourlyUSD": 0.4,
+    "storageHourlyUSD": 0.01777777777777778,
+    "computeUSD": 0.0609506868786282,
+    "runningStorageUSD": 0.0027089194168279204,
+    "knownIngressBytes": 1553758887,
+    "knownIngressUSD": 0.0040462471015625,
+    "knownEgressBytes": 158977936,
+    "knownEgressUSD": 0.0006210075625,
+    "estimatedTotalUSD": 0.06832686095951862
+  },
+  "decision": {
+    "preferredComparisonCandidate": "accepted-then-swap-060",
+    "reason": "Closer reference appearance while keeping most source mouth timing; regional-only sharper but heavier around eyes; soft fine skin detail remains",
+    "eyeDirectionValidated": false,
+    "fullIdentityGuarantee": false,
+    "productDefaultsChanged": false,
+    "newViggleInference": false,
+    "newImagenInference": false
+  },
+  "workerSHA256": "04f8a45bdce98e8046bcbc14edb1fe2adfffeb3eb130b73ad24d397bb8d74653",
+  "privateArtifacts": "backups/regional-identity-20261029"
+}

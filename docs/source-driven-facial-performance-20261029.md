@@ -1,5 +1,10 @@
 # Source-driven facial performance: matched five-second comparison
 
+Follow-up: the user liked this candidate and authorized a regional/ONNX identity
+comparison. [The later evaluation](validation/regional-identity-20261029.md)
+finds that a partial post-expression identity swap is the preferred comparison
+candidate; this document preserves the original baseline findings.
+
 29 October 2026. The user requested the original video's lip shapes, eye movements,
 blinks and expressions on the repainted character. This is visual performance
 transfer, including silent performance and miming; soundtrack-driven speech
