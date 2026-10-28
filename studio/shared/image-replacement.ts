@@ -24,6 +24,16 @@ Keep <image1>'s exact camera viewpoint, framing, camera distance, subject placem
 
 export const bodyOnlyPrompt = bodyOnlyPromptV1 + `\n\nKeep visible occluders and visibility from <image1>. If the face is covered, offscreen or facing away, keep it hidden: do not turn the head toward the camera or invent a visible frontal face. Preserve the original hand, object or foreground obstruction and its position.`;
 
+// User-accepted native photo 545ff68d. Reference crops stay bound to the current
+// character assets; a preset never carries another character's asset IDs.
+export const sourceFramePreset = {
+  model: 'qwen21', qwenRecipe: 'body-only', qwenQuality: 'fast', bodyOnlyStrategy: 'native', bodyOnlyReuseId: null, bodyOnlyPose: false,
+  prompt: bodyOnlyPrompt, megapixels: 1, protectBackground: true, feather: 12, maskExpand: 64, maskFillHoles: true,
+  qwenHeadRefine: false, structureStrength: 0, repairMaskGaps: false, qwenRelight: false, qwenNormalizeReference: false,
+  qwenEdgeOnly: false, qwenSceneIntegration: false, qwenLayoutOnly: false, localIdentity: false, qwenIdentityGuide: false,
+  qwenBodyPose: false, bodyPoseStrength: .65, faceDetail: false, identityRefine: false, seed: 1583893113, randomSeed: false,
+} as const;
+
 export function bodyOnlyConditioningPrompt(prompt: string, legacy = false): string {
   const base = legacy ? bodyOnlyPromptV1 : bodyOnlyPrompt, extra = prompt.trim();
   return base + (extra && ![bodyOnlyPrompt, bodyOnlyPromptV1, defaultImagePrompt, legacyImagePrompt].includes(extra) ? '\nAdditional edit requirements: ' + extra : '');
@@ -42,8 +52,8 @@ export function referenceViewIssue(view: ImageReferenceView | null | undefined, 
 }
 
 export const imageSettingsSchema = z.object({
-  model: z.enum(['klein4b', 'qwen21']).default('klein4b'),
-  qwenRecipe: z.enum(['whole-person', 'source-anchored', 'native-masked', 'native-scene', 'identity-first', 'body-identity', 'body-only']).default('whole-person'),
+  model: z.enum(['klein4b', 'qwen21']).default(sourceFramePreset.model),
+  qwenRecipe: z.enum(['whole-person', 'source-anchored', 'native-masked', 'native-scene', 'identity-first', 'body-identity', 'body-only']).default(sourceFramePreset.qwenRecipe),
   qwenQuality: z.enum(['fast', 'quality']).default('fast'),
   bodyOnlyStrategy: z.enum(['native', 'staged', 'detail']).default('native'),
   bodyOnlyReuseId: z.string().uuid().nullable().default(null),
@@ -51,14 +61,14 @@ export const imageSettingsSchema = z.object({
   bodyReferenceView: imageReferenceViewSchema.nullable().default(null),
   faceReferenceView: imageReferenceViewSchema.nullable().default(null),
   qwenHeadRefine: z.boolean().default(false),
-  structureStrength: z.number().finite().min(0).max(2).default(0.8),
+  structureStrength: z.number().finite().min(0).max(2).default(sourceFramePreset.structureStrength),
   repairMaskGaps: z.boolean().default(false),
-  prompt: z.string().trim().max(8000).default(defaultImagePrompt),
+  prompt: z.string().trim().max(8000).default(sourceFramePreset.prompt),
   megapixels: z.union([z.literal(1), z.literal(2)]).default(1),
   protectBackground: z.boolean().default(true),
-  feather: z.number().int().min(0).max(24).default(4),
-  maskExpand: z.number().int().min(0).max(64).default(0),
-  maskFillHoles: z.boolean().default(false),
+  feather: z.number().int().min(0).max(24).default(sourceFramePreset.feather),
+  maskExpand: z.number().int().min(0).max(64).default(sourceFramePreset.maskExpand),
+  maskFillHoles: z.boolean().default(sourceFramePreset.maskFillHoles),
   qwenRelight: z.boolean().default(false),
   qwenNormalizeReference: z.boolean().default(false),
   qwenEdgeOnly: z.boolean().default(false),
@@ -68,13 +78,16 @@ export const imageSettingsSchema = z.object({
   qwenIdentityGuide: z.boolean().default(false),
   qwenBodyPose: z.boolean().default(false),
   bodyPoseStrength: z.number().finite().min(0).max(1.5).default(.65),
-  faceDetail: z.boolean().default(true),
+  faceDetail: z.boolean().default(sourceFramePreset.faceDetail),
   identityRefine: z.boolean().default(false),
-  seed: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).default(20261027),
+  seed: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).default(sourceFramePreset.seed),
   randomSeed: z.boolean().default(false),
-});
+}).transform(settings => ({ ...settings, prompt: (settings.model !== 'qwen21' || settings.qwenRecipe !== 'body-only') && settings.prompt === bodyOnlyPrompt ? defaultImagePrompt : settings.prompt }));
 export type ImageSettings = z.infer<typeof imageSettingsSchema>;
 export const imageDefaults = imageSettingsSchema.parse({});
+export function sourceFrameImageSettings(current?: ImageSettings): ImageSettings {
+  return imageSettingsSchema.parse({ ...sourceFramePreset, bodyReferenceView: current?.bodyReferenceView || null, faceReferenceView: current?.faceReferenceView || null });
+}
 export const imageDraftSchema = z.object({
   sourceId: z.string().nullable().default(null), referenceId: z.string().nullable().default(null),
   faceId: z.string().nullable().default(null), maskId: z.string().nullable().default(null),

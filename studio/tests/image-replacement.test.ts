@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { defaults, type Catalog, type Job } from '../shared/types';
-import { bodyOnlyConditioningPrompt, bodyOnlyPromptV1, defaultImagePrompt, emptyImageDraft, imageDefaults, imageGeometry, imagePrompt, imageReferenceViewSchema, isImageJob, legacyImagePrompt, referenceViewIssue } from '../shared/image-replacement';
+import { bodyOnlyConditioningPrompt, bodyOnlyPrompt, bodyOnlyPromptV1, defaultImagePrompt, emptyImageDraft, imageDefaults, imageGeometry, imagePrompt, imageReferenceViewSchema, imageSettingsSchema, isImageJob, legacyImagePrompt, referenceViewIssue, sourceFramePreset, sourceFrameImageSettings } from '../shared/image-replacement';
 import { IMAGE_IDENTITY, QWEN_BODY, QWEN_HEAD, QWEN_STRUCTURE, QWEN_OUTFIT, QWEN_CONSISTENCY, imageFilesForSettings, imageModelFiles, modelBytes, pinnedModels, qwenImageModelFiles } from '../shared/models';
 import { compileWorkflow, validateGraph } from '../server/workflow';
 import { applyProgress } from '../server/comfy';
@@ -10,6 +10,7 @@ import { publicJob } from '../server/store';
 import { bodyOnlyStagedPrompts } from '../server/qwen-body-only-staged-workflow';
 import { bodyOnlyHeadPrompt } from '../server/qwen-head-detail-workflow';
 
+const legacyImageDefaults = { ...imageDefaults, model: 'klein4b' as const, qwenRecipe: 'whole-person' as const, prompt: defaultImagePrompt, faceDetail: true, structureStrength: .8, feather: 4, maskExpand: 0, maskFillHoles: false, seed: 20261027 };
 const repo = path.resolve(import.meta.dirname, '../..');
 const load = (file: string) => JSON.parse(readFileSync(path.join(repo, file), 'utf8'));
 const catalog: Catalog = { ...load('integration-snapshot/object-info.json'), ...load('integration-snapshot/viggle-node-schemas.json'), ...load('integration-snapshot/qwen21-node-schemas.json'), ...load('integration-snapshot/qwen21-control-node-schemas.json') };
@@ -21,15 +22,29 @@ for (const node of Object.values(catalog)) for (const [name, rule] of Object.ent
 }
 function fixture(): Job {
   const geometry = imageGeometry({ width: 1171, height: 1801 }, 1);
-  return { id: 'image-test', title: 'Image replacement', mediaType: 'image', status: 'queued', settings: defaults, image: { version: 'masked-latent-v2', settings: imageDefaults, geometry, maskId: 'mask', faceId: null },
+  return { id: 'image-test', title: 'Image replacement', mediaType: 'image', status: 'queued', settings: defaults, image: { version: 'masked-latent-v2', settings: legacyImageDefaults, geometry, maskId: 'mask', faceId: null },
     sourceId: 'target', referenceId: 'identity', width: geometry.width, height: geometry.height, outputSize: { width: geometry.outputWidth, height: geometry.outputHeight }, createdAt: '', favorite: false, deleted: false,
     progress: { stage: 'Queued', node: null, value: null, max: null, unit: 'steps', segment: 1, segments: 1, completedFrames: 0, targetFrames: 1, updatedAt: 0 },
     uploads: { source: 'target.png', reference: 'identity.png', face: 'face.png', original: 'original.png', mask: 'mask.png', noiseMask: 'mask.png' }, segments: [], context: '', pendingPrompt: null, error: null, output: null, poster: null, cancelRequested: false, elapsedSeconds: null, origin: 'render', workflow: null };
 }
 describe('source-preserving Klein image replacement', () => {
+  it('uses the accepted native preset for new photos and newly prepared source frames', () => {
+    expect(emptyImageDraft().settings).toMatchObject(sourceFramePreset);
+    expect(imageDefaults).toMatchObject({ model: 'qwen21', qwenRecipe: 'body-only', bodyOnlyStrategy: 'native', qwenQuality: 'fast', megapixels: 1, maskExpand: 64, feather: 12, maskFillHoles: true, seed: 1583893113, randomSeed: false });
+    const old = { ...legacyImageDefaults, qwenHeadRefine: true, localIdentity: true, bodyOnlyStrategy: 'detail' as const, bodyOnlyReuseId: 'a'.repeat(36), bodyReferenceView: { assetId: 'body', x: 16, y: 2, width: 285, height: 770 }, faceReferenceView: { assetId: 'face', x: 9, y: 4, width: 275, height: 395 } };
+    const frame = sourceFrameImageSettings(old);
+    expect(frame).toMatchObject(sourceFramePreset);
+    expect(frame.bodyReferenceView).toEqual(old.bodyReferenceView); expect(frame.faceReferenceView).toEqual(old.faceReferenceView);
+    expect(frame.bodyOnlyReuseId).toBeNull(); expect(frame.qwenHeadRefine).toBe(false); expect(frame.localIdentity).toBe(false);
+    expect(imageFilesForSettings(frame)).toHaveLength(4);
+    expect(imageFilesForSettings(frame).some(file => /bfs|outfit|controlnet|klein/.test(file))).toBe(false);
+    expect(sourceFrameImageSettings().bodyReferenceView).toBeNull(); expect(sourceFrameImageSettings().faceReferenceView).toBeNull();
+    expect(imageSettingsSchema.parse({ qwenRecipe: 'whole-person' }).prompt).toBe(defaultImagePrompt);
+    expect(imageSettingsSchema.parse({ model: 'klein4b' }).prompt).toBe(defaultImagePrompt);
+  });
   it('runs an enlarged independent head correction without regenerating a reused paid body', () => {
     const job = fixture(); job.image!.version = 'body-only-v5';
-    job.image!.settings = { ...imageDefaults, model: 'qwen21', qwenRecipe: 'body-only', bodyOnlyStrategy: 'detail' };
+    job.image!.settings = { ...legacyImageDefaults, model: 'qwen21', qwenRecipe: 'body-only', bodyOnlyStrategy: 'detail' };
     job.image!.conditioningPrompt = bodyOnlyConditioningPrompt(''); job.image!.headPrompt = bodyOnlyHeadPrompt;
     job.image!.prepared = { hasFace: true, warnings: [], headEdit: { x: 120, y: 180, size: 256, resolution: 1024 } };
     Object.assign(job.uploads!, { headReference: 'face.png', faceMask: 'mask.png' });
@@ -60,7 +75,7 @@ describe('source-preserving Klein image replacement', () => {
   });
   it('separates body, source clothing and face authority in the staged evaluation', () => {
     const job = fixture(); job.image!.version = 'body-only-v3'; job.image!.faceId = 'face';
-    job.image!.settings = { ...imageDefaults, model: 'qwen21', qwenRecipe: 'body-only', bodyOnlyStrategy: 'staged', qwenQuality: 'quality' };
+    job.image!.settings = { ...legacyImageDefaults, model: 'qwen21', qwenRecipe: 'body-only', bodyOnlyStrategy: 'staged', qwenQuality: 'quality' };
     job.image!.stagedPrompts = bodyOnlyStagedPrompts(''); job.uploads!.bodyReference = 'identity.png'; job.uploads!.faceMask = 'mask.png';
     const graph = compileWorkflow({}, job);
     expect(validateGraph(graph, catalog)).toEqual([]);
@@ -97,7 +112,7 @@ describe('source-preserving Klein image replacement', () => {
   });
   it('freezes new body-only instructions while preserving paid v1 prompts', () => {
     const job = fixture(); job.image!.version = 'body-only-v2';
-    job.image!.settings = { ...imageDefaults, model: 'qwen21', qwenRecipe: 'body-only', prompt: '' };
+    job.image!.settings = { ...legacyImageDefaults, model: 'qwen21', qwenRecipe: 'body-only', prompt: '' };
     job.image!.conditioningPrompt = bodyOnlyConditioningPrompt('Keep the blue buttons.');
     const graph = compileWorkflow({}, job);
     expect(validateGraph(graph, catalog)).toEqual([]);
@@ -111,7 +126,7 @@ describe('source-preserving Klein image replacement', () => {
   });
   it('keeps source clothing in a native three-reference body edit without outfit/body adapters', () => {
     const job = fixture(); job.image!.version = 'body-only-v1'; job.image!.faceId = 'face';
-    job.image!.settings = { ...imageDefaults, model: 'qwen21', qwenRecipe: 'body-only', qwenQuality: 'quality', qwenHeadRefine: false };
+    job.image!.settings = { ...legacyImageDefaults, model: 'qwen21', qwenRecipe: 'body-only', qwenQuality: 'quality', qwenHeadRefine: false };
     const graph = compileWorkflow({}, job);
     expect(validateGraph(graph, catalog)).toEqual([]);
     expect(graph['108'].inputs).toMatchObject({ resolution: 0, 'images.image_1': ['1', 0], 'images.image_2': ['4', 0], 'images.image_3': ['5', 0] });
@@ -126,7 +141,7 @@ describe('source-preserving Klein image replacement', () => {
   });
   it('transfers physique before the accepted independent head stage, without an outfit adapter that restores source anatomy', () => {
     const job = fixture(); job.image!.version = 'body-identity-v1';
-    job.image!.settings = { ...imageDefaults, model: 'qwen21', qwenRecipe: 'body-identity', qwenHeadRefine: true, qwenNormalizeReference: true, qwenRelight: true, localIdentity: true };
+    job.image!.settings = { ...legacyImageDefaults, model: 'qwen21', qwenRecipe: 'body-identity', qwenHeadRefine: true, qwenNormalizeReference: true, qwenRelight: true, localIdentity: true };
     job.uploads!.bodyReference = 'identity.png';
     const graph = compileWorkflow({}, job);
     expect(validateGraph(graph, catalog)).toEqual([]);
@@ -164,7 +179,7 @@ describe('source-preserving Klein image replacement', () => {
     expect(imageFilesForSettings(job.image!.settings)).toContain(QWEN_STRUCTURE);
   });
   it('uses a separate draft and only the existing three image models', () => {
-    expect(emptyImageDraft().settings.prompt).toBe(defaultImagePrompt);
+    expect(emptyImageDraft().settings.prompt).toBe(bodyOnlyPrompt);
     expect(emptyImageDraft().settings.protectBackground).toBe(true);
     expect(imageModelFiles).toHaveLength(3); expect(modelBytes(imageModelFiles)).toBe(12_451_817_860);
     expect(imageModelFiles.some(name => /viggle|SCAIL|lora/i.test(name))).toBe(false);
@@ -208,18 +223,18 @@ describe('source-preserving Klein image replacement', () => {
     delete job.uploads!.mask; expect(() => compileWorkflow({}, job)).toThrow('Paint');
   });
   it('makes full-photo edits and a missing face crop explicit rather than inventing conditioning', () => {
-    const job = fixture(); job.image!.settings = { ...imageDefaults, protectBackground: false, faceDetail: false };
+    const job = fixture(); job.image!.settings = { ...legacyImageDefaults, protectBackground: false, faceDetail: false };
     job.uploads = { source: 'target.png', reference: 'identity.png' };
     const graph = compileWorkflow({}, job);
     expect(graph['124']).toBeUndefined(); expect(graph['128']).toBeUndefined(); expect(graph['131']).toBeUndefined();
     expect(graph['113'].inputs.positive).toEqual(['111', 0]); expect(graph['46'].inputs.images).toEqual(['127', 0]);
-    expect(imagePrompt({ ...imageDefaults, prompt: '' }, false)).toContain(legacyImagePrompt);
-    expect(imagePrompt(imageDefaults, true)).toContain('IMAGE 3');
-    expect(imagePrompt(imageDefaults, false)).not.toContain('IMAGE 3');
+    expect(imagePrompt({ ...legacyImageDefaults, prompt: '' }, false)).toContain(legacyImagePrompt);
+    expect(imagePrompt(legacyImageDefaults, true)).toContain('IMAGE 3');
+    expect(imagePrompt(legacyImageDefaults, false)).not.toContain('IMAGE 3');
   });
   it('separates the trained identity pass from outfit editing and requires only its selected adapter', () => {
     const job = fixture(); job.image!.version = 'masked-latent-v3';
-    job.image!.settings = { ...imageDefaults, identityRefine: true };
+    job.image!.settings = { ...legacyImageDefaults, identityRefine: true };
     job.uploads!.faceMask = 'mask.png';
     const graph = compileWorkflow({}, job);
     expect(validateGraph(graph, catalog)).toEqual([]);
@@ -233,19 +248,19 @@ describe('source-preserving Klein image replacement', () => {
     expect(graph['220'].inputs.destination).toEqual(['119', 0]);
     expect(graph['126'].inputs.image).toEqual(['220', 0]);
     expect(graph['105'].inputs.text).not.toContain('IMAGE 3');
-    expect(imageFilesForSettings(imageDefaults)).toEqual(imageModelFiles);
+    expect(imageFilesForSettings(legacyImageDefaults)).toEqual(imageModelFiles);
     expect(imageFilesForSettings(job.image!.settings)).toEqual([...imageModelFiles, 'loras/' + IMAGE_IDENTITY]);
     delete job.uploads!.faceMask; expect(() => compileWorkflow({}, job)).toThrow('clear reference face');
   });
   it('uses a focused complete-outfit default only on the new recipe, preserving paid legacy prompts', () => {
-    expect(imagePrompt({ ...imageDefaults, prompt: legacyImagePrompt }, false, 'masked-latent-v3')).toContain(defaultImagePrompt);
-    expect(imagePrompt({ ...imageDefaults, prompt: '' }, false, 'masked-latent-v2')).toContain(legacyImagePrompt);
-    expect(imagePrompt({ ...imageDefaults, prompt: '' }, false, 'masked-latent-v3')).toContain('complete outfit');
+    expect(imagePrompt({ ...legacyImageDefaults, prompt: legacyImagePrompt }, false, 'masked-latent-v3')).toContain(defaultImagePrompt);
+    expect(imagePrompt({ ...legacyImageDefaults, prompt: '' }, false, 'masked-latent-v2')).toContain(legacyImagePrompt);
+    expect(imagePrompt({ ...legacyImageDefaults, prompt: '' }, false, 'masked-latent-v3')).toContain('complete outfit');
     expect(defaultImagePrompt).toContain('light direction');
     expect(defaultImagePrompt).not.toContain('maroon');
   });
   it('uses the published fresh-latent adapter recipe and an explicit facial reference budget on v4', () => {
-    const job = fixture(); job.image!.version = 'masked-latent-v4'; job.image!.settings = { ...imageDefaults, identityRefine: true }; job.uploads!.faceMask = 'mask.png';
+    const job = fixture(); job.image!.version = 'masked-latent-v4'; job.image!.settings = { ...legacyImageDefaults, identityRefine: true }; job.uploads!.faceMask = 'mask.png';
     const graph = compileWorkflow({}, job);
     expect(validateGraph(graph, catalog)).toEqual([]);
     expect(graph['123'].inputs.pixels).toEqual(['221', 0]);
@@ -257,7 +272,7 @@ describe('source-preserving Klein image replacement', () => {
     expect(graph['131'].inputs.destination).toEqual(['128', 0]);
   });
   it('keeps Qwen whole-person inputs ordered, native latent sizing and matching model families', () => {
-    const job = fixture(); job.image!.version = 'masked-latent-v4'; job.image!.settings = { ...imageDefaults, model: 'qwen21', faceDetail: false };
+    const job = fixture(); job.image!.version = 'masked-latent-v4'; job.image!.settings = { ...legacyImageDefaults, model: 'qwen21', faceDetail: false };
     job.image!.geometry = imageGeometry({ width: 720, height: 1280 }, 2, 'qwen21');
     const graph = compileWorkflow({}, job), g = job.image!.geometry;
     expect(validateGraph(graph, catalog)).toEqual([]);
@@ -283,7 +298,7 @@ describe('source-preserving Klein image replacement', () => {
   });
   it('anchors new Qwen edits to source latents, masks and a trained control branch', () => {
     const job = fixture(); job.image!.version = 'scene-anchor-v1';
-    job.image!.settings = { ...imageDefaults, model: 'qwen21', qwenRecipe: 'source-anchored', faceDetail: false, qwenHeadRefine: false };
+    job.image!.settings = { ...legacyImageDefaults, model: 'qwen21', qwenRecipe: 'source-anchored', faceDetail: false, qwenHeadRefine: false };
     job.uploads!.structure = 'target.png';
     const graph = compileWorkflow({}, job);
     expect(validateGraph(graph, catalog)).toEqual([]);
@@ -297,7 +312,7 @@ describe('source-preserving Klein image replacement', () => {
   });
   it('uses independent body/head model branches and true per-pass counters', () => {
     const job = fixture(); job.image!.version = 'scene-anchor-v1';
-    job.image!.settings = { ...imageDefaults, model: 'qwen21', qwenRecipe: 'source-anchored', qwenHeadRefine: true, qwenQuality: 'quality' };
+    job.image!.settings = { ...legacyImageDefaults, model: 'qwen21', qwenRecipe: 'source-anchored', qwenHeadRefine: true, qwenQuality: 'quality' };
     Object.assign(job.uploads!, { structure: 'target.png', faceMask: 'mask.png', bodyMask: 'mask.png' });
     const graph = compileWorkflow({}, job);
     expect(validateGraph(graph, catalog)).toEqual([]);
@@ -316,7 +331,7 @@ describe('source-preserving Klein image replacement', () => {
   });
   it('uses the trained native edit latents in v2 while preserving paid v1 source-latent jobs', () => {
     const job = fixture(); job.image!.version = 'scene-anchor-v2';
-    job.image!.settings = { ...imageDefaults, model: 'qwen21', qwenRecipe: 'source-anchored', qwenHeadRefine: true };
+    job.image!.settings = { ...legacyImageDefaults, model: 'qwen21', qwenRecipe: 'source-anchored', qwenHeadRefine: true };
     Object.assign(job.uploads!, { structure: 'target.png', faceMask: 'mask.png', bodyMask: 'mask.png' });
     let graph = compileWorkflow({}, job);
     expect(validateGraph(graph, catalog)).toEqual([]);
@@ -331,7 +346,7 @@ describe('source-preserving Klein image replacement', () => {
   });
   it('keeps native Qwen CFG at one and removes unused control and acceleration files in v3', () => {
     const job = fixture(); job.image!.version = 'scene-anchor-v3';
-    job.image!.settings = { ...imageDefaults, model: 'qwen21', qwenRecipe: 'source-anchored', qwenQuality: 'quality', qwenHeadRefine: false, structureStrength: 0 };
+    job.image!.settings = { ...legacyImageDefaults, model: 'qwen21', qwenRecipe: 'source-anchored', qwenQuality: 'quality', qwenHeadRefine: false, structureStrength: 0 };
     job.uploads!.structure = 'target.png';
     const graph = compileWorkflow({}, job);
     expect(validateGraph(graph, catalog)).toEqual([]);
@@ -345,7 +360,7 @@ describe('source-preserving Klein image replacement', () => {
   });
   it('guides native edits with a third mask reference and blends once without BFS or head adapters', () => {
     const job = fixture(); job.image!.version = 'native-mask-v1';
-    job.image!.settings = { ...imageDefaults, model: 'qwen21', qwenRecipe: 'native-masked', qwenQuality: 'quality', qwenHeadRefine: false, faceDetail: false, maskExpand: 24, feather: 16 };
+    job.image!.settings = { ...legacyImageDefaults, model: 'qwen21', qwenRecipe: 'native-masked', qwenQuality: 'quality', qwenHeadRefine: false, faceDetail: false, maskExpand: 24, feather: 16 };
     const graph = compileWorkflow({}, job);
     expect(validateGraph(graph, catalog)).toEqual([]);
     expect(graph['108'].inputs).toMatchObject({ 'images.image_1': ['1', 0], 'images.image_2': ['4', 0], 'images.image_3': ['142', 0] });
@@ -359,7 +374,7 @@ describe('source-preserving Klein image replacement', () => {
   });
   it('refines native facial identity on the generated scene before a single final scene blend', () => {
     const job = fixture(); job.image!.version = 'native-mask-v1';
-    job.image!.settings = { ...imageDefaults, model: 'qwen21', qwenRecipe: 'native-masked', qwenHeadRefine: true };
+    job.image!.settings = { ...legacyImageDefaults, model: 'qwen21', qwenRecipe: 'native-masked', qwenHeadRefine: true };
     job.uploads!.faceMask = 'mask.png';
     const graph = compileWorkflow({}, job);
     expect(validateGraph(graph, catalog)).toEqual([]);
@@ -375,7 +390,7 @@ describe('source-preserving Klein image replacement', () => {
   });
   it('keeps identity, outfit and lighting adapters on independent native branches', () => {
     const job = fixture(); job.image!.version = 'identity-first-v1';
-    job.image!.settings = { ...imageDefaults, model: 'qwen21', qwenRecipe: 'identity-first', qwenHeadRefine: true, qwenRelight: true };
+    job.image!.settings = { ...legacyImageDefaults, model: 'qwen21', qwenRecipe: 'identity-first', qwenHeadRefine: true, qwenRelight: true };
     job.uploads!.faceMask = 'mask.png';
     const graph = compileWorkflow({}, job);
     expect(validateGraph(graph, catalog)).toEqual([]);
@@ -394,7 +409,7 @@ describe('source-preserving Klein image replacement', () => {
   });
   it('supplies the original full head and hair to the revised staged route', () => {
     const job = fixture(); job.image!.version = 'identity-first-v2';
-    job.image!.settings = { ...imageDefaults, model: 'qwen21', qwenRecipe: 'identity-first', qwenHeadRefine: true, localIdentity: true, qwenRelight: true };
+    job.image!.settings = { ...legacyImageDefaults, model: 'qwen21', qwenRecipe: 'identity-first', qwenHeadRefine: true, localIdentity: true, qwenRelight: true };
     job.uploads!.faceMask = 'mask.png';
     const graph = compileWorkflow({}, job);
     expect(validateGraph(graph, catalog)).toEqual([]);
@@ -407,7 +422,7 @@ describe('source-preserving Klein image replacement', () => {
   });
   it('keeps reference preparation and scene relighting separate from the body adapter', () => {
     const job = fixture(); job.image!.version = 'scene-anchor-v7';
-    job.image!.settings = { ...imageDefaults, model: 'qwen21', qwenRecipe: 'source-anchored', qwenQuality: 'quality', qwenHeadRefine: false, structureStrength: .3, qwenNormalizeReference: true, qwenRelight: true, qwenLayoutOnly: true, localIdentity: true };
+    job.image!.settings = { ...legacyImageDefaults, model: 'qwen21', qwenRecipe: 'source-anchored', qwenQuality: 'quality', qwenHeadRefine: false, structureStrength: .3, qwenNormalizeReference: true, qwenRelight: true, qwenLayoutOnly: true, localIdentity: true };
     job.uploads!.structure = 'target.png';
     const graph = compileWorkflow({}, job);
     expect(validateGraph(graph, catalog)).toEqual([]);

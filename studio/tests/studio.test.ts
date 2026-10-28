@@ -210,7 +210,7 @@ describe('local app with the captured ComfyUI protocol', () => {
       await copyFile(path.join(folder, 'gpu-result.png'), path.join(folder, 'final.png'));
       return { status: 'review', warnings: [], backgroundProtected: false, outsideMaskMaxDifference: null, sourceFace: false, referenceFace: false, outputFace: false };
     };
-    return { sourceId: source.body.id, referenceId: reference.body.id, faceId: null, maskId: null, settings: { ...imageDefaults, protectBackground: false, faceDetail: false } };
+    return { sourceId: source.body.id, referenceId: reference.body.id, faceId: null, maskId: null, settings: { ...imageDefaults, model: 'klein4b' as const, qwenRecipe: 'whole-person' as const, prompt: '', protectBackground: false, faceDetail: false } };
   }
   it('saves independent image settings offline and never downloads or submits a missing-model request', async () => {
     const agent = await setup(), values = await imageInputs(agent), before = local!.store.draft();
