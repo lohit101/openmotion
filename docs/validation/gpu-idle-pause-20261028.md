@@ -7,7 +7,7 @@ time limit on healthy setup, downloads or inference.
 **Settings → Connection → Pause GPU after 5 idle minutes** is enabled by default
 and persisted in Studio's local settings. Disabling or re-enabling it resets the
 clock. A new app session also starts a fresh interval, without counting offline
-time. Workload activity resets the timer; clicking around Library or editing a
+time. The five-minute countdown starts only after all creation and output-saving work finishes. Workload activity resets the timer; clicking around Library or editing a
 prompt does not keep an otherwise unused GPU billable indefinitely.
 
 The server samples activity every 15 seconds. It considers only the currently
@@ -50,7 +50,7 @@ permissions. This is not a provider-hosted watchdog for a powered-off laptop.
 - Alert tests: no success on an acknowledgement alone, one error on an
   unconfirmed stop, one later confirmation alert, no repeated history alerts.
 - Full Studio suite: 35 files / 366 tests passed. Production build and the
-  final focused timer/API/alert suite (18 tests) passed after the last changes.
+  final focused timer/API/cloud/alert suite (113 tests), including explicit video/photo/queued/output-saving coverage, passed after the clarification.
 - No paid validation or remote action was needed. The retained A6000 was
   already verified exited/stopped and remained stopped during implementation.
 
