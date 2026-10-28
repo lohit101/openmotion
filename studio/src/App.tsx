@@ -30,6 +30,8 @@ import RunDetailsDialog from './RunDetailsDialog';
 import WorkspaceWelcome from './WorkspaceWelcome';
 import GenerationProgress from './GenerationProgress';
 import { useOutputPresentation } from './useGenerationProgress';
+import { useActivityAlerts } from './useActivityAlerts';
+import type { AlertTarget } from '../shared/alerts';
 import type { EditorIntent } from './ClipEditorWorkspace';
 
 const activeStates = ['queued', 'running', 'reconnecting'];
@@ -80,6 +82,13 @@ export default function App() {
   const openModels = () => { setSettingsTab('extras'); setView('settings'); };
   const [info, setInfo] = useState(false), [message, setMessageValue] = useState(''), [creating, setCreating] = useState(false);
   const setMessage = useCallback((text: string) => { setMessageValue(text); if (text) toast.error(text, { duration: 10000 }); }, []);
+  const openAlert = useCallback((target: AlertTarget) => {
+    setInfo(false);
+    if (target.view === 'downloads' || target.view === 'alerts') { setSettingsTab(target.view); setView('settings'); }
+    else setView(target.view);
+    if (target.jobId) { setSelectedId(target.jobId); setCompare(false); }
+  }, []);
+  useActivityAlerts(data, openAlert);
   const seenNotices = useRef(new Set<string>());
   const renderStates = useRef(new Map<string, string>());
   useEffect(() => {
@@ -88,7 +97,6 @@ export default function App() {
       renderStates.current.set(job.id, state);
       if (!previous || previous === state) continue;
       if (job.status === 'reconnecting') toast.warning('Restoring GPU connection', { id: `render-${job.id}`, description: 'Checking the existing job. No new segment has been submitted.' });
-      else if (job.status === 'interrupted' || job.status === 'failed') toast.error(job.retryRequired ? 'Render segment is missing' : job.status === 'failed' ? 'Generation failed' : 'Generation interrupted', { id: `render-${job.id}`, description: job.error || 'Open the run for details.', duration: 14000 });
       else if (previous.startsWith('reconnecting:')) toast.dismiss(`render-${job.id}`);
     }
   }, [data?.jobs]);
@@ -140,14 +148,9 @@ export default function App() {
     void api<ModelsState>('/models').then(models => setData(old => old ? { ...old, models } : old)).catch(error => setMessage(error.message));
   }, [setMessage]);
   useEffect(() => { if (data && !data.cloud.busy) refreshModels(); }, [data?.connection.state, data?.connection.checkedAt, data?.cloud.busy, refreshModels]);
-  const lastModelStates = useRef(new Map<string, string>());
   useEffect(() => {
     for (const file of data?.models?.files || []) {
-      const before = lastModelStates.current.get(file.id), label = modelDefinitions.find(model => model.id === file.id)?.label || 'Model';
-      if (['downloading', 'queued'].includes(before || '') && file.status === 'installed') toast.success(`${label} downloaded`, { description: 'Available on this GPU.' });
-      if (file.status === 'failed' && before !== 'failed') toast.error(`${label} download failed`, { description: file.error || 'Partial files are kept. Click retry to resume.', duration: 12000 });
       if (file.message.includes('longer than') && !seenNotices.current.has('slow-' + file.id)) { seenNotices.current.add('slow-' + file.id); toast.warning('Download is taking longer than usual', { description: 'The transfer is still running. You can cancel and resume it.' }); }
-      lastModelStates.current.set(file.id, file.status);
     }
   }, [data?.models]);
   const downloadModels = useCallback((files: string[]) => {

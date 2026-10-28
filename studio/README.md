@@ -20,7 +20,9 @@ Open **http://127.0.0.1:3000**. The launcher checks Node.js 24+, npm, Python 3, 
 
 No generation request or connection probe happens on launch. The Generate button remains disabled until you explicitly connect to a CUDA ComfyUI server and finish required setup and install any extras required by your selected settings. See [required setup and optional extras](../docs/model-downloads.md). Loading the app is safe while the Vast instance is stopped.
 
-The header contains the brand, GPU status and a compact theme icon. Remotion stays at the top of the sidebar; My library and GPU cloud sit at the bottom, above a divider and Settings. Settings has Connection and Extras tabs. Model-management links in the editor open Settings → Extras directly. Extras shows optional downloads, installed LoRA sizes and removal controls; required files are handled by GPU setup.
+The header contains the brand, GPU status and a compact theme icon. Remotion stays at the top of the sidebar; My library and GPU cloud sit at the bottom, above a divider and Settings. Settings has Connection, Downloads, Extras and Alerts tabs. Model-management links in the editor open Settings → Extras directly. Extras shows optional downloads, installed LoRA sizes and removal controls; required files are handled by GPU setup.
+
+**Settings → Alerts** enables desktop notifications, sound/volume controls and event switches for GPU status, model downloads, image/video generations and clip exports. Sounds activate after interacting with the page. Desktop notifications request browser permission only when enabled, appear while away, and open the relevant result or management screen. Keep a Recast tab and the local app running. See [the alert guide](../docs/alerts.md).
 
 ## Rent and manage a GPU inside the app
 

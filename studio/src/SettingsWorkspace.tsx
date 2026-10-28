@@ -3,9 +3,10 @@ import { ArrowSquareOut, Lightning, Plug } from '@phosphor-icons/react';
 import type { Connection } from '../shared/types';
 import { api, Toggle } from './components';
 import { FieldLabel } from './InfoTip';
+import AlertSettings from './AlertSettings';
 
-export type SettingsTab = 'connection' | 'downloads' | 'extras';
-const tabs: { id: SettingsTab; label: string }[] = [{ id: 'connection', label: 'Connection' }, { id: 'downloads', label: 'Downloads' }, { id: 'extras', label: 'Extras' }];
+export type SettingsTab = 'connection' | 'downloads' | 'extras' | 'alerts';
+const tabs: { id: SettingsTab; label: string }[] = [{ id: 'connection', label: 'Connection' }, { id: 'downloads', label: 'Downloads' }, { id: 'extras', label: 'Extras' }, { id: 'alerts', label: 'Alerts' }];
 
 function ConnectionSettings({ connection, error, browse }: { connection: Connection; error: (message: string) => void; browse: () => void }) {
   const [endpoint, setEndpoint] = useState(connection.endpoint), [ssh, setSSH] = useState(true);
@@ -29,7 +30,7 @@ function ConnectionSettings({ connection, error, browse }: { connection: Connect
 export default function SettingsWorkspace({ tab, onTabChange, connection, error, browse, models, downloads }: { tab: SettingsTab; onTabChange: (tab: SettingsTab) => void;
   connection: Connection; error: (message: string) => void; browse: () => void; models: ReactNode; downloads: ReactNode }) {
   return <main className="settings-workspace"><div className="settings-inner">
-    <header className="settings-heading"><h1>Settings</h1><p>Manage your connection and model files.</p></header>
+    <header className="settings-heading"><h1>Settings</h1><p>Manage your connection, model files and alerts.</p></header>
     <div className="settings-tabs" role="tablist" aria-label="Settings sections">{tabs.map(item => <button key={item.id} type="button" role="tab" id={`settings-${item.id}-tab`}
       aria-selected={tab === item.id} aria-controls={`settings-${item.id}-panel`} tabIndex={tab === item.id ? 0 : -1} onClick={() => onTabChange(item.id)}
       onKeyDown={event => {
@@ -38,7 +39,7 @@ export default function SettingsWorkspace({ tab, onTabChange, connection, error,
         onTabChange(next.id); document.getElementById(`settings-${next.id}-tab`)?.focus();
       }}>{item.label}</button>)}</div>
     <div role="tabpanel" id={`settings-${tab}-panel`} aria-labelledby={`settings-${tab}-tab`} tabIndex={0}>
-      {tab === 'extras' ? models : tab === 'downloads' ? downloads : <ConnectionSettings connection={connection} error={error} browse={browse} />}
+      {tab === 'alerts' ? <AlertSettings /> : tab === 'extras' ? models : tab === 'downloads' ? downloads : <ConnectionSettings connection={connection} error={error} browse={browse} />}
     </div>
   </div></main>;
 }

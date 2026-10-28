@@ -1,0 +1,15 @@
+# Activity sound and notification alerts
+
+2026-10-28. Implemented frontend-only activity tracking, optional browser desktop notifications and three local Web Audio cues, with persistent volume/mute/event controls in Settings → Alerts. Covers confirmed connection results, setup attention notices, download batches/failures, saved video/photo results, interrupted/failed runs and local export outcomes while away from the editor. Notification clicks route to the existing result or management screen without reusing/changing inputs. Existing setup/reconnection in-app messages remain; duplicate generation/model/export terminal toasts were removed from their previous owners.
+
+Startup snapshots establish silent baselines. Inventory-only refreshes and historical completed/failed items do not replay. Generation ready requires a saved output. Download batches retain incomplete/failure distinctions and reset on an observed GPU inventory scope change. Export status uses local reads and the explicit submission event, independent of GPU state. No inference/stop/start/retry actions are part of alert delivery.
+
+Desktop permission is requested only by the explicit settings action. Normal desktop notifications are suppressed while focused; the explicit Test action can show a sample. Bodies omit user filenames/prompts/raw errors; detailed errors remain in-app. Audio is created/activated by interaction, and a previously activated suspended context may resume for an event. Same-origin browser tabs use a bounded local delivery ledger and Web Locks with a best-effort storage fallback. No audio assets, push server or new dependencies were added.
+
+Validation:
+
+- Production TypeScript/build and diff whitespace checks passed.
+- Fourteen focused tests passed: silent baseline/history handling; playable video/photo completion; failures/interruption/cancellation; initial connection failure vs confirmed disconnect; batch completion and inventory scoping; failed/cancelled downloads; export outcomes without duplicate generation alerts; preference validation; gesture/permission behavior; background/focused delivery; click routing; same-origin duplicate suppression; mute/category/volume controls; distinct cues and suspended-context recovery; isolated delivery errors and persisted preferences.
+- Native Brave inspection confirmed the Alerts tab, permission action, sound readiness, volume and event controls. The Ready preview made the browser report Audio playing. No real desktop permission was granted or OS banner claimed in this check; those APIs were validated with browser doubles, and the user retains the explicit enable/test controls.
+
+The user's live A100 connection was left alone. No runtime restart, GPU lifecycle action, model transfer or paid render/export was performed. The QA tab was refreshed after the audio preview so it does not retain an activated test audio context. Closing all app tabs or OS/browser suppression can prevent delivery; this limitation is documented in the guide and settings.

@@ -1,0 +1,26 @@
+.alert-settings { max-width: 700px; }
+.alert-settings > header { display: flex; align-items: flex-start; gap: 15px; margin-bottom: 9px; }
+.alert-settings > header > svg { color: var(--accent-text); margin-top: 3px; }
+.alert-settings h2 { margin: 0 0 8px; font-size: 23px; font-weight: 550; letter-spacing: -.6px; }
+.alert-settings p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
+.alert-settings h3 { margin: 0; font-size: 13px; font-weight: 550; }
+.alert-channel { padding: 25px 0; border-bottom: 1px solid var(--line); }
+.alert-channel-heading { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-bottom: 12px; }
+.alert-readiness { display: inline-flex; align-items: center; gap: 5px; color: var(--quiet); font-size: 10px; text-align: right; }
+.alert-readiness.ready { color: var(--accent-text); }
+.alert-settings .toggle-row { min-height: 46px; gap: 14px; }
+.alert-settings .toggle-row > span { min-width: 0; }
+.alert-settings .field-label-row { font-size: 12px; }
+.alert-permission { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 15px; margin-top: 17px; }
+.alert-settings .alert-permission-note { display: flex; align-items: flex-start; gap: 7px; font-size: 11px; margin-top: 12px; color: var(--warning); }
+.alert-permission-note > svg { margin-top: 3px; }
+.alert-volume { display: flex; align-items: center; gap: 12px; margin: 12px 0 18px; font-size: 11px; color: var(--muted); }
+.alert-volume input { width: auto; flex: 1; margin: 0 8px; }
+.alert-volume output { width: 34px; text-align: right; font-variant-numeric: tabular-nums; }
+.alert-sound-previews { display: flex; flex-wrap: wrap; gap: 9px; }
+.alert-events { padding: 25px 0; }
+.alert-events > p { margin: 9px 0 15px; font-size: 11px; }
+.alert-events > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 32px; row-gap: 8px; }
+.alert-settings .alert-session-note { display: flex; gap: 10px; align-items: flex-start; padding: 15px; border-radius: 8px; background: var(--raised); color: var(--muted); font-size: 11px; }
+.alert-session-note > svg { margin-top: 2px; }
+@media (max-width: 760px) { .alert-events > div { grid-template-columns: 1fr; } .alert-settings h2 { font-size: 21px; } .alert-permission .primary-button { width: 100%; justify-content: center; } }

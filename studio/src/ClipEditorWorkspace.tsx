@@ -8,6 +8,7 @@ import { FieldLabel, InfoTip } from './InfoTip';
 import ClipTimeline from './ClipTimeline';
 import { editorVideoAccept, isEditorVideo, uploadEditorVideo } from './editor-import';
 import { toast } from 'sonner';
+import { exportAlertEvent } from './useActivityAlerts';
 import './clip-editor.css';
 
 export interface EditorIntent { id: string; jobId?: string; receipt?: ClipEditReceipt; title?: string; }
@@ -111,9 +112,7 @@ export default function ClipEditorWorkspace({ jobs, assets, assetAdded, intent, 
     for (const row of exports) {
       if (['queued', 'exporting'].includes(row.status)) { watchedExports.current.add(row.id); continue; }
       if (!watchedExports.current.delete(row.id)) continue;
-      if (row.status === 'completed') toast.success('Your video is ready', { description: 'Saved to your library. Use Download in the export panel to save the file.' });
-      else if (row.status === 'failed') toast.error('Video export failed', { description: row.error || 'Your source clips and timeline are unchanged.', duration: 10000 });
-      else if (row.status === 'cancelled') toast.info('Export cancelled', { description: 'Your source clips and timeline are unchanged.' });
+      if (row.status === 'cancelled') toast.info('Export cancelled', { description: 'Your source clips and timeline are unchanged.' });
     }
   }, [exports]);
   useEffect(() => {
@@ -152,6 +151,7 @@ export default function ClipEditorWorkspace({ jobs, assets, assetAdded, intent, 
       const response = await fetch('/api/clip-editor/exports', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Idempotency-Key': request.current!.key }, body });
       const result = await response.json(); if (!response.ok) throw new Error(result.error || 'The export could not start.');
       request.current = null; watchedExports.current.add(result.id); setExports(old => [result, ...old.filter(row => row.id !== result.id)]);
+      window.dispatchEvent(new CustomEvent(exportAlertEvent, { detail: result }));
     } catch (e) { setError((e as Error).message); toast.error('Export could not start', { description: (e as Error).message }); } finally { setSubmitting(false); }
   };
   const moveSelected = (direction: number) => { const index = draft.clips.findIndex(clip => clip.id === selected), next = [...draft.clips]; if (index < 0 || index + direction < 0 || index + direction >= next.length) return; [next[index], next[index + direction]] = [next[index + direction], next[index]]; change(next); seek(0); };

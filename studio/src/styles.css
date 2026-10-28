@@ -78,7 +78,7 @@ svg { flex-shrink: 0; }
 .settings-inner { max-width: 1050px; margin: 0 auto; }
 .settings-heading h1 { margin: 0 0 9px; font-size: 30px; font-weight: 560; letter-spacing: -.9px; }
 .settings-heading p, .settings-description { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
-.settings-tabs { display: flex; gap: 25px; border-bottom: 1px solid var(--line); margin: 26px 0 25px; }
+.settings-tabs { display: flex; gap: 25px; border-bottom: 1px solid var(--line); margin: 26px 0 25px; overflow-x: auto; }
 .settings-tabs > button { padding: 12px 1px; border-bottom: 2px solid transparent; margin-bottom: -1px; color: var(--muted); font-size: 12px; }
 .settings-tabs > button:hover { color: var(--text); }
 .settings-tabs > button[aria-selected='true'] { color: var(--text); border-bottom-color: var(--accent-text); }
