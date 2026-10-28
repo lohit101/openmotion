@@ -14,3 +14,5 @@ progress or synthetic frames were added. Animation respects reduced motion.
 
 Validation: production build and focused render-card markup tests. These frontend
 changes require no GPU action, inference, model download or backend restart.
+The markup fixture uses a complete typed Job; the final TypeScript check includes
+this test file as well as the production components.

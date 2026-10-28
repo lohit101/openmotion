@@ -3,7 +3,9 @@ import { expect, it } from 'vitest';
 import JobCard from '../src/JobCard';
 import { defaults, type Job } from '../shared/types';
 
-const job={id:'card-test',title:'Test video',status:'running',settings:defaults,width:704,height:1248,segments:[],progress:{stage:'Propagate replacement through the source motion',node:'43',value:2,max:3,segment:1,segments:1,completedFrames:0,targetFrames:124}} as Job;
+const job:Job={id:'card-test',title:'Test video',status:'running',settings:defaults,width:704,height:1248,segments:[],
+  sourceId:'source',referenceId:'reference',createdAt:'2026-10-28',favorite:false,deleted:false,context:'',pendingPrompt:null,uploads:null,error:null,output:null,poster:null,cancelRequested:false,elapsedSeconds:null,origin:'render',workflow:null,
+  progress:{stage:'Propagate replacement through the source motion',node:'43',value:2,max:3,segment:1,segments:1,completedFrames:0,targetFrames:124,unit:'steps',updatedAt:0}};
 const render=(value:Job)=>renderToStaticMarkup(<JobCard job={value} onSelect={()=>undefined} onPatch={()=>undefined} onReuse={()=>undefined}/>);
 it('keeps the long internal stage in hover/accessibility text while showing compact render progress',()=>{
   const html=render(job);expect(html).toContain('title="Propagate replacement through the source motion"');
