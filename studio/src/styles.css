@@ -92,6 +92,13 @@ svg { flex-shrink: 0; }
 .settings-tabs > button:hover { color: var(--text); }
 .settings-tabs > button[aria-selected='true'] { color: var(--text); border-bottom-color: var(--accent-text); }
 .settings-connection { max-width: 620px; }
+.settings-processing { max-width: 620px; }
+.settings-processing h2 { font-size: 21px; font-weight: 550; letter-spacing: -.5px; margin: 0 0 7px; }
+.processing-device-setting { margin-top: 24px; }
+.processing-device-summary { display: flex; align-items: center; gap: 12px; padding: 18px 0; margin-bottom: 12px; border-bottom: 1px solid var(--line-soft); }
+.processing-device-summary > svg { color: var(--accent-text); flex-shrink: 0; }
+.processing-device-summary strong { font-size: 13px; font-weight: 550; }
+.processing-device-summary p { color: var(--muted); font-size: 12px; line-height: 1.6; margin: 5px 0 0; }
 .settings-connection h2 { font-size: 21px; font-weight: 550; letter-spacing: -.5px; margin: 0 0 7px; }
 .settings-connection > .secondary-button { margin-bottom: 10px; }
 .settings-connection > .full-label { margin-top: 20px; }

@@ -5,11 +5,12 @@ import type { Job } from '../shared/types';
 import { api, SmallSelect } from './components';
 import { InfoTip } from './InfoTip';
 import './face-refinement.css';
+import { setFaceExecution, useFaceExecution, type FaceExecution } from './face-preferences';
 
 type Tools = {ready:boolean;setup?:string;error?:boolean;gpu?:{ready?:boolean;available?:boolean;instanceId?:number}};
 export function FaceRefinementAction({ job, select }: { job: Job; select?: (job: Job) => void }) {
   const [tools,setTools]=useState<Tools|null>(null),[pending,setPending]=useState(false),[settingUp,setSettingUp]=useState(false);
-  const [execution,setExecution]=useState<'local CPU'|'remote CUDA'>(()=>localStorage.getItem('recast-face-execution')==='local CPU'?'local CPU':'remote CUDA');
+  const execution=useFaceExecution();
   const gpu=execution==='remote CUDA';
   const refresh=async()=>{try{setTools(await api<Tools>('/video-identity'));}catch{setTools({ready:false,error:true});}};
   useEffect(()=>{let live=true;void api<Tools>('/video-identity').then(value=>{if(live)setTools(value);}).catch(()=>{if(live)setTools({ready:false,error:true});});return()=>{live=false;};},[]);
@@ -24,7 +25,7 @@ export function FaceRefinementAction({ job, select }: { job: Job; select?: (job:
     catch(error){toast.error('Face refinement could not start',{description:(error as Error).message});}finally{setPending(false);}
   };
   const ready=gpu?tools?.gpu?.ready:tools?.ready;
-  return <div className="face-refinement-action"><SmallSelect label="Face refinement device" value={execution} disabled={pending||settingUp} onChange={value=>{setExecution(value as typeof execution);localStorage.setItem('recast-face-execution',value);}} options={[{value:'remote CUDA',label:'GPU · CUDA'},{value:'local CPU',label:'This computer · CPU'}]} />
+  return <div className="face-refinement-action"><SmallSelect label="Face refinement device" value={execution} disabled={pending||settingUp} onChange={value=>setFaceExecution(value as FaceExecution)} options={[{value:'remote CUDA',label:'GPU · CUDA'},{value:'local CPU',label:'This computer · CPU'}]} />
     {gpu && tools && !ready ? <button className="secondary-button" disabled={settingUp||!tools.gpu?.available} onClick={()=>void setup()}><DownloadSimple size={16}/>{settingUp?'Preparing GPU…':tools.gpu?.available?'Prepare GPU · 1.29 GB':'Connect GPU to refine'}</button>:<button className="secondary-button" disabled={pending || !ready} onClick={()=>void start()}><Sparkle size={16}/>{pending?'Starting refinement…':!tools?'Checking tools…':'Refine face'}</button>}
     {!gpu && tools && !ready && <small>{tools.error?'Local tools unavailable':'Local setup required'}</small>}
     <InfoTip label="face refinement">Uses this run’s single character reference and the same face-only model and masks. GPU uses an existing connected rental, with one explicit runtime/model setup per disk. CPU works offline. It never starts compute or downloads models when refining. GPU frame caches stay remote; the finished MP4 is saved locally. Actual speed depends on inference, transfers and encoding. Original video is preserved.{!gpu && tools && !tools.ready?` Install once locally: ${tools.setup}.`:''}</InfoTip></div>;

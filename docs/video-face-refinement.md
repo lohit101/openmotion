@@ -7,6 +7,10 @@ paid segments, continuation anchors and Viggle settings remain unchanged.
 This is an optional face-only pass after generation, not another Viggle run.
 In Library, select **GPU · CUDA** to use your connected managed rental, or
 **This computer · CPU** to work offline. The original CPU route remains available.
+The same preference is available in **Settings → Processing → Run FaceFusion
+locally on this laptop**: on uses local CPU; off uses the rented GPU. Changing
+either control updates both. It applies to new refinements and does not switch
+an active or saved job to a different device.
 It applies a fixed facial identity reference to each detected face, with the
 existing pinned Hyperswap pipeline, XSeg occlusion mask and an additional finite
 facial edit area. Hair, body and scene outside that area remain exact in the

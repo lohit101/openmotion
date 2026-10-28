@@ -4,9 +4,10 @@ import type { Connection } from '../shared/types';
 import { api, Toggle } from './components';
 import { FieldLabel } from './InfoTip';
 import AlertSettings from './AlertSettings';
+import ProcessingSettings from './ProcessingSettings';
 
-export type SettingsTab = 'connection' | 'downloads' | 'extras' | 'alerts';
-const tabs: { id: SettingsTab; label: string }[] = [{ id: 'connection', label: 'Connection' }, { id: 'downloads', label: 'Downloads' }, { id: 'extras', label: 'Extras' }, { id: 'alerts', label: 'Alerts' }];
+export type SettingsTab = 'connection' | 'processing' | 'downloads' | 'extras' | 'alerts';
+const tabs: { id: SettingsTab; label: string }[] = [{ id: 'connection', label: 'Connection' }, { id: 'processing', label: 'Processing' }, { id: 'downloads', label: 'Downloads' }, { id: 'extras', label: 'Extras' }, { id: 'alerts', label: 'Alerts' }];
 
 function ConnectionSettings({ connection, error, browse }: { connection: Connection; error: (message: string) => void; browse: () => void }) {
   const [endpoint, setEndpoint] = useState(connection.endpoint), [ssh, setSSH] = useState(true);
@@ -39,7 +40,7 @@ export default function SettingsWorkspace({ tab, onTabChange, connection, error,
         onTabChange(next.id); document.getElementById(`settings-${next.id}-tab`)?.focus();
       }}>{item.label}</button>)}</div>
     <div role="tabpanel" id={`settings-${tab}-panel`} aria-labelledby={`settings-${tab}-tab`} tabIndex={0}>
-      {tab === 'alerts' ? <AlertSettings /> : tab === 'extras' ? models : tab === 'downloads' ? downloads : <ConnectionSettings connection={connection} error={error} browse={browse} />}
+      {tab === 'processing' ? <ProcessingSettings /> : tab === 'alerts' ? <AlertSettings /> : tab === 'extras' ? models : tab === 'downloads' ? downloads : <ConnectionSettings connection={connection} error={error} browse={browse} />}
     </div>
   </div></main>;
 }
