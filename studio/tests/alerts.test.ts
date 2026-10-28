@@ -17,6 +17,18 @@ const models = (files: ModelFileState[], busy = false): ModelsState => ({ ...emp
 const exported = (status: LocalExport['status'], id = 'export'): LocalExport => ({ id, status, title: 'Local edit', stage: '', percent: status === 'completed' ? 100 : 0, error: status === 'failed' ? 'Fixture error' : null, resultJobId: status === 'completed' ? 'export-job' : null, mode: 'lossless', createdAt: new Date(now + 100).toISOString() });
 
 describe('activity alert transitions', () => {
+  it('delivers one idle-pause alert only after confirmation, and a distinct error for an unconfirmed stop', () => {
+    const tracker = new ActivityAlertTracker(now), data = snapshot(); tracker.collect(data);
+    data.cloud.idle = { enabled: true, timeoutSeconds: 300, instanceId: 777, idleSince: null, pauseAt: null, status: 'pausing', message: '', lastPause: { id: 'idle-event', instanceId: 777, requestedAt: new Date(now).toISOString() } };
+    data.connection.state = 'offline'; expect(tracker.collect(data)).toEqual([]);
+    data.cloud.idle.status = 'error'; data.cloud.idle.lastPause!.error = 'Not confirmed';
+    expect(tracker.collect(data).map(alert => [alert.title, alert.tone])).toEqual([['GPU pause not confirmed', 'error']]);
+    expect(tracker.collect(data)).toEqual([]);
+    data.cloud.idle.status = 'paused'; data.cloud.idle.lastPause!.confirmedAt = new Date(now + 5000).toISOString();
+    const done = tracker.collect(data); expect(done.map(alert => [alert.title, alert.tone])).toEqual([['GPU automatically paused', 'success']]);
+    expect(done[0].body).toContain('storage'); expect(tracker.collect(data)).toEqual([]);
+    const reopened = new ActivityAlertTracker(now + 6000); expect(reopened.collect(data)).toEqual([]);
+  });
   it('seeds existing history/inventories silently and ignores unchanged refreshes or metadata edits', () => {
     const tracker = new ActivityAlertTracker(now), data = snapshot([job('done', 'completed', { output: 'ready' }), job('failed', 'failed')], models([file('already-installed', 'installed')]));
     expect(tracker.collect(data)).toEqual([]); expect(tracker.collect(data)).toEqual([]);

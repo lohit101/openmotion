@@ -718,4 +718,22 @@ export class CloudManager {
     if (this.store.value<number | null>('cloud-connected-instance', null) === id || this.activeLaunch === launch.id) this.connection.disconnect('The GPU instance was destroyed. Rent another when ready.');
     await this.refresh(); return launch;
   }
+  /** Pause only a still-idle, connected Recast rental. No cancellation or deletion. */
+  async pauseIdle(id: number, stillIdle: () => boolean, queueEmpty: () => Promise<boolean>): Promise<'confirmed' | 'unconfirmed' | 'aborted'> {
+    if (this.closing || this.state.busy || !stillIdle()) return 'aborted';
+    // All normal paid-work routes check this gate again after async preflight.
+    this.state.busy = true; this.emit();
+    try {
+      await this.refresh();
+      const launch = this.state.launches.find(item => item.instanceId === id), raw = this.rawInstances.find(item => item.id === id);
+      if (this.state.error || !launch || launch.phase !== 'ready' || raw?.actual_status !== 'running' || raw?.intended_status !== 'running' ||
+        this.store.value('cloud-connected-instance', null) !== id || this.connection.status.state !== 'online' || !stillIdle()) return 'aborted';
+      try { if (!await queueEmpty() || !stillIdle()) return 'aborted'; }
+      catch { return 'aborted'; }
+      this.stopped.add(launch.id);
+      const confirmed = await this.stopRental(launch, 'GPU automatically paused after five minutes without GPU work.');
+      await this.refresh();
+      return confirmed ? 'confirmed' : 'unconfirmed';
+    } finally { this.state.busy = false; this.emit(); }
+  }
 }

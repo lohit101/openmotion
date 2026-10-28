@@ -62,6 +62,26 @@ describe('Vast marketplace, billing and lifecycle', () => {
     const cloud = new CloudManager(store, connection as unknown as ConnectionManager, { active: null } as Runner, process.cwd(), { fetcher: fixture.fetcher, provision, preflight, sshIdentity: identity, backgroundSafety: false, pollMs: 1, stopPollAttempts: 2, ...options }); tracked = cloud;
     vi.spyOn(cloud, 'ensureSshKey').mockResolvedValue(identity); return { cloud, fixture, provision, connection, identity, preflight };
   }
+  it('automatically pauses a rechecked idle rental without cancelling work or deleting its disk', async () => {
+    const { cloud, fixture, connection } = await manager(); const { offers } = await cloud.offers(filters);
+    const launch = cloud.launch(offers[0].quote, .23, 'idle-pause'); await until(() => !cloud.state.busy);
+    expect(launch.phase).toBe('ready'); expect(connection.status.state).toBe('online');
+    const empty = vi.fn(async () => { expect(cloud.state.busy).toBe(true); return true; });
+    expect(await cloud.pauseIdle(777, () => true, empty)).toBe('confirmed');
+    expect(launch.phase).toBe('stopped'); expect(empty).toHaveBeenCalledOnce();
+    expect(fixture.calls.filter(call => call.method === 'DELETE')).toHaveLength(0);
+    expect(fixture.calls.filter(call => call.method === 'PUT' && call.body?.state === 'stopped')).toHaveLength(1);
+  });
+  it('abandons idle stop when new work starts during the final queue check or activity is unknown', async () => {
+    const { cloud, fixture } = await manager(); const { offers } = await cloud.offers(filters);
+    cloud.launch(offers[0].quote, .23, 'idle-race'); await until(() => !cloud.state.busy);
+    let idle = true;
+    expect(await cloud.pauseIdle(777, () => idle, async () => { idle = false; return true; })).toBe('aborted');
+    idle = true;
+    expect(await cloud.pauseIdle(777, () => idle, async () => { throw new Error('Queue offline'); })).toBe('aborted');
+    expect(fixture.calls.filter(call => call.method === 'PUT' && call.body?.state === 'stopped')).toHaveLength(0);
+    expect(cloud.state.busy).toBe(false);
+  });
   it('clears a cancelled definitive rejection after checking the exact label, allowing a fresh rental', async () => {
     const { cloud, fixture } = await manager(); fixture.rejectCreateRequest();
     const { offers } = await cloud.offers(filters);

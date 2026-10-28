@@ -34,15 +34,25 @@ export class ActivityAlertTracker {
   private setup = new Map<string, string | null>();
   private exportStates = new Map<string, LocalExport['status']>();
   private exportsInitialized = false;
+  private idlePause = '';
   constructor(private startedAt = Date.now()) {}
 
   collect(snapshot: Snapshot): ActivityAlert[] {
     const alerts: ActivityAlert[] = [], { connection, cloud } = snapshot;
+    const idle = cloud.idle, pause = idle?.lastPause;
+    const idleKey = pause ? `${pause.id}:${pause.confirmedAt ? 'confirmed' : pause.error ? 'unconfirmed' : 'pending'}` : '';
+    if (this.initialized && pause && idleKey !== this.idlePause && (pause.confirmedAt || pause.error)) alerts.push({
+      id: `gpu-idle:${idleKey}`, category: 'connection', tone: pause.confirmedAt ? 'success' : 'error',
+      title: pause.confirmedAt ? 'GPU automatically paused' : 'GPU pause not confirmed',
+      body: pause.confirmedAt ? 'No GPU work for five minutes. Models are kept; storage is still billed.' : 'Recast is checking the stop request. Compute charges may continue; open GPU cloud.',
+      target: { view: 'gpu' },
+    });
+    this.idlePause = idleKey;
     const before = this.connection;
     if (this.initialized && before && (before.state !== connection.state || before.endpoint !== connection.endpoint || (connection.state === 'online' && before.gpu !== connection.gpu))) {
       const id = `connection:${connection.endpoint}:${connection.checkedAt}:${connection.state}:${connection.message}`;
       if (connection.state === 'online') alerts.push({ id, category: 'connection', tone: 'success', title: 'GPU connected', body: `${connection.gpu || 'Your GPU'} is connected to Recast.`, target: { view: 'gpu' } });
-      else if (connection.state === 'offline' && before.state !== 'offline') alerts.push({ id, category: 'connection', tone: this.settledConnection === 'online' ? 'warning' : 'error', title: this.settledConnection === 'online' ? 'GPU disconnected' : 'GPU connection failed', body: 'Open GPU cloud to check the connection. Your saved media is kept.', detail: connection.message, target: { view: 'gpu' } });
+      else if (connection.state === 'offline' && before.state !== 'offline' && !(idle?.status === 'pausing' || (idle?.status === 'error' && pause && !pause.confirmedAt))) alerts.push({ id, category: 'connection', tone: this.settledConnection === 'online' ? 'warning' : 'error', title: this.settledConnection === 'online' ? 'GPU disconnected' : 'GPU connection failed', body: 'Open GPU cloud to check the connection. Your saved media is kept.', detail: connection.message, target: { view: 'gpu' } });
     }
     if (connection.state !== 'connecting') this.settledConnection = connection.state;
     this.connection = { ...connection };
@@ -63,7 +73,7 @@ export class ActivityAlertTracker {
     for (const launch of cloud.launches) {
       const notice = setupNotice(launch), key = notice?.key || null, old = this.setup.get(launch.id);
       // Existing setup toasts own their in-app presentation. Add attention cues once per attempt.
-      if (this.initialized && old !== undefined && old !== key && notice && notice.tone !== 'success') {
+      if (this.initialized && old !== undefined && old !== key && notice && notice.tone !== 'success' && !(pause?.instanceId === launch.instanceId && !pause.confirmedAt)) {
         alerts.push({ id: `setup:${key}`, category: 'connection', tone: notice.tone, title: notice.title, body: 'GPU setup needs attention. Open GPU cloud for details.', detail: notice.message, target: { view: 'gpu' }, toast: false });
       }
       this.setup.set(launch.id, key);
