@@ -32,6 +32,8 @@ import { startLocalServer } from './local-server';
 import { registerVideoIdentityRoutes } from './video-identity';
 import { createGpuFaceBackend } from './gpu-video-identity';
 import { GpuIdleManager } from './gpu-idle';
+import { ManagedFacialConsistency, newFacialRun } from './facial-consistency';
+import { canFinishFacialLocally, usesFacialConsistency } from '../shared/facial-consistency';
 
 const STUDIO = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const REPO = path.dirname(STUDIO);
@@ -44,6 +46,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   const connection = new ConnectionManager(store, repo, catalog), runner = new Runner(store, connection, template, repo, options.geometry);
   const cloud = new CloudManager(store, connection, runner, repo);
   const models = new ModelManager(store, connection, repo);
+  runner.facial = new ManagedFacialConsistency(store, repo, connection);
   if (options.seed !== false) await seedExamples(store, repo);
   for (const job of store.jobs()) {
     if (job.origin === 'render' && ['queued', 'running', 'reconnecting'].includes(job.status)) { job.status = 'interrupted'; job.error = 'The local app restarted. Reconnect to check the existing GPU job before resuming.'; store.saveJob(job); }
@@ -62,7 +65,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   // Request activity is GPU work, not browsing or inventory refreshes. This also
   // invalidates idle probes when async request preflight has not queued work yet.
   app.use((req, res, next) => {
-    const work = req.method === 'POST' && (/^\/api\/(?:jobs(?:\/[^/]+\/(?:resume|refine-face))?|images\/jobs|models\/(?:download|delete)|video-identity\/gpu\/setup|connection\/connect)$/.test(req.path) ||
+    const work = req.method === 'POST' && (/^\/api\/(?:jobs(?:\/[^/]+\/(?:resume|refine-face))?|images\/jobs|models\/(?:download|delete)|video-identity\/gpu\/setup|facial-consistency\/prepare|connection\/connect)$/.test(req.path) ||
       /^\/api\/cloud\/(?:launch|launches\/[^/]+\/continue|instances\/[^/]+\/(?:start|connect))$/.test(req.path));
     if (work) {
       if (idle.state.status === 'pausing') return void res.status(409).json({ error: 'GPU idle pause is in progress. Wait for its confirmed status, then start & connect before generating.' });
@@ -74,8 +77,8 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   const videoIdentity = registerVideoIdentityRoutes(app, store, repo, createGpuFaceBackend(store,repo,connection,()=>{
     if(runner.busy || models.state.busy || cloud.state.busy || store.jobs().some(job=>job.origin==='render' && ['queued','running','reconnecting'].includes(job.status)))throw new Error('Finish current GPU setup, downloads or rendering before GPU face refinement.');
   }));
-  runner.externalGpuBusy=()=>videoIdentity.gpuBusy;
-  idle = new GpuIdleManager(store, cloud, connection, () => runner.busy || !!runner.active || models.state.busy || videoIdentity.gpuBusy ||
+  runner.externalGpuBusy=()=>videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork();
+  idle = new GpuIdleManager(store, cloud, connection, () => runner.busy || !!runner.active || models.state.busy || videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork() ||
     store.jobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status) ||
       (job.faceRefinement?.execution === 'remote CUDA' && job.faceRefinement.instanceId === store.value('cloud-connected-instance', null) &&
         job.status === 'interrupted' && job.cancellationConfirmed !== true)));
@@ -93,13 +96,17 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   app.post('/api/cloud/idle', (req, res) => { const { enabled } = z.object({ enabled: z.boolean() }).strict().parse(req.body); idle.configure(enabled); res.json(cloud.state); });
   app.get('/api/models', async (_req, res) => res.json(await models.refresh()));
   app.post('/api/models/download', async (req, res) => {
-    if (videoIdentity.gpuBusy || cloud.state.busy || runner.busy || store.jobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status))) return void res.status(409).json({ error: 'Finish the current setup or render before downloading models.' });
+    if (videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork() || cloud.state.busy || runner.busy || store.jobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status))) return void res.status(409).json({ error: 'Finish the current setup or render before downloading models.' });
     const value = z.object({ files: z.array(z.string().max(300)).min(1).max(modelDefinitions.length) }).parse(req.body);
     res.status(202).json(await models.start(value.files));
   });
+  app.post('/api/facial-consistency/prepare', async (_req, res) => {
+    if (videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork() || cloud.state.busy || runner.busy || store.jobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status))) return void res.status(409).json({ error: 'Finish GPU work before preparing facial tools.' });
+    res.json(await models.prepareFacialTools());
+  });
   app.post('/api/models/cancel', async (_req, res) => res.json(await models.cancel()));
   app.post('/api/models/delete', async (req, res) => {
-    if (videoIdentity.gpuBusy || cloud.state.busy || runner.busy || store.jobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status))) return void res.status(409).json({ error: 'Finish setup or rendering before removing a LoRA.' });
+    if (videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork() || cloud.state.busy || runner.busy || store.jobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status))) return void res.status(409).json({ error: 'Finish setup or rendering before removing a LoRA.' });
     const value = z.object({ name: z.string().min(1).max(300) }).parse(req.body);
     res.json(await models.remove(value.name));
   });
@@ -183,12 +190,13 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     if (models.state.busy) return void res.status(409).json({ error: 'Wait for model downloads to finish before generating.' });
     await models.refresh();
     const accepted = store.byKey(key); if (accepted) return void res.json(publicJob(accepted));
-    if (videoIdentity.gpuBusy || models.state.busy || cloud.state.busy || connection.status.state !== 'online') return void res.status(409).json({ error: 'The GPU or model downloads changed while checking. Nothing was queued; wait for readiness before generating.' });
+    if (videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork() || models.state.busy || cloud.state.busy || connection.status.state !== 'online') return void res.status(409).json({ error: 'The GPU or model downloads changed while checking. Nothing was queued; wait for readiness before generating.' });
     if (models.state.error) return void res.status(503).json({ error: models.state.error });
     const missing = modelFilesForSettings(value.settings).filter(id => models.state.files.find(file => file.id === id)?.status !== 'installed');
     if (missing.length) return void res.status(409).json({ error: isViggle(value.settings) && value.settings.referencePreparation !== 'prepared' && missing.some(id => imageModelFiles.includes(id))
       ? 'Automatic frame preparation requires Klein. Download it beside Reference preparation, or create a frame in Imagen and select Use an already edited source frame. Nothing was queued.'
       : 'Download the required files in Models before generating. Nothing was queued.', missingModels: missing });
+    if (usesFacialConsistency(value.settings) && !models.state.facialRuntimeReady) return void res.status(409).json({ error: 'Prepare or update the facial tools beside Advanced settings before generating. Nothing was queued.' });
     for (const name of [value.settings.loraA, value.settings.loraB]) if (name !== 'None' && !connection.status.loras.includes(name)) return void res.status(409).json({ error: 'Upload the selected custom LoRA before generating: ' + name });
     const source = store.asset(value.sourceId), reference = store.asset(value.referenceId); if (!source || !reference) throw new Error('Upload both inputs before generating.');
     validateSelection(source, reference, value.settings.start, value.settings.seconds, value.settings.fps);
@@ -204,6 +212,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
       createdAt: new Date().toISOString(), favorite: false, deleted: false, width, height, ...(repaint ? { viggleRepaint: repaint } : {}), ...(segmented ? { viggleSegmentation: segmentation } : {}), ...(settings.resolution === '720' ? { outputSize: { width: outputWidth, height: outputHeight } } : {}),
       progress: { stage: 'Queued', node: null, value: null, max: null, unit: 'steps', segment: 1, segments: isViggle(settings) ? viggleWindows(target).length : segmentCount(target, settings.framesPerPass), completedFrames: 0, targetFrames: target, updatedAt: Date.now() },
       segments: [], context: '', pendingPrompt: null, uploads: null, error: null, output: null, poster: null, cancelRequested: false, elapsedSeconds: null, origin: 'render', workflow: null };
+    job.facialConsistency = newFacialRun(job, repo, store.value<number | null>('cloud-connected-instance', null));
     store.addJob(job, key); res.status(201).json(publicJob(job)); void runner.kick();
   });
   app.patch('/api/jobs/:id', (req, res) => {
@@ -222,8 +231,8 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     const job = store.job(String(req.params.id)); if (!job) return void res.sendStatus(404);
     if (job.faceRefinement) { await videoIdentity.resume(job); return void res.json(publicJob(store.job(job.id)!)); }
     if (idle.state.status === 'pausing') return void res.status(409).json({ error: 'Wait for the automatic GPU pause to settle before resuming.' });
-    if (videoIdentity.gpuBusy && !canFinishImageLocally(job)) return void res.status(409).json({error:'Finish GPU face refinement before resuming another render.'});
-    if (connection.status.state !== 'online' && !canFinishImageLocally(job)) return void res.status(503).json({ error: 'Reconnect your GPU first.' });
+    if (videoIdentity.gpuBusy && !canFinishImageLocally(job) && !canFinishFacialLocally(job)) return void res.status(409).json({error:'Finish GPU face refinement before resuming another render.'});
+    if (connection.status.state !== 'online' && !canFinishImageLocally(job) && !canFinishFacialLocally(job)) return void res.status(503).json({ error: 'Reconnect your GPU first.' });
     if (job.status !== 'interrupted') return void res.status(409).json({ error: 'Only an interrupted run can be resumed. Reuse settings to start another run.' });
     const value = z.object({ retryMissing: z.boolean().default(false) }).parse(req.body || {});
     await runner.resume(job, value.retryMissing); res.json(publicJob(store.job(job.id)!));
@@ -241,6 +250,12 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
       const file = path.join(store.root, 'jobs', job.id, name!);
       if (!existsSync(file)) return void res.sendStatus(404);
       if (req.query.download) res.attachment(`${job.title.replace(/[^a-zA-Z0-9 _-]/g, '').slice(0, 70)}.png`);
+      return void res.sendFile(file);
+    }
+    if (req.params.type === 'video-base' && job.facialConsistency?.baseSHA256) {
+      const file = path.join(store.root, 'jobs', job.id, 'final.mp4');
+      if (!existsSync(file)) return void res.sendStatus(404);
+      if (req.query.download) res.attachment('recast-original-animation.mp4');
       return void res.sendFile(file);
     }
     if (req.params.type === 'keyframe') {

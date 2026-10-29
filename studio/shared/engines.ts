@@ -18,6 +18,7 @@ export const viggleSigmas = (s: Pick<Settings, 'viggleQuality'>): string => s.vi
   : '1.0, 0.8571428571428571, 0.6, 0.0';
 
 export function engineIssue(s: Settings): string | null {
+  if (s.facialConsistency && s.facialConsistency !== 'off' && (!isViggle(s) || s.referencePreparation !== 'prepared')) return 'Facial consistency needs Viggle and an already edited starting frame. Prepare the frame in Imagen, then select Use an already edited source frame.';
   if (s.imagenRepaintEnabled && (!s.imagenRepaint?.bodyView || !s.imagenRepaint.faceView)) return 'Choose a saved character and its body and facial views for Imagen segment refresh.';
   if (s.imagenRepaintEnabled && (!isViggle(s) || s.referencePreparation !== 'prepared' || s.viggleReferenceMode !== 'previous')) return 'Imagen segment refresh needs Viggle, an edited starting frame and previous-frame continuity.';
   if (!isViggle(s)) return [s.loraA, s.loraB].some(name => name.startsWith('viggle_')) ? 'Viggle adapters cannot be used with SCAIL. Select a model-matched adapter.' : null;

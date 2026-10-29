@@ -1,0 +1,92 @@
+{
+  "date": "2026-10-29",
+  "sample": {
+    "parentJobId": "56094f66-1da4-4e8e-ab49-7651ff0eb0fe",
+    "frames": 120,
+    "fps": 24,
+    "width": 704,
+    "height": 1248,
+    "newViggleInference": false,
+    "fixedPreparedReference": true
+  },
+  "workers": [
+    {
+      "profile": "perform-onnx60",
+      "elapsedSeconds": 31.770484334992943,
+      "refinedFrames": 120,
+      "skippedFrames": 0,
+      "gpu": "NVIDIA RTX A6000",
+      "outputSHA256": "90a629645b08ba84e8a42ee5cf9f026390710d213ca880f72142c996cbaca2ea",
+      "providers": {
+        "appearance": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "motion": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "warp": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "decode": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "identity": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ]
+      }
+    },
+    {
+      "profile": "regional-onnx60",
+      "elapsedSeconds": 31.88920140299888,
+      "refinedFrames": 120,
+      "skippedFrames": 0,
+      "gpu": "NVIDIA RTX A6000",
+      "outputSHA256": "c88cea0cdf22c418ad8c96e332aace0bbee9ca3064751e7b32994534eb7cd564",
+      "providers": {
+        "appearance": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "motion": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "warp": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "decode": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "identity": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ]
+      }
+    }
+  ],
+  "validation": {
+    "typecheck": true,
+    "build": true,
+    "fullSuiteFiles": 38,
+    "fullSuiteTests": 401,
+    "additionalTargetedTests": 10,
+    "pythonTests": 17,
+    "browser": "Both profiles persist, no automatic downloads, no horizontal overflow",
+    "protectedPixelsExactBeforeExport": true,
+    "nativeModelsVerified": true,
+    "cudaActual": true
+  },
+  "limits": [
+    "Full-frame worker times include detection/compositing/export; not Viggle time or full Generate latency.",
+    "Test weights were isolated in RAM on the retained A6000 because the existing 64 GB persistent model disk lacked space. Persistent inventory remains honestly missing.",
+    "No new full Generate/H3 inference was paid for. Protocol tests verify automatic ordering/recovery.",
+    "Identity, gaze, occlusions and fine texture are not guaranteed; fine facial detail remains soft."
+  ]
+}

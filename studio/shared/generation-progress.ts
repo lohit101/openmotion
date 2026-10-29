@@ -16,6 +16,14 @@ function preparation(job: Job): number {
 
 function videoProgress(job: Job): number {
   const { progress: p } = job, stage = p.stage.toLowerCase(), ratio = nativeProgress(job) || 0;
+  const face = job.facialConsistency;
+  if (face && p.completedFrames >= p.targetFrames && p.targetFrames > 0) {
+    if (face.state === 'complete') return /checking subject/.test(stage) ? 99 : 98;
+    if (face.state === 'downloaded') return 98;
+    if (face.state === 'saving') return 96 + ratio;
+    if (face.state === 'processing') return 80 + 16 * Math.min(1, face.processedFrames / Math.max(1, face.frames));
+    return /assembling/.test(stage) ? 76 : 78;
+  }
   const count = Math.max(1, p.segments), saved = Math.min(count, job.segments.length);
   if (p.completedFrames >= p.targetFrames && p.targetFrames > 0) {
     return /checking subject/.test(stage) ? 98 : /assembling/.test(stage) ? 94 : 90;
@@ -82,7 +90,8 @@ function imageProgress(job: Job): number {
 export function overallProgressEstimate(job: Job): number {
   if (outputReady(job)) return 100;
   if (job.status === 'queued' && !job.segments.length) return 0;
-  const estimate = job.mediaType === 'image' && job.image ? imageProgress(job) : videoProgress(job);
+  const raw = job.mediaType === 'image' && job.image ? imageProgress(job) : videoProgress(job);
+  const estimate = job.facialConsistency && job.progress.completedFrames < job.progress.targetFrames ? raw * .82 : raw;
   return Number.isFinite(estimate) ? Math.min(99, Math.max(0, estimate)) : 0;
 }
 

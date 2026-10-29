@@ -73,12 +73,14 @@ def main():
                     'result=inventory(sys.argv[2]);result["freeBytes"]=shutil.disk_usage(sys.argv[2]).free;'
                     'from pathlib import Path;root=Path(sys.argv[2]);'
                     'result["partials"]=[{"id":f["destination"],"size":min(f["size"],p.stat().st_size)} for f in json.loads(sys.argv[3]) if (p:=root/(f["destination"]+".part")).is_file() and not p.is_symlink()];'
-                    'result["files"]=[{"id":f["destination"],"size":p.stat().st_size} for f in json.loads(sys.argv[3]) if (p:=root/f["destination"]).is_file() and not p.is_symlink() and not p.parent.is_symlink()];'
+                    'result["files"]=[{"id":f["destination"],"size":p.stat().st_size,"verified":(not f["destination"].startswith("face_consistency/") or (p.stat().st_size==f["size"] and (stamp:=p.with_name(p.name+".verified.json")).is_file() and json.loads(stamp.read_text())=={"sha256":f["sha256"],"size":f["size"],"mtime_ns":p.stat().st_mtime_ns}))} for f in json.loads(sys.argv[3]) if (p:=root/f["destination"]).is_file() and not p.is_symlink() and not p.parent.is_symlink()];'
                     'face=root.parent/"face-refinement-runtime/.local/facefusion-eval";'
                     'result["files"] += [{"id":"face-refinement/"+Path(f["path"]).name,"size":p.stat().st_size} for f in json.loads(sys.argv[4]) if (p:=face/f["path"]).is_file() and not p.is_symlink() and not p.parent.is_symlink()];'
                     'result["partials"] += [{"id":"face-refinement/"+Path(f["path"]).name,"size":min(f["size"],p.stat().st_size)} for f in json.loads(sys.argv[4]) if (p:=face/(f["path"]+".part")).is_file() and not p.is_symlink() and not p.parent.is_symlink()];'
+                    'marker=root.parent/"facial-runtime/state/runtime-ready.json";'
+                    'result["facialRuntimeReady"]=marker.is_file() and json.loads(marker.read_text()).get("profileSHA256")==sys.argv[5];'
                     'print("RECAST_MODEL_STORAGE "+json.dumps(result))')
-            vast.remote(config, ['python3', '-c', code, str(root / 'scripts'), str(root / 'models'), json.dumps(selected_manifest()['files']),json.dumps(face_files)])
+            vast.remote(config, ['python3', '-c', code, str(root / 'scripts'), str(root / 'models'), json.dumps(selected_manifest()['files']),json.dumps(face_files), __import__('managed_facial_consistency').fingerprint()])
             return
         command = ['python3', str(root / 'scripts/model_storage.py'), '--model-dir', str(root / 'models')]
         if args.action == 'delete':
@@ -90,8 +92,12 @@ def main():
     if not args.model_files:
         raise ValueError('Choose model files to download.')
     manifest = selected_manifest(json.loads(args.model_files))
+    if any(item['destination'].startswith('face_consistency/') for item in manifest['files']):
+        from managed_facial_consistency import prepare_runtime
+        prepare_runtime(config)
     target = write_remote_manifest(config, manifest)
-    vast.remote(config, [str(root / '.venv/bin/python'), str(root / 'scripts/download_models.py'),
+    downloader = root / ('facial-runtime/scripts/download_models.py' if any(item['destination'].startswith('face_consistency/') for item in manifest['files']) else 'scripts/download_models.py')
+    vast.remote(config, [str(root / '.venv/bin/python'), str(downloader),
                          '--manifest', target, '--model-dir', str(root / 'models')])
     register_download_paths(config, manifest['files'])
 

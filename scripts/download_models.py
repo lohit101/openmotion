@@ -79,7 +79,9 @@ def download(item, model_dir, *, opener=None, base_url=None, rehash=False, retri
         if part.exists() and part.stat().st_size > item["size"]:
             part.unlink()
         quoted = urllib.parse.quote(item["filename"], safe="/")
-        url = base_url or "https://huggingface.co/%s/resolve/%s/%s?download=true" % (item["repo"], item["revision"], quoted)
+        url = base_url or item.get("url") or "https://huggingface.co/%s/resolve/%s/%s?download=true" % (item["repo"], item["revision"], quoted)
+        if urllib.parse.urlparse(url).hostname == 'github.com' and '/releases/download/' in url:
+            url += ('&' if '?' in url else '?') + 'recast=' + str(int(time.time()))
         opener = opener or urllib.request.build_opener(SafeRedirect())
         for attempt in range(retries):
             try:

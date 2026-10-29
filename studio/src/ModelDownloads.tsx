@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { ArrowClockwise, ArrowSquareOut, CaretDown, Check, CheckCircle, DownloadSimple, HardDrives, Pause, Trash, WarningCircle } from '@phosphor-icons/react';
-import { modelDefinitions, type ModelsState } from '../shared/models';
+import { modelDefinitions, modelWorkingReserve, type ModelsState } from '../shared/models';
 import './models.css';
 import { InfoTip } from './InfoTip';
 
@@ -15,9 +15,9 @@ export function DownloadButton({ files, controls, label, size = false }: { files
   const failed = states.some(file => file?.status === 'failed');
   const percent = states.find(file => file?.status === 'downloading')?.percent;
   const bytes = missingBytes(needed, controls.state);
-  const storageShort = !active && bytes > 0 && controls.state.diskFreeBytes !== undefined && bytes + 5 * 1024 ** 3 > controls.state.diskFreeBytes;
+  const storageShort = !active && bytes > 0 && controls.state.diskFreeBytes !== undefined && bytes + modelWorkingReserve(files) > controls.state.diskFreeBytes;
   const ready = !needed.length;
-  const title = ready ? files.length ? `${label}: installed` : `${label}: no extra file needed` : controls.settingUp ? `Finish GPU setup before downloading ${label}` : !controls.online ? `Connect GPU to download ${label}` : active ? `${label}: download in progress` : storageShort ? `Need ${modelSize(bytes + 5 * 1024 ** 3)} free including working space; ${modelSize(controls.state.diskFreeBytes!)} available` : `${failed ? 'Retry' : 'Download'} ${label} · ${modelSize(bytes)}`;
+  const title = ready ? files.length ? `${label}: installed` : `${label}: no extra file needed` : controls.settingUp ? `Finish GPU setup before downloading ${label}` : !controls.online ? `Connect GPU to download ${label}` : active ? `${label}: download in progress` : storageShort ? `Need ${modelSize(bytes + modelWorkingReserve(files))} free including working space; ${modelSize(controls.state.diskFreeBytes!)} available` : `${failed ? 'Retry' : 'Download'} ${label} · ${modelSize(bytes)}`;
   return <button type="button" className={`model-download ${ready ? 'installed' : active ? 'transferring' : failed ? 'failed' : ''}`}
     disabled={ready || active || storageShort || !controls.online || controls.blocked || controls.state.refreshing || !!controls.state.deleting} title={title} aria-label={title}
     onClick={event => { event.stopPropagation(); controls.download(needed); }}>
@@ -47,11 +47,11 @@ export function DownloadSelect({ value, options, onChange, label, controls }: { 
 export function RequiredFiles({ files, controls, manage, setup }: { files: string[]; controls: DownloadControls; manage?: () => void; setup: () => void }) {
   const ready = files.filter(id => controls.state.files.find(file => file.id === id)?.status === 'installed').length;
   const bytes = missingBytes(files, controls.state);
-  const shortage = bytes > 0 && controls.state.diskFreeBytes !== undefined && bytes + 5 * 1024 ** 3 > controls.state.diskFreeBytes;
+  const shortage = bytes > 0 && controls.state.diskFreeBytes !== undefined && bytes + modelWorkingReserve(files) > controls.state.diskFreeBytes;
   return <div className="required-models"><details className="required-file-details"><summary><HardDrives size={16} /><span className="required-models-title">Model files</span><span className={`required-models-status ${ready === files.length && controls.online ? 'ready' : ''}`}>{ready === files.length && controls.online && <CheckCircle size={13} />}{controls.online ? `${ready} / ${files.length} ready` : 'GPU offline'}</span><CaretDown className="required-models-caret" size={14} /></summary><div className="required-file-list">{modelDefinitions.filter(file => files.includes(file.id)).map(file => <div className="required-file-row" key={file.id}><span>{file.label}<small>{modelSize(file.size)}</small></span><DownloadButton files={[file.id]} controls={controls} label={file.label} /></div>)}<div className="required-file-footer"><InfoTip label="Required files">Download only the files for your selected settings. Changing an option starts no downloads. Installed files are reused. Use the individual buttons to download one file at a time.</InfoTip><span>Only selected settings</span>{manage && <button type="button" onClick={manage}>Manage extras</button>}</div></div></details>
     {ready < files.length && <div className="required-models-action"><span>{controls.online ? `${files.length - ready} ${files.length - ready === 1 ? 'file' : 'files'} needed` : 'Connect to check files'}</span><DownloadButton files={files} controls={controls} label="Files for current settings" size /></div>}
     {(controls.settingUp || !controls.online) && <p>{controls.settingUp ? 'Starting the blank engine. Weights stay on demand.' : 'Connect the engine, then download only what you need.'} <button onClick={setup}>View GPU</button></p>}
-    {shortage && <p className="model-file-slow" role="status">Needs {modelSize(bytes + 5 * 1024 ** 3)} free including working space; {modelSize(controls.state.diskFreeBytes!)} is available. Use a larger instance disk or remove unused extras before downloading this set.</p>}
+    {shortage && <p className="model-file-slow" role="status">Needs {modelSize(bytes + modelWorkingReserve(files))} free including working space; {modelSize(controls.state.diskFreeBytes!)} is available. Use a larger instance disk or remove unused extras before downloading this set.</p>}
   </div>;
 }
 
@@ -71,7 +71,7 @@ export default function ModelsWorkspace({ controls, required, refresh, cancel, s
       <div className="model-file-list">{definitions.map(file => {
         const stored = installed.find(item => item.name === file.filename);
         const state = controls.state.files.find(item => item.id === file.id) || (stored?.size ? { status: 'installed', percent: 100, error: null, message: '' } : undefined), active = state?.status === 'downloading';
-        const removable = (stored?.size || stored?.partialSize || state?.status === 'installed');
+        const removable = file.id.startsWith('loras/') && (stored?.size || stored?.partialSize || state?.status === 'installed');
         return <article className={`model-file ${state?.status || 'unknown'}`} key={file.id}><div className="model-file-copy"><div className="model-file-title"><h3>{file.label}</h3>{required.includes(file.id) && <span className="model-required-label">Selected</span>}</div><p>{file.description}</p><small title={file.filename}>{file.filename}</small>
           {file.experimental && <p className="extra-model-notes"><span>Experimental video support</span> Trigger <code>{file.trigger}</code> is included when selected. Compare with your baseline. <a href={file.source} target="_blank" rel="noreferrer">Publisher details <ArrowSquareOut size={11} /></a></p>}
           {active && <div className="model-file-progress"><div role="progressbar" aria-label={`${file.label} download`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={state.percent ?? undefined} className={`meter-track ${state.percent === null ? 'indeterminate' : ''}`}><span style={state.percent === null ? undefined : { transform: `scaleX(${state.percent / 100})` }} /></div><span>{state.percent === null ? 'Connecting / verifying' : `${state.percent}%`}</span></div>}

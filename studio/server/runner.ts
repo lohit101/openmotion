@@ -15,6 +15,8 @@ import { canFinishImageLocally, isImageJob, type ImageReview } from '../shared/i
 import { ImageFinalizationError, processImage } from './image-processing';
 import { DownloadError, type DownloadProgress } from './download';
 import { prepareSegmentRepaint, replaceFailedRepaint, RepaintWaitError, type RepaintTargetPreparer } from './segment-repaint';
+import { canFinishFacialLocally } from '../shared/facial-consistency';
+import { faceHash, FacialConsistencyError, type FacialBackend } from './facial-consistency';
 
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 export class Runner {
@@ -24,6 +26,8 @@ export class Runner {
   public geometry: ReferenceGeometry;
   public imageProcessor = processImage;
   public repaintTargetPreparer?: RepaintTargetPreparer;
+  public facial?: FacialBackend;
+  hasUnconfirmedFaceWork() { return this.store.jobs().some(job => job.status === 'interrupted' && job.facialConsistency?.remoteActive && job.facialConsistency.instanceId === this.store.value('cloud-connected-instance', null) && !job.facialConsistency.cancellationConfirmed); }
   constructor(public store: Store, public connection: ConnectionManager, public template: Graph, public repo: string, geometry?: ReferenceGeometry) { this.geometry = geometry || localReferenceGeometry(repo); }
   interrupt(reason: string) {
     this.abort?.abort(new OfflineError(reason));
@@ -36,7 +40,7 @@ export class Runner {
     this.busy = true;
     try {
       while (true) {
-        const next = this.store.jobs().reverse().find(j => j.origin === 'render' && !j.deleted && ['queued', 'running', 'reconnecting'].includes(j.status) && (this.connection.status.state === 'online' || canFinishImageLocally(j)));
+        const next = this.store.jobs().reverse().find(j => j.origin === 'render' && !j.deleted && ['queued', 'running', 'reconnecting'].includes(j.status) && (this.connection.status.state === 'online' || canFinishImageLocally(j) || canFinishFacialLocally(j)));
         if (!next) break;
         this.active = next; this.abort = new AbortController(); await this.run(next, this.abort.signal); this.active = null;
       }
@@ -61,6 +65,13 @@ export class Runner {
   async cancel(job: Job) {
     job.cancelRequested = true;
     this.store.saveJob(job, false);
+    if (job.facialConsistency?.remoteActive) {
+      job.cancellationConfirmed = false; job.status = 'interrupted'; job.error = 'Checking facial-processing cancellation. The rendered video is kept.';
+      this.store.saveJob(job, false);
+      if (this.active?.id === job.id) { this.active.cancelRequested = true; this.active.cancellationConfirmed = false; this.abort?.abort(); return; }
+      if (!this.facial) throw new Error('Facial cancellation is not available. Reconnect the same GPU to check it.');
+      await this.facial.cancel(job); job.cancellationConfirmed = true; job.status = 'cancelled'; job.error = null; this.stage(job, 'Cancelled'); return;
+    }
     try {
       const photoId = job.viggleRepaint?.activePhotoId;
       const photo = photoId && this.store.job(photoId);
@@ -131,7 +142,7 @@ export class Runner {
   async run(job: Job, signal: AbortSignal) {
     const folder = path.join(this.store.root, 'jobs', job.id); await mkdir(folder, { recursive: true });
     const source = this.store.asset(job.sourceId)!, reference = this.store.asset(job.referenceId)!;
-    const client = this.connection.client(); let socket: WebSocket | undefined;
+    const client = this.connection.client(); let socket: WebSocket | undefined, facialPhase = false;
     const restore = client.recover;
     if (restore) client.recover = async recoverySignal => {
       job.status = 'reconnecting'; this.stage(job, 'Restoring connection · keeping the same GPU job');
@@ -141,6 +152,12 @@ export class Runner {
     };
     try {
       this.checkCancelled(job); job.status = 'running'; job.startedAt ||= new Date().toISOString(); this.save(job);
+      if (job.facialConsistency && !job.facialConsistency.preflightComplete) {
+        facialPhase = true;
+        if (!this.facial) throw new FacialConsistencyError('Facial consistency tools are unavailable. No video sampling was submitted.');
+        this.stage(job, 'Checking facial reference before rendering');
+        await this.facial.preflight(job, reference.path, signal); this.checkCancelled(job); facialPhase = false;
+      }
       if (!job.uploads && isImageJob(job) && !canFinishImageLocally(job)) {
         this.stage(job, 'Preparing target and identity references');
         const prepared = await this.imageProcessor('prepare', job, this.store, this.repo, folder, signal) as { hasFace: boolean; warnings: string[] };
@@ -328,8 +345,19 @@ export class Runner {
       const assembly = { source: source.path, settings: { fps: job.settings.fps, start_seconds: Math.floor(job.settings.start * job.settings.fps) / job.settings.fps }, completed_frames: job.progress.completedFrames, segments: job.segments };
       await writeFile(path.join(folder, 'assembly.json'), JSON.stringify(assembly));
       const code = 'import json,sys;from pathlib import Path;sys.path.insert(0,sys.argv[1]);from render_clip import finish_video;p=Path(sys.argv[2]);finish_video(json.loads((p/"assembly.json").read_text()),p)';
-      await command('python3', ['-c', code, path.join(this.repo, 'scripts'), folder], signal, 120000);
+      const base = path.join(folder, 'final.mp4');
+      if (job.facialConsistency?.baseSHA256) {
+        if (!await exists(base) || faceHash(base) !== job.facialConsistency.baseSHA256) throw new FacialConsistencyError('The saved pre-face render changed or is missing. Existing segments were preserved.');
+      } else await command('python3', ['-c', code, path.join(this.repo, 'scripts'), folder], signal, 120000);
       job.output = path.join(folder, 'final.mp4'); job.poster = path.join(folder, 'poster.jpg'); await poster(job.output, job.poster);
+      if (job.facialConsistency) {
+        facialPhase = true;
+        if (!this.facial) throw new FacialConsistencyError('The rendered video is saved; facial consistency tools are unavailable.');
+        this.stage(job, 'Matching source expressions and facial identity', job.facialConsistency.processedFrames, job.facialConsistency.frames, 'frames');
+        await this.facial.finish(job, { reference: reference.path, source: path.join(folder, 'prepared-source.mp4'), base, folder: path.join(folder, 'facial-consistency') }, signal,
+          (frame, frames, stage) => this.stage(job, stage, frame, frames, 'frames'));
+        this.checkCancelled(job); await poster(job.output!, job.poster!); facialPhase = false;
+      }
       if ((job.framingVersion || isViggle(job.settings)) && job.settings.mode === 'swap') {
         this.stage(job, 'Checking subject scale and position');
         try { job.framingCheck = await this.geometry.check(job, path.join(folder, 'prepared-source.mp4'), job.output, folder, signal); }
@@ -341,16 +369,20 @@ export class Runner {
       job.status = 'completed'; job.finishedAt = new Date().toISOString(); job.elapsedSeconds = (Date.parse(job.finishedAt) - Date.parse(job.startedAt!)) / 1000;
       this.stage(job, job.framingCheck && job.framingCheck.status !== 'matched' ? 'Complete · review framing' : 'Complete', null, null);
     } catch (error) {
+      if (job.facialConsistency && error instanceof FacialConsistencyError) {
+        if (error.remoteStopped) job.facialConsistency.remoteActive = false;
+        if (error.cancellationConfirmed) { job.facialConsistency.remoteActive = false; job.facialConsistency.cancellationConfirmed = true; job.cancellationConfirmed = true; this.store.saveJob(job, false); }
+      }
       if (signal.aborted && signal.reason instanceof OfflineError) error = signal.reason;
       const saved = this.store.job(job.id); const cancelled = saved?.cancelRequested && saved.cancellationConfirmed;
-      job.status = cancelled ? 'cancelled' : saved?.cancelRequested || error instanceof OfflineError || error instanceof DownloadError || error instanceof ImageFinalizationError || error instanceof RepaintWaitError ? 'interrupted' : 'failed';
+      job.status = cancelled ? 'cancelled' : facialPhase || saved?.cancelRequested || error instanceof FacialConsistencyError || error instanceof OfflineError || error instanceof DownloadError || error instanceof ImageFinalizationError || error instanceof RepaintWaitError ? 'interrupted' : 'failed';
       job.error = cancelled ? null : saved?.cancelRequested ? 'Cancellation could not be confirmed. The GPU job may still be running. Reconnect and check cancellation.' : (error instanceof Error ? error.message : String(error));
       if (error instanceof RepaintWaitError && job.viggleRepaint?.activePhotoId) {
         const photo = this.store.job(job.viggleRepaint.activePhotoId);
         job.retryRequired = !!photo && (['failed', 'cancelled'].includes(photo.status) || !!photo.retryRequired);
       }
       if (error instanceof OfflineError) this.connection.disconnect('GPU connection lost. Reconnect to check and resume the existing run.');
-      job.progress.stage = cancelled ? 'Cancelled' : error instanceof DownloadError ? 'Download paused · completed render kept' : error instanceof ImageFinalizationError ? 'Image saved · finish local processing' : error instanceof RepaintWaitError ? 'Imagen refresh needs attention · earlier segments saved' : job.status === 'interrupted' ? 'Connection interrupted' : 'Generation failed';
+      job.progress.stage = cancelled ? 'Cancelled' : facialPhase || error instanceof FacialConsistencyError ? 'Facial consistency paused · rendered segments kept' : error instanceof DownloadError ? 'Download paused · completed render kept' : error instanceof ImageFinalizationError ? 'Image saved · finish local processing' : error instanceof RepaintWaitError ? 'Imagen refresh needs attention · earlier segments saved' : job.status === 'interrupted' ? 'Connection interrupted' : 'Generation failed';
       job.progress.value = null; job.progress.max = null; this.save(job);
     } finally { socket?.close(); }
   }

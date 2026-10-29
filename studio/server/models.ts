@@ -1,13 +1,14 @@
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import type { Catalog, Graph } from '../shared/types';
-import { emptyModels, IMAGE_IDENTITY, modelDefinitions, pinnedModels, type InstalledLora, type ModelInventory, type ModelsState, type ModelTransfer } from '../shared/models';
+import { emptyModels, IMAGE_IDENTITY, modelDefinitions, modelWorkingReserve, pinnedModels, type InstalledLora, type ModelInventory, type ModelsState, type ModelTransfer } from '../shared/models';
 import { inventoryKey } from '../shared/downloads';
 import type { Store } from './store';
 import { lorasFrom, type ConnectionManager } from './comfy';
 import { command } from './media';
+import { facialCommand } from './facial-consistency';
 
-export async function manageModelStorage(repo: string, instanceId: number, action: 'inventory' | 'delete', name?: string): Promise<{ loras?: InstalledLora[]; files?: { id: string; size: number }[]; name?: string; freedBytes?: number; freeBytes?: number; partials?: { id: string; size: number }[]; removed?: boolean }> {
+export async function manageModelStorage(repo: string, instanceId: number, action: 'inventory' | 'delete', name?: string): Promise<{ loras?: InstalledLora[]; files?: { id: string; size: number; verified?: boolean }[]; name?: string; freedBytes?: number; freeBytes?: number; partials?: { id: string; size: number }[]; removed?: boolean; facialRuntimeReady?: boolean }> {
   const args = ['-u', path.join(repo, 'scripts/managed_models.py'), '--instance-id', String(instanceId), '--action', action];
   if (action === 'delete') args.push('--lora', name!);
   const output = await command('python3', args, undefined, 45000);
@@ -55,6 +56,7 @@ export function downloadPinnedModels(repo: string, instanceId: number | null, en
         }
         const counter = line.match(/^\s+(.+\.safetensors): (\d+)%$/);
         if (counter) progress('Downloading ' + counter[1], Math.min(100, Number(counter[2])));
+        else if (line.startsWith('RECAST_FACIAL_STAGE ')) progress(line.slice(20), null);
         else if (line.startsWith('Downloading ')) progress(line.slice(0, 220));
         else if (line.startsWith('Verified: ')) progress('File verified');
       }
@@ -110,6 +112,12 @@ export class ModelManager {
           inventory = result;
           this.state.installedLoras = result.loras || [];
           this.state.diskFreeBytes = Number.isFinite(result.freeBytes) && result.freeBytes! >= 0 ? result.freeBytes : undefined;
+          this.state.facialRuntimeReady = !!result.facialRuntimeReady;
+          for (const file of this.state.files.filter(item => item.id.startsWith('face_consistency/'))) {
+            if (['queued', 'downloading'].includes(file.status)) continue;
+            const present = result.files?.find(item => item.id === file.id);
+            if (present?.verified && present.size === pinnedModels.find(item => item.destination === file.id)?.size) Object.assign(file, { status: 'installed', percent: 100, error: null, message: 'Verified on this GPU' });
+          }
           if (result.partials) for (const file of this.state.files) if (!['installed', 'queued', 'downloading'].includes(file.status)) {
             const size = result.partials.find(partial => partial.id === file.id)?.size || 0;
             file.downloaded = Number.isFinite(size) && size >= 0 ? Math.min(size, pinnedModels.find(model => model.destination === file.id)!.size) : 0;
@@ -160,7 +168,7 @@ export class ModelManager {
         const size = pinnedModels.find(model => model.destination === file.id)!.size;
         return sum + size - Math.min(size, Math.max(0, file.downloaded || 0));
       }, 0);
-      const required = remaining + 5 * 1024 ** 3;
+      const required = remaining + modelWorkingReserve([...planned]);
       if (remaining && this.state.diskFreeBytes !== undefined && this.state.diskFreeBytes < required) throw new Error(`These files need ${(required / 1e9).toFixed(2)} GB free including working space; this GPU has ${(this.state.diskFreeBytes / 1e9).toFixed(2)} GB. No new download was started. Use a larger disk or remove unused extras first.`);
       for (const id of files) {
         const file = this.state.files.find(file => file.id === id)!;
@@ -200,6 +208,17 @@ export class ModelManager {
     this.queue.clear(); this.controller?.abort(new Error('Cancelled.'));
     for (const file of this.state.files) if (file.status === 'queued') Object.assign(file, { status: 'missing', message: 'Cancelled. Click download to resume.', percent: null });
     await this.work; this.emit(); return this.state;
+  }
+  async prepareFacialTools() {
+    if (this.state.busy) throw new Error('Wait for model storage work to finish.');
+    const instanceId = this.store.value<number | null>('cloud-connected-instance', null);
+    if (!instanceId || this.connection.status.state !== 'online' || this.connection.status.endpoint !== 'http://127.0.0.1:8188') throw new Error('Connect the managed GPU before preparing facial tools.');
+    this.preparing++; this.state.busy = true; this.emit();
+    try {
+      await facialCommand(this.repo, ['--instance-id', String(instanceId), '--action', 'prepare']);
+      if (this.store.value('cloud-connected-instance', null) !== instanceId) throw new Error('GPU changed during facial-tool setup.');
+      await this.refresh(); return this.state;
+    } finally { this.preparing--; this.state.busy = !!this.work || this.preparing > 0; this.emit(); }
   }
   async remove(name: string) {
     if (this.state.busy) throw new Error('Finish or cancel active transfers before removing a LoRA.');

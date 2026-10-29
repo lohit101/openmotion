@@ -1,0 +1,115 @@
+{
+  "version": 1,
+  "total_bytes": 2226690520,
+  "usage": "Private evaluation; separate model terms include ResearchRAIL, non-commercial recognition and XSeg GPL-3.0. Not cleared for a hosted commercial service.",
+  "files": [
+    {
+      "repo": "Glat0s/PerformRecast-onnx",
+      "revision": "onnx-v1",
+      "filename": "appearance_feature_extractor.onnx",
+      "destination": "face_consistency/performrecast/appearance_feature_extractor.onnx",
+      "size": 358267936,
+      "sha256": "208e4f848b430cbfa71a36dab7ec25a5b345882f846dbb27288abcfb2ae89a96",
+      "url": "https://github.com/Glat0s/PerformRecast-onnx/releases/download/onnx-v1/appearance_feature_extractor.onnx"
+    },
+    {
+      "repo": "Glat0s/PerformRecast-onnx",
+      "revision": "onnx-v1",
+      "filename": "motion_extractor.onnx",
+      "destination": "face_consistency/performrecast/motion_extractor.onnx",
+      "size": 113091452,
+      "sha256": "b1b26c1b6d7520eb8020175050f0381c4f402ccaa6afbaebee259da4ff9dcb6c",
+      "url": "https://github.com/Glat0s/PerformRecast-onnx/releases/download/onnx-v1/motion_extractor.onnx"
+    },
+    {
+      "repo": "Glat0s/PerformRecast-onnx",
+      "revision": "onnx-v1",
+      "filename": "spade_generator.onnx",
+      "destination": "face_consistency/performrecast/spade_generator.onnx",
+      "size": 343562601,
+      "sha256": "4d8127313b1c2f6b53320b65208dafc22db260550f690cfa114dec646c7a8f5f",
+      "url": "https://github.com/Glat0s/PerformRecast-onnx/releases/download/onnx-v1/spade_generator.onnx"
+    },
+    {
+      "repo": "Glat0s/PerformRecast-onnx",
+      "revision": "onnx-v1",
+      "filename": "warping_module.onnx",
+      "destination": "face_consistency/performrecast/warping_module.onnx",
+      "size": 205083656,
+      "sha256": "92d8a1414a31a4117237bbfb667be02e71831a085af6697c9c3465200228a0ce",
+      "url": "https://github.com/Glat0s/PerformRecast-onnx/releases/download/onnx-v1/warping_module.onnx"
+    },
+    {
+      "size": 174388474,
+      "sha256": "f1f79dc3b0b79a69f94799af1fffebff09fbd78fd96a275fd8f0cbbea23270d1",
+      "url": "https://huggingface.co/facefusion/models-3.0.0/resolve/main/arcface_w600k_r50.onnx",
+      "repo": "facefusion/models-3.0.0",
+      "revision": "main",
+      "filename": "arcface_w600k_r50.onnx",
+      "destination": "face_consistency/facefusion/arcface_w600k_r50.onnx"
+    },
+    {
+      "size": 80414194,
+      "sha256": "3debfd72763bc931dd308f57d1e9299ae13bb309d14ddbdc17ce8f1fd42f96af",
+      "url": "https://huggingface.co/facefusion/models-3.3.0/resolve/main/nsfw_1.onnx",
+      "repo": "facefusion/models-3.3.0",
+      "revision": "main",
+      "filename": "nsfw_1.onnx",
+      "destination": "face_consistency/facefusion/nsfw_1.onnx"
+    },
+    {
+      "size": 402742682,
+      "sha256": "c0e98a8a03a238f461ed3d2570e426b49f46745ee400854a60dceeb70c246add",
+      "url": "https://huggingface.co/facefusion/models-3.3.0/resolve/main/hyperswap_1a_256.onnx",
+      "repo": "facefusion/models-3.3.0",
+      "revision": "main",
+      "filename": "hyperswap_1a_256.onnx",
+      "destination": "face_consistency/facefusion/hyperswap_1a_256.onnx"
+    },
+    {
+      "size": 22489928,
+      "sha256": "5aae1806ce44e3c27fab0a7d44eed581dd25ca71a4387ff809a191c98239c1be",
+      "url": "https://huggingface.co/facefusion/models-3.3.0/resolve/main/nsfw_2.onnx",
+      "repo": "facefusion/models-3.3.0",
+      "revision": "main",
+      "filename": "nsfw_2.onnx",
+      "destination": "face_consistency/facefusion/nsfw_2.onnx"
+    },
+    {
+      "size": 232475,
+      "sha256": "490d79bc15c0e958d91c999c566c6a338b310ead96e0274dd004e59dd6abecb9",
+      "url": "https://huggingface.co/facefusion/models-3.4.0/resolve/main/yunet_2023_mar.onnx",
+      "repo": "facefusion/models-3.4.0",
+      "revision": "main",
+      "filename": "yunet_2023_mar.onnx",
+      "destination": "face_consistency/facefusion/yunet_2023_mar.onnx"
+    },
+    {
+      "size": 97904803,
+      "sha256": "678c6fa539d52335a31c980feefdf4a6e02d781d83dce00af8a894f114557285",
+      "url": "https://huggingface.co/facefusion/models-3.0.0/resolve/main/2dfan4.onnx",
+      "repo": "facefusion/models-3.0.0",
+      "revision": "main",
+      "filename": "2dfan4.onnx",
+      "destination": "face_consistency/facefusion/2dfan4.onnx"
+    },
+    {
+      "size": 358188033,
+      "sha256": "778139fb930240ac39812a1480295bfc5dc2cec8a8e46ee6b453481d600c0fa2",
+      "url": "https://huggingface.co/facefusion/models-3.3.0/resolve/main/nsfw_3.onnx",
+      "repo": "facefusion/models-3.3.0",
+      "revision": "main",
+      "filename": "nsfw_3.onnx",
+      "destination": "face_consistency/facefusion/nsfw_3.onnx"
+    },
+    {
+      "size": 70324286,
+      "sha256": "c4d1498b8a03b5fe2a3a5d2ef2a0402ab03bd51edaf5b2d8d5fb764702a97dd3",
+      "url": "https://huggingface.co/facefusion/models-3.1.0/resolve/c9e3a503d8e84e91c5cd89ee2d510fe5e793e570/xseg_1.onnx",
+      "repo": "facefusion/models-3.1.0",
+      "revision": "c9e3a503d8e84e91c5cd89ee2d510fe5e793e570",
+      "filename": "xseg_1.onnx",
+      "destination": "face_consistency/facefusion/xseg_1.onnx"
+    }
+  ]
+}

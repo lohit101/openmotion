@@ -39,6 +39,8 @@ import { useActivityAlerts } from './useActivityAlerts';
 import type { AlertTarget } from '../shared/alerts';
 import type { EditorIntent } from './ClipEditorWorkspace';
 import GpuPowerControl from './GpuPowerControl';
+import FacialConsistencyControls from './FacialConsistencyControls';
+import { usesFacialConsistency } from '../shared/facial-consistency';
 
 const activeStates = ['queued', 'running', 'reconnecting'];
 const shortLora = (name: string) => name.replace(/\.safetensors$/, '').replace(/^user\//, '');
@@ -48,6 +50,7 @@ function Advanced({ settings: s, update, loras, downloads }: { settings: Setting
   const options = [{ value: 'None', label: 'None', files: [] }, ...choices.map(v => ({ value: v, label: modelDefinitions.find(file => file.filename === v)?.label || shortLora(v), files: modelDefinitions.filter(file => file.filename === v).map(file => file.id) }))];
   const kleinReady = imageModelFiles.every(id => downloads.state.files.find(file => file.id === id)?.status === 'installed');
   if (isViggle(s)) return <div className="advanced-body">
+    <FacialConsistencyControls value={s.facialConsistency} change={v => update({ facialConsistency: v })} downloads={downloads} />
     <div className="full-label"><FieldLabel label="Reference preparation" help={s.referencePreparation === 'prepared' ? 'Upload a frame from this exact shot with the character already replaced. This skips image editing and its downloads.' : 'The image editor first puts your character into a source frame, preserving pose, camera distance and scene lighting. Changing an option starts no downloads.'} />
       <DownloadSelect label="Reference preparation" value={s.referencePreparation} controls={downloads} onChange={v => update({ referencePreparation: v as Settings['referencePreparation'] })} options={[{ value: 'auto', label: 'Automatic · match character to source frame', files: imageModelFiles, disabled: !kleinReady || s.imagenRepaintEnabled, disabledReason: s.imagenRepaintEnabled ? 'Segment refresh uses an already edited starting frame.' : downloads.online ? 'Download the three Klein files to enable automatic frame preparation.' : 'Connect your GPU to check whether Klein is installed.' }, { value: 'prepared', label: 'Use an already edited source frame', files: [] }]} />
     </div>
@@ -184,7 +187,7 @@ export default function App() {
   const requiredFiles = modelFilesForSettings(draft.settings);
   const missingCustom = (isViggle(draft.settings) ? [] : [draft.settings.loraA, draft.settings.loraB]).filter(name => name !== 'None' && !connection?.loras.includes(name) && !modelDefinitions.some(file => file.filename === name));
   const modelsReady = requiredFiles.every(id => modelState.files.find(file => file.id === id)?.status === 'installed') &&
-    [draft.settings.loraA, draft.settings.loraB].every(name => name === 'None' || connection?.loras.includes(name));
+    [draft.settings.loraA, draft.settings.loraB].every(name => name === 'None' || connection?.loras.includes(name)) && (!usesFacialConsistency(draft.settings) || !!modelState.facialRuntimeReady);
   const downloads: DownloadControls = { state: modelState, online, blocked: !!data?.cloud.busy || jobs.some(job => activeStates.includes(job.status)), settingUp: !!data?.cloud.busy, download: downloadModels, remove: removeLora };
   const [width, height] = geometry(draft.settings, source || { width: 480, height: 832 });
   const repaintProfile = draft.settings.imagenRepaint;
@@ -272,7 +275,7 @@ export default function App() {
       </EditorSection>
       {engineError && <p className="model-page-error" role="alert">{engineError}</p>}
       <RequiredFiles files={requiredFiles} controls={downloads} manage={openModels} setup={() => setView('gpu')} />
-      <EditorDisclosure title="Advanced settings" meta={engine ? 'Reference & seed' : 'Adapters & framing'}><Advanced settings={draft.settings} update={update} loras={connection!.loras} downloads={downloads} /></EditorDisclosure>
+      <EditorDisclosure title="Advanced settings" meta={engine ? 'Face, reference & seed' : 'Adapters & framing'}><Advanced settings={draft.settings} update={update} loras={connection!.loras} downloads={downloads} /></EditorDisclosure>
     </div><div className="generate-footer"><button className="primary-button generate" disabled={!online || !valid || creating || !modelsReady || modelState.busy} onClick={() => void generate()}><Sparkle size={18} weight="fill" />{creating ? 'Submitting...' : 'Generate'}<kbd>⌘ ↵</kbd></button><div className="generate-caption">{!engine ? <><WarningCircle size={12} /><button onClick={() => { const panel = document.querySelector<HTMLDetailsElement>('.video-model-disclosure'); if (panel) { panel.open = true; panel.scrollIntoView({ block: 'start', behavior: 'smooth' }); panel.querySelector<HTMLElement>('[aria-label="Video model"]')?.focus(); } }}>SCAIL / Wan is disabled · choose Viggle</button></> : !online ? <><Plug size={12} /><button onClick={() => setView('gpu')}>Connect GPU to generate</button></> : !modelsReady || modelState.busy ? <><DownloadSimple size={12} /><button onClick={() => { const panel = document.querySelector<HTMLDetailsElement>('.required-file-details'); if (panel) { panel.open = true; panel.scrollIntoView({ block: 'center', behavior: 'smooth' }); } }}>{modelState.busy ? 'Downloading selected model files' : 'Download files for these settings above'}</button></> : !valid ? 'Add both inputs and choose a valid clip range.' : <><CheckCircle size={12} />Ready on your GPU</>}</div></div></section>
     <section className={`workspace ${selected ? '' : 'workspace-idle'}`}><div className="workspace-header"><div><span className="workspace-overline">YOUR WORKSPACE</span><h2>{selected?.title || 'Preview'}</h2></div><div className="workspace-actions">{showResult && selected && <><button className="icon-button" title="Render details" aria-label="Render details" onClick={() => setInfo(true)}><Info size={18} /></button><button className="icon-button" title="Reuse settings" aria-label="Reuse selected render settings" onClick={() => reuse(selected)}><ArrowCounterClockwise size={18} /></button><a className="secondary-button" href={`/api/jobs/${selected.id}/video?download=1`}><DownloadSimple size={15} />Download</a></>}{selected && <button type="button" className="icon-button close-preview" aria-label="Close video preview" title="Close preview · keep inputs and settings" onClick={closePreview}><X size={18} /></button>}</div></div>
       {selected && <FramingNotice job={selected} onCompare={() => setCompare(true)} />}

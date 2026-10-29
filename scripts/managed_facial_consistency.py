@@ -1,0 +1,218 @@
+#!/usr/bin/env python3
+"""Face finishing on an already connected rental; never rent/resume compute."""
+import argparse
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import tarfile
+import tempfile
+import time
+import uuid
+
+import vast
+from managed_models import check_connection
+from managed_video_identity import sync
+from video_identity import video_info
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def digest(file):
+    from facial_runtime import digest as sha
+    return sha(file)
+
+
+def fingerprint():
+    import hashlib
+    return hashlib.sha256((ROOT / 'config/facial-consistency-runtime.lock.json').read_bytes() +
+                          (ROOT / 'config/facial-consistency-models.lock.json').read_bytes()).hexdigest()
+
+
+def remote_root(config):
+    return Path(config['remote_root']) / 'facial-runtime'
+
+
+def call(config, action, job=None, capture=True):
+    root = remote_root(config)
+    python = root / '.local/face-venv/bin/python' if action == 'preflight' else Path('python3')
+    command = [str(python), str(root / 'scripts/facial_worker.py'), action]
+    if job:
+        command += ['--job', job]
+    value = vast.remote(config, command, capture_output=capture, text=True)
+    if not capture:
+        return None
+    rows = [line[14:] for line in value.stdout.splitlines() if line.startswith('RECAST_FACIAL ')]
+    if not rows:
+        raise ValueError('The facial worker returned no status receipt.')
+    return json.loads(rows[-1])
+
+
+def upload_runtime(config):
+    root = remote_root(config)
+    names = ['scripts/download_models.py', 'scripts/facial_runtime.py', 'scripts/facial_worker.py', 'scripts/face_performance.py',
+             'config/facial-consistency-runtime.lock.json', 'config/facial-consistency-models.lock.json', 'config/server.json']
+    with tempfile.TemporaryFile() as stream:
+        with tarfile.open(fileobj=stream, mode='w:gz') as archive:
+            for name in names:
+                archive.add(ROOT / name, arcname=name, recursive=False)
+        stream.seek(0)
+        code = '''import tarfile,pathlib,sys
+r=pathlib.Path(sys.argv[1]);r.mkdir(parents=True,exist_ok=True)
+with tarfile.open(fileobj=sys.stdin.buffer,mode='r|gz')as a:
+ for m in a:
+  p=pathlib.Path(m.name)
+  if p.is_absolute()or'..'in p.parts or m.issym()or m.islnk():raise ValueError('Unsafe runtime archive')
+  dest=r/p
+  if dest.is_symlink():raise ValueError('Unexpected linked runtime file')
+  a.extract(m,r,filter='data')
+'''
+        vast.remote(config, ['python3', '-c', code, str(root)], stdin=stream)
+
+
+def prepare_runtime(config):
+    upload_runtime(config)
+    call(config, 'prepare', capture=False)
+
+
+def status(config):
+    exists = subprocess.run(vast.ssh_arguments(config) + ['-T', vast.destination(config),
+        'test -f ' + str(remote_root(config) / 'scripts/facial_worker.py')], capture_output=True)
+    if exists.returncode:
+        return {'ready': False, 'runtimeReady': False, 'missing': ['Facial runtime'], 'profileSHA256': fingerprint()}
+    value = call(config, 'status')
+    if value.get('profileSHA256') != fingerprint():
+        value.update(ready=False, runtimeReady=False, missing=[*value.get('missing', []), 'Updated facial tools'])
+    return value
+
+
+def write_request(config, folder, file, data):
+    with tempfile.TemporaryDirectory() as temporary:
+        local = Path(temporary) / file
+        local.write_text(json.dumps(data))
+        # A frozen request must never be changed by resuming another recipe.
+        code = '''import pathlib,json,sys
+p=pathlib.Path(sys.argv[1]);expected=json.loads(sys.argv[2])
+if p.exists()and json.loads(p.read_text())!=expected:raise ValueError('Saved facial inputs/settings changed; existing output was preserved')
+'''
+        vast.remote(config, ['python3', '-c', code, str(folder / file), json.dumps(data)])
+        sync(config, str(local), str(folder / file))
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--instance-id', type=int, required=True)
+    parser.add_argument('--action', choices=['status', 'prepare', 'preflight', 'run', 'cancel'], required=True)
+    parser.add_argument('--job')
+    parser.add_argument('--profile', choices=['perform-onnx60', 'regional-onnx60'])
+    parser.add_argument('--reference')
+    parser.add_argument('--target')
+    parser.add_argument('--source')
+    parser.add_argument('--output')
+    parser.add_argument('--frames', type=int)
+    parser.add_argument('--width', type=int)
+    parser.add_argument('--height', type=int)
+    args = parser.parse_args()
+    config = vast.load()
+    check_connection(config, args.instance_id)
+    os.environ['RECAST_SSH_BATCH'] = '1'
+    cancelled = False
+    def cancel(_signal, _frame):
+        nonlocal cancelled
+        cancelled = True
+    signal.signal(signal.SIGTERM, cancel)
+    signal.signal(signal.SIGINT, cancel)
+    if args.action == 'status':
+        print('RECAST_FACIAL ' + json.dumps(status(config)), flush=True)
+        return
+    if args.action == 'prepare':
+        prepare_runtime(config)
+        return
+    job = str(uuid.UUID(args.job))
+    folder = remote_root(config) / 'jobs' / job
+    if args.action == 'cancel':
+        for _ in range(45):
+            value = call(config, 'cancel', job)
+            if not value['running']:
+                print('RECAST_FACIAL_STOPPED', flush=True)
+                return
+            time.sleep(1)
+        raise ValueError('Facial cancellation is not confirmed. Reconnect the same instance to check it.')
+    tools = status(config)
+    if not tools['ready']:
+        raise ValueError('Prepare the selected facial tools beside Advanced settings. Nothing was downloaded by Generate.')
+    if not args.reference or not args.profile:
+        raise ValueError('The fixed facial reference and selected profile are required.')
+    reference = Path(args.reference).resolve()
+    vast.remote(config, ['mkdir', '-p', str(folder)])
+    request = {'jobId': job, 'profile': args.profile, 'profileSHA256': fingerprint(), 'referenceSHA256': digest(reference),
+               'expected': {'frames': args.frames, 'width': args.width, 'height': args.height}}
+    write_request(config, folder, 'request.json', request)
+    sync(config, str(reference), str(folder / 'reference.png'))
+    if args.action == 'preflight':
+        try:
+            value = call(config, 'preflight', job)
+        except subprocess.CalledProcessError as error:
+            if error.returncode != 255:
+                print('RECAST_FACIAL_STOPPED', flush=True)
+            if error.stderr:
+                print(error.stderr[-2000:], file=__import__('sys').stderr)
+            raise
+        print('RECAST_FACIAL_STOPPED', flush=True)
+        if cancelled:
+            print('RECAST_FACIAL_CANCELLED', flush=True)
+            raise ValueError('Facial reference check cancelled before video sampling.')
+        print('RECAST_FACIAL ' + json.dumps(value), flush=True)
+        return
+    if not args.target or not args.source or not args.output:
+        raise ValueError('Frozen source, rendered video and separate output folder are required.')
+    target, source, output = Path(args.target).resolve(), Path(args.source).resolve(), Path(args.output).resolve()
+    if output in [target, source, reference] or output in target.parents or output in source.parents:
+        raise ValueError('Keep corrected output separate from its immutable inputs.')
+    output.mkdir(parents=True, exist_ok=True)
+    target_info, source_info = video_info(target), video_info(source)
+    if target_info['frames'] != source_info['frames'] or target_info['fps'] != source_info['fps']:
+        raise ValueError('Source and generated frame timing differ. No facial processing was submitted.')
+    inputs = {'request': request, 'target': target_info, 'source': source_info, 'baseSHA256': digest(target),
+              'sourceSHA256': digest(source), 'referenceSHA256': digest(reference)}
+    write_request(config, folder, 'inputs.json', inputs)
+    sync(config, str(target), str(folder / 'target.mp4'))
+    sync(config, str(source), str(folder / 'source.mp4'))
+    if cancelled:
+        print('RECAST_FACIAL_STOPPED', flush=True)
+        print('RECAST_FACIAL_CANCELLED', flush=True)
+        raise ValueError('Facial processing cancelled before GPU submission.')
+    call(config, 'launch', job)
+    sent = False
+    while True:
+        if cancelled and not sent:
+            call(config, 'cancel', job)
+            sent = True
+        value = call(config, 'poll', job)
+        if value.get('frames'):
+            print(json.dumps({'frame': value.get('frame', 0), 'frames': value['frames'], 'stage': 'Matching source expressions and facial identity'}), flush=True)
+        if not value['running'] and value['state'] in ['completed', 'interrupted']:
+            print('RECAST_FACIAL_STOPPED', flush=True)
+            if cancelled:
+                print('RECAST_FACIAL_CANCELLED', flush=True)
+                raise ValueError('Facial processing cancelled; saved frames and rendered video remain.')
+            if value['state'] == 'interrupted':
+                raise ValueError(value.get('error', 'Facial processing was interrupted; its saved frames remain.'))
+            break
+        time.sleep(1)
+    for name in ['final.mp4', 'receipt.json']:
+        sync(config, str(folder / 'result' / name), str(output / name), download=True)
+    receipt = json.loads((output / 'receipt.json').read_text())
+    if not receipt.get('complete') or receipt['inputs'] != {**inputs, 'version': 'source-face-v1'} or digest(output / 'final.mp4') != receipt['outputSHA256']:
+        raise ValueError('Facial-result provenance/checksum failed. The remote result is kept for recovery.')
+    (output / 'transport.json').write_text(json.dumps({'jobId': job, 'instanceId': args.instance_id, 'receiptSHA256': digest(output / 'receipt.json')}))
+    print('RECAST_FACIAL ' + json.dumps({key: value for key, value in receipt.items() if key != 'records'}), flush=True)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (ValueError, OSError, subprocess.SubprocessError) as error:
+        print(str(error), file=__import__('sys').stderr)
+        raise SystemExit(1)
