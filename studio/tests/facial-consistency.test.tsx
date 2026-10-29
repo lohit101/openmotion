@@ -9,7 +9,7 @@ import { facialModelFiles, modelFilesForSettings } from '../shared/models';
 import { canFinishFacialLocally } from '../shared/facial-consistency';
 import { engineIssue } from '../shared/engines';
 import { overallProgressEstimate } from '../shared/generation-progress';
-import { faceHash, FacialConsistencyError, newFacialRun, type FacialBackend } from '../server/facial-consistency';
+import { faceHash, facialFingerprint, FacialConsistencyError, newFacialRun, type FacialBackend } from '../server/facial-consistency';
 import { Store } from '../server/store';
 import { Runner } from '../server/runner';
 import type { ConnectionManager } from '../server/comfy';
@@ -58,6 +58,13 @@ const successfulFinish: FacialBackend['finish'] = async (job, files, _signal, pr
 };
 
 describe('selected automatic facial finishing', () => {
+  it('freezes scene finishing separately while retaining the exact original recipe on request', () => {
+    const job = { settings: { ...defaults, engine: 'viggle' as const, facialConsistency: 'perform-onnx60' as const }, progress: { targetFrames: 120 } } as Job;
+    expect(newFacialRun(job, repo, 123)).toMatchObject({ version: 'source-face-v2', profileSHA256: facialFingerprint(repo, 'source-face-v2') });
+    job.settings.facialSceneMatch = false;
+    expect(newFacialRun(job, repo, 123)).toMatchObject({ version: 'source-face-v1', profileSHA256: 'ef8f273a320b6d34c5efccf690610ad92f1aac0fdb9c4d60c4906557ade5b419' });
+    expect(facialFingerprint(repo, 'source-face-v2')).not.toBe(facialFingerprint(repo));
+  });
   it('keeps old jobs off and requires the chosen files without changing the video graph', () => {
     expect(settingsSchema.parse({}).facialConsistency).toBe('off');
     const normal = { ...defaults, engine: 'viggle' as const, referencePreparation: 'prepared' as const };

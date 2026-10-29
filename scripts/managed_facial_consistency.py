@@ -24,10 +24,9 @@ def digest(file):
     return sha(file)
 
 
-def fingerprint():
-    import hashlib
-    return hashlib.sha256((ROOT / 'config/facial-consistency-runtime.lock.json').read_bytes() +
-                          (ROOT / 'config/facial-consistency-models.lock.json').read_bytes()).hexdigest()
+def fingerprint(version='source-face-v1'):
+    from facial_runtime import profile_hash
+    return profile_hash(version)
 
 
 def remote_root(config):
@@ -51,8 +50,8 @@ def call(config, action, job=None, capture=True):
 
 def upload_runtime(config):
     root = remote_root(config)
-    names = ['scripts/download_models.py', 'scripts/facial_runtime.py', 'scripts/facial_worker.py', 'scripts/face_performance.py',
-             'config/facial-consistency-runtime.lock.json', 'config/facial-consistency-models.lock.json', 'config/server.json']
+    names = ['scripts/download_models.py', 'scripts/facial_runtime.py', 'scripts/facial_worker.py', 'scripts/face_performance.py', 'scripts/scene_face_composite.py',
+             'config/facial-consistency-runtime.lock.json', 'config/facial-consistency-models.lock.json', 'config/facial-consistency-scene.lock.json', 'config/server.json']
     with tempfile.TemporaryFile() as stream:
         with tarfile.open(fileobj=stream, mode='w:gz') as archive:
             for name in names:
@@ -85,7 +84,7 @@ def prepare_runtime(config):
     call(config, 'prepare', capture=False)
 
 
-def status(config):
+def status(config, version='source-face-v1'):
     exists = subprocess.run(vast.ssh_arguments(config) + ['-T', vast.destination(config),
         'test -f ' + str(remote_root(config) / 'scripts/facial_worker.py')], capture_output=True)
     if exists.returncode:
@@ -93,6 +92,8 @@ def status(config):
     value = call(config, 'status')
     if value.get('profileSHA256') != fingerprint():
         value.update(ready=False, runtimeReady=False, missing=[*value.get('missing', []), 'Updated facial tools'])
+    if version == 'source-face-v2' and value.get('sceneProfileSHA256') != fingerprint(version):
+        value.update(ready=False, runtimeReady=False, missing=[*value.get('missing', []), 'Updated scene-face tools'])
     return value
 
 
@@ -115,6 +116,7 @@ def main():
     parser.add_argument('--action', choices=['status', 'prepare', 'preflight', 'run', 'cancel'], required=True)
     parser.add_argument('--job')
     parser.add_argument('--profile', choices=['perform-onnx60', 'regional-onnx60'])
+    parser.add_argument('--version', choices=['source-face-v1', 'source-face-v2'], default='source-face-v1')
     parser.add_argument('--reference')
     parser.add_argument('--target')
     parser.add_argument('--source')
@@ -133,7 +135,7 @@ def main():
     signal.signal(signal.SIGTERM, cancel)
     signal.signal(signal.SIGINT, cancel)
     if args.action == 'status':
-        print('RECAST_FACIAL ' + json.dumps(status(config)), flush=True)
+        print('RECAST_FACIAL ' + json.dumps(status(config, args.version)), flush=True)
         return
     if args.action == 'prepare':
         prepare_runtime(config)
@@ -148,15 +150,17 @@ def main():
                 return
             time.sleep(1)
         raise ValueError('Facial cancellation is not confirmed. Reconnect the same instance to check it.')
-    tools = status(config)
+    tools = status(config, args.version)
     if not tools['ready']:
         raise ValueError('Prepare the selected facial tools beside Advanced settings. Nothing was downloaded by Generate.')
     if not args.reference or not args.profile:
         raise ValueError('The fixed facial reference and selected profile are required.')
     reference = Path(args.reference).resolve()
     vast.remote(config, ['mkdir', '-p', str(folder)])
-    request = {'jobId': job, 'profile': args.profile, 'profileSHA256': fingerprint(), 'referenceSHA256': digest(reference),
+    request = {'jobId': job, 'profile': args.profile, 'profileSHA256': fingerprint(args.version), 'referenceSHA256': digest(reference),
                'expected': {'frames': args.frames, 'width': args.width, 'height': args.height}}
+    if args.version == 'source-face-v2':
+        request['version'] = args.version
     write_request(config, folder, 'request.json', request)
     sync(config, str(reference), str(folder / 'reference.png'))
     if args.action == 'preflight':
@@ -213,7 +217,7 @@ def main():
     for name in ['final.mp4', 'receipt.json']:
         sync(config, str(folder / 'result' / name), str(output / name), download=True)
     receipt = json.loads((output / 'receipt.json').read_text())
-    if not receipt.get('complete') or receipt['inputs'] != {**inputs, 'version': 'source-face-v1'} or digest(output / 'final.mp4') != receipt['outputSHA256']:
+    if not receipt.get('complete') or receipt['inputs'] != {**inputs, 'version': args.version} or digest(output / 'final.mp4') != receipt['outputSHA256']:
         raise ValueError('Facial-result provenance/checksum failed. The remote result is kept for recovery.')
     (output / 'transport.json').write_text(json.dumps({'jobId': job, 'instanceId': args.instance_id, 'receiptSHA256': digest(output / 'receipt.json')}))
     print('RECAST_FACIAL ' + json.dumps({key: value for key, value in receipt.items() if key != 'records'}), flush=True)

@@ -8,6 +8,14 @@ Choose **Advanced settings → Facial consistency** before Generate:
 
 The complete flow is **Viggle segments → stitching/audio → source-driven PerformRecast → fixed-reference ONNX identity correction → saved final video**. No Library Refine/Swap action is required. Old Library actions and historical jobs remain compatible. The raw stitched animation is preserved separately and downloadable from run details.
 
+New facial jobs also offer **Match face to scene**, enabled by default when a
+facial profile is selected. This version keeps the same expression/identity
+inference and improves lighting, fine detail and edge integration with a native
+scene residual composite. Turning it off retains the original finish. Existing
+jobs keep their saved version. Update facial tools explicitly if prompted; this
+code update reuses all installed models. See the
+[measured nine-second comparison](scene-matched-face-20261030.md).
+
 The edited starting frame supplies one fixed face. The exact prepared input video supplies expressions at native 24 fps. This is GPU-only finishing on the same managed x86_64 CUDA 13 rental; the local CPU preference for older Library actions does not change it. Uncertain/hidden faces and large source/output pose mismatches retain the generated pixels and are counted in run details. This cannot guarantee gaze accuracy, perfect identity, or repair badly generated hands/occlusions.
 
 ## Explicit setup

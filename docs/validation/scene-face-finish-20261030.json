@@ -1,0 +1,116 @@
+{
+  "date": "2026-10-30",
+  "parentJobId": "a8ef4b97-7512-443d-b2b9-41321d6367ec",
+  "rawComparisonJobId": "ebec8f45-5866-406a-ac4d-3d87a6a75a56",
+  "finishedJobId": "196f011e-6487-4a44-a655-fb13fc4672ca",
+  "title": "Complete overlap + scene finish / 9s comparison",
+  "gpu": "NVIDIA RTX A6000",
+  "vramGB": 48,
+  "recipe": {
+    "continuation": "encoded-overlap-v3",
+    "referenceMode": "previous",
+    "imagenBoundaryRepaint": false,
+    "facialVersion": "source-face-v2",
+    "profile": "perform-onnx60",
+    "blend": 0.6,
+    "compositor": "scene-residual-v1",
+    "fixedSingleDonor": true,
+    "newModelFiles": 0
+  },
+  "productionWorker": {
+    "profileSHA256": "3952a4da82fcb2284788137279c7716102bba1e5755b2f6968502dc38dec3c08",
+    "frames": 216,
+    "processedFrames": 216,
+    "refinedFrames": 216,
+    "skippedFrames": 0,
+    "baseSHA256": "145467194d3bbc6f441a22b4c872f14ec262a9f0de38650cfecf81e5705b07a8",
+    "sourceSHA256": "453d43185501c28a79330cb84285cde786efed4bd14cef4b52c44f595081bbdb",
+    "referenceSHA256": "a38a715f96ccc7c2e5f340f0ad453a156eed4c6583e9b57a3e8a49e73cf86a5c",
+    "outputSHA256": "7e9fbc5ec7811a52e8c4b2e35e20c6f7fcd76eaea2ac2ed83d6d9dc2dd2dc0ea",
+    "elapsedSeconds": 70.9946245450119,
+    "gpu": "NVIDIA RTX A6000"
+  },
+  "output": {
+    "frames": 216,
+    "fps": 24,
+    "width": 704,
+    "height": 1248,
+    "seconds": 9,
+    "videoCodec": "h264",
+    "audioCodec": "aac",
+    "allAnimationFramesReused": true
+  },
+  "legacyFingerprint": "ef8f273a320b6d34c5efccf690610ad92f1aac0fdb9c4d60c4906557ade5b419",
+  "comparisonDiagnostics": {
+    "baseline": {
+      "name": "baseline",
+      "sha256": "76ee4ad1ba60084b32e05d3f2b3c522e518b4dbc10b85a542e0db8a830ffd830",
+      "alignedBoundaryDifference": 13.82712945360888,
+      "neighborMedianDifference": 3.2574967805237014,
+      "boundaryToNeighborRatio": 4.244710090361446,
+      "eyeDistanceRatioAtJoin": 0.9773061275482178,
+      "eyeCenterMovementAtJoinPx": [
+        4.741241455078125,
+        6.55145263671875
+      ],
+      "medianFaceLaplacianVariance": 19.162184715270996,
+      "note": "Appearance/placement diagnostics only; no identity or realism accuracy score."
+    },
+    "production": {
+      "name": "production-scene",
+      "sha256": "7e9fbc5ec7811a52e8c4b2e35e20c6f7fcd76eaea2ac2ed83d6d9dc2dd2dc0ea",
+      "alignedBoundaryDifference": 3.9569510026369046,
+      "neighborMedianDifference": 4.280370393082725,
+      "boundaryToNeighborRatio": 0.9244412607449858,
+      "eyeDistanceRatioAtJoin": 0.9909647703170776,
+      "eyeCenterMovementAtJoinPx": [
+        0.621734619140625,
+        0.60699462890625
+      ],
+      "medianFaceLaplacianVariance": 32.580848693847656,
+      "note": "Appearance/placement diagnostics only; no identity or realism accuracy score."
+    }
+  },
+  "review": "Synchronized before/after boundary frames reviewed for raw and both finished styles across all four native comparisons; final managed export played in QuickTime. Previous appearance plus full overlap reduced the obvious face jump; scene residual reduced the pasted/soft crop appearance. Tight Imagen still changes geometry/expression.",
+  "limits": [
+    "Local pixel/landmark/texture measurements are not identity or realism accuracy scores.",
+    "No validated full scene focus estimator or hair reconstruction; compositor preserves existing hair/body pixels.",
+    "Only one continuous-shot input and one fixed single-face donor were evaluated live for the selected combination.",
+    "No new 40/24 GB live benchmark or difficult-occlusion/cut quality pass.",
+    "70.995 seconds is face-worker processing/export only, excluding preflight, transfers and Viggle inference.",
+    "Existing private native-tail tests reused 169 paid frames and added 47 accepted frames each; no new full-clip generation latency claim."
+  ],
+  "checks": {
+    "studioFilesPassed": 39,
+    "studioTestsPassed": 418,
+    "studioTestsFailed": 0,
+    "facialPythonTestsPassed": 13,
+    "vigglePythonTestsPassed": 15,
+    "appearancePythonTestsPassed": 5,
+    "typescript": true,
+    "productionBuild": true,
+    "protectedPixelsExactBeforeCompression": true,
+    "originalRawAndFinishedSHA256Unchanged": true,
+    "legacyCompilerGraphsUnchanged": 23,
+    "legacyCompilerValidationErrorsUnchanged": 20,
+    "managedPreflightTransportAndReceiptValidated": true,
+    "runtimeSceneCapabilityVerified": true
+  },
+  "compute": {
+    "computeHourlyUSD": 0.4666666666666666,
+    "storageHourlyUSD": 0.017777777777777778,
+    "downloadPerGBUSD": 0.0026041666666666665,
+    "faceWorkerComputeEstimateUSD": 0.009203006885464505,
+    "accountCreditAtBlockStartUSD": 4.68470896774,
+    "accountCreditAtCheckUSD": 4.062453019839978,
+    "accountCreditDecreaseUSD": 0.6222559479000216,
+    "accountCheckAt": "2026-10-29T20:02:58.941650+00:00",
+    "accountLimit": "Observed account decrease includes setup, manual host changes, ingress/storage and a separate new user render; not an itemized task invoice.",
+    "confirmedStoppedAfterValidation": true,
+    "stoppedCheckAt": "2026-10-29T19:53:24.316835+00:00",
+    "idlePreferenceRestored": true,
+    "laterUserRunId": "ed594ff5-0251-49b2-844b-d12b6937ea57",
+    "laterUserRunUnchanged": true
+  },
+  "licensing": "Existing PerformRecast ResearchRAIL, recognition non-commercial and XSeg GPL limitations remain. No hosted-service clearance."
+}

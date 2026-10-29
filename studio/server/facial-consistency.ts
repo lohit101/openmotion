@@ -13,9 +13,14 @@ export class FacialConsistencyError extends Error {
   remoteStopped = false; cancellationConfirmed = false;
 }
 export const faceHash = (file: string) => createHash('sha256').update(readFileSync(file)).digest('hex');
-export const facialFingerprint = (repo: string) => createHash('sha256')
-  .update(readFileSync(path.join(repo, 'config/facial-consistency-runtime.lock.json')))
-  .update(readFileSync(path.join(repo, 'config/facial-consistency-models.lock.json'))).digest('hex');
+export const facialFingerprint = (repo: string, version: FacialConsistencyRun['version'] = 'source-face-v1') => {
+  const hash = createHash('sha256')
+    .update(readFileSync(path.join(repo, 'config/facial-consistency-runtime.lock.json')))
+    .update(readFileSync(path.join(repo, 'config/facial-consistency-models.lock.json')));
+  if (version === 'source-face-v2') hash.update(readFileSync(path.join(repo, 'config/facial-consistency-scene.lock.json')))
+    .update(readFileSync(path.join(repo, 'scripts/scene_face_composite.py')));
+  return hash.digest('hex');
+};
 
 export interface FacialBackend {
   preflight(job: Job, reference: string, signal: AbortSignal): Promise<void>;
@@ -55,8 +60,9 @@ export function facialCommand(repo: string, args: string[], signal?: AbortSignal
 export function newFacialRun(job: Pick<Job, 'settings' | 'progress'>, repo: string, instanceId: number | null): FacialConsistencyRun | undefined {
   if (!usesFacialConsistency(job.settings)) return undefined;
   if (!instanceId) throw new Error('Facial consistency requires a connected managed GPU.');
-  return { version: 'source-face-v1', profile: job.settings.facialConsistency as FacialConsistencyRun['profile'], blend: .6,
-    instanceId, profileSHA256: facialFingerprint(repo), state: 'pending', processedFrames: 0, frames: job.progress.targetFrames };
+  const version = job.settings.facialSceneMatch === false ? 'source-face-v1' : 'source-face-v2';
+  return { version, profile: job.settings.facialConsistency as FacialConsistencyRun['profile'], blend: .6,
+    instanceId, profileSHA256: facialFingerprint(repo, version), state: 'pending', processedFrames: 0, frames: job.progress.targetFrames };
 }
 
 export class ManagedFacialConsistency implements FacialBackend {
@@ -65,10 +71,10 @@ export class ManagedFacialConsistency implements FacialBackend {
     const run = job.facialConsistency!;
     if (this.store.value('cloud-connected-instance', null) !== run.instanceId || this.connection.status.state !== 'online' || this.connection.status.endpoint !== 'http://127.0.0.1:8188')
       throw new FacialConsistencyError('Reconnect the original GPU instance to continue this saved facial pass.');
-    if (facialFingerprint(this.repo) !== run.profileSHA256) throw new FacialConsistencyError('The saved facial recipe differs from these tools. The rendered video was preserved.');
+    if (facialFingerprint(this.repo, run.version) !== run.profileSHA256) throw new FacialConsistencyError('The saved facial recipe differs from these tools. The rendered video was preserved.');
     const [width, height] = outputDimensions(job);
     return ['--instance-id', String(run.instanceId), '--action', action, '--job', job.id, '--profile', run.profile,
-      '--frames', String(run.frames), '--width', String(width), '--height', String(height), ...(reference ? ['--reference', reference] : [])];
+      '--frames', String(run.frames), '--width', String(width), '--height', String(height), ...(run.version === 'source-face-v2' ? ['--version', run.version] : []), ...(reference ? ['--reference', reference] : [])];
   }
   async preflight(job: Job, reference: string, signal: AbortSignal) {
     const run = job.facialConsistency!;

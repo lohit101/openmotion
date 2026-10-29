@@ -87,7 +87,8 @@ def preflight(folder):
     from facefusion import content_analyser
     from facefusion.face_recognizer import calculate_face_embedding
     request = json.loads((folder / 'request.json').read_text())
-    if request['profileSHA256'] != profile_hash() or request['profile'] not in profile()['profiles']:
+    version = request.get('version', 'source-face-v1')
+    if request['profileSHA256'] != profile_hash(version) or request['profile'] not in profile()['profiles']:
         raise ValueError('The saved facial recipe does not match the installed tools.')
     expected = request['expected']
     if not all(isinstance(expected.get(key), int) for key in ['width', 'height', 'frames']) or not 1 <= expected['frames'] <= 720 or not all(64 <= expected[key] <= 4096 for key in ['width', 'height']):
@@ -104,12 +105,12 @@ def preflight(folder):
         raise ValueError('Use one clear face in the edited starting frame. Crop a character sheet before using it here.')
     _, embedding = calculate_face_embedding(cv2.imread(str(reference)), found[1])
     np.save(folder / 'donor.npy', embedding.astype(np.float32).reshape(1, 512))
-    atomic(folder / 'preflight.json', {'profileSHA256': profile_hash(), 'referenceSHA256': request['referenceSHA256'],
+    atomic(folder / 'preflight.json', {'profileSHA256': profile_hash(version), 'referenceSHA256': request['referenceSHA256'],
         'embeddingSHA256': digest(folder / 'donor.npy')})
     # Initialize the actual models now, before any new video sampling is paid for.
     from face_performance import FaceModels
     FaceModels(MODEL_ROOT, embedding)
-    return {'ready': True, 'referenceSHA256': request['referenceSHA256'], 'profileSHA256': profile_hash()}
+    return {'ready': True, 'referenceSHA256': request['referenceSHA256'], 'profileSHA256': profile_hash(version)}
 
 
 def running(folder):
@@ -132,7 +133,8 @@ def process(folder):
     from face_performance import FaceModels, composite_face, face_permission
     request = json.loads((folder / 'request.json').read_text())
     inputs = json.loads((folder / 'inputs.json').read_text())
-    if inputs['request'] != request or request['profileSHA256'] != profile_hash():
+    version = request.get('version', 'source-face-v1')
+    if inputs['request'] != request or request['profileSHA256'] != profile_hash(version):
         raise ValueError('The saved facial request changed; rendered media was preserved.')
     for key, filename in [('baseSHA256', 'target.mp4'), ('sourceSHA256', 'source.mp4'), ('referenceSHA256', 'reference.png')]:
         if digest(folder / filename) != inputs[key]:
@@ -145,7 +147,7 @@ def process(folder):
         raise ValueError('Source and generated video timing differ; no frames were invented or padded.')
     if info != inputs['target'] or source_info != inputs['source']:
         raise ValueError('Saved face-pass timing or dimensions changed.')
-    signature = {**inputs, 'version': 'source-face-v1'}
+    signature = {**inputs, 'version': version}
     result = folder / 'result'
     result.mkdir(exist_ok=True)
     receipt_file = result / 'receipt.json'
@@ -209,7 +211,11 @@ def process(folder):
                 permission = np.minimum(permission, create_occlusion_mask(driver)).clip(0, 1)
                 if permission.sum() >= 1:
                     corrected = models.correct(driver, crop, permission, request['profile'] == 'regional-onnx60')
-                    edited = composite_face(frame, corrected, tm, permission)
+                    if version == 'source-face-v2':
+                        from scene_face_composite import composite_scene_face
+                        edited = composite_scene_face(frame, crop, corrected, tm, permission)
+                    else:
+                        edited = composite_face(frame, corrected, tm, permission)
                     record.update(action='refined', reason=None)
                 else:
                     record['reason'] = 'face-occluded'

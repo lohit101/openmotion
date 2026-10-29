@@ -1,0 +1,6 @@
+{
+  "version": "source-face-v2",
+  "base_version": "source-face-v1",
+  "compositor": "scene-residual-v1",
+  "description": "Same source expressions and 60% fixed-donor identity blend, with bounded illumination/detail correction and a native-scene residual composite. No additional models."
+}

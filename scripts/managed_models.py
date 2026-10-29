@@ -78,9 +78,9 @@ def main():
                     'result["files"] += [{"id":"face-refinement/"+Path(f["path"]).name,"size":p.stat().st_size} for f in json.loads(sys.argv[4]) if (p:=face/f["path"]).is_file() and not p.is_symlink() and not p.parent.is_symlink()];'
                     'result["partials"] += [{"id":"face-refinement/"+Path(f["path"]).name,"size":min(f["size"],p.stat().st_size)} for f in json.loads(sys.argv[4]) if (p:=face/(f["path"]+".part")).is_file() and not p.is_symlink() and not p.parent.is_symlink()];'
                     'marker=root.parent/"facial-runtime/state/runtime-ready.json";'
-                    'result["facialRuntimeReady"]=marker.is_file() and json.loads(marker.read_text()).get("profileSHA256")==sys.argv[5];'
+                    'result["facialRuntimeReady"]=marker.is_file() and json.loads(marker.read_text()).get("sceneProfileSHA256")==sys.argv[5];'
                     'print("RECAST_MODEL_STORAGE "+json.dumps(result))')
-            vast.remote(config, ['python3', '-c', code, str(root / 'scripts'), str(root / 'models'), json.dumps(selected_manifest()['files']),json.dumps(face_files), __import__('managed_facial_consistency').fingerprint()])
+            vast.remote(config, ['python3', '-c', code, str(root / 'scripts'), str(root / 'models'), json.dumps(selected_manifest()['files']),json.dumps(face_files), __import__('managed_facial_consistency').fingerprint('source-face-v2')])
             return
         command = ['python3', str(root / 'scripts/model_storage.py'), '--model-dir', str(root / 'models')]
         if args.action == 'delete':

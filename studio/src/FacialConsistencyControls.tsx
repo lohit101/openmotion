@@ -5,13 +5,15 @@ import type { Settings } from '../shared/types';
 import { facialModelFiles } from '../shared/models';
 import { facialProfileLabels, type FacialProfile } from '../shared/facial-consistency';
 import { FieldLabel } from './InfoTip';
-import { api } from './components';
+import { api, Toggle } from './components';
 import { DownloadSelect, type DownloadControls } from './ModelDownloads';
 
-export default function FacialConsistencyControls({ value, change, downloads }: {
+export default function FacialConsistencyControls({ value, change, downloads, sceneMatch, changeSceneMatch }: {
   value: Settings['facialConsistency']; change: (value: FacialProfile) => void; downloads: DownloadControls;
+  sceneMatch?: boolean; changeSceneMatch?: (value: boolean) => void;
 }) {
   const [preparing, setPreparing] = useState(false);
+  const active = !!value && value !== 'off';
   const installed = facialModelFiles.every(id => downloads.state.files.find(file => file.id === id)?.status === 'installed');
   const prepare = async () => {
     setPreparing(true);
@@ -24,6 +26,8 @@ export default function FacialConsistencyControls({ value, change, downloads }: 
     <FieldLabel label="Facial consistency" help="Runs automatically after Viggle, before the video appears in Library. Standard matches the previous PerformRecast + 60% ONNX comparison. Regional reduces cheek/jaw/depth changes. Both copy visible source expressions, then blend a fixed-reference Hyperswap identity pass at 60%. No Library button is needed. Covered, uncertain or mismatched faces are preserved and reported. This does not guarantee exact gaze or identity. Uses an x86_64 CUDA GPU; downloads are explicit." />
     <DownloadSelect label="Facial consistency" value={value || 'off'} onChange={v => change(v as FacialProfile)} controls={downloads}
       options={(['off', 'perform-onnx60', 'regional-onnx60'] as const).map(profile => ({ value: profile, label: facialProfileLabels[profile], files: profile === 'off' ? [] : facialModelFiles }))} />
-    {value !== 'off' && installed && !downloads.state.facialRuntimeReady && <button type="button" className="secondary-button" disabled={preparing || !downloads.online || downloads.blocked || downloads.state.busy} onClick={() => void prepare()}><DownloadSimple size={15} />{preparing ? 'Preparing face tools…' : 'Prepare / update facial tools'}</button>}
+    {active && changeSceneMatch && <Toggle label="Match face to scene" checked={sceneMatch !== false} onChange={changeSceneMatch}
+      detail="Keeps the same expression and 60% identity blend, with bounded lighting/detail correction and inward edge blending. Preserves the surrounding hair, body and scene. Uses the existing models. Turn off for the original facial finish." />}
+    {active && installed && !downloads.state.facialRuntimeReady && <button type="button" className="secondary-button" disabled={preparing || !downloads.online || downloads.blocked || downloads.state.busy} onClick={() => void prepare()}><DownloadSimple size={15} />{preparing ? 'Preparing face tools…' : 'Prepare / update facial tools'}</button>}
   </div>;
 }

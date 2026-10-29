@@ -9,7 +9,7 @@ export const usesFacialConsistency = (settings: { engine?: string; facialConsist
   settings.engine === 'viggle' && !!settings.facialConsistency && settings.facialConsistency !== 'off';
 
 export interface FacialConsistencyRun {
-  version: 'source-face-v1'; profile: Exclude<FacialProfile, 'off'>; blend: 0.6; instanceId: number; profileSHA256: string;
+  version: 'source-face-v1' | 'source-face-v2'; profile: Exclude<FacialProfile, 'off'>; blend: 0.6; instanceId: number; profileSHA256: string;
   state: 'pending' | 'preparing' | 'processing' | 'saving' | 'downloaded' | 'complete' | 'interrupted';
   processedFrames: number; frames: number;
   baseSHA256?: string; sourceSHA256?: string; referenceSHA256?: string; outputSHA256?: string;

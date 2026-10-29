@@ -25,9 +25,15 @@ def profile():
     return json.loads((ROOT / 'config/facial-consistency-runtime.lock.json').read_text())
 
 
-def profile_hash():
-    return hashlib.sha256(((ROOT / 'config/facial-consistency-runtime.lock.json').read_bytes() +
-                           (ROOT / 'config/facial-consistency-models.lock.json').read_bytes())).hexdigest()
+def profile_hash(version='source-face-v1'):
+    data = ((ROOT / 'config/facial-consistency-runtime.lock.json').read_bytes() +
+            (ROOT / 'config/facial-consistency-models.lock.json').read_bytes())
+    if version == 'source-face-v2':
+        data += ((ROOT / 'config/facial-consistency-scene.lock.json').read_bytes() +
+                 (ROOT / 'scripts/scene_face_composite.py').read_bytes())
+    elif version != 'source-face-v1':
+        raise ValueError('Unsupported frozen facial recipe.')
+    return hashlib.sha256(data).hexdigest()
 
 
 def paths():
@@ -58,7 +64,20 @@ def inspect(verify=False, model_root=None):
         file = model_path(item, model_root)
         if file.is_symlink() or file.parent.is_symlink() or not file.is_file() or file.stat().st_size != item['size'] or verify and digest(file) != item['sha256']:
             missing.append(item['destination'])
-    return {'ready': not missing, 'runtimeReady': ready, 'missing': missing, 'profileSHA256': profile_hash(), 'bytes': manifest['total_bytes']}
+    try:
+        scene_hash = profile_hash('source-face-v2')
+        scene_ready = json.loads(marker.read_text()).get('sceneProfileSHA256') == scene_hash
+    except (OSError, ValueError):
+        scene_hash, scene_ready = None, False
+    return {'ready': not missing, 'runtimeReady': ready, 'missing': missing, 'profileSHA256': profile_hash(),
+            'sceneProfileSHA256': scene_hash if scene_ready else None, 'bytes': manifest['total_bytes']}
+
+
+def write_ready_marker():
+    marker = ROOT / 'state/runtime-ready.json'
+    temporary = marker.with_suffix('.tmp.json')
+    temporary.write_text(json.dumps({'profileSHA256': profile_hash(), 'sceneProfileSHA256': profile_hash('source-face-v2')}))
+    temporary.replace(marker)
 
 
 def link_models(model_root=None):
@@ -86,6 +105,7 @@ def prepare():
         fcntl.flock(lock, fcntl.LOCK_EX)
         if inspect()['runtimeReady']:
             link_models()
+            write_ready_marker()
             return
         if platform.machine() != 'x86_64':
             raise ValueError('Facial consistency currently needs an x86_64 NVIDIA host. No facial model download was started.')
@@ -113,8 +133,5 @@ def prepare():
         subprocess.run([str(python), '-m', 'pip', 'install', *profile()['packages']], env=env, check=True)
         subprocess.run([str(python), '-c', 'import torch,onnxruntime as o;o.preload_dlls();assert torch.cuda.is_available() and "CUDAExecutionProvider" in o.get_available_providers()'], check=True)
         link_models()
-        marker = ROOT / 'state/runtime-ready.json'
-        temporary = marker.with_suffix('.tmp.json')
-        temporary.write_text(json.dumps({'profileSHA256': profile_hash()}))
-        temporary.replace(marker)
+        write_ready_marker()
         print('RECAST_FACIAL_STAGE Face tools prepared; model weights stay on demand', flush=True)

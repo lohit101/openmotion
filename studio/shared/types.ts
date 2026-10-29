@@ -17,6 +17,7 @@ export const settingsSchema = z.object({
   viggleQuality: z.enum(['fast', 'balanced']).default('fast'),
   viggleReferenceMode: z.enum(['previous', 'original']).default('previous'),
   facialConsistency: facialProfileSchema.default('off'),
+  facialSceneMatch: z.boolean().default(true),
   imagenRepaint: imagenRepaintProfileSchema.nullable().default(null),
   imagenRepaintEnabled: z.boolean().default(false),
   mode: z.enum(['swap', 'motion']).default('swap'),
