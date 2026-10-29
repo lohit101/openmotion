@@ -58,15 +58,24 @@ def upload_runtime(config):
             for name in names:
                 archive.add(ROOT / name, arcname=name, recursive=False)
         stream.seek(0)
-        code = '''import tarfile,pathlib,sys
-r=pathlib.Path(sys.argv[1]);r.mkdir(parents=True,exist_ok=True)
-with tarfile.open(fileobj=sys.stdin.buffer,mode='r|gz')as a:
- for m in a:
-  p=pathlib.Path(m.name)
-  if p.is_absolute()or'..'in p.parts or m.issym()or m.islnk():raise ValueError('Unsafe runtime archive')
-  dest=r/p
-  if dest.is_symlink():raise ValueError('Unexpected linked runtime file')
-  a.extract(m,r,filter='data')
+        code = '''import tarfile,pathlib,sys,tempfile,shutil,os
+r=pathlib.Path(sys.argv[1])
+if r.is_symlink():raise ValueError('Unexpected linked runtime root')
+r.mkdir(parents=True,exist_ok=True)
+stage=pathlib.Path(tempfile.mkdtemp(prefix='.runtime-upload-',dir=r))
+try:
+ names=[]
+ with tarfile.open(fileobj=sys.stdin.buffer,mode='r|gz')as a:
+  for m in a:
+   p=pathlib.Path(m.name)
+   if p.is_absolute()or'..'in p.parts or not m.isfile():raise ValueError('Unsafe runtime archive')
+   dest=r/p
+   if dest.is_symlink()or any((r/parent).is_symlink()for parent in p.parents):raise ValueError('Unexpected linked runtime file')
+   a.extract(m,stage,filter='data');names.append(p)
+ for p in names:
+  (r/p).parent.mkdir(parents=True,exist_ok=True)
+  os.replace(stage/p,r/p)
+finally:shutil.rmtree(stage)
 '''
         vast.remote(config, ['python3', '-c', code, str(root)], stdin=stream)
 
