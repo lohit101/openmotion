@@ -274,6 +274,17 @@ class DownloadTests(unittest.TestCase):
         return {"destination": "diffusion_models/test.safetensors", "size": len(DATA),
                 "sha256": hashlib.sha256(DATA).hexdigest(), "repo": "test/test", "revision": "pinned", "filename": "test.safetensors"}
 
+    def test_refreshes_model_resolvers_without_changing_pinned_paths_or_unrelated_urls(self):
+        with patch.object(download_models.time, 'time', return_value=12345):
+            self.assertEqual(download_models.fresh_resolve_url('https://huggingface.co/org/repo/resolve/pinned/model.onnx'),
+                'https://huggingface.co/org/repo/resolve/pinned/model.onnx?download=true&recast=12345')
+            self.assertEqual(download_models.fresh_resolve_url('https://huggingface.co/org/repo/resolve/pinned/model.onnx?download=true&recast=old'),
+                'https://huggingface.co/org/repo/resolve/pinned/model.onnx?download=true&recast=12345')
+            self.assertEqual(download_models.fresh_resolve_url('https://github.com/org/repo/releases/download/v1/model.onnx'),
+                'https://github.com/org/repo/releases/download/v1/model.onnx?recast=12345')
+            for url in ['http://127.0.0.1/resume', 'https://huggingface.co.example/resolve/model', 'https://cdn.example/model?signature=abc']:
+                self.assertEqual(download_models.fresh_resolve_url(url), url)
+
     def test_resume_and_ignored_range_both_produce_the_correct_file(self):
         for route in ["/resume", "/ignore-range"]:
             with self.subTest(route=route), tempfile.TemporaryDirectory() as temporary:

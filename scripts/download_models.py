@@ -63,6 +63,20 @@ def valid_file(path, item, rehash=False):
     return True
 
 
+def fresh_resolve_url(url):
+    """Refresh resolver redirects; content identity still comes from pinned SHA256."""
+    parsed = urllib.parse.urlsplit(url)
+    github_release = parsed.hostname == 'github.com' and '/releases/download/' in parsed.path
+    huggingface_resolve = parsed.hostname == 'huggingface.co' and '/resolve/' in parsed.path
+    if not github_release and not huggingface_resolve:
+        return url
+    query = [(key, value) for key, value in urllib.parse.parse_qsl(parsed.query, keep_blank_values=True) if key != 'recast']
+    if huggingface_resolve and not any(key == 'download' for key, _ in query):
+        query.append(('download', 'true'))
+    query.append(('recast', str(int(time.time()))))
+    return urllib.parse.urlunsplit(parsed._replace(query=urllib.parse.urlencode(query)))
+
+
 def download(item, model_dir, *, opener=None, base_url=None, rehash=False, retries=4):
     relative = Path(item["destination"])
     if relative.is_absolute() or ".." in relative.parts:
@@ -80,8 +94,7 @@ def download(item, model_dir, *, opener=None, base_url=None, rehash=False, retri
             part.unlink()
         quoted = urllib.parse.quote(item["filename"], safe="/")
         url = base_url or item.get("url") or "https://huggingface.co/%s/resolve/%s/%s?download=true" % (item["repo"], item["revision"], quoted)
-        if urllib.parse.urlparse(url).hostname == 'github.com' and '/releases/download/' in url:
-            url += ('&' if '?' in url else '?') + 'recast=' + str(int(time.time()))
+        url = fresh_resolve_url(url)
         opener = opener or urllib.request.build_opener(SafeRedirect())
         for attempt in range(retries):
             try:
