@@ -112,5 +112,22 @@
     "laterUserRunId": "ed594ff5-0251-49b2-844b-d12b6937ea57",
     "laterUserRunUnchanged": true
   },
-  "licensing": "Existing PerformRecast ResearchRAIL, recognition non-commercial and XSeg GPL limitations remain. No hosted-service clearance."
+  "licensing": "Existing PerformRecast ResearchRAIL, recognition non-commercial and XSeg GPL limitations remain. No hosted-service clearance.",
+  "deployment": {
+    "at": "2026-10-29T20:25:06.159164+00:00",
+    "userRunId": "ed594ff5-0251-49b2-844b-d12b6937ea57",
+    "userRunStatus": "completed",
+    "userRunFrames": 317,
+    "userRunSettingsUnchanged": true,
+    "comparisonAvailableAndFavourited": true,
+    "newContinuationDefault": "encoded-overlap-v3",
+    "recommendedFacialProfile": "perform-onnx60",
+    "sceneMatchDefault": true,
+    "recommendedBoundaryRepaint": false,
+    "runtimeV2CapabilityReverified": true,
+    "existingEngineReconnected": true,
+    "newSetupOrDownloadOrComputeStart": false,
+    "workingDraft": "User is actively using Imagen; current draft remains user-controlled. Tested options are available in Remotion Advanced.",
+    "idlePauseEnabled": true
+  }
 }

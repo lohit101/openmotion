@@ -95,7 +95,13 @@ change, not an itemized task invoice.
 After validation the A6000 was independently confirmed exited/stopped and the
 five-minute idle preference restored. The user subsequently resumed it and
 started `ed594ff5-0251-49b2-844b-d12b6937ea57` on its saved `last-frame-v2` recipe.
-Leave that separate render untouched; deployment waits for its completion.
+That separate render completed with all 317 frames on its original recipe.
+Only then was Studio reloaded and reconnected to the existing running engine;
+no new setup, download or compute start was requested. The face runtime's v2
+capability and the completed Library comparison were verified again. The user's
+image workspace and current working draft remain user-controlled; choose the
+tested facial profile in Advanced when required. The normal five-minute idle
+monitor remains enabled for their subsequent work.
 
 Only this continuous-shot example was evaluated live for the new combination.
 There is no new 40/24 GB benchmark, hard-cut or difficult-occlusion quality pass.
