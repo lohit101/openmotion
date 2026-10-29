@@ -38,7 +38,9 @@
           "CUDAExecutionProvider",
           "CPUExecutionProvider"
         ]
-      }
+      },
+      "observedPreflightWallSeconds": 23.088,
+      "observedRunTransportWallSeconds": 85.478
     },
     {
       "profile": "regional-onnx60",
@@ -68,7 +70,9 @@
           "CUDAExecutionProvider",
           "CPUExecutionProvider"
         ]
-      }
+      },
+      "observedPreflightWallSeconds": 24.298,
+      "observedRunTransportWallSeconds": 97.173
     }
   ],
   "validation": {

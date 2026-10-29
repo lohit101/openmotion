@@ -19,3 +19,5 @@ Before new video sampling, preflight verifies CUDA initialization, the fixed don
 Protected scene/occlusion pixels are checked before compressed export. Final H.264 is CRF 16 with copied audio, not a mathematically lossless video. Results record selected profile, input/output checksums, actual CUDA providers, processed/skipped counts and worker timing. Raw references and embeddings remain private.
 
 Licensing remains private-evaluation only: PerformRecast's ResearchRAIL, non-commercial recognition weights and XSeg GPL terms are recorded in the pinned manifest. This integration is not clearance for a hosted commercial service.
+
+The matched five-second A6000 checks measured 23.1–24.3 seconds of preflight and 85.5–97.2 seconds from finishing command to locally verified output, including transfers, model initialization and upstream video checks. The inner frame-processing/export portion was 31.8–31.9 seconds. These are separate from Viggle inference and blank-runtime/model installation.
