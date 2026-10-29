@@ -57,7 +57,7 @@ export function fatalContainerStatus(message: unknown) {
   // Some hosts leave actual_status=loading after their builder has failed.
   // Match explicit fatal reports; elapsed time or quiet pull logs are not errors.
   return /^docker_build\(\)\s+error writing dockerfile\b/i.test(value) ||
-    /^Error response from daemon:.*(?:no space left on device|pull access denied|manifest unknown|no matching manifest)/i.test(value) ? value.slice(0, 500) : null;
+    /^Error response from daemon:[\s\S]*(?:no space left on device|pull access denied|manifest unknown|no matching manifest|failed to inject CDI devices:\s*unresolvable CDI devices)/i.test(value) ? value.slice(0, 500) : null;
 }
 export function matchesGpuProbe(instance: { gpu_name?: string; gpu_ram?: number | null }, output: string) {
   const minimumMemory = Math.max(24000, Number(instance.gpu_ram || 0) * 0.95);

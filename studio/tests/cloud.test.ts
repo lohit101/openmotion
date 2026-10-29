@@ -464,6 +464,26 @@ describe('Vast marketplace, billing and lifecycle', () => {
     expect(fixture.calls.filter(call => call.method === 'DELETE')).toHaveLength(1);
     expect(fatalContainerStatus('Still pulling image; taking longer than usual')).toBeNull();
   });
+  it('removes a new host with a fatal CDI device injection error and excludes it for 24 hours', async () => {
+    const { cloud, fixture, provision } = await manager();
+    fixture.setCreationState({ actual_status: 'created', status_msg: 'Error response from daemon: failed to create task for container:\nOCI runtime create failed: failed to inject CDI devices: unresolvable CDI devices D.fixture/gpu=3: unknown\nError: failed to start containers: C.777' });
+    const { offers } = await cloud.offers(filters); const launch = cloud.launch(offers[0].quote, .23, 'fatal-cdi');
+    await until(() => !cloud.state.busy);
+    expect(launch.phase).toBe('destroyed'); expect(launch.autoCleanup?.state).toBe('confirmed');
+    expect(provision).not.toHaveBeenCalled(); expect(fixture.calls.filter(call => call.method === 'DELETE')).toHaveLength(1);
+    expect((await cloud.offers(filters)).offers).toHaveLength(0);
+    expect(fatalContainerStatus('Installing NVIDIA CDI tooling; image pull in progress')).toBeNull();
+    expect(fatalContainerStatus('Error response from daemon: waiting for container resources')).toBeNull();
+  });
+  it('retains an installed disk if a later restart reports a CDI failure', async () => {
+    const { cloud, fixture, provision } = await manager();
+    const { offers } = await cloud.offers(filters); const launch = cloud.launch(offers[0].quote, .23, 'installed-cdi');
+    await until(() => !cloud.state.busy); expect(launch.phase).toBe('ready');
+    fixture.updateInstance({ actual_status: 'loading', status_msg: 'Error response from daemon: failed to inject CDI devices: unresolvable CDI devices D.fixture/gpu=3: unknown' });
+    await cloud.action(777, 'connect'); await until(() => !cloud.state.busy);
+    expect(launch.phase).toBe('stopped'); expect(launch.autoCleanup).toBeUndefined();
+    expect(provision).toHaveBeenCalledOnce(); expect(fixture.calls.some(call => call.method === 'DELETE')).toBe(false);
+  });
   it('removes a silent empty host only after repeated missing signals and independent SSH checks', async () => {
     const sshReachable = vi.fn(async () => false);
     const { cloud, fixture, provision } = await manager({ hostSilenceMs: 25, probe: async () => false, sshReachable });
