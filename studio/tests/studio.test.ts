@@ -198,6 +198,17 @@ describe('local app with the captured ComfyUI protocol', () => {
     const source = await agent.post('/api/assets/video').attach('file', video).expect(201); const ref = await agent.post('/api/assets/image').attach('file', image).expect(201);
     return { sourceId: source.body.id, referenceId: ref.body.id, settings: { ...defaults, preset: 'fast' as Settings['preset'], fps: 16 as Settings['fps'], seconds: 3 } };
   }
+  it('identifies unresolved facial work before refreshing models or queuing another paid job', async () => {
+    const agent = await setup(true), values = await inputs(agent);
+    Object.assign(values.settings, { engine: 'viggle', fps: 24, referencePreparation: 'prepared' });
+    vi.spyOn(local!.runner, 'hasUnconfirmedFaceWork').mockReturnValue(true);
+    const refresh = vi.spyOn(local!.models, 'refresh');
+    const response = await agent.post('/api/jobs').set('Idempotency-Key', 'blocked-face-check').send(values).expect(409);
+    expect(response.body.error).toContain('previous video’s facial pass');
+    expect(response.body.error).toContain('Check & resume');
+    expect(refresh).not.toHaveBeenCalled();
+    expect(local!.store.jobs()).toHaveLength(0); expect(mock!.submissions).toHaveLength(0);
+  });
   async function connect(agent: ReturnType<typeof request>) {
     await agent.post('/api/connection/connect').send({ endpoint: mock!.endpoint, useSSH: false }).expect(202);
     await until(() => local!.connection.status.state, state => state === 'online');

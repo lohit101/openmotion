@@ -44,7 +44,7 @@ def shutil_which(name):
 
 def upload_runtime(config):
     root=str(Path(config['remote_root'])/'face-refinement-runtime')
-    names=['scripts/local_identity.py','scripts/video_identity.py','scripts/source_face_performance.py','scripts/gpu_identity_worker.py','scripts/download_models.py','config/face-source-profile.json',
+    names=['scripts/local_identity.py','scripts/video_identity.py','scripts/video_timing.py','scripts/source_face_performance.py','scripts/gpu_identity_worker.py','scripts/download_models.py','config/face-source-profile.json',
            'config/local-identity.lock.json','config/local-video-identity.lock.json','config/gpu-video-identity.lock.json','config/server.json']
     with tempfile.TemporaryFile() as stream:
         with tarfile.open(fileobj=stream,mode='w:gz') as archive:

@@ -13,6 +13,7 @@ import urllib.request
 import uuid
 
 from facial_runtime import ROOT, MODEL_ROOT, digest, inspect, link_models, paths, prepare, profile, profile_hash
+from video_timing import decoded_video_info
 
 
 def atomic(file, data):
@@ -31,13 +32,12 @@ def idle():
 
 
 def video_info(file):
-    value = json.loads(subprocess.check_output(['ffprobe', '-v', 'error', '-count_frames', '-select_streams', 'v:0',
-        '-show_entries', 'stream=width,height,avg_frame_rate,nb_read_frames', '-of', 'json', str(file)]))['streams'][0]
-    frames = int(value['nb_read_frames'])
-    fps = Fraction(value['avg_frame_rate'])
-    if frames < 1 or frames > 720 or fps != 24:
+    data = json.loads(subprocess.check_output(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_streams',
+        '-show_frames', '-show_entries', 'stream=width,height,avg_frame_rate:frame=best_effort_timestamp_time', '-of', 'json', str(file)]))
+    info = decoded_video_info(data, expected_fps=24)
+    if not 1 <= info['frames'] <= 720:
         raise ValueError('Facial consistency requires 1–720 decoded frames at native 24 fps. No timing was changed.')
-    return {'width': int(value['width']), 'height': int(value['height']), 'frames': frames, 'fps': str(fps)}
+    return info
 
 
 def initialize():

@@ -50,7 +50,7 @@ def call(config, action, job=None, capture=True):
 
 def upload_runtime(config):
     root = remote_root(config)
-    names = ['scripts/download_models.py', 'scripts/facial_runtime.py', 'scripts/facial_worker.py', 'scripts/face_performance.py', 'scripts/scene_face_composite.py',
+    names = ['scripts/download_models.py', 'scripts/facial_runtime.py', 'scripts/facial_worker.py', 'scripts/video_timing.py', 'scripts/face_performance.py', 'scripts/scene_face_composite.py',
              'config/facial-consistency-runtime.lock.json', 'config/facial-consistency-models.lock.json', 'config/facial-consistency-scene.lock.json', 'config/server.json']
     with tempfile.TemporaryFile() as stream:
         with tarfile.open(fileobj=stream, mode='w:gz') as archive:
@@ -94,7 +94,30 @@ def status(config, version='source-face-v1'):
         value.update(ready=False, runtimeReady=False, missing=[*value.get('missing', []), 'Updated facial tools'])
     if version == 'source-face-v2' and value.get('sceneProfileSHA256') != fingerprint(version):
         value.update(ready=False, runtimeReady=False, missing=[*value.get('missing', []), 'Updated scene-face tools'])
+    if value.get('timingSHA256') != digest(ROOT / 'scripts/video_timing.py'):
+        value.update(ready=False, runtimeReady=False, missing=[*value.get('missing', []), 'Updated frame-timing tools'])
     return value
+
+
+def facial_input_info(config, job, target, source):
+    try:
+        # The frozen Remotion contract supplies 24 fps. Actual decoded PTS must
+        # match it, even when a short stream-copy join reports a wrong average.
+        target_info = video_info(target, expected_fps=24)
+        source_info = video_info(source, expected_fps=24)
+        if target_info['frames'] != source_info['frames'] or target_info['fps'] != source_info['fps']:
+            raise ValueError('Source and generated frame timing differ. No facial processing was submitted.')
+        return target_info, source_info
+    except (ValueError, OSError, subprocess.SubprocessError):
+        # A local validation failure is not an unknown live GPU task. Only clear
+        # that flag after independently checking the saved remote worker.
+        try:
+            state = call(config, 'poll', job)
+            if state.get('running') is False:
+                print('RECAST_FACIAL_STOPPED', flush=True)
+        except (ValueError, OSError, subprocess.SubprocessError):
+            pass
+        raise
 
 
 def write_request(config, folder, file, data):
@@ -184,9 +207,7 @@ def main():
     if output in [target, source, reference] or output in target.parents or output in source.parents:
         raise ValueError('Keep corrected output separate from its immutable inputs.')
     output.mkdir(parents=True, exist_ok=True)
-    target_info, source_info = video_info(target), video_info(source)
-    if target_info['frames'] != source_info['frames'] or target_info['fps'] != source_info['fps']:
-        raise ValueError('Source and generated frame timing differ. No facial processing was submitted.')
+    target_info, source_info = facial_input_info(config, job, target, source)
     inputs = {'request': request, 'target': target_info, 'source': source_info, 'baseSHA256': digest(target),
               'sourceSHA256': digest(source), 'referenceSHA256': digest(reference)}
     write_request(config, folder, 'inputs.json', inputs)

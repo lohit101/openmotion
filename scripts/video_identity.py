@@ -19,6 +19,7 @@ import time
 import urllib.request
 
 from local_identity import ROOT, digest, locations, setup as base_setup, status as base_status
+from video_timing import decoded_video_info
 
 LOCK = ROOT / 'config/local-video-identity.lock.json'
 
@@ -55,21 +56,10 @@ def setup(python=None):
     return status(verify=True)
 
 
-def video_info(file):
+def video_info(file, expected_fps=None):
     data = json.loads(subprocess.check_output(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_streams',
                       '-show_frames', '-show_entries', 'stream=width,height,avg_frame_rate:frame=best_effort_timestamp_time', '-of', 'json', str(file)]))
-    streams = data.get('streams', [])
-    if len(streams) != 1:
-        raise ValueError('Choose a video with one readable video stream.')
-    stream = streams[0]; fps = Fraction(stream['avg_frame_rate'])
-    if fps <= 0 or fps > 60:
-        raise ValueError('The saved video must have a known frame rate up to 60 fps.')
-    times = [float(frame['best_effort_timestamp_time']) for frame in data.get('frames', [])]
-    if not times or not all(math.isfinite(value) for value in times):
-        raise ValueError('Decoded video timestamps are missing or invalid.')
-    if any(abs((value - times[0]) - index / float(fps)) > 0.001 for index, value in enumerate(times)):
-        raise ValueError('Variable frame timing needs explicit preparation; no silent frame duplication or trimming is allowed.')
-    return {'width': stream['width'], 'height': stream['height'], 'frames': len(times), 'fps': str(fps)}
+    return decoded_video_info(data, expected_fps)
 
 
 def face_permission(frame, box):

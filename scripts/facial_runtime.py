@@ -69,14 +69,20 @@ def inspect(verify=False, model_root=None):
         scene_ready = json.loads(marker.read_text()).get('sceneProfileSHA256') == scene_hash
     except (OSError, ValueError):
         scene_hash, scene_ready = None, False
+    timing_hash = digest(ROOT / 'scripts/video_timing.py')
+    try:
+        timing_ready = json.loads(marker.read_text()).get('timingSHA256') == timing_hash
+    except (OSError, ValueError):
+        timing_ready = False
     return {'ready': not missing, 'runtimeReady': ready, 'missing': missing, 'profileSHA256': profile_hash(),
-            'sceneProfileSHA256': scene_hash if scene_ready else None, 'bytes': manifest['total_bytes']}
+            'sceneProfileSHA256': scene_hash if scene_ready else None, 'timingSHA256': timing_hash if timing_ready else None, 'bytes': manifest['total_bytes']}
 
 
 def write_ready_marker():
     marker = ROOT / 'state/runtime-ready.json'
     temporary = marker.with_suffix('.tmp.json')
-    temporary.write_text(json.dumps({'profileSHA256': profile_hash(), 'sceneProfileSHA256': profile_hash('source-face-v2')}))
+    temporary.write_text(json.dumps({'profileSHA256': profile_hash(), 'sceneProfileSHA256': profile_hash('source-face-v2'),
+                                     'timingSHA256': digest(ROOT / 'scripts/video_timing.py')}))
     temporary.replace(marker)
 
 
