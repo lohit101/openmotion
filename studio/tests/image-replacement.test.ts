@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { defaults, type Catalog, type Job } from '../shared/types';
-import { bodyOnlyConditioningPrompt, bodyOnlyPrompt, bodyOnlyPromptV1, defaultImagePrompt, emptyImageDraft, imageDefaults, imageGeometry, imagePrompt, imageReferenceViewSchema, imageSettingsSchema, isImageJob, legacyImagePrompt, referenceViewIssue, sourceFramePreset, sourceFrameImageSettings, singleImageConditioningPrompt } from '../shared/image-replacement';
+import { bodyOnlyConditioningPrompt, conciseBodyConditioningPrompt, conciseBodyOnlyPrompt, bodyOnlyPrompt, bodyOnlyPromptV1, defaultImagePrompt, emptyImageDraft, imageDefaults, imageGeometry, imagePrompt, imageReferenceViewSchema, imageSettingsSchema, isImageJob, legacyImagePrompt, referenceViewIssue, sourceFramePreset, sourceFrameImageSettings, singleImageConditioningPrompt } from '../shared/image-replacement';
 import { IMAGE_IDENTITY, QWEN_BODY, QWEN_HEAD, QWEN_STRUCTURE, QWEN_OUTFIT, QWEN_CONSISTENCY, imageFilesForSettings, imageModelFiles, modelBytes, pinnedModels, qwenImageModelFiles } from '../shared/models';
 import { compileWorkflow, validateGraph } from '../server/workflow';
 import { applyProgress } from '../server/comfy';
@@ -38,6 +38,24 @@ describe('source-preserving Klein image replacement', () => {
     expect(String(graph['108'].inputs.prompt)).not.toContain('<image3>');
     expect(graph['118'].inputs).toMatchObject({ steps: 8, cfg: 1 });
     expect(imageFilesForSettings(job.image!.settings)).toHaveLength(4);
+  });
+  it('freezes concise new instructions and keeps the real two/three-reference contracts', () => {
+    const job = fixture(); job.image!.settings = { ...imageDefaults };
+    for (const single of [false, true]) {
+      job.image!.version = single ? 'body-only-single-v2' : 'body-only-v7';
+      job.image!.conditioningPrompt = conciseBodyConditioningPrompt(bodyOnlyPrompt, single);
+      const graph = compileWorkflow({}, job);
+      expect(validateGraph(graph, catalog)).toEqual([]);
+      expect(graph['108'].inputs.prompt).toBe(job.image!.conditioningPrompt);
+      expect(graph['108'].inputs['images.image_3']).toEqual(single ? undefined : ['5', 0]);
+      expect(String(graph['108'].inputs.prompt).includes('<image3>')).toBe(!single);
+      expect(String(graph['108'].inputs.prompt)).toContain('eyeglasses');
+      expect(String(graph['108'].inputs.prompt)).toContain('neckline');
+      expect(graph['118'].inputs.steps).toBe(8);
+    }
+    expect(conciseBodyConditioningPrompt(bodyOnlyPrompt)).toBe(conciseBodyOnlyPrompt);
+    expect(conciseBodyConditioningPrompt('Keep the blue buttons.')).toContain('Keep the blue buttons.');
+    expect(imageSettingsSchema.parse({ prompt: bodyOnlyPrompt }).prompt).toBe(conciseBodyOnlyPrompt);
   });
   it('uses the accepted native preset for new photos and newly prepared source frames', () => {
     expect(emptyImageDraft().settings).toMatchObject(sourceFramePreset);
@@ -190,7 +208,7 @@ describe('source-preserving Klein image replacement', () => {
     expect(imageFilesForSettings(job.image!.settings)).toContain(QWEN_STRUCTURE);
   });
   it('uses a separate draft and only the existing three image models', () => {
-    expect(emptyImageDraft().settings.prompt).toBe(bodyOnlyPrompt);
+    expect(emptyImageDraft().settings.prompt).toBe(conciseBodyOnlyPrompt);
     expect(emptyImageDraft().settings.protectBackground).toBe(true);
     expect(imageModelFiles).toHaveLength(3); expect(modelBytes(imageModelFiles)).toBe(12_451_817_860);
     expect(imageModelFiles.some(name => /viggle|SCAIL|lora/i.test(name))).toBe(false);

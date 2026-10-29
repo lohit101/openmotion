@@ -8,11 +8,11 @@ export function compileQwenBodyOnlyWorkflow(job: Job): Graph {
   if (['body-only-v5', 'body-only-v6'].includes(job.image?.version || '')) return addBodyOnlyHeadDetail(job, job.image!.reusedBody ? {} : compileQwenBodyOnlyWorkflow({ ...job, image: { ...job.image!, version: 'body-only-v2' } }));
   if (['body-only-v3', 'body-only-v4'].includes(job.image?.version || '')) return compileQwenBodyOnlyStagedWorkflow(job);
   const run = job.image, u = job.uploads;
-  const single = run?.version === 'body-only-single-v1';
+  const single = run?.version?.startsWith('body-only-single-');
   if (!run || !u?.source || !u.reference || !single && !u.face || !u.original || !u.mask || !run.settings.protectBackground) throw new Error('Body-only replacement needs the target, body reference, face reference and painted edit area.');
   const s = run.settings, g = run.geometry, graph: Graph = {};
   const add = (id: string, class_type: string, inputs: Record<string, unknown>, title: string) => { graph[id] = { class_type, inputs, _meta: { title } }; };
-  const prompt = run.version === 'body-only-v2' || single ? run.conditioningPrompt : bodyOnlyConditioningPrompt(s.prompt, true);
+  const prompt = ['body-only-v2', 'body-only-v7'].includes(run.version || '') || single ? run.conditioningPrompt : bodyOnlyConditioningPrompt(s.prompt, true);
   if (!prompt?.trim()) throw new Error('The saved body-only conditioning prompt is missing. Reuse settings for a new image; this run will not change its instructions.');
   add('1', 'LoadImage', { image: u.source }, 'Target scene · original outfit, pose and camera');
   add('4', 'LoadImage', { image: u.reference }, 'Body reference · physique only, ignore its outfit');

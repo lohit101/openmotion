@@ -8,5 +8,6 @@ export interface SegmentRepaint {
 }
 export interface ViggleRepaintRun {
   version: 'imagen-face-v1'; character: CharacterSnapshot; imageSettings: ImageSettings; initialImageJobId?: string;
+  imageRecipe?: 'concise-v1';
   records: SegmentRepaint[]; activePhotoId?: string; photoProgress?: { stage: string; value: number | null; max: number | null };
 }

@@ -1,0 +1,135 @@
+{
+  "date": "2026-10-29",
+  "sameInputComparisons": [
+    {
+      "case": "accessories-good",
+      "parentJobId": "23695ff2-d161-4e6a-bd23-1ce531adb928",
+      "promptId": "33ce1982-a99a-4a32-8c18-8d0a6795faca",
+      "nativeSeconds": 20.821,
+      "status": "success"
+    },
+    {
+      "case": "accessories-noop",
+      "parentJobId": "05004a03-2899-4c36-8e53-b5a71a5936a6",
+      "promptId": "0c521869-0019-40cd-9f91-64962d264d9c",
+      "nativeSeconds": 9.555,
+      "status": "success"
+    },
+    {
+      "case": "accessories-outdoor",
+      "parentJobId": "46dfdcd6-ca5f-479d-b459-5067f3f75d32",
+      "promptId": "7e6b7da6-ca3e-490b-bf55-6bf72768b101",
+      "nativeSeconds": 20.764,
+      "status": "success"
+    },
+    {
+      "case": "concise-good",
+      "parentJobId": "23695ff2-d161-4e6a-bd23-1ce531adb928",
+      "promptId": "cd667608-e14f-426a-9784-03775093cbf5",
+      "nativeSeconds": 20.749,
+      "status": "success"
+    },
+    {
+      "case": "concise-noop",
+      "parentJobId": "05004a03-2899-4c36-8e53-b5a71a5936a6",
+      "promptId": "842ae6d4-dd20-40b5-acc9-b49def757044",
+      "nativeSeconds": 15.52,
+      "status": "success"
+    },
+    {
+      "case": "concise-outdoor",
+      "parentJobId": "46dfdcd6-ca5f-479d-b459-5067f3f75d32",
+      "promptId": "39eaf290-fc24-4387-8963-482df9dc0575",
+      "nativeSeconds": 20.569,
+      "status": "success"
+    },
+    {
+      "case": "face-first-good",
+      "parentJobId": "23695ff2-d161-4e6a-bd23-1ce531adb928",
+      "promptId": "8b0db65c-c2ac-46ed-9cbe-dd44146d0fa0",
+      "nativeSeconds": 20.737,
+      "status": "success"
+    },
+    {
+      "case": "face-first-noop",
+      "parentJobId": "05004a03-2899-4c36-8e53-b5a71a5936a6",
+      "promptId": "a4fe4b18-d4ba-4a4c-ab77-cc531054e739",
+      "nativeSeconds": 9.514,
+      "status": "success"
+    },
+    {
+      "case": "face-first-outdoor",
+      "parentJobId": "46dfdcd6-ca5f-479d-b459-5067f3f75d32",
+      "promptId": "09f63b04-746c-4f35-b9ac-a91df30dabb5",
+      "nativeSeconds": 20.689,
+      "status": "success"
+    },
+    {
+      "case": "locked-baseline",
+      "parentJobId": "545ff68d-173f-4acd-98bf-c805f57cea90",
+      "promptId": "de9f1246-0136-45b2-a0d4-5508af568904",
+      "nativeSeconds": 9.622,
+      "status": "success"
+    },
+    {
+      "case": "locked-good",
+      "parentJobId": "23695ff2-d161-4e6a-bd23-1ce531adb928",
+      "promptId": "ea56dcfc-f35f-40d3-8002-b3038cdcef21",
+      "nativeSeconds": 20.828,
+      "status": "success"
+    },
+    {
+      "case": "locked-noop",
+      "parentJobId": "05004a03-2899-4c36-8e53-b5a71a5936a6",
+      "promptId": "3f853b5b-fa27-4f58-89ea-28891b5ea794",
+      "nativeSeconds": 9.629,
+      "status": "success"
+    },
+    {
+      "case": "locked-outdoor",
+      "parentJobId": "46dfdcd6-ca5f-479d-b459-5067f3f75d32",
+      "promptId": "fbbd9881-7bf3-42b6-a2e0-b0d606dd8163",
+      "nativeSeconds": 20.767,
+      "status": "success"
+    },
+    {
+      "case": "locked-outdoor-late",
+      "parentJobId": "afe231ac-6f19-4288-9453-bdb769c7ade1",
+      "promptId": "ed7e13ad-b095-4002-99d7-05c6c488243b",
+      "nativeSeconds": 20.762,
+      "status": "success"
+    },
+    {
+      "case": "locked-single",
+      "parentJobId": "9ae592ec-49f5-48dd-be07-e7dd62f08393",
+      "promptId": "e9db9111-ef4d-470a-86d0-75dfe4738847",
+      "nativeSeconds": 9.27,
+      "status": "success"
+    }
+  ],
+  "newAppRun": {
+    "jobId": "478f55bd-9c30-43bf-bb24-a62814acd30b",
+    "version": "body-only-v7",
+    "endToEndSeconds": 25.02
+  },
+  "historicalPaidGraphsUnchanged": 32,
+  "modelDownloadsForImagen": 0,
+  "checks": {
+    "typescriptTests": 39,
+    "pythonTests": 27,
+    "build": true
+  },
+  "observations": [
+    "A concise edit instruction replaced the identity in the prior no-op pair with the same references and seed.",
+    "Concise-only lost glasses and one neckline; explicit accessory/garment instructions recovered them in the selected recipe.",
+    "Changing reference order did not justify a new input contract. Scene/body/face order remains unchanged.",
+    "Outdoor and accepted-source holdouts show clearer face/hair transfer.",
+    "Source expression/gaze, printed text, jewelry and precise anatomy can still vary; this is not a universal identity guarantee."
+  ],
+  "computeStateAfterEvaluation": "confirmed exited/stopped",
+  "sessionEstimateUSD": {
+    "compute": 0.1753,
+    "faceModelIngress": 0.0058,
+    "excluded": "retained storage, package/media transfers and provider invoice differences"
+  }
+}

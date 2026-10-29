@@ -197,20 +197,20 @@ def prepare(request, folder, model):
     qwen = s.get("model") == "qwen21"
     scene = qwen and request.get("version") in ("scene-anchor-v1", "scene-anchor-v2", "scene-anchor-v3", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7", "scene-anchor-v8")
     body_identity = request.get('version') in ('body-identity-v1', 'body-identity-v2')
-    body_only = request.get('version') in ('body-only-v1', 'body-only-v2', 'body-only-v3', 'body-only-v4', 'body-only-v5', 'body-only-v6', 'body-only-single-v1')
+    body_only = request.get('version') in ('body-only-v1', 'body-only-v2', 'body-only-v3', 'body-only-v4', 'body-only-v5', 'body-only-v6', 'body-only-v7', 'body-only-single-v1', 'body-only-single-v2')
     staged_body_only = request.get('version') in ('body-only-v3', 'body-only-v4')
     native_mask = body_identity or body_only or request.get("version") in ("native-mask-v1", "native-scene-v1", "identity-first-v1", "identity-first-v2", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7", "scene-anchor-v8")
     head_refine = (scene or native_mask) and s.get("qwenHeadRefine", False)
     reference_input, cropped = reference_field_of_view(reference, source, model) if request.get("version") == "masked-latent-v4" and not qwen else (reference, False)
-    if request.get('version') in ('body-only-v2', 'body-only-v3', 'body-only-v4', 'body-only-v5', 'body-only-v6', 'body-only-single-v1'):
+    if request.get('version') in ('body-only-v2', 'body-only-v3', 'body-only-v4', 'body-only-v5', 'body-only-v6', 'body-only-v7', 'body-only-single-v1', 'body-only-single-v2'):
         reference_input = reference_view(reference_input, s.get('bodyReferenceView'))
     atomic_png(folder / "identity.png", padded(reference_input, 1_500_000 if body_only else 590_000 if qwen else 1_000_000, 32 if qwen else 16))
     outputs = ["target.png", "original.png", "identity.png"]
-    if body_only and request.get('version') != 'body-only-single-v1':
+    if body_only and request.get('version') not in ('body-only-single-v1', 'body-only-single-v2'):
         if not request.get('face'):
             raise ValueError('Body-only replacement requires its facial identity reference or sheet.')
         facial_reference = read_image(request['face'])
-        if request.get('version') in ('body-only-v2', 'body-only-v3', 'body-only-v4', 'body-only-v5', 'body-only-v6', 'body-only-single-v1'):
+        if request.get('version') in ('body-only-v2', 'body-only-v3', 'body-only-v4', 'body-only-v5', 'body-only-v6', 'body-only-v7', 'body-only-single-v1', 'body-only-single-v2'):
             facial_reference = reference_view(facial_reference, s.get('faceReferenceView'))
         atomic_png(folder / 'face.png', padded(facial_reference, 1_500_000, 32))
         outputs.append('face.png')
@@ -243,7 +243,7 @@ def prepare(request, folder, model):
         outputs.append('body-reference-canvas.png')
     if local_identity:
         outputs += ['identity-anchored-target.png', 'identity-anchored-target.identity.json']
-    warnings, has_face = [], body_only and request.get('version') != 'body-only-single-v1'
+    warnings, has_face = [], body_only and request.get('version') not in ('body-only-single-v1', 'body-only-single-v2')
     if cropped:
         warnings.append("The full-body identity reference was cropped to match the target's tighter field of view. The original reference is retained.")
     refine = (request.get("version") in ["masked-latent-v3", "masked-latent-v4"] and s.get("identityRefine", False)) or head_refine
@@ -525,8 +525,8 @@ def finish(request, folder, model):
     faces = {}
     settings = request["settings"]
     face_used = (settings.get("model") != "qwen21" and (settings["faceDetail"] or settings.get("identityRefine", False))) or (request.get("version") in ("scene-anchor-v1", "scene-anchor-v2", "scene-anchor-v3", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7", "scene-anchor-v8", "native-mask-v1", "native-scene-v1", "identity-first-v1", "identity-first-v2", "body-identity-v1", "body-identity-v2") and settings.get("qwenHeadRefine", False))
-    reference_file = (str(folder / 'face.png') if request.get('version') in ('body-only-v2', 'body-only-v3', 'body-only-v4', 'body-only-v5', 'body-only-v6') else request.get("face") if face_used or request.get('version') == 'body-only-v1' else None) or request["reference"]
-    if request.get('version') == 'body-only-single-v1':
+    reference_file = (str(folder / 'face.png') if request.get('version') in ('body-only-v2', 'body-only-v3', 'body-only-v4', 'body-only-v5', 'body-only-v6', 'body-only-v7') else request.get("face") if face_used or request.get('version') == 'body-only-v1' else None) or request["reference"]
+    if request.get('version') in ('body-only-single-v1', 'body-only-single-v2'):
         reference_file = str(folder / 'identity.png')
     if request.get("version") in ("native-mask-v1", "native-scene-v1", "identity-first-v1", "identity-first-v2", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7", "scene-anchor-v8", "body-identity-v1", "body-identity-v2") and face_used:
         reference_file = str(folder / "face.png")

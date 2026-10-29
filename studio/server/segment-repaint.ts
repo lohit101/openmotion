@@ -4,7 +4,7 @@ import path from 'node:path';
 import type { Store } from './store';
 import { command, ingest } from './media';
 import { characterForImage } from './characters';
-import { bodyOnlyConditioningPrompt, emptyImageDraft, imageGeometry, sourceFrameImageSettings } from '../shared/image-replacement';
+import { bodyOnlyConditioningPrompt, conciseFaceRefreshPrompt, emptyImageDraft, imageGeometry, sourceFrameImageSettings } from '../shared/image-replacement';
 import { defaults, type Job, type Settings } from '../shared/types';
 import type { ViggleRepaintRun } from '../shared/segment-repaint';
 import { viggleWindow } from '../shared/viggle-segments';
@@ -44,7 +44,7 @@ export function resolveRepaintProfile(store: Store, settings: Settings, referenc
       settings: { ...sourceFrameImageSettings(), bodyReferenceView: profile.bodyView, faceReferenceView: profile.faceView } };
     character = characterForImage(store, draft)!;
   }
-  return { version: 'imagen-face-v1', character, imageSettings: { ...sourceFrameImageSettings(), bodyReferenceView: character.bodyView, faceReferenceView: character.faceView }, records: [{ segment: 1, frame: 0, status: 'provided' }], ...(profile.sourceImageJobId ? { initialImageJobId: profile.sourceImageJobId } : {}) };
+  return { version: 'imagen-face-v1', imageRecipe: 'concise-v1', character, imageSettings: { ...sourceFrameImageSettings(), bodyReferenceView: character.bodyView, faceReferenceView: character.faceView }, records: [{ segment: 1, frame: 0, status: 'provided' }], ...(profile.sourceImageJobId ? { initialImageJobId: profile.sourceImageJobId } : {}) };
 }
 
 export interface RepaintHost {
@@ -106,9 +106,9 @@ export async function prepareSegmentRepaint(host: RepaintHost, job: Job, signal:
     const scope = await ingest(host.store, path.join(folder, 'scope-mask.png'), 'image', `Segment ${segment} · facial edit scope.png`, true); scope.maskFor = target.id; host.store.addAsset(scope);
     const settings = structuredClone(state.imageSettings), geometry = imageGeometry(target, settings.megapixels, 'qwen21');
     photo = { id: randomUUID(), title: `Segment ${segment} · ${state.character.name} face refresh`, mediaType: 'image', status: 'queued', origin: 'render', sourceId: target.id, referenceId: state.character.bodyId,
-      settings: { ...defaults, prompt: settings.prompt, seed: settings.seed, randomSeed: false }, image: { version: 'body-only-v2', settings, geometry, faceId: state.character.faceId, maskId: scope.id, scopeMaskId: scope.id,
+      settings: { ...defaults, prompt: settings.prompt, seed: settings.seed, randomSeed: false }, image: { version: state.imageRecipe === 'concise-v1' ? 'body-only-v7' : 'body-only-v2', settings, geometry, faceId: state.character.faceId, maskId: scope.id, scopeMaskId: scope.id,
         character: structuredClone(state.character), segmentRepaint: { videoJobId: job.id, segment, frame },
-        conditioningPrompt: bodyOnlyConditioningPrompt(settings.prompt) + '\nRefresh only the visible facial identity from the selected facial reference. Keep the current head rotation, gaze, mouth opening and expression, existing hair, body, clothes and accessories. Preserve foreground obstructions and do not reveal a hidden face.' },
+        conditioningPrompt: state.imageRecipe === 'concise-v1' ? conciseFaceRefreshPrompt : bodyOnlyConditioningPrompt(settings.prompt) + '\nRefresh only the visible facial identity from the selected facial reference. Keep the current head rotation, gaze, mouth opening and expression, existing hair, body, clothes and accessories. Preserve foreground obstructions and do not reveal a hidden face.' },
       width: geometry.width, height: geometry.height, outputSize: { width: target.width, height: target.height }, createdAt: new Date().toISOString(), favorite: false, deleted: false,
       progress: { stage: 'Queued for segment face refresh', node: null, value: null, max: null, unit: 'steps', segment: 1, segments: 1, completedFrames: 0, targetFrames: 1, updatedAt: Date.now() },
       segments: [], context: '', uploads: null, pendingPrompt: null, workflow: null, error: null, output: null, poster: null, elapsedSeconds: null, cancelRequested: false };

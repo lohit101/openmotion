@@ -25,11 +25,15 @@ Keep <image1>'s exact camera viewpoint, framing, camera distance, subject placem
 
 export const bodyOnlyPrompt = bodyOnlyPromptV1 + `\n\nKeep visible occluders and visibility from <image1>. If the face is covered, offscreen or facing away, keep it hidden: do not turn the head toward the camera or invent a visible frontal face. Preserve the original hand, object or foreground obstruction and its position.`;
 
+// Evaluated against the failed indoor pair, outdoor pair and accepted baseline.
+// The older prompts remain frozen for historical graphs and staged recipes.
+export const conciseBodyOnlyPrompt = `Replace the person in <image1> with the person from <image2> and <image3>. Use <image3> for their exact facial identity and hair, and <image2> for their physique and body proportions. The replacement person wears the original clothes and accessories from <image1>, fitted naturally to the new physique. Keep <image1>'s pose, head rotation, gaze, expression, screen position and camera distance. Match the original scene lighting and photographic texture. Keep the background unchanged. Preserve the original garment design, neckline, sleeves and printed details. Keep the original eyeglasses, earrings, bracelets and other accessories wherever visible in <image1>; do not add reference jewelry. Do not copy the reference's expression or head pose. Keep covered or back-facing faces hidden.`;
+
 // User-accepted native photo 545ff68d. Reference crops stay bound to the current
 // character assets; a preset never carries another character's asset IDs.
 export const sourceFramePreset = {
   model: 'qwen21', qwenRecipe: 'body-only', qwenQuality: 'fast', bodyOnlyStrategy: 'native', bodyOnlyReuseId: null, bodyOnlyPose: false,
-  prompt: bodyOnlyPrompt, megapixels: 1, protectBackground: true, feather: 12, maskExpand: 64, maskFillHoles: true,
+  prompt: conciseBodyOnlyPrompt, megapixels: 1, protectBackground: true, feather: 12, maskExpand: 64, maskFillHoles: true,
   qwenHeadRefine: false, structureStrength: 0, repairMaskGaps: false, qwenRelight: false, qwenNormalizeReference: false,
   qwenEdgeOnly: false, qwenSceneIntegration: false, qwenLayoutOnly: false, localIdentity: false, qwenIdentityGuide: false,
   qwenBodyPose: false, bodyPoseStrength: .65, faceDetail: false, identityRefine: false, seed: 1583893113, randomSeed: false,
@@ -37,8 +41,14 @@ export const sourceFramePreset = {
 
 export function bodyOnlyConditioningPrompt(prompt: string, legacy = false): string {
   const base = legacy ? bodyOnlyPromptV1 : bodyOnlyPrompt, extra = prompt.trim();
-  return base + (extra && ![bodyOnlyPrompt, bodyOnlyPromptV1, defaultImagePrompt, legacyImagePrompt].includes(extra) ? '\nAdditional edit requirements: ' + extra : '');
+  return base + (extra && ![bodyOnlyPrompt, bodyOnlyPromptV1, conciseBodyOnlyPrompt, defaultImagePrompt, legacyImagePrompt].includes(extra) ? '\nAdditional edit requirements: ' + extra : '');
 }
+export function conciseBodyConditioningPrompt(prompt: string, single = false): string {
+  const base = single ? conciseBodyOnlyPrompt.replace('from <image2> and <image3>', 'from <image2>').replaceAll('<image3>', '<image2>') : conciseBodyOnlyPrompt;
+  const extra = prompt.trim();
+  return base + (extra && ![bodyOnlyPrompt, bodyOnlyPromptV1, conciseBodyOnlyPrompt, defaultImagePrompt, legacyImagePrompt].includes(extra) ? '\nAdditional edit requirements: ' + extra : '');
+}
+export const conciseFaceRefreshPrompt = 'Replace only the visible face in <image1> with the exact facial identity from <image3>, the same person as <image2>. Keep <image1>\'s hair, body, clothes, accessories, expression, head rotation, gaze and lighting unchanged. Preserve foreground obstructions and background. Keep a covered or back-facing face hidden.';
 export function singleImageConditioningPrompt(prompt: string): string {
   return bodyOnlyConditioningPrompt(prompt).replace('Edit <image1>, the original scene photograph. <image2> shows the replacement person\'s physique and body proportions. <image3> shows that same person\'s facial identity and hair.', 'Edit <image1>, the original scene photograph. <image2> supplies the replacement person\'s facial identity, hair, physique and body proportions.').replaceAll('<image3>', '<image2>');
 }
@@ -86,7 +96,7 @@ export const imageSettingsSchema = z.object({
   identityRefine: z.boolean().default(false),
   seed: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).default(sourceFramePreset.seed),
   randomSeed: z.boolean().default(false),
-}).transform(settings => ({ ...settings, prompt: (settings.model !== 'qwen21' || settings.qwenRecipe !== 'body-only') && settings.prompt === bodyOnlyPrompt ? defaultImagePrompt : settings.prompt }));
+}).transform(settings => ({ ...settings, prompt: settings.model === 'qwen21' && settings.qwenRecipe === 'body-only' && [bodyOnlyPrompt, bodyOnlyPromptV1].includes(settings.prompt) ? conciseBodyOnlyPrompt : (settings.model !== 'qwen21' || settings.qwenRecipe !== 'body-only') && [bodyOnlyPrompt, conciseBodyOnlyPrompt].includes(settings.prompt) ? defaultImagePrompt : settings.prompt }));
 export type ImageSettings = z.infer<typeof imageSettingsSchema>;
 export const imageDefaults = imageSettingsSchema.parse({});
 export function sourceFrameImageSettings(current?: ImageSettings): ImageSettings {
@@ -112,7 +122,7 @@ export const localFramingSchema = z.object({
   geometry: z.object({ headSizeRatio: z.number().finite().positive(), faceCenterOffsetPixels: z.array(z.number().finite()).length(2) }).nullable(),
 });
 export interface ImageRun {
-  version?: 'masked-latent-v2' | 'masked-latent-v3' | 'masked-latent-v4' | 'scene-anchor-v1' | 'scene-anchor-v2' | 'scene-anchor-v3' | 'scene-anchor-v4' | 'scene-anchor-v5' | 'scene-anchor-v6' | 'scene-anchor-v7' | 'scene-anchor-v8' | 'native-mask-v1' | 'native-scene-v1' | 'identity-first-v1' | 'identity-first-v2' | 'body-identity-v1' | 'body-identity-v2' | 'body-only-v1' | 'body-only-v2' | 'body-only-v3' | 'body-only-v4' | 'body-only-v5' | 'body-only-v6' | 'body-only-single-v1';
+  version?: 'masked-latent-v2' | 'masked-latent-v3' | 'masked-latent-v4' | 'scene-anchor-v1' | 'scene-anchor-v2' | 'scene-anchor-v3' | 'scene-anchor-v4' | 'scene-anchor-v5' | 'scene-anchor-v6' | 'scene-anchor-v7' | 'scene-anchor-v8' | 'native-mask-v1' | 'native-scene-v1' | 'identity-first-v1' | 'identity-first-v2' | 'body-identity-v1' | 'body-identity-v2' | 'body-only-v1' | 'body-only-v2' | 'body-only-v3' | 'body-only-v4' | 'body-only-v5' | 'body-only-v6' | 'body-only-v7' | 'body-only-single-v1' | 'body-only-single-v2';
   character?: CharacterSnapshot;
   scopeMaskId?: string;
   segmentRepaint?: { videoJobId: string; segment: number; frame: number };
