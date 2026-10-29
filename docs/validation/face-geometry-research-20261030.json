@@ -1,0 +1,192 @@
+{
+  "date": "2026-10-30",
+  "scope": "Research and CPU still-image comparisons only. No new GPU inference, model weights, app changes or draft changes.",
+  "sameSourceAndReference": true,
+  "savedSettingsDifferences": {
+    "resolution": [
+      "480",
+      "704"
+    ]
+  },
+  "userGeneratedPairedRuns": [
+    {
+      "jobId": "4bbb9425-758c-411a-a6c5-7faa60c55ea8",
+      "status": "completed",
+      "resolution": "480",
+      "width": 864,
+      "height": 480,
+      "frames": 355,
+      "fps": 24,
+      "createdAt": "2026-10-29T22:12:53.823Z",
+      "startedAt": "2026-10-29T22:12:53.867Z",
+      "finishedAt": "2026-10-29T22:23:37.090Z",
+      "observedTotalSeconds": 643.223,
+      "nativeSegmentSeconds": [
+        138.712,
+        136.038,
+        127.192
+      ],
+      "facialWorkerSeconds": 105.63915901002474,
+      "facialRefinedFrames": 355,
+      "facialSkippedFrames": 0,
+      "rawSHA256": "39a9697d60d261b95da07d12c9dd5eee5ea532d9af0a57086f5ea347b2085cff",
+      "finishedSHA256": "9ea7d82a4a9c5de411ce062054d3e9a8b4815f77409c90434bfcf9ecac72461a"
+    },
+    {
+      "jobId": "f38f587d-47fc-431f-bb3a-6b632c147108",
+      "status": "completed",
+      "resolution": "704",
+      "width": 1248,
+      "height": 704,
+      "frames": 355,
+      "fps": 24,
+      "createdAt": "2026-10-29T22:24:15.781Z",
+      "startedAt": "2026-10-29T22:24:15.844Z",
+      "finishedAt": "2026-10-29T22:48:54.091Z",
+      "observedTotalSeconds": 1478.247,
+      "nativeSegmentSeconds": [
+        417.743,
+        409.789,
+        404.621
+      ],
+      "facialWorkerSeconds": 110.33674846100621,
+      "facialRefinedFrames": 355,
+      "facialSkippedFrames": 0,
+      "rawSHA256": "73e967def9d7615a195129d2d7f9e4e08e2598d330ae5cedfa55a7fde1971f27",
+      "finishedSHA256": "de200737de6c1d40325a9d683c5a68e89cc05e2ae9bee2ff3f625731823e671f"
+    }
+  ],
+  "pairedRunLimits": "One resolution pair on one A6000. Resolution changes noise dimensions and subsequent repaint inputs. Total times include the complete observed run lifecycle; native segment times and facial worker times are separate, not alternate full-generation timings.",
+  "visualReview": {
+    "resolutionFrames": [
+      0,
+      120,
+      300,
+      354
+    ],
+    "finding": "704p raw frames have clearer facial features/detail than 480p on this pair. Both finished outputs soften fine detail and alter some makeup, lip and midface appearance relative to their raw animations. This is not a validated geometry or identity lock. No 720p inference was performed.",
+    "privateEvidence": "backups/face-geometry-research-20261030/"
+  },
+  "faceFusionCPU": {
+    "existingPinnedRevision": "decc6c9d8f8e014878624452c6e8fe208726b4ec",
+    "model": "Existing Hyperswap with 512 pixel boost",
+    "variants": "Direct swap on the raw saved frames, face_swapper_weight 0.5 and 1.0. These embedding weights are not the production 60% RGB output blend.",
+    "probes": [
+      {
+        "resolution": "480",
+        "parentJobId": "4bbb9425-758c-411a-a6c5-7faa60c55ea8",
+        "sampledFrames": [
+          0,
+          60,
+          120,
+          180,
+          240,
+          300,
+          354
+        ],
+        "cpuStudySeconds": 22.302101833978668,
+        "referenceSHA256": "c9c17858b681768c083787e99862da57536889044346657c259faa0d00b1f8fe"
+      },
+      {
+        "resolution": "704",
+        "parentJobId": "f38f587d-47fc-431f-bb3a-6b632c147108",
+        "sampledFrames": [
+          0,
+          60,
+          120,
+          180,
+          240,
+          300,
+          354
+        ],
+        "cpuStudySeconds": 23.898647541063838,
+        "referenceSHA256": "c9c17858b681768c083787e99862da57536889044346657c259faa0d00b1f8fe"
+      }
+    ],
+    "finding": "Stronger direct swapping changes likeness/details but does not consistently restore the fixed reference proportions in these still samples. Full temporal behavior and source-performance fidelity were not validated for these variants.",
+    "geometryCaveat": "Detected landmark ratios vary with pose, expression and detector error; they are diagnostics, not identity scores or measurements of physical bone drift.",
+    "protection": "Original jobs/media were read only. Probe outputs live outside Studio and no production recipe was selected."
+  },
+  "pipelineFinding": "The expression stage derives canonical structure and appearance from each generated target. Hyperswap aligns to that target geometry and uses a fixed donor identity embedding; the current residual compositor blends appearance without hard-locking donor skull/eye/mouth geometry. Some apparent width changes can also come from expression, pose and shading.",
+  "publisherAdapter": {
+    "url": "https://huggingface.co/UntMods/FaceSwap_MiniMaxH3_REF2VA",
+    "revision": "b2a5823ca64bc78d91725fbfcc576095bfceb764",
+    "file": "SS_FaceSwap_MiniMax_H3_REF2VA.safetensors",
+    "bytes": 65623904,
+    "sha256": "1e032cf519cc143f434e67516d8ad0aacf4c6e146315b2dcc3b1c2800470326d",
+    "weightsDownloaded": false,
+    "publisherClaim": "MiniMax H3 REF2VA face-swap LoRA, Faceswap trigger, strength 1, reference-image identity.",
+    "nativeWorkflow": "https://huggingface.co/UntMods/FaceSwap_MiniMaxH3_REF2VA/blob/main/Workflow_Native_FaceSwap.zip",
+    "recipe": "Native pruned INT8 MiniMax H3 REF2VA, Qwen3-VL 32B NVFP4/AWQ encoder, audio VAE, shared existing video VAE, separate 8-step turbo adapter and face-swap LoRA. KSampler 8 steps/CFG 1/res_multistep/simple. Native reference-to-video widget dimensions are linked from video preprocessing, not proof of a 1344x768 render.",
+    "additionalPublishedDependencyBytes": 39284593879,
+    "dependencies": [
+      {
+        "name": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+        "bytes": 20970379616
+      },
+      {
+        "name": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+        "bytes": 15687142551
+      },
+      {
+        "name": "Audio VAE FP32",
+        "bytes": 605254808
+      },
+      {
+        "name": "RunningHub 8-step turbo LoRA",
+        "bytes": 1956193000
+      },
+      {
+        "name": "SS_FaceSwap_MiniMax_H3_REF2VA.safetensors",
+        "bytes": 65623904
+      }
+    ],
+    "conditioning": "The native encoder processes the source video and references. The current Viggle fixed conditioning is not a demonstrated substitute. Tensor compatibility does not establish quality compatibility with the Viggle fine-tune and distillation recipe.",
+    "includedDemo": {
+      "outputWidth": 704,
+      "outputHeight": 704,
+      "outputFrames": 141,
+      "outputFPS": 24,
+      "outputSeconds": 5.875,
+      "sourceWidth": 1440,
+      "sourceHeight": 1440,
+      "sourceFrames": 149,
+      "sourceFPS": "24000/1001",
+      "review": "Reference appearance transfer is visible, but supplied source/output samples differ in hands, framing and camera distance. The included demo does not establish frame-accurate motion preservation."
+    },
+    "conclusion": "Promising separate generative face-editing candidate, not a measured speedup or proven drop-in adapter. No matched inference or VRAM benchmark was run on this setup.",
+    "license": "LoRA card says Apache-2.0; this does not remove underlying base/dependency license requirements or establish hosted-service clearance."
+  },
+  "resolution720": {
+    "landscape16by9": {
+      "704OutputAndRender": [
+        1248,
+        704
+      ],
+      "720Output": [
+        1280,
+        720
+      ],
+      "720InternalRender": [
+        1312,
+        736
+      ]
+    },
+    "internalPixelIncreasePercent": 9.906759906759909,
+    "deliveredPixelIncreasePercent": 4.895104895104896,
+    "timeEstimate": "10-25% longer video rendering if memory/offload behavior stays similar; not measured and not a guaranteed upper bound. Fixed-cost facial passes/transfers mean complete-job scaling can differ.",
+    "recommendation": "704p remains the reasonable working choice for small output-detail gains; 720p does not add an identity-geometry constraint."
+  },
+  "nextEvaluation": "Prefer comparisons on the existing paid animation before buying another H3 stack. Isolate expression-induced geometry changes from swapping/blending. Any fixed-identity/relative-expression correction remains experimental; earlier canonical-geometry experiments were not accepted. Do not force a user setting, stronger swap or new default from seven stills.",
+  "primarySources": [
+    "https://huggingface.co/UntMods/FaceSwap_MiniMaxH3_REF2VA",
+    "https://huggingface.co/UntMods/FaceSwap_MiniMaxH3_REF2VA/blob/main/Workflow_Native_FaceSwap.zip",
+    "https://huggingface.co/Comfy-Org/MiniMax-H3",
+    "https://docs.facefusion.io/usage/cli-arguments/processors/face-swapper",
+    "https://raw.githubusercontent.com/facefusion/facefusion/master/facefusion/processors/modules/face_swapper/core.py"
+  ],
+  "newGPUInferenceSeconds": 0,
+  "newModelWeightBytesDownloaded": 0,
+  "appRestarted": false,
+  "draftChanged": false
+}
