@@ -1,0 +1,58 @@
+{
+  "date": "2026-10-29",
+  "status": "rejected-by-user-hard-cut-persists",
+  "parentJobId": "a8ef4b97-7512-443d-b2b9-41321d6367ec",
+  "frames": 216,
+  "fps": 24,
+  "width": 704,
+  "height": 1248,
+  "boundaryFrame": 169,
+  "nativeComparison": {
+    "promptId": "ce202669-451b-4ee8-8d1b-f7209bb22bc7",
+    "reusedAcceptedFrames": 169,
+    "newAcceptedFrames": 47,
+    "generatedWindowFrames": 120,
+    "windowStartInForwardBranch": 51,
+    "discardedOverlapFrames": 73,
+    "nativeExecutionSeconds": 262.837,
+    "observedSubmissionToHistorySeconds": 264.297,
+    "gpu": "NVIDIA A100-PCIE-40GB"
+  },
+  "facialBatch": {
+    "elapsedSeconds": 213.9585791650461,
+    "allVariantsRefinedFrames": 216,
+    "note": "Four grouped finishing comparisons with shared inference; not a standalone production latency.",
+    "outputs": {
+      "cut-v1": {
+        "sha256": "4314c3c3a81c1cc5066c1e66f47ef2f2071ce586f047d7d04aaefa0ed07ae724",
+        "refinedFrames": 216
+      },
+      "cut-scene": {
+        "sha256": "fc05f4c92783b4c4742834f54481d03b53dc4dc20b48206b3bcaff4f7b7e863c",
+        "refinedFrames": 216
+      },
+      "overlap6-scene": {
+        "sha256": "142a5214a30f888c211c584f92888fa1ddc860e5bd66317aac1c7a2a26063849",
+        "refinedFrames": 216
+      },
+      "overlap12-scene": {
+        "sha256": "1178b59f7a671a9bee9ea93d956b1a82f847f0dbcb39f1593a8df87c3fe282dd",
+        "refinedFrames": 216
+      }
+    }
+  },
+  "conclusions": [
+    "The user rejected all four comparisons because the face cut remains visible.",
+    "Twelve-frame one-sided postprocessing blends produced visible eye/mouth smearing.",
+    "Fixed appearance probes produced flatter faces and are not selected.",
+    "No scene-finishing or segment-blending recipe was enabled in production.",
+    "A fresh previous-frame-only continuation was prepared, but the A100 could not resume; no native prompt was submitted for that comparison.",
+    "Next user proposal: a tighter inner-face-only Imagen repaint for segment refresh; leave standalone Imagen unchanged."
+  ],
+  "protectedOriginals": {
+    "acceptedFinalSHA256": "76ee4ad1ba60084b32e05d3f2b3c522e518b4dbc10b85a542e0db8a830ffd830",
+    "rawAnimationSHA256": "d509d1dea6e602c50061fd00570432e50d09e40c2b73876f301c4e88c2798485"
+  },
+  "privateArtifacts": "backups/temporal-face-20261029/",
+  "pause": "User requested pausing work before putting the Mac to sleep; do not resume GPU/tests until the user continues."
+}
