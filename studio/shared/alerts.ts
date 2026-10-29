@@ -57,7 +57,7 @@ export class ActivityAlertTracker {
     if (connection.state !== 'connecting') this.settledConnection = connection.state;
     this.connection = { ...connection };
     for (const job of snapshot.jobs) {
-      if (job.image?.segmentRepaint) continue; // Intermediate photo readiness is reported by its video, not as a final output alert.
+      if (job.anchorChild || job.image?.segmentRepaint) continue; // Intermediate photo readiness is reported by its video, not as a final output alert.
       const old = this.jobs.get(job.id), changed = old?.status !== job.status;
       const recent = old || Date.parse(job.createdAt) >= this.startedAt;
       if (this.initialized && recent && !job.deleted && (job.origin === 'render' || !!job.faceRefinement)) {

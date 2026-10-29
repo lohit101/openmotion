@@ -10,6 +10,7 @@ import qwenImage from '../../config/qwen-image-models.lock.json';
 import imageControls from '../../config/image-controls.lock.json';
 import facialModels from '../../config/facial-consistency-models.lock.json';
 import { usesFacialConsistency } from './facial-consistency';
+import { videoDirectionFrames } from './anchored-video';
 import { isViggle } from './engines';
 import type { Settings } from './types';
 import type { ImageSettings } from './image-replacement';
@@ -52,7 +53,7 @@ const filename = (destination: string) => destination.split('/').at(-1)!;
 
 // Describe requirements only. Selection never initiates a download.
 export function modelFilesForSettings(s: Settings): string[] {
-  if (isViggle(s)) return [...new Set([...viggle.files.map(file => file.destination), ...(usesFacialConsistency(s) ? facialModelFiles : []), ...(s.referencePreparation === 'prepared' ? [] : repaint.files.map(file => file.destination)), ...(s.imagenRepaintEnabled && s.imagenRepaint && Math.floor(s.seconds * s.fps + 1e-7) > 124 ? qwenImageModelFiles.filter(file => !file.startsWith('loras/') || file.includes('turbo_lora')) : [])])];
+  if (isViggle(s)) return [...new Set([...viggle.files.map(file => file.destination), ...(usesFacialConsistency(s) ? facialModelFiles : []), ...(s.referencePreparation === 'prepared' ? [] : repaint.files.map(file => file.destination)), ...(s.imagenRepaintEnabled && s.imagenRepaint && videoDirectionFrames(s).some(frames => frames > 124) ? qwenImageModelFiles.filter(file => !file.startsWith('loras/') || file.includes('turbo_lora')) : [])])];
   const adapters = new Set<string>();
   if (s.dpoStrength > 0) adapters.add(DPO);
   if (usesSpeedAdapter(s.preset)) adapters.add(s.preset === 'natural' && s.mode === 'swap' ? NATURAL_SPEED : I2V_SPEED);

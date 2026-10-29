@@ -47,7 +47,7 @@ it('uses the immutable starting photo snapshot even after library edits, while c
   parent.settings.imagenRepaint!.sourceImageJobId = photo.id;
   store.saveCharacter({ ...c, revision: 2, name: 'Changed', archived: true });
   expect(resolveRepaintProfile(store, parent.settings, 'prepared', 'video')!.character.name).toBe('Frozen character');
-  expect(() => resolveRepaintProfile(store, { ...parent.settings, start: 1 }, 'prepared', 'video')).toThrow('different video or clip start');
+  expect(() => resolveRepaintProfile(store, { ...parent.settings, start: 1 }, 'prepared', 'video')).toThrow('different video or reference moment');
   expect(() => resolveRepaintProfile(store, parent.settings, 'other-prepared-image', 'video')).toThrow('no longer matches');
 });
 it('restores a missing local reference from its saved paid photo without new inference', async () => {

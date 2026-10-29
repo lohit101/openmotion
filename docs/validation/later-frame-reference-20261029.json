@@ -1,0 +1,294 @@
+{
+  "date": "2026-10-29",
+  "contract": "bidirectional-v1",
+  "hardware": "NVIDIA RTX PRO 5000 Blackwell 48 GB",
+  "quality": "balanced / five updates",
+  "facialProfile": "perform-onnx60",
+  "integrationPassed": true,
+  "universalQualityPassed": false,
+  "runs": [
+    {
+      "jobId": "b3f4dfd6-d8e3-4f59-9ae2-59738465b9c1",
+      "status": "completed",
+      "size": [
+        480,
+        864
+      ],
+      "frames": 73,
+      "fps": 24,
+      "anchorFrame": 24,
+      "absoluteReferenceTime": 1,
+      "elapsedSeconds": 170.814,
+      "estimatedComputeUSD": 0.031632222222222214,
+      "branches": [
+        {
+          "jobId": "b65195b9-d9fd-47d1-b992-880ea2500980",
+          "direction": "backward",
+          "frames": 25,
+          "status": "completed",
+          "elapsedSeconds": 48.37,
+          "nativeWindows": [
+            {
+              "frames": 25,
+              "nativeSeconds": 28.111
+            }
+          ],
+          "photos": [],
+          "outputSHA256": "02ad34ca49b20029abdd1505a4629ee7eba015289098d9cc36d498d9db93304d"
+        },
+        {
+          "jobId": "1ce3cf69-2e94-4b77-8ce9-fba6eebbe3d6",
+          "direction": "forward",
+          "frames": 49,
+          "status": "completed",
+          "elapsedSeconds": 33.066,
+          "nativeWindows": [
+            {
+              "frames": 49,
+              "nativeSeconds": 26.58
+            }
+          ],
+          "photos": [],
+          "outputSHA256": "e5c2274f772ac7a1733f43778696fc6ec62c494492c215e9326f880c61933f11"
+        }
+      ],
+      "assembly": {
+        "frames": 73,
+        "anchorCopies": 1,
+        "decodedFramesExact": true,
+        "masterSHA256": "65b99705bca0471e0394e185ec3b371aecd1d52e3296b0be06fd65af200b7d8c",
+        "outputSHA256": "43315c17f5f5cc9debd69119107d448c71be403f14bd74cb2788b85ac9d4e651"
+      },
+      "face": {
+        "profile": "perform-onnx60",
+        "blend": 0.6,
+        "state": "complete",
+        "frames": 73,
+        "refinedFrames": 65,
+        "skippedFrames": 8,
+        "elapsedSeconds": 18.909344159066677,
+        "gpu": "NVIDIA RTX PRO 5000 Blackwell",
+        "outputSHA256": "2636d279157b129377cbf7d1ca1adb2a22a148b3580c4e1dc6f46d19b184e999"
+      }
+    },
+    {
+      "jobId": "b059e227-4e27-4b46-8df9-bdb689e47f88",
+      "status": "completed",
+      "size": [
+        704,
+        1248
+      ],
+      "frames": 72,
+      "fps": 24,
+      "anchorFrame": 45,
+      "absoluteReferenceTime": 1.875,
+      "elapsedSeconds": 270.257,
+      "estimatedComputeUSD": 0.050047592592592595,
+      "branches": [
+        {
+          "jobId": "2746ac5f-974f-446f-82c6-7c4d290bdfed",
+          "direction": "backward",
+          "frames": 46,
+          "status": "completed",
+          "elapsedSeconds": 98.919,
+          "nativeWindows": [
+            {
+              "frames": 46,
+              "nativeSeconds": 80.455
+            }
+          ],
+          "photos": [],
+          "outputSHA256": "ea3e0d2a75a4bbd60c3e4d65b76e0334f88fd07cfbeb095acfc41a2db41ef5f0"
+        },
+        {
+          "jobId": "96b30742-3a89-46ad-a942-e1be9cf96d5a",
+          "direction": "forward",
+          "frames": 27,
+          "status": "completed",
+          "elapsedSeconds": 56.293,
+          "nativeWindows": [
+            {
+              "frames": 27,
+              "nativeSeconds": 44.273
+            }
+          ],
+          "photos": [],
+          "outputSHA256": "1e9f832553f0bba9237534cda161f16065df4f2c567b54154cbe86e6c47cf2a0"
+        }
+      ],
+      "assembly": {
+        "frames": 72,
+        "anchorCopies": 1,
+        "decodedFramesExact": true,
+        "masterSHA256": "767cadf45cbf6093efe854d3b5306acbdc3e782a698d49371a8287a02a597abb",
+        "outputSHA256": "8e59ebbbc5e4fe48dcfbdd34bf3bcf8cbeec4ad85b06245f516cc20b592ea1bc"
+      },
+      "face": {
+        "profile": "perform-onnx60",
+        "blend": 0.6,
+        "state": "complete",
+        "frames": 72,
+        "refinedFrames": 72,
+        "skippedFrames": 0,
+        "elapsedSeconds": 23.526319711934775,
+        "gpu": "NVIDIA RTX PRO 5000 Blackwell",
+        "outputSHA256": "bfcfb66dca7ae4004228237cc28452e36994954be5c5ebd1518a1a622ecdbdfb"
+      }
+    },
+    {
+      "jobId": "a8ef4b97-7512-443d-b2b9-41321d6367ec",
+      "status": "completed",
+      "size": [
+        704,
+        1248
+      ],
+      "frames": 216,
+      "fps": 24,
+      "anchorFrame": 45,
+      "absoluteReferenceTime": 1.875,
+      "elapsedSeconds": 754.204,
+      "estimatedComputeUSD": 0.1396674074074074,
+      "branches": [
+        {
+          "jobId": "f9611cba-465e-422c-9cc3-8ce4539201d5",
+          "direction": "backward",
+          "frames": 46,
+          "status": "completed",
+          "elapsedSeconds": 85.866,
+          "nativeWindows": [
+            {
+              "frames": 46,
+              "nativeSeconds": 70.1
+            }
+          ],
+          "photos": [],
+          "outputSHA256": "53f444b91166a0dbfb515051db40069bae4c65aa02b9615d2b7544b93175e096"
+        },
+        {
+          "jobId": "b00372ab-fcbf-4c7c-a5ff-fcd43afef632",
+          "direction": "forward",
+          "frames": 171,
+          "status": "completed",
+          "elapsedSeconds": 515.721,
+          "nativeWindows": [
+            {
+              "frames": 124,
+              "nativeSeconds": 227.831
+            },
+            {
+              "frames": 47,
+              "nativeSeconds": 230.034
+            }
+          ],
+          "photos": [
+            {
+              "jobId": "1b011870-eab6-4836-aa07-c6429809d783",
+              "status": "completed",
+              "recipe": "body-only-v7",
+              "imageRecipe": "concise-v1",
+              "elapsedSeconds": 19.82,
+              "frame": 123,
+              "scopeMask": true
+            }
+          ],
+          "outputSHA256": "6a7443819cf315243661f0e2bb81025d1ba1ecaf7f62680f925f548cb3af58c2"
+        }
+      ],
+      "assembly": {
+        "frames": 216,
+        "anchorCopies": 1,
+        "decodedFramesExact": true,
+        "masterSHA256": "c8f2c4748eed2c1246e30a33a92bd3d969db797d06aa2d30efa354a2e99e37b9",
+        "outputSHA256": "d509d1dea6e602c50061fd00570432e50d09e40c2b73876f301c4e88c2798485"
+      },
+      "face": {
+        "profile": "perform-onnx60",
+        "blend": 0.6,
+        "state": "complete",
+        "frames": 216,
+        "refinedFrames": 216,
+        "skippedFrames": 0,
+        "elapsedSeconds": 69.18816495826468,
+        "gpu": "NVIDIA RTX PRO 5000 Blackwell",
+        "outputSHA256": "76ee4ad1ba60084b32e05d3f2b3c522e518b4dbc10b85a542e0db8a830ffd830"
+      }
+    }
+  ],
+  "repaintScope": {
+    "photoJobId": "1b011870-eab6-4836-aa07-c6429809d783",
+    "elapsedSeconds": 19.82,
+    "width": 704,
+    "height": 1248,
+    "protectedPixels": 853094,
+    "protectedChangedPixels": 0,
+    "insideScopeChangedPixels": 25303,
+    "recipe": "body-only-v7"
+  },
+  "checks": {
+    "fullStudioSuite": {
+      "files": 39,
+      "tests": 410,
+      "passed": true
+    },
+    "latestFocusedChecks": {
+      "files": 5,
+      "tests": 62,
+      "passed": true
+    },
+    "pythonExactMediaTests": 5,
+    "typecheck": true,
+    "build": true,
+    "browserViewports": [
+      1440,
+      390
+    ],
+    "browserChecks": [
+      "exact frame keyboard/time selection",
+      "saved trim preserved",
+      "no automatic downloads or GPU starts",
+      "no horizontal overflow"
+    ],
+    "offlineRecovery": [
+      "completed earlier branch reused after later transfer interruption",
+      "changed source/reference/receipt rejected",
+      "parent cancellation targets actual native child",
+      "offline assembly after verified downloads",
+      "selected face pass still requires GPU until downloaded"
+    ]
+  },
+  "costEstimate": {
+    "newComputeHourlyUSD": 0.6666666666666666,
+    "newStorageHourlyUSD": 0.037037037037037035,
+    "newDownloadPerGBUSD": 0.00390625,
+    "newRequiredModelBytes": 48399621480,
+    "newRequiredModelIngressUSD": 0.18906102140625,
+    "priorGoalSessionComputeUSD": 0.1753,
+    "newComputeConservativeUSD": 0.491,
+    "knownFaceIngressPriorUSD": 0.0058,
+    "computeAndKnownWeightsSubtotalUSD": 0.8622,
+    "note": "Tariff/elapsed estimate, not provider invoice. Subtotal excludes runtime/container packages, media transfers and retained storage. Estimated retained storage over the goal is about $0.06; final aggregate likely about $0.92 plus remaining package/media charges, within the $1.50 evaluation budget. Per-run compute values are included in the session totals and must not be added again."
+  },
+  "pausedInstances": [
+    {
+      "id": 58120414,
+      "state": "exited",
+      "computeStopped": true,
+      "storageHourlyUSD": 0.017777777777777778
+    },
+    {
+      "id": 58172531,
+      "state": "exited",
+      "computeStopped": true,
+      "storageHourlyUSD": 0.037037037037037035
+    }
+  ],
+  "retainedStorageHourlyUSD": 0.054814814814814816,
+  "visualNotes": [
+    "Later-frame camera-distance change follows source; no obvious direction-anchor cut in reviewed adjacent frames.",
+    "Hand-covered opening follows gesture timing better than the earlier native result, but finger shape and occlusion are not a pixel-perfect quality pass.",
+    "Boundary Qwen face refresh visibly restores reference appearance but changes expression/head angle despite its instructions.",
+    "Raw face/expression change around output frame 169 is reduced by automatic finishing, not completely eliminated.",
+    "Source mouth/eye movement improves after finishing; face texture softens and exact gaze/identity are not guaranteed.",
+    "No matched refresh-on/off trial establishes a general identity-improvement percentage."
+  ]
+}

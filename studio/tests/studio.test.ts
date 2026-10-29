@@ -363,7 +363,7 @@ describe('local app with the captured ComfyUI protocol', () => {
     const response = await agent.post('/api/images/jobs').set('Idempotency-Key', 'source-frame-image').send({ ...values, sourceId: frame.body.id }).expect(201);
     const job = await until(() => local!.store.job(response.body.id)!, j => ['completed', 'failed'].includes(j.status)); expect(job.status).toBe('completed');
     const use = await agent.post(`/api/images/jobs/${job.id}/use`).send({}).expect(200);
-    expect(use.body.draft.sourceId).toBe(motion.sourceId); expect(use.body.draft.settings).toMatchObject({ referencePreparation: 'prepared', engine: 'viggle', fps: 24, start: .5 });
+    expect(use.body.draft.sourceId).toBe(motion.sourceId); expect(use.body.draft.settings).toMatchObject({ referencePreparation: 'prepared', engine: 'viggle', fps: 24, start: 0, referenceTime: .5 });
   });
   it('queues images behind the active video without interrupting it or creating a second GPU queue', async () => {
     const agent = await setup(true), motion = await inputs(agent), values = await imageInputs(agent); motion.settings.seconds = .5; await connect(agent); mock!.setMode('hold');

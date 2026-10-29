@@ -34,6 +34,7 @@ import { createGpuFaceBackend } from './gpu-video-identity';
 import { GpuIdleManager } from './gpu-idle';
 import { ManagedFacialConsistency, newFacialRun } from './facial-consistency';
 import { canFinishFacialLocally, usesFacialConsistency } from '../shared/facial-consistency';
+import { anchoredRun, canFinishAnchoredLocally, videoDirectionFrames } from '../shared/anchored-video';
 
 const STUDIO = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const REPO = path.dirname(STUDIO);
@@ -203,7 +204,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     if (isViggle(value.settings) && value.settings.referencePreparation === 'prepared' && Math.abs((reference.width / reference.height) / (source.width / source.height) - 1) > 0.05) return void res.status(400).json({ error: 'An already edited source frame must keep the source video’s aspect ratio. Use automatic reference preparation for a standalone character photo.' });
     const settings = { ...value.settings, prompt: migrateDemoPrompt(value.settings.prompt, value.settings.mode) }; if (settings.randomSeed) settings.seed = randomInt(0, 0xffffffff);
     const [width, height] = renderGeometry(settings, source), [outputWidth, outputHeight] = geometry(settings, source), target = clipFrameCount(settings.seconds, settings.fps);
-    const segmented = isViggle(settings) && target > 124;
+    const segmented = isViggle(settings) && videoDirectionFrames(settings).some(frames => frames > 124);
     if (segmented && repaint && !runner.repaintTargetPreparer) await assertRepaintReady(repo, store, repaint);
     const segmentation = settings.viggleReferenceMode === 'original' ? 'five-frame-v1' as const : 'last-frame-v2' as const;
     const continuationNodes = ['RecastViggleAnchor', 'RecastViggleSaveContext', ...(segmentation === 'last-frame-v2' ? ['RecastViggleContextReference'] : [])];
@@ -213,6 +214,8 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
       progress: { stage: 'Queued', node: null, value: null, max: null, unit: 'steps', segment: 1, segments: isViggle(settings) ? viggleWindows(target).length : segmentCount(target, settings.framesPerPass), completedFrames: 0, targetFrames: target, updatedAt: Date.now() },
       segments: [], context: '', pendingPrompt: null, uploads: null, error: null, output: null, poster: null, cancelRequested: false, elapsedSeconds: null, origin: 'render', workflow: null };
     job.facialConsistency = newFacialRun(job, repo, store.value<number | null>('cloud-connected-instance', null));
+    job.anchoredVideo = anchoredRun(settings);
+    if (job.anchoredVideo) job.progress.segments = job.anchoredVideo.branches.reduce((sum, b) => sum + viggleWindows(b.frames).length, 0);
     store.addJob(job, key); res.status(201).json(publicJob(job)); void runner.kick();
   });
   app.patch('/api/jobs/:id', (req, res) => {
@@ -231,14 +234,24 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     const job = store.job(String(req.params.id)); if (!job) return void res.sendStatus(404);
     if (job.faceRefinement) { await videoIdentity.resume(job); return void res.json(publicJob(store.job(job.id)!)); }
     if (idle.state.status === 'pausing') return void res.status(409).json({ error: 'Wait for the automatic GPU pause to settle before resuming.' });
-    if (videoIdentity.gpuBusy && !canFinishImageLocally(job) && !canFinishFacialLocally(job)) return void res.status(409).json({error:'Finish GPU face refinement before resuming another render.'});
-    if (connection.status.state !== 'online' && !canFinishImageLocally(job) && !canFinishFacialLocally(job)) return void res.status(503).json({ error: 'Reconnect your GPU first.' });
+    if (job.anchorChild) return void res.status(409).json({ error: 'Check and resume the parent video so its saved branches stay coordinated.' });
+    if (videoIdentity.gpuBusy && !canFinishImageLocally(job) && !canFinishFacialLocally(job) && !canFinishAnchoredLocally(job)) return void res.status(409).json({error:'Finish GPU face refinement before resuming another render.'});
+    if (connection.status.state !== 'online' && !canFinishImageLocally(job) && !canFinishFacialLocally(job) && !canFinishAnchoredLocally(job)) return void res.status(503).json({ error: 'Reconnect your GPU first.' });
     if (job.status !== 'interrupted') return void res.status(409).json({ error: 'Only an interrupted run can be resumed. Reuse settings to start another run.' });
     const value = z.object({ retryMissing: z.boolean().default(false) }).parse(req.body || {});
     await runner.resume(job, value.retryMissing); res.json(publicJob(store.job(job.id)!));
   });
   app.get('/api/jobs/:id/:type', (req, res) => {
     const job = store.job(String(req.params.id)); if (!job) return void res.sendStatus(404);
+    if (req.params.type === 'directional-pipeline' && job.anchoredVideo) {
+      res.attachment(`recast-${job.id}-directional-pipeline.json`);
+      return void res.json({ jobId: job.id, ...job.anchoredVideo, branches: job.anchoredVideo.branches.map(b => ({ ...b, graph: b.childJobId ? store.job(b.childJobId)?.workflow : null })) });
+    }
+    if (req.params.type === 'directional-master' && job.anchoredVideo?.masterSHA256) {
+      const file = path.join(store.root, 'jobs', job.id, 'anchor-media/master.mkv');
+      if (!existsSync(file)) return void res.sendStatus(404);
+      res.attachment(`recast-${job.id}-directional-master.mkv`); return void res.sendFile(file);
+    }
     if (req.params.type === 'video' && req.query.download && job.edit?.format === 'mkv') {
       const file = path.join(store.root, 'jobs', job.id, 'master.mkv');
       if (!existsSync(file)) return void res.sendStatus(404);

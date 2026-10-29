@@ -17,12 +17,15 @@ import { DownloadError, type DownloadProgress } from './download';
 import { prepareSegmentRepaint, replaceFailedRepaint, RepaintWaitError, type RepaintTargetPreparer } from './segment-repaint';
 import { canFinishFacialLocally } from '../shared/facial-consistency';
 import { faceHash, FacialConsistencyError, type FacialBackend } from './facial-consistency';
+import { AnchorWaitError, assertAnchorChild, projectAnchorChild, runAnchoredBranches } from './anchored-video';
+import { canFinishAnchoredLocally } from '../shared/anchored-video';
 
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 export class Runner {
   externalGpuBusy = () => false;
   busy = false; active: Job | null = null; abort: AbortController | null = null;
   private resumes = new Map<string, Promise<void>>();
+  private runningJobs = new Map<string, Job>();
   public geometry: ReferenceGeometry;
   public imageProcessor = processImage;
   public repaintTargetPreparer?: RepaintTargetPreparer;
@@ -40,7 +43,7 @@ export class Runner {
     this.busy = true;
     try {
       while (true) {
-        const next = this.store.jobs().reverse().find(j => j.origin === 'render' && !j.deleted && ['queued', 'running', 'reconnecting'].includes(j.status) && (this.connection.status.state === 'online' || canFinishImageLocally(j) || canFinishFacialLocally(j)));
+        const next = this.store.jobs().reverse().find(j => j.origin === 'render' && !j.anchorChild && !j.deleted && ['queued', 'running', 'reconnecting'].includes(j.status) && (this.connection.status.state === 'online' || canFinishImageLocally(j) || canFinishFacialLocally(j) || canFinishAnchoredLocally(j)));
         if (!next) break;
         this.active = next; this.abort = new AbortController(); await this.run(next, this.abort.signal); this.active = null;
       }
@@ -48,13 +51,15 @@ export class Runner {
   }
   save(job: Job) {
     this.store.saveJob(job);
-    const parent = this.active, repaint = job.image?.segmentRepaint;
+    const repaint = job.image?.segmentRepaint, parent = repaint ? this.runningJobs.get(repaint.videoJobId) : undefined;
     if (repaint && parent && repaint.videoJobId === parent.id && parent.viggleRepaint?.activePhotoId === job.id) {
       parent.viggleRepaint.photoProgress = { stage: job.progress.stage, value: job.progress.value, max: job.progress.max };
       parent.progress.stage = `Imagen face refresh · segment ${repaint.segment} · ${job.progress.stage}`;
       parent.progress.node = null; parent.progress.value = job.progress.value; parent.progress.max = job.progress.max; parent.progress.unit = job.progress.unit; parent.progress.updatedAt = Date.now();
-      this.store.saveJob(parent);
+      this.save(parent);
     }
+    const anchorParent = job.anchorChild && this.runningJobs.get(job.anchorChild.parentJobId);
+    if (anchorParent) { projectAnchorChild(anchorParent, job); this.store.saveJob(anchorParent); }
   }
   stage(job: Job, stage: string, value: number | null = null, max: number | null = null, unit = 'items') { job.progress = { ...job.progress, stage, node: null, value, max, unit, updatedAt: Date.now() }; this.save(job); }
   transferProgress(job: Job, stage: string): DownloadProgress {
@@ -73,6 +78,9 @@ export class Runner {
       await this.facial.cancel(job); job.cancellationConfirmed = true; job.status = 'cancelled'; job.error = null; this.stage(job, 'Cancelled'); return;
     }
     try {
+      const directionId = job.anchoredVideo?.activeChildId;
+      const direction = directionId && this.store.job(directionId);
+      if (direction && !['completed', 'cancelled'].includes(direction.status)) await this.cancel(direction);
       const photoId = job.viggleRepaint?.activePhotoId;
       const photo = photoId && this.store.job(photoId);
       if (photo && !['completed', 'cancelled'].includes(photo.status)) await this.cancel(photo);
@@ -116,6 +124,15 @@ export class Runner {
     try { await task; } finally { this.resumes.delete(job.id); }
   }
   private async resumeChecked(job: Job, retryMissing: boolean) {
+    if (job.anchoredVideo) {
+      const childId = job.anchoredVideo.activeChildId, child = childId ? this.store.job(childId) : null;
+      if (child?.status === 'interrupted') {
+        await this.resumeChecked(child, retryMissing);
+        const latest = this.store.job(child.id)!;
+        if (latest.status !== 'queued') { job.retryRequired = !!latest.retryRequired; job.error = latest.error; this.save(job); return; }
+      }
+      job.retryRequired = false; job.status = 'queued'; job.cancelRequested = false; job.cancellationConfirmed = false; job.error = null; this.store.saveJob(job, false); void this.kick(); return;
+    }
     if (retryMissing && job.viggleRepaint?.activePhotoId) {
       const photo = this.store.job(job.viggleRepaint.activePhotoId);
       if (!photo || !(['failed', 'cancelled'].includes(photo.status) || photo.retryRequired)) throw new Error('This photo is still recoverable. Check & resume its existing work before requesting another paid render.');
@@ -140,6 +157,7 @@ export class Runner {
     job.retryRequired = false; job.status = 'queued'; job.cancelRequested = false; job.cancellationConfirmed = false; job.error = null; this.store.saveJob(job, false); void this.kick();
   }
   async run(job: Job, signal: AbortSignal) {
+    this.runningJobs.set(job.id, job);
     const folder = path.join(this.store.root, 'jobs', job.id); await mkdir(folder, { recursive: true });
     const source = this.store.asset(job.sourceId)!, reference = this.store.asset(job.referenceId)!;
     const client = this.connection.client(); let socket: WebSocket | undefined, facialPhase = false;
@@ -157,6 +175,24 @@ export class Runner {
         if (!this.facial) throw new FacialConsistencyError('Facial consistency tools are unavailable. No video sampling was submitted.');
         this.stage(job, 'Checking facial reference before rendering');
         await this.facial.preflight(job, reference.path, signal); this.checkCancelled(job); facialPhase = false;
+      }
+      if (job.anchoredVideo) {
+        await runAnchoredBranches({ store: this.store, repo: this.repo, save: j => this.save(j), stage: (j, text) => this.stage(j, text), runChild: (j, childSignal) => this.run(j, childSignal), resumeChild: (j, retry) => this.resumeChecked(j, retry) }, job, signal);
+        this.checkCancelled(job);
+        const base = path.join(folder, 'final.mp4'); job.output = base; job.poster = path.join(folder, 'poster.jpg');
+        if (job.facialConsistency) {
+          facialPhase = true;
+          if (!this.facial) throw new FacialConsistencyError('The directional video is saved; facial tools are unavailable.');
+          this.stage(job, 'Matching source expressions and facial identity', job.facialConsistency.processedFrames, job.facialConsistency.frames, 'frames');
+          await this.facial.finish(job, { reference: reference.path, source: path.join(folder, 'prepared-source.mp4'), base, folder: path.join(folder, 'facial-consistency') }, signal,
+            (frame, frames, stage) => this.stage(job, stage, frame, frames, 'frames'));
+          this.checkCancelled(job); facialPhase = false;
+        }
+        await poster(job.output!, job.poster!); this.stage(job, 'Checking subject scale and position');
+        try { job.framingCheck = await this.geometry.check(job, path.join(folder, 'prepared-source.mp4'), job.output!, folder, signal); }
+        catch (error) { if (signal.aborted) throw error; job.framingCheck = { status: 'unverified', samples: [], warnings: ['Directional output is saved. Review framing against the source.'] }; }
+        job.status = 'completed'; job.finishedAt = new Date().toISOString(); job.elapsedSeconds = (Date.parse(job.finishedAt) - Date.parse(job.startedAt!)) / 1000;
+        this.stage(job, 'Complete · review the reference-frame join'); return;
       }
       if (!job.uploads && isImageJob(job) && !canFinishImageLocally(job)) {
         this.stage(job, 'Preparing target and identity references');
@@ -188,7 +224,7 @@ export class Runner {
         this.stage(job, 'Preparing your clip');
         const existingSource = path.join(folder, 'prepared-source.mp4');
         const reusable = job.framingVersion && await exists(path.join(folder, 'reference-framing.json')) && await exists(existingSource);
-        const prepared = reusable ? existingSource : await prepareVideo(job, source, folder, signal); this.checkCancelled(job);
+        const prepared = job.anchorChild ? await assertAnchorChild(this.store, job, signal) : reusable ? existingSource : await prepareVideo(job, source, folder, signal); this.checkCancelled(job);
         let referenceFile = reference.path;
         if (job.framingVersion && job.settings.mode === 'swap' && !isViggle(job.settings)) {
           this.stage(job, 'Matching character to source framing');
@@ -358,7 +394,7 @@ export class Runner {
           (frame, frames, stage) => this.stage(job, stage, frame, frames, 'frames'));
         this.checkCancelled(job); await poster(job.output!, job.poster!); facialPhase = false;
       }
-      if ((job.framingVersion || isViggle(job.settings)) && job.settings.mode === 'swap') {
+      if (!job.anchorChild && (job.framingVersion || isViggle(job.settings)) && job.settings.mode === 'swap') {
         this.stage(job, 'Checking subject scale and position');
         try { job.framingCheck = await this.geometry.check(job, path.join(folder, 'prepared-source.mp4'), job.output, folder, signal); }
         catch (error) {
@@ -375,15 +411,15 @@ export class Runner {
       }
       if (signal.aborted && signal.reason instanceof OfflineError) error = signal.reason;
       const saved = this.store.job(job.id); const cancelled = saved?.cancelRequested && saved.cancellationConfirmed;
-      job.status = cancelled ? 'cancelled' : facialPhase || saved?.cancelRequested || error instanceof FacialConsistencyError || error instanceof OfflineError || error instanceof DownloadError || error instanceof ImageFinalizationError || error instanceof RepaintWaitError ? 'interrupted' : 'failed';
+      job.status = cancelled ? 'cancelled' : facialPhase || saved?.cancelRequested || error instanceof AnchorWaitError || error instanceof FacialConsistencyError || error instanceof OfflineError || error instanceof DownloadError || error instanceof ImageFinalizationError || error instanceof RepaintWaitError ? 'interrupted' : 'failed';
       job.error = cancelled ? null : saved?.cancelRequested ? 'Cancellation could not be confirmed. The GPU job may still be running. Reconnect and check cancellation.' : (error instanceof Error ? error.message : String(error));
       if (error instanceof RepaintWaitError && job.viggleRepaint?.activePhotoId) {
         const photo = this.store.job(job.viggleRepaint.activePhotoId);
         job.retryRequired = !!photo && (['failed', 'cancelled'].includes(photo.status) || !!photo.retryRequired);
       }
       if (error instanceof OfflineError) this.connection.disconnect('GPU connection lost. Reconnect to check and resume the existing run.');
-      job.progress.stage = cancelled ? 'Cancelled' : facialPhase || error instanceof FacialConsistencyError ? 'Facial consistency paused · rendered segments kept' : error instanceof DownloadError ? 'Download paused · completed render kept' : error instanceof ImageFinalizationError ? 'Image saved · finish local processing' : error instanceof RepaintWaitError ? 'Imagen refresh needs attention · earlier segments saved' : job.status === 'interrupted' ? 'Connection interrupted' : 'Generation failed';
+      job.progress.stage = cancelled ? 'Cancelled' : error instanceof AnchorWaitError ? 'Directional generation paused · saved branches kept' : facialPhase || error instanceof FacialConsistencyError ? 'Facial consistency paused · rendered segments kept' : error instanceof DownloadError ? 'Download paused · completed render kept' : error instanceof ImageFinalizationError ? 'Image saved · finish local processing' : error instanceof RepaintWaitError ? 'Imagen refresh needs attention · earlier segments saved' : job.status === 'interrupted' ? 'Connection interrupted' : 'Generation failed';
       job.progress.value = null; job.progress.max = null; this.save(job);
-    } finally { socket?.close(); }
+    } finally { socket?.close(); this.runningJobs.delete(job.id); }
   }
 }

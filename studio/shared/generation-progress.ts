@@ -1,4 +1,5 @@
 import type { Job } from './types';
+import { anchorProgress } from './anchored-video';
 
 export function nativeProgress(job: Job): number | null {
   const { value, max } = job.progress;
@@ -89,7 +90,8 @@ function imageProgress(job: Job): number {
 /** Weighted completion estimate; a high-water mark in the view prevents resets. */
 export function overallProgressEstimate(job: Job): number {
   if (outputReady(job)) return 100;
-  if (job.status === 'queued' && !job.segments.length) return 0;
+  if (job.status === 'queued' && !job.segments.length && !job.anchoredVideo?.branches.some(b => b.progress > 0)) return 0;
+  if (job.anchoredVideo && job.anchoredVideo.state !== 'assembled') return anchorProgress(job);
   const raw = job.mediaType === 'image' && job.image ? imageProgress(job) : videoProgress(job);
   const estimate = job.facialConsistency && job.progress.completedFrames < job.progress.targetFrames ? raw * .82 : raw;
   return Number.isFinite(estimate) ? Math.min(99, Math.max(0, estimate)) : 0;

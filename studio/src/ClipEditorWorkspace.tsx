@@ -35,7 +35,7 @@ export default function ClipEditorWorkspace({ jobs, assets, assetAdded, intent, 
   const rows = timelineLayout(draft.clips, sources), duration = rows.at(-1)?.end || 0, at = locateTimeline(draft.clips, sources, time);
   rowsRef.current = rows; timeRef.current = time;
   const selectedClip = draft.clips.find(clip => clip.id === selected), selectedSource = selectedClip && sources[clipSourceKey(selectedClip)];
-  const available = jobs.filter(job => !job.deleted && job.mediaType !== 'image' && job.status === 'completed' && !!job.output && (!favourites || job.favorite) && job.title.toLowerCase().includes(query.toLowerCase()));
+  const available = jobs.filter(job => !job.anchorChild && !job.deleted && job.mediaType !== 'image' && job.status === 'completed' && !!job.output && (!favourites || job.favorite) && job.title.toLowerCase().includes(query.toLowerCase()));
   const imported = Object.values(sources).filter(source => source.assetId && assets.some(asset => asset.id === source.assetId) && source.title.toLowerCase().includes(query.toLowerCase()));
   const latest = exports[0], working = exports.some(row => ['queued', 'exporting'].includes(row.status));
   const stop = useCallback(() => { playingRef.current = false; video.current?.pause(); setPlaying(false); }, []);

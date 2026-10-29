@@ -8,10 +8,12 @@ import type { Character } from './characters';
 import { imagenRepaintProfileSchema } from './characters';
 import type { ViggleRepaintRun } from './segment-repaint';
 import { facialProfileSchema, type FacialConsistencyRun } from './facial-consistency';
+import type { AnchoredVideoRun, AnchorChild } from './anchored-video';
 
 export const settingsSchema = z.object({
   engine: z.enum(['scail2', 'viggle']).default('scail2'),
   referencePreparation: z.enum(['auto', 'prepared']).default('auto'),
+  referenceTime: z.number().finite().nonnegative().nullable().default(null),
   viggleQuality: z.enum(['fast', 'balanced']).default('fast'),
   viggleReferenceMode: z.enum(['previous', 'original']).default('previous'),
   facialConsistency: facialProfileSchema.default('off'),
@@ -55,6 +57,8 @@ export interface FramingCheck {
   status: 'matched' | 'warning' | 'unverified'; warnings: string[]; samples: Record<string, unknown>[];
 }
 export interface Job {
+  anchoredVideo?: AnchoredVideoRun;
+  anchorChild?: AnchorChild;
   facialConsistency?: FacialConsistencyRun;
   id: string; title: string; status: JobStatus; settings: Settings; sourceId: string; referenceId: string;
   createdAt: string; startedAt?: string; finishedAt?: string; favorite: boolean; deleted: boolean;

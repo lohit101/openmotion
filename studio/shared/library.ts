@@ -7,7 +7,7 @@ export type LibraryMedia = 'all' | 'image' | 'video';
 export type LibrarySort = 'newest' | 'oldest' | 'name' | 'fastest' | 'slowest';
 export function libraryJobs(jobs: Job[], collection: LibraryCollection, media: LibraryMedia, query: string, sort: LibrarySort) {
   const search = query.trim().toLocaleLowerCase();
-  return jobs.filter(job => (collection === 'trash' ? job.deleted : !job.deleted && (collection !== 'favorites' || job.favorite))
+  return jobs.filter(job => !job.anchorChild && (collection === 'trash' ? job.deleted : !job.deleted && (collection !== 'favorites' || job.favorite))
     && (media === 'all' || (isImageJob(job) ? 'image' : 'video') === media)
     && (!search || `${job.title} ${job.image?.settings.prompt || job.settings.prompt || ''}`.toLocaleLowerCase().includes(search)))
     .sort((a, b) => {

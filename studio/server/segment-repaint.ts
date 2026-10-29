@@ -35,7 +35,7 @@ export function resolveRepaintProfile(store: Store, settings: Settings, referenc
     const saved = photo.image.character;
     if (saved.id !== profile.characterId || saved.revision !== profile.revision || JSON.stringify(saved.bodyView) !== JSON.stringify(profile.bodyView) || JSON.stringify(saved.faceView) !== JSON.stringify(profile.faceView)) throw new Error('The selected character differs from the starting photo. Review the character before generating.');
     const frame = store.asset(photo.sourceId)?.sourceFrame;
-    if (!frame || frame.videoId !== sourceId || Math.abs(frame.time - settings.start) > 1 / 48) throw new Error('The prepared Imagen frame belongs to a different video or clip start. Prepare a matching starting frame first.');
+    if (!frame || frame.videoId !== sourceId || Math.abs(frame.time - (settings.referenceTime ?? settings.start)) > 1 / 48) throw new Error('The prepared Imagen frame belongs to a different video or reference moment. Prepare a matching frame first.');
     character = structuredClone(saved);
   } else {
     const c = store.character(profile.characterId);
