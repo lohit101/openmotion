@@ -9,7 +9,7 @@ export const isViggle = (s: Pick<Settings, 'engine'>): boolean => s.engine === '
 // even when it predates the new settings field and the new-job default.
 export function referenceModeForRun(job: Pick<Job, 'settings' | 'viggleSegmentation'>): Settings['viggleReferenceMode'] {
   if (job.viggleSegmentation === 'five-frame-v1') return 'original';
-  if (job.viggleSegmentation === 'last-frame-v2') return 'previous';
+  if (job.viggleSegmentation === 'last-frame-v2' || job.viggleSegmentation === 'encoded-overlap-v3') return 'previous';
   return job.settings.viggleReferenceMode || 'previous';
 }
 export const engineLabel = (s: Pick<Settings, 'engine'>): string => isViggle(s) ? 'Viggle Animate · INT8' : 'SCAIL-2 · INT8';
@@ -34,10 +34,10 @@ export function engineIssue(s: Settings): string | null {
 
 export const defaultVigglePrompt = 'Use the reference character’s face, hair and outfit. Preserve the person’s exact position, apparent size, pose and camera distance in the source video. Match the scene’s lighting and keep natural skin texture.';
 
-export function planForJob(s: Settings, completed: number, target: number, legacy: (completed: number, target: number, cap: number) => { skip: number; cap: number; overlap: number }, continuation?: 'five-frame-v1' | 'last-frame-v2') {
+export function planForJob(s: Settings, completed: number, target: number, legacy: (completed: number, target: number, cap: number) => { skip: number; cap: number; overlap: number }, continuation?: Job['viggleSegmentation']) {
   if (!isViggle(s)) return legacy(completed, target, s.framesPerPass);
   const issue = engineIssue(s); if (issue) throw new Error(issue);
-  if (continuation === 'five-frame-v1' || continuation === 'last-frame-v2') return viggleWindow(completed, target);
+  if (continuation === 'five-frame-v1' || continuation === 'last-frame-v2' || continuation === 'encoded-overlap-v3') return viggleWindow(completed, target);
   if (completed !== 0 || target > 124) throw new Error('Viggle single-shot renders cannot continue as SCAIL chunks. Reuse the settings for a new shot.');
   return { skip: 0, cap: target, overlap: 0 };
 }

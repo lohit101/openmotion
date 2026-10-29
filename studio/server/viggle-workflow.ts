@@ -11,7 +11,8 @@ export const VIGGLE_VAE = 'minimax_h3_video_vae_int8_convrot.safetensors';
 export function compileViggleWorkflow(job: Job): Graph {
   const issue = engineIssue(job.settings); if (issue) throw new Error(issue);
   if (!job.uploads) throw new Error('Inputs have not been transferred.');
-  const segmented = !!job.viggleSegmentation, previousReference = job.viggleSegmentation === 'last-frame-v2';
+  const encodedOverlap = job.viggleSegmentation === 'encoded-overlap-v3';
+  const segmented = !!job.viggleSegmentation, previousReference = job.viggleSegmentation === 'last-frame-v2' || encodedOverlap;
   if (!segmented && (job.progress.completedFrames || job.progress.targetFrames > 124)) throw new Error('Viggle requires a fresh single shot of at most 124 frames.');
   const plan = segmented ? viggleWindow(job.progress.completedFrames, job.progress.targetFrames) : { skip: 0, cap: job.progress.targetFrames, overlap: 0 };
   const continuing = plan.overlap > 0;
@@ -28,7 +29,7 @@ export function compileViggleWorkflow(job: Job): Graph {
     if (!job.uploads.preparedFrame || job.uploads.repaintSegment !== job.segments.length || !job.viggleRepaint.records.some(record => record.segment === job.segments.length + 1 && ['completed', 'skipped'].includes(record.status) && record.referenceSHA256)) throw new Error('The matching Imagen segment reference is not ready. No video segment was submitted.');
     add('4', 'LoadImage', { image: job.uploads.preparedFrame }, 'Use this segment’s saved Imagen facial identity refresh');
   }
-  else if (continuing && previousReference) add('4', 'RecastViggleContextReference', { context_path: job.context, width: job.width, height: job.height, fps: 24, skip_frames: plan.skip, overlap: plan.overlap, job_id: job.id }, 'Use the previous segment’s last generated frame as appearance reference');
+  else if (continuing && previousReference) add('4', encodedOverlap ? 'RecastViggleEncodedReference' : 'RecastViggleContextReference', { context_path: job.context, width: job.width, height: job.height, fps: 24, skip_frames: plan.skip, overlap: plan.overlap, job_id: job.id }, 'Use the previous segment’s last generated frame as appearance reference');
   else add('4', 'LoadImage', { image: continuing ? job.uploads.preparedFrame || job.uploads.reference : job.uploads.reference }, 'Read character appearance');
   let reference: [string, number] = ['4', 0];
   if (s.referencePreparation !== 'prepared' && !continuing) {
@@ -67,7 +68,10 @@ export function compileViggleWorkflow(job: Job): Graph {
   // The pinned SaveImage returns IMAGE. Passing through it guarantees that
   // this intermediate is saved before any paid temporal sampling begins.
   add('40', 'ViggleAnimateConditioning', { cond_video: ['3', 0], ref_image: ['121', 0], text_cond: ['30', 0], vae: ['35', 0], width: job.width, height: job.height, length: 124 }, 'Video-first source-aligned conditioning');
-  if (continuing) add('36', 'RecastViggleAnchor', { latent: ['40', 1], vae: ['35', 0], context_path: job.context, width: job.width, height: job.height, fps: 24, skip_frames: plan.skip, overlap: plan.overlap, job_id: job.id, ...(previousReference ? { context_version: 'last-frame-v2' } : {}) }, 'Restore the saved five-frame continuation anchor');
+  if (continuing) {
+    if (encodedOverlap) add('36', 'RecastViggleEncodedAnchor', { latent: ['40', 1], context_path: job.context, width: job.width, height: job.height, fps: 24, skip_frames: plan.skip, overlap: plan.overlap, job_id: job.id }, 'Preserve every accepted overlap latent');
+    else add('36', 'RecastViggleAnchor', { latent: ['40', 1], vae: ['35', 0], context_path: job.context, width: job.width, height: job.height, fps: 24, skip_frames: plan.skip, overlap: plan.overlap, job_id: job.id, ...(previousReference ? { context_version: 'last-frame-v2' } : {}) }, 'Restore the saved five-frame continuation anchor');
+  }
   add('31', 'BasicGuider', { model: ['25', 0], conditioning: ['40', 0] }, 'One model evaluation per sigma interval');
   add('38', 'RandomNoise', { noise_seed: segmented ? (s.seed + job.segments.length) % Number.MAX_SAFE_INTEGER : s.seed }, 'Reproducible video noise');
   add('41', 'KSamplerSelect', { sampler_name: 'euler' }, 'Euler distilled video sampler');
@@ -78,7 +82,8 @@ export function compileViggleWorkflow(job: Job): Graph {
   add('46', 'VHS_VideoCombine', { images: ['45', 0], audio: ['45', 1], frame_rate: 24, loop_count: 0, filename_prefix: prefix, format: 'video/h264-mp4', pix_fmt: 'yuv420p', crf: 16, save_metadata: true, trim_to_audio: false, pingpong: false, save_output: true }, 'Export the replacement at native 24 fps');
   if (segmented) {
     const windows = viggleWindows(job.progress.targetFrames), next = windows[job.segments.length + 1];
-    add('47', 'RecastViggleSaveContext', { images: ['45', 2], fps: 24, skip_frames: plan.skip, next_skip_frames: next?.skip ?? plan.skip + plan.cap - 5, job_id: job.id, ...(!next ? { terminal: true } : {}), ...(previousReference ? { version: 'last-frame-v2' } : {}) }, next ? 'Save the next exact anchor and segment receipt' : 'Record final video completion without an unused continuation');
+    if (encodedOverlap) add('47', 'RecastViggleSaveEncodedContext', { images: ['45', 2], vae: ['35', 0], fps: 24, skip_frames: plan.skip, next_skip_frames: next?.skip ?? plan.skip + plan.cap - 5, job_id: job.id, ...(!next ? { terminal: true } : {}) }, next ? 'Encode the complete next overlap and save its raw appearance' : 'Record final video completion without an unused continuation');
+    else add('47', 'RecastViggleSaveContext', { images: ['45', 2], fps: 24, skip_frames: plan.skip, next_skip_frames: next?.skip ?? plan.skip + plan.cap - 5, job_id: job.id, ...(!next ? { terminal: true } : {}), ...(previousReference ? { version: 'last-frame-v2' } : {}) }, next ? 'Save the next exact anchor and segment receipt' : 'Record final video completion without an unused continuation');
   } else add('47', 'SwapSaveContext', { images: ['45', 2], fps: 24, skip_frames: 0 }, 'Save completion receipt and source count');
   if (job.outputSize) {
     add('52', 'ImageScale', { image: ['45', 0], upscale_method: 'lanczos', width: job.outputSize.width, height: job.outputSize.height, crop: 'disabled' }, 'Export exact HD dimensions');

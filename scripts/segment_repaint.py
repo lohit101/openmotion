@@ -22,7 +22,10 @@ def appearance_frame(anchor, expected):
             raise ValueError('The raw continuation header is invalid.')
         header = json.loads(file.read(length))
     meta = header.get('__metadata__', {})
-    values = {'version': 'last-frame-v2', 'job_id': expected['jobId'], 'width': str(expected['width']), 'height': str(expected['height']), 'count': '5',
+    version = expected.get('contextVersion', 'last-frame-v2')
+    if version not in ('last-frame-v2', 'encoded-overlap-v3'):
+        raise ValueError('This appearance continuation version is unsupported.')
+    values = {'version': version, 'job_id': expected['jobId'], 'width': str(expected['width']), 'height': str(expected['height']), 'count': '1' if version == 'encoded-overlap-v3' else '5',
               'source_anchor_frame': str(expected['skip']), 'source_end_frame': str(expected['skip'] + expected['overlap']), 'reference_source_frame': str(expected['skip'] + expected['overlap'] - 1)}
     if expected['overlap'] < 5 or float(meta.get('fps', -1)) != 24 or any(meta.get(k) != v for k, v in values.items()):
         raise ValueError('The appearance anchor does not match this job, frame range or canvas. No image or video was submitted.')
@@ -39,8 +42,11 @@ def appearance_frame(anchor, expected):
         if not np.isfinite(pixels).all():
             raise ValueError('The raw appearance frame contains invalid pixels.')
         return pixels
-    frames = tensor_pixels('frames', 5)
-    pixels = (frames[-1] if expected['overlap'] == 5 else tensor_pixels('reference_frame', 1)[0]).copy()
+    if version == 'encoded-overlap-v3':
+        pixels = tensor_pixels('reference_frame', 1)[0].copy()
+    else:
+        frames = tensor_pixels('frames', 5)
+        pixels = (frames[-1] if expected['overlap'] == 5 else tensor_pixels('reference_frame', 1)[0]).copy()
     # Match ComfyUI SaveImage's float RGB → uint8 conversion exactly.
     rgb = np.clip(pixels * 255.0, 0, 255).astype(np.uint8)
     return cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
@@ -90,8 +96,12 @@ def main():
     parser = argparse.ArgumentParser()
     for name in ['anchor', 'job', 'folder', 'model']: parser.add_argument('--' + name, required=True)
     for name in ['width', 'height', 'skip', 'overlap']: parser.add_argument('--' + name, required=True, type=int)
+    parser.add_argument('--context-version', choices=['last-frame-v2', 'encoded-overlap-v3'])
     args = parser.parse_args()
-    print(json.dumps(prepare(args.anchor, {'jobId': args.job, 'width': args.width, 'height': args.height, 'skip': args.skip, 'overlap': args.overlap}, args.folder, args.model)))
+    expected = {'jobId': args.job, 'width': args.width, 'height': args.height, 'skip': args.skip, 'overlap': args.overlap}
+    if args.context_version:
+        expected['contextVersion'] = args.context_version
+    print(json.dumps(prepare(args.anchor, expected, args.folder, args.model)))
 
 
 if __name__ == '__main__':

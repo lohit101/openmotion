@@ -41,6 +41,19 @@ class SegmentRepaintTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'exact previous raw'):
                 repaint.appearance_frame(path, expected)
 
+    def test_compact_encoded_context_uses_the_exact_single_raw_reference(self):
+        import numpy as np
+        with tempfile.TemporaryDirectory() as temp:
+            expected = {'jobId': 'video', 'width': 64, 'height': 96, 'skip': 51, 'overlap': 73, 'contextVersion': 'encoded-overlap-v3'}
+            meta = {'version': 'encoded-overlap-v3', 'job_id': 'video', 'width': '64', 'height': '96', 'fps': '24.0', 'count': '1',
+                    'source_anchor_frame': '51', 'source_end_frame': '124', 'reference_source_frame': '123'}
+            pixels = np.full((1, 96, 64, 3), .7, np.float32)
+            h = json.dumps({'__metadata__': meta, 'reference_frame': {'dtype': 'F32', 'shape': list(pixels.shape), 'data_offsets': [0, pixels.nbytes]}}).encode()
+            file = Path(temp) / 'context.safetensors'; file.write_bytes(struct.pack('<Q', len(h)) + h + pixels.tobytes())
+            np.testing.assert_array_equal(repaint.appearance_frame(file, expected)[0, 0], [178, 178, 178])
+            with self.assertRaisesRegex(ValueError, 'does not match'):
+                repaint.appearance_frame(file, {k: v for k, v in expected.items() if k != 'contextVersion'})
+
     def test_wrong_job_range_or_truncated_tensor_never_substitutes_a_video_frame(self):
         with tempfile.TemporaryDirectory() as temp:
             path, expected = self.anchor(temp)

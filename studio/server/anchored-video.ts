@@ -66,7 +66,7 @@ async function makeChild(host: Host, parent: Job, branch: AnchorBranch, folder: 
     settings: { ...parent.settings, referenceTime: null, start: 0, seconds: branch.frames / 24, facialConsistency: 'off', imagenRepaintEnabled: !!parent.viggleRepaint },
     anchoredVideo: undefined, anchorChild: { parentJobId: parent.id, direction, frames: branch.frames, inputSHA256: await anchorFileHash(asset.path), referenceSHA256: a.referenceSHA256! },
     facialConsistency: undefined, framingVersion: undefined, referenceFraming: undefined, framingCheck: undefined, continuationSource: undefined, videoRecovery: undefined,
-    viggleSegmentation: branch.frames > 124 ? parent.settings.viggleReferenceMode === 'original' ? 'five-frame-v1' : 'last-frame-v2' : undefined,
+    viggleSegmentation: branch.frames > 124 ? parent.viggleSegmentation || (parent.settings.viggleReferenceMode === 'original' ? 'five-frame-v1' : 'last-frame-v2') : undefined,
     viggleRepaint: parent.viggleRepaint ? { ...structuredClone(parent.viggleRepaint), records: [{ segment: 1, frame: 0, status: 'provided' }], activePhotoId: undefined, photoProgress: undefined } : undefined,
     createdAt: new Date().toISOString(), startedAt: undefined, finishedAt: undefined, status: 'queued', favorite: false, deleted: false,
     progress: { stage: 'Queued directional motion', segment: 1, segments: viggleWindows(branch.frames).length, completedFrames: 0, targetFrames: branch.frames, node: null, value: null, max: null, unit: 'steps', updatedAt: Date.now() },

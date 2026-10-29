@@ -1,4 +1,8 @@
-# Face continuity research — paused by the user
+# Face continuity research — historical pause
+
+The user explicitly resumed on 2026-10-30. Continue with
+[the complete-overlap evaluation](encoded-overlap-20261030.md); the following
+records the earlier pause and rejected comparisons.
 
 The user paused this task before putting the Mac to sleep. Do not resume compute,
 download models or submit another paid comparison until they say to continue.

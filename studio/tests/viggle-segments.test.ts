@@ -83,4 +83,25 @@ describe('Viggle continuation planning', () => {
     expect(graph['43'].inputs.latent_image).toEqual(['36', 0]); expect(graph['47'].inputs.version).toBe('last-frame-v2');
     expect(graph['118']).toBeUndefined(); expect(graph['103']).toBeUndefined();
   });
+  it('carries the complete encoded overlap for new v3 runs without adding a second video sample', () => {
+    const job = { id: 'encoded-test', settings: { ...defaults, engine: 'viggle', referencePreparation: 'prepared', seconds: 171 / 24 },
+      viggleSegmentation: 'encoded-overlap-v3', width: 704, height: 1248, progress: { completedFrames: 0, targetFrames: 171 },
+      segments: [], uploads: { source: 'clip.mkv', reference: 'identity.png' }, context: '' } as unknown as Job;
+    const first = compileViggleWorkflow(job);
+    expect(first['47'].class_type).toBe('RecastViggleSaveEncodedContext');
+    expect(first['47'].inputs).toMatchObject({ next_skip_frames: 51, vae: ['35', 0] });
+    expect(first['36']).toBeUndefined(); expect(first['47'].inputs.terminal).toBeUndefined();
+    job.progress.completedFrames = 124; job.context = 'character_swap/viggle/encoded.safetensors';
+    job.segments = [{ file: 'paid-prefix.mp4', promptId: 'paid', frames: 124, seconds: 1 }];
+    const next = compileViggleWorkflow(job);
+    expect(next['4'].class_type).toBe('RecastViggleEncodedReference');
+    expect(next['36'].class_type).toBe('RecastViggleEncodedAnchor');
+    expect(next['36'].inputs).toMatchObject({ context_path: job.context, job_id: job.id, skip_frames: 51, overlap: 73 });
+    expect(next['36'].inputs.vae).toBeUndefined();
+    expect(next['47'].inputs.terminal).toBe(true);
+    expect(next['42'].inputs).toEqual(first['42'].inputs);
+    expect(Object.values(next).filter(node => node.class_type === 'SamplerCustomAdvanced')).toHaveLength(1);
+    expect(planForJob(job.settings, 124, 171, nextSegment, job.viggleSegmentation)).toEqual({ skip: 51, cap: 120, overlap: 73 });
+    expect(referenceModeForRun({ ...job, settings: { ...job.settings, viggleReferenceMode: 'original' } })).toBe('previous');
+  });
 });

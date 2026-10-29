@@ -72,7 +72,7 @@ export interface Job {
   promptVersion?: 'scene-v1';
   framingVersion?: 'face-v1'; referenceFraming?: ReferenceFraming; framingCheck?: FramingCheck;
   renderVersion?: 'continuous-v1'; saveDiagnosticLatent?: boolean;
-  viggleSegmentation?: 'five-frame-v1' | 'last-frame-v2';
+  viggleSegmentation?: 'five-frame-v1' | 'last-frame-v2' | 'encoded-overlap-v3';
   viggleRepaint?: ViggleRepaintRun;
   continuationSource?: { jobId: string; frames: number };
   videoRecovery?: { generatedFrames: number; leadingHoldFrames: number; reason: 'trim-timestamp'; originalFailedNode: string; recoveredAt: string };

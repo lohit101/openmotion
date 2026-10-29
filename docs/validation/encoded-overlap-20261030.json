@@ -1,0 +1,300 @@
+{
+  "date": "2026-10-30",
+  "parentJobId": "a8ef4b97-7512-443d-b2b9-41321d6367ec",
+  "forwardChildJobId": "b00372ab-fcbf-4c7c-a5ff-fcd43afef632",
+  "gpu": "RTX A6000 48 GB",
+  "computeHourlyUSD": 0.4666666666666666,
+  "storageHourlyUSD": 0.017777777777777778,
+  "downloadPerGBUSD": 0.0026041666666666665,
+  "comparison": {
+    "nativeWindowFrames": 120,
+    "newAcceptedFrames": 47,
+    "reusedParentFrames": 169,
+    "totalOutputFrames": 216,
+    "fps": 24,
+    "width": 704,
+    "height": 1248,
+    "boundaryFrame": 169,
+    "seed": 20261025,
+    "steps": 5
+  },
+  "nativeRuns": [
+    {
+      "mode": "natural",
+      "jobId": "af488eee-5e1d-4939-a05b-4d53e7a65ad3",
+      "promptId": "de90e981-db92-48df-812f-b7f35cab6357",
+      "nativeSeconds": 405.008,
+      "requestToHistorySeconds": 407.885
+    },
+    {
+      "mode": "full-overlap-onnx",
+      "jobId": "366847a5-f91e-47dc-bcd3-3959abc39055",
+      "promptId": "9c229fdd-9028-4e9f-804b-a4b918cf994e",
+      "nativeSeconds": 387.999,
+      "requestToHistorySeconds": 389.945
+    },
+    {
+      "mode": "inner-qwen",
+      "jobId": "42a293b4-e711-474d-9a97-f9b714646a07",
+      "promptId": "b599805b-4c06-42ea-9f1d-e529c4992e95",
+      "nativeSeconds": 374.67,
+      "requestToHistorySeconds": 378.1
+    },
+    {
+      "mode": "encoded-natural",
+      "jobId": "ebec8f45-5866-406a-ac4d-3d87a6a75a56",
+      "promptId": "53066a79-d952-4a91-a633-a196ba736589",
+      "nativeSeconds": 400.414,
+      "requestToHistorySeconds": 402.054
+    }
+  ],
+  "checkpoint": {
+    "version": "encoded-overlap-v3",
+    "overlapFrames": 73,
+    "encodedLatents": 22,
+    "bytes": 17792040,
+    "encodeSeconds": 16.431,
+    "source": "Previously paid H264 export decoded at exact frame boundaries; original saved float appearance frame restored explicitly. Not recovered native sampler latents."
+  },
+  "rawDiagnostics": [
+    {
+      "name": "original-raw216",
+      "sha256": "d509d1dea6e602c50061fd00570432e50d09e40c2b73876f301c4e88c2798485",
+      "alignedBoundaryDifference": 16.684675292819033,
+      "neighborMedianDifference": 4.156742503219476,
+      "boundaryToNeighborRatio": 4.013882332113773,
+      "eyeDistanceRatioAtJoin": 0.9900546073913574,
+      "eyeCenterMovementAtJoinPx": [
+        5.112579345703125,
+        7.8843994140625
+      ],
+      "medianFaceLaplacianVariance": 69.85089111328125,
+      "note": "Appearance/placement diagnostics only; no identity or realism accuracy score."
+    },
+    {
+      "name": "natural-raw216",
+      "sha256": "a66d0bad4540c43fbe642caec307d43295ef3ef3457acc888d6fc807202fa2ac",
+      "alignedBoundaryDifference": 5.906727172379959,
+      "neighborMedianDifference": 4.776507021524498,
+      "boundaryToNeighborRatio": 1.2366206405145685,
+      "eyeDistanceRatioAtJoin": 0.9919249415397644,
+      "eyeCenterMovementAtJoinPx": [
+        1.2332763671875,
+        0.36834716796875
+      ],
+      "medianFaceLaplacianVariance": 73.20001983642578,
+      "note": "Appearance/placement diagnostics only; no identity or realism accuracy score."
+    },
+    {
+      "name": "full-overlap-onnx-raw216",
+      "sha256": "a7968031cf478defd4bff99d8373ed5aaf2bb96588cd56d34d227e315f043239",
+      "alignedBoundaryDifference": 3.8963635248666217,
+      "neighborMedianDifference": 4.4117863494204945,
+      "boundaryToNeighborRatio": 0.8831713995802232,
+      "eyeDistanceRatioAtJoin": 0.997733473777771,
+      "eyeCenterMovementAtJoinPx": [
+        0.334014892578125,
+        0.240478515625
+      ],
+      "medianFaceLaplacianVariance": 65.14241790771484,
+      "note": "Appearance/placement diagnostics only; no identity or realism accuracy score."
+    },
+    {
+      "name": "inner-qwen-raw216",
+      "sha256": "424dec293808b6c0931ca6867aacdb3e2760101474bb5b87d17034763926d064",
+      "alignedBoundaryDifference": 7.77279695836144,
+      "neighborMedianDifference": 4.256178328325259,
+      "boundaryToNeighborRatio": 1.8262385545814093,
+      "eyeDistanceRatioAtJoin": 1.0318629741668701,
+      "eyeCenterMovementAtJoinPx": [
+        0.124603271484375,
+        1.1966552734375
+      ],
+      "medianFaceLaplacianVariance": 67.01709365844727,
+      "note": "Appearance/placement diagnostics only; no identity or realism accuracy score."
+    },
+    {
+      "name": "encoded-natural-raw216",
+      "sha256": "145467194d3bbc6f441a22b4c872f14ec262a9f0de38650cfecf81e5705b07a8",
+      "alignedBoundaryDifference": 4.575335745385417,
+      "neighborMedianDifference": 4.295455939167229,
+      "boundaryToNeighborRatio": 1.065157182422979,
+      "eyeDistanceRatioAtJoin": 0.9889737367630005,
+      "eyeCenterMovementAtJoinPx": [
+        0.72857666015625,
+        0.3070068359375
+      ],
+      "medianFaceLaplacianVariance": 67.58183670043945,
+      "note": "Appearance/placement diagnostics only; no identity or realism accuracy score."
+    },
+    {
+      "name": "baseline",
+      "sha256": "76ee4ad1ba60084b32e05d3f2b3c522e518b4dbc10b85a542e0db8a830ffd830",
+      "alignedBoundaryDifference": 13.82712945360888,
+      "neighborMedianDifference": 3.2574967805237014,
+      "boundaryToNeighborRatio": 4.244710090361446,
+      "eyeDistanceRatioAtJoin": 0.9773061275482178,
+      "eyeCenterMovementAtJoinPx": [
+        4.741241455078125,
+        6.55145263671875
+      ],
+      "medianFaceLaplacianVariance": 19.162184715270996,
+      "note": "Appearance/placement diagnostics only; no identity or realism accuracy score."
+    }
+  ],
+  "finishedDiagnostics": [
+    {
+      "name": "baseline",
+      "sha256": "76ee4ad1ba60084b32e05d3f2b3c522e518b4dbc10b85a542e0db8a830ffd830",
+      "alignedBoundaryDifference": 13.82712945360888,
+      "neighborMedianDifference": 3.2574967805237014,
+      "boundaryToNeighborRatio": 4.244710090361446,
+      "eyeDistanceRatioAtJoin": 0.9773061275482178,
+      "eyeCenterMovementAtJoinPx": [
+        4.741241455078125,
+        6.55145263671875
+      ],
+      "medianFaceLaplacianVariance": 19.162184715270996,
+      "note": "Appearance/placement diagnostics only; no identity or realism accuracy score."
+    },
+    {
+      "name": "natural-v1",
+      "sha256": "aaa0284e38a55d0b2d5f53b77638edc759dfcac0c769b07d6f60e5f0112b22c6",
+      "alignedBoundaryDifference": 6.38112467038695,
+      "neighborMedianDifference": 3.074293248298277,
+      "boundaryToNeighborRatio": 2.075639555178776,
+      "eyeDistanceRatioAtJoin": 0.9984933137893677,
+      "eyeCenterMovementAtJoinPx": [
+        0.0601806640625,
+        1.4635009765625
+      ],
+      "medianFaceLaplacianVariance": 21.054466247558594,
+      "note": "Appearance/placement diagnostics only; no identity or realism accuracy score."
+    },
+    {
+      "name": "natural-scene",
+      "sha256": "b1040bd80f01151d9d5d9eb0f376f93e5d21490976ab758a53f0e4f522470530",
+      "alignedBoundaryDifference": 4.213405286073465,
+      "neighborMedianDifference": 3.5035260930888574,
+      "boundaryToNeighborRatio": 1.2026184975145278,
+      "eyeDistanceRatioAtJoin": 0.9847261905670166,
+      "eyeCenterMovementAtJoinPx": [
+        1.117645263671875,
+        0.17657470703125
+      ],
+      "medianFaceLaplacianVariance": 36.023719787597656,
+      "note": "Appearance/placement diagnostics only; no identity or realism accuracy score."
+    },
+    {
+      "name": "full-overlap-onnx-v1",
+      "sha256": "009bac2d61f89e40491d2644b5ddb87dd7b1a42859959738d43facf2751d97cf",
+      "alignedBoundaryDifference": 3.3649353038572394,
+      "neighborMedianDifference": 3.0600662292267122,
+      "boundaryToNeighborRatio": 1.0996282602378735,
+      "eyeDistanceRatioAtJoin": 0.9790831208229065,
+      "eyeCenterMovementAtJoinPx": [
+        0.289764404296875,
+        0.53607177734375
+      ],
+      "medianFaceLaplacianVariance": 19.6975040435791,
+      "note": "Appearance/placement diagnostics only; no identity or realism accuracy score."
+    },
+    {
+      "name": "full-overlap-onnx-scene",
+      "sha256": "97f8d53989a482568001411cc8f0bb1b01f590b6e79f94a64f00cca5ddfb5258",
+      "alignedBoundaryDifference": 3.4713926534617037,
+      "neighborMedianDifference": 3.2917765376832033,
+      "boundaryToNeighborRatio": 1.0545650999459752,
+      "eyeDistanceRatioAtJoin": 0.977972149848938,
+      "eyeCenterMovementAtJoinPx": [
+        0.23895263671875,
+        0.2615966796875
+      ],
+      "medianFaceLaplacianVariance": 32.87689018249512,
+      "note": "Appearance/placement diagnostics only; no identity or realism accuracy score."
+    },
+    {
+      "name": "inner-qwen-v1",
+      "sha256": "91c961bf375d9a951629eb37b488d4d4047f052b53faf45856f9e2e1c4bd8d70",
+      "alignedBoundaryDifference": 7.436806279511866,
+      "neighborMedianDifference": 3.140706445084933,
+      "boundaryToNeighborRatio": 2.367876912262889,
+      "eyeDistanceRatioAtJoin": 0.9849048256874084,
+      "eyeCenterMovementAtJoinPx": [
+        -0.457763671875,
+        1.5458984375
+      ],
+      "medianFaceLaplacianVariance": 19.978410720825195,
+      "note": "Appearance/placement diagnostics only; no identity or realism accuracy score."
+    },
+    {
+      "name": "inner-qwen-scene",
+      "sha256": "a791a74fb745380dbd8a21e976a0f9154e3529a724331a6565c71a321636d456",
+      "alignedBoundaryDifference": 7.933586803213344,
+      "neighborMedianDifference": 3.745324093947384,
+      "boundaryToNeighborRatio": 2.1182644289807615,
+      "eyeDistanceRatioAtJoin": 0.992042601108551,
+      "eyeCenterMovementAtJoinPx": [
+        -0.12225341796875,
+        1.60626220703125
+      ],
+      "medianFaceLaplacianVariance": 33.77930450439453,
+      "note": "Appearance/placement diagnostics only; no identity or realism accuracy score."
+    },
+    {
+      "name": "encoded-natural-v1",
+      "sha256": "276e7c224cadeeb1a0a56d933b8840a21c99472eead48fb16df49e77855a94bb",
+      "alignedBoundaryDifference": 3.8982032256086345,
+      "neighborMedianDifference": 3.1138468142515485,
+      "boundaryToNeighborRatio": 1.2518930628723353,
+      "eyeDistanceRatioAtJoin": 0.9798076152801514,
+      "eyeCenterMovementAtJoinPx": [
+        0.689117431640625,
+        0.4754638671875
+      ],
+      "medianFaceLaplacianVariance": 19.807077407836914,
+      "note": "Appearance/placement diagnostics only; no identity or realism accuracy score."
+    },
+    {
+      "name": "encoded-natural-scene",
+      "sha256": "588b17e8bd8442752d4b4d745736bcfdeee377abfa8e0994ce8a2bbc2f76621d",
+      "alignedBoundaryDifference": 3.605752130986693,
+      "neighborMedianDifference": 3.1112099098546633,
+      "boundaryToNeighborRatio": 1.1589549517586653,
+      "eyeDistanceRatioAtJoin": 0.9867599010467529,
+      "eyeCenterMovementAtJoinPx": [
+        0.58526611328125,
+        0.1090087890625
+      ],
+      "medianFaceLaplacianVariance": 34.26139259338379,
+      "note": "Appearance/placement diagnostics only; no identity or realism accuracy score."
+    }
+  ],
+  "diagnosticLimit": "Aligned appearance differences, 2D landmark displacement and Laplacian variance are placement/texture diagnostics, not identity or realism accuracy scores. All results require visual review.",
+  "facialGroupSeconds": 140.09370866700192,
+  "facialGroupTimingLimit": "Four two-style comparisons share inference for their identical 169-frame prefix; not four independent production latencies.",
+  "legacyCompilerComparison": {
+    "legacySettings": 17,
+    "matchedGraphs": 23,
+    "matchedValidationErrors": 20,
+    "comparison": "Previous committed compiler versus new compiler on saved legacy settings and continuation positions. No saved job or graph was written."
+  },
+  "checks": {
+    "encodedContextUnitTests": 5,
+    "appearanceUnitTests": 5,
+    "studioFullRun": {
+      "passed": 414,
+      "failed": 1,
+      "failure": "Stale-node preflight fixture removed the old node instead of the new required node; corrected subsequently."
+    },
+    "focusedAfterFixtureCorrection": {
+      "passed": 5,
+      "failed": 0
+    },
+    "typescript": true,
+    "productionBuild": true
+  },
+  "computeStoppedAfterComparison": true,
+  "idlePauseRestored": true,
+  "sourceStackDownloaded": "Four Viggle files and twelve existing facial files only. No Qwen/Klein download."
+}

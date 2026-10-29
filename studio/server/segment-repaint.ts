@@ -75,7 +75,7 @@ export function replaceFailedRepaint(store: Store, parent: Job, old: Job): Job {
 /** Serial child photo inference. A successful child/receipt is always reused. */
 export async function prepareSegmentRepaint(host: RepaintHost, job: Job, signal: AbortSignal): Promise<string> {
   const state = job.viggleRepaint, index = job.segments.length;
-  if (!state || !index || job.viggleSegmentation !== 'last-frame-v2') throw new RepaintWaitError('Imagen refresh requires the saved previous-frame continuation.');
+  if (!state || !index || !['last-frame-v2', 'encoded-overlap-v3'].includes(job.viggleSegmentation || '')) throw new RepaintWaitError('Imagen refresh requires the saved previous-frame continuation.');
   const segment = index + 1, frame = job.progress.completedFrames - 1, folder = path.join(host.store.root, 'jobs', job.id, `repaint_${String(index).padStart(4, '0')}`);
   await mkdir(folder, { recursive: true });
   let record = state.records.find(r => r.segment === segment);
@@ -97,7 +97,7 @@ export async function prepareSegmentRepaint(host: RepaintHost, job: Job, signal:
   if (!photo) {
     const plan = viggleWindow(job.progress.completedFrames, job.progress.targetFrames), anchor = path.join(host.store.root, 'jobs', job.id, `context_${index - 1}.safetensors`);
     const python = path.join(host.repo, '.local/geometry-venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
-    const prepared: PreparedRepaintTarget = host.targetPreparer ? await host.targetPreparer(job, folder, signal) : JSON.parse(await command(python, [path.join(host.repo, 'scripts/segment_repaint.py'), '--anchor', anchor, '--job', job.id, '--width', String(job.width), '--height', String(job.height), '--skip', String(plan.skip), '--overlap', String(plan.overlap), '--folder', folder, '--model', path.join(host.repo, '.local/geometry-models/face_detection_yunet_2023mar.onnx')], signal, 60000));
+    const prepared: PreparedRepaintTarget = host.targetPreparer ? await host.targetPreparer(job, folder, signal) : JSON.parse(await command(python, [path.join(host.repo, 'scripts/segment_repaint.py'), '--anchor', anchor, '--job', job.id, '--width', String(job.width), '--height', String(job.height), '--skip', String(plan.skip), '--overlap', String(plan.overlap), '--folder', folder, '--model', path.join(host.repo, '.local/geometry-models/face_detection_yunet_2023mar.onnx'), ...(job.viggleSegmentation === 'encoded-overlap-v3' ? ['--context-version', job.viggleSegmentation] : [])], signal, 60000));
     record.targetSHA256 = prepared.outputs['target.png']; record.anchorSHA256 = prepared.inputs.anchorSHA256;
     if (!prepared.repaint) {
       await copyFile(path.join(folder, 'target.png'), reference); record.referenceSHA256 = await fileSHA256(reference); record.referenceFile = path.relative(path.join(host.store.root, 'jobs', job.id), reference); record.status = 'skipped'; record.warning = prepared.warning || 'No clear face was available; the exact raw reference was retained.'; host.save(job); return reference;

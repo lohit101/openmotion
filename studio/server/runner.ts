@@ -308,7 +308,7 @@ export class Runner {
           catch (error) { if (signal.aborted) throw error; await writeFile(path.join(folder, `${name}-preview-warning.json`), JSON.stringify({ warning: 'The intermediate image preview could not be downloaded. No image was resubmitted.' })); }
         }
         let segmentReference: string | undefined;
-        if (job.viggleSegmentation === 'last-frame-v2' && keyframe) {
+        if ((job.viggleSegmentation === 'last-frame-v2' || job.viggleSegmentation === 'encoded-overlap-v3') && keyframe) {
           const name = job.segments.length === 0 ? 'keyframe.png' : `reference_${String(job.segments.length).padStart(4, '0')}.png`;
           try { const file = path.join(folder, name); if (!await exists(file)) await client.download(keyframe, file, signal); segmentReference = name; }
           catch (error) { if (signal.aborted) throw error; /* A missing preview never discards or resamples a paid segment. */ }

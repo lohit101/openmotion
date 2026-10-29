@@ -91,9 +91,9 @@ async function mockComfy(viggle = false) {
     files.set(filename, file); history[id] = { prompt: entry, status: { status_str: 'success', completed: true, messages: [] }, outputs: {
       '46': { gifs: [{ filename, subfolder: 'recast', type: 'output' }] }, '47': { context: [{ path: '/gpu/output/context-' + id + '.safetensors', source_count: cap, source_end_frame: skip + cap, fps }] }
     } };
-    if (graph['47'].class_type === 'RecastViggleSaveContext') {
+    if (['RecastViggleSaveContext', 'RecastViggleSaveEncodedContext'].includes(graph['47'].class_type)) {
       const receipt = history[id].outputs['47'].context[0];
-      Object.assign(receipt, { version: graph['47'].inputs.version || 'five-frame-v1', job_id: graph['47'].inputs.job_id });
+      Object.assign(receipt, { version: graph['47'].class_type === 'RecastViggleSaveEncodedContext' ? 'encoded-overlap-v3' : graph['47'].inputs.version || 'five-frame-v1', job_id: graph['47'].inputs.job_id });
       if (graph['47'].inputs.terminal) Object.assign(receipt, { path: '', terminal: true });
       else {
         const contextName = id + '.safetensors', contextFile = path.join(fixtures, contextName);
@@ -239,7 +239,8 @@ describe('local app with the captured ComfyUI protocol', () => {
     expect(photo.image!.scopeMaskId).toBe(photo.image!.maskId);
     expect(job.viggleRepaint!.records[1]).toMatchObject({ segment: 2, frame: 123, status: 'completed', referenceSHA256: expect.stringMatching(/^[a-f0-9]{64}$/) });
     expect(mock!.submissions[2].prompt['4'].class_type).toBe('LoadImage'); expect(mock!.submissions[2].prompt['4'].inputs.image).toContain('imagen-reference-1');
-    expect(mock!.submissions[2].prompt['36'].inputs).toMatchObject({ context_version: 'last-frame-v2', job_id: job.id, overlap: 107 });
+    expect(mock!.submissions[2].prompt['36'].class_type).toBe('RecastViggleEncodedAnchor');
+    expect(mock!.submissions[2].prompt['36'].inputs).toMatchObject({ job_id: job.id, overlap: 107 });
   }, 22000);
   it('recovers an already paid boundary photo download without rerendering that photo or the accepted video prefix', async () => {
     const agent = await setup(true), values = await repaintInputs(agent); await connect(agent);
@@ -437,14 +438,14 @@ describe('local app with the captured ComfyUI protocol', () => {
     const response = await agent.post('/api/jobs').set('Idempotency-Key', 'viggle-thirty-seconds').send(values).expect(201);
     const job = await until(() => local!.store.job(response.body.id)!, j => ['completed', 'failed', 'interrupted'].includes(j.status), 25000);
     expect(job.error).toBeNull(); expect(job.status).toBe('completed');
-    expect(job.viggleSegmentation).toBe('last-frame-v2'); expect(job.progress.completedFrames).toBe(720);
+    expect(job.viggleSegmentation).toBe('encoded-overlap-v3'); expect(job.progress.completedFrames).toBe(720);
     expect(job.progress.segments).toBe(7); expect(job.segments).toHaveLength(7); expect(mock!.submissions).toHaveLength(7);
     expect(job.segments[1].reference).toBe('reference_0001.png');
     await agent.get(`/api/jobs/${job.id}/keyframe?segment=1`).expect(200);
     await agent.get(`/api/jobs/${job.id}/keyframe?segment=-1`).expect(422);
     expect(job.segments.map(segment => segment.frames)).toEqual([124, 119, 119, 119, 119, 119, 1]);
     const last = mock!.submissions.at(-1)!.prompt;
-    expect(last['4'].class_type).toBe('RecastViggleContextReference'); expect(last['36'].inputs.context_version).toBe('last-frame-v2');
+    expect(last['4'].class_type).toBe('RecastViggleEncodedReference'); expect(last['36'].class_type).toBe('RecastViggleEncodedAnchor');
     expect(last['2'].inputs).toMatchObject({ skip_first_frames: 612, frame_load_cap: 108 });
     expect(last['36'].inputs.overlap).toBe(107); expect(last['45'].inputs.overlap).toBe(107);
     const info = JSON.parse(await command('ffprobe', ['-v', 'error', '-count_frames', '-show_streams', '-of', 'json', job.output!]));
@@ -477,9 +478,9 @@ describe('local app with the captured ComfyUI protocol', () => {
     const timing = JSON.parse(await command('ffprobe', ['-v', 'error', '-count_frames', '-show_entries', 'stream=codec_type,nb_read_frames', '-of', 'json', job.output!]));
     expect(timing.streams.find((s: any) => s.codec_type === 'video').nb_read_frames).toBe('125');
   }, 25000);
-  it('rejects long clips on an old runtime before queueing any paid work', async () => {
+  it.each(['RecastViggleEncodedAnchor', 'RecastViggleEncodedReference', 'RecastViggleSaveEncodedContext'])('rejects a runtime missing %s before queueing any paid work', async node => {
     const agent = await setup(true), values = await inputs(agent);
-    delete mock!.catalog.RecastViggleAnchor;
+    delete mock!.catalog[node];
     Object.assign(values.settings, { engine: 'viggle', fps: 24, seconds: 6 });
     await connect(agent);
     const response = await agent.post('/api/jobs').set('Idempotency-Key', 'old-viggle-nodes').send(values).expect(409);

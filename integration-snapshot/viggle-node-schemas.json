@@ -299,5 +299,241 @@
       "IMAGE"
     ],
     "output_node": false
+  },
+  "RecastViggleEncodedAnchor": {
+    "input": {
+      "required": {
+        "latent": [
+          "LATENT"
+        ],
+        "context_path": [
+          "STRING",
+          {
+            "default": ""
+          }
+        ],
+        "width": [
+          "INT",
+          {
+            "default": 480
+          }
+        ],
+        "height": [
+          "INT",
+          {
+            "default": 864
+          }
+        ],
+        "fps": [
+          "FLOAT",
+          {
+            "default": 24.0
+          }
+        ],
+        "skip_frames": [
+          "INT",
+          {
+            "default": 119
+          }
+        ],
+        "overlap": [
+          "INT",
+          {
+            "default": 5
+          }
+        ],
+        "job_id": [
+          "STRING",
+          {
+            "default": ""
+          }
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "latent",
+        "context_path",
+        "width",
+        "height",
+        "fps",
+        "skip_frames",
+        "overlap",
+        "job_id"
+      ]
+    },
+    "is_input_list": false,
+    "output": [
+      "LATENT"
+    ],
+    "output_is_list": [
+      false
+    ],
+    "output_name": [
+      "LATENT"
+    ],
+    "name": "RecastViggleEncodedAnchor",
+    "display_name": "Restore Complete Encoded Viggle Overlap",
+    "description": "",
+    "python_module": "custom_nodes.character_swap_helpers",
+    "category": "Character Swap/Viggle",
+    "output_node": false,
+    "has_intermediate_output": false,
+    "search_aliases": []
+  },
+  "RecastViggleEncodedReference": {
+    "input": {
+      "required": {
+        "context_path": [
+          "STRING",
+          {
+            "default": ""
+          }
+        ],
+        "width": [
+          "INT",
+          {
+            "default": 480
+          }
+        ],
+        "height": [
+          "INT",
+          {
+            "default": 864
+          }
+        ],
+        "fps": [
+          "FLOAT",
+          {
+            "default": 24.0
+          }
+        ],
+        "skip_frames": [
+          "INT",
+          {
+            "default": 119
+          }
+        ],
+        "overlap": [
+          "INT",
+          {
+            "default": 5
+          }
+        ],
+        "job_id": [
+          "STRING",
+          {
+            "default": ""
+          }
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "context_path",
+        "width",
+        "height",
+        "fps",
+        "skip_frames",
+        "overlap",
+        "job_id"
+      ]
+    },
+    "is_input_list": false,
+    "output": [
+      "IMAGE"
+    ],
+    "output_is_list": [
+      false
+    ],
+    "output_name": [
+      "IMAGE"
+    ],
+    "name": "RecastViggleEncodedReference",
+    "display_name": "Previous Raw Appearance \u00b7 Encoded Overlap",
+    "description": "",
+    "python_module": "custom_nodes.character_swap_helpers",
+    "category": "Character Swap/Viggle",
+    "output_node": false,
+    "has_intermediate_output": false,
+    "search_aliases": []
+  },
+  "RecastViggleSaveEncodedContext": {
+    "input": {
+      "required": {
+        "images": [
+          "IMAGE"
+        ],
+        "vae": [
+          "VAE"
+        ],
+        "fps": [
+          "FLOAT",
+          {
+            "default": 24.0
+          }
+        ],
+        "skip_frames": [
+          "INT",
+          {
+            "default": 0
+          }
+        ],
+        "next_skip_frames": [
+          "INT",
+          {
+            "default": 119
+          }
+        ],
+        "job_id": [
+          "STRING",
+          {
+            "default": ""
+          }
+        ]
+      },
+      "optional": {
+        "terminal": [
+          "BOOLEAN",
+          {
+            "default": false
+          }
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "images",
+        "vae",
+        "fps",
+        "skip_frames",
+        "next_skip_frames",
+        "job_id"
+      ],
+      "optional": [
+        "terminal"
+      ]
+    },
+    "is_input_list": false,
+    "output": [
+      "STRING",
+      "STRING"
+    ],
+    "output_is_list": [
+      false,
+      false
+    ],
+    "output_name": [
+      "context_path",
+      "continuation_details"
+    ],
+    "name": "RecastViggleSaveEncodedContext",
+    "display_name": "Encode Complete Next Overlap and Save Receipt",
+    "description": "",
+    "python_module": "custom_nodes.character_swap_helpers",
+    "category": "Character Swap/Viggle",
+    "output_node": true,
+    "has_intermediate_output": false,
+    "search_aliases": []
   }
 }
