@@ -1,0 +1,156 @@
+{
+  "date": "2026-10-30",
+  "status": "Private evaluation; goal active, product integration pending",
+  "reportedArtifacts": {
+    "eyebrowFrame": 332,
+    "doubleEyeFrame": 32,
+    "milkyEyeFrame": 98,
+    "faceEdgeFrame": 49
+  },
+  "cases": [
+    {
+      "parentJobId": "196f011e-6487-4a44-a655-fb13fc4672ca",
+      "frames": 216,
+      "inputHashes": {
+        "baseSHA256": "145467194d3bbc6f441a22b4c872f14ec262a9f0de38650cfecf81e5705b07a8",
+        "sourceSHA256": "453d43185501c28a79330cb84285cde786efed4bd14cef4b52c44f595081bbdb",
+        "referenceSHA256": "a38a715f96ccc7c2e5f340f0ad453a156eed4c6583e9b57a3e8a49e73cf86a5c"
+      },
+      "anchorFrame": 45,
+      "threeRecipeWorkerSeconds": 243.59520281598088,
+      "refinedFrames": 216,
+      "preservedFrames": 0,
+      "preservedRangesFrames": [],
+      "outputs": {
+        "standard-clean": {
+          "sha256": "bca8128d88e0474e6004529cc587f97a9a87c573eb57a9fad1a8e35412798fe1",
+          "bytes": 11063950
+        },
+        "adaptive-clean": {
+          "sha256": "2e82b8f3909b41e174edf93d1ba5efd06fb8794d1465679d8198e3f9f4dbbc9b",
+          "bytes": 11081954
+        },
+        "adaptive-patches": {
+          "sha256": "02ab072ce1fdd7dd3659c94c366598fc579c894fecb150573b68b7478379f5ce",
+          "bytes": 11085033
+        }
+      },
+      "eyeDetail": {
+        "workerSeconds": 21.211961434979457,
+        "outputSHA256": "622a100f7391e890166b86545b19b1b151dbdf7b48e258452924e17b3247debb",
+        "changedFrames": 198,
+        "unchangedFrames": 18,
+        "counterNote": "Changed/unchanged use actual saved patches. The older action counter overlaps with unchanged frames."
+      }
+    },
+    {
+      "parentJobId": "f179f035-44e7-4c3a-8ad6-70002aedd60d",
+      "frames": 240,
+      "inputHashes": {
+        "baseSHA256": "24432eaaeb19ea1b20354cd3181f2c5720dff309e8880caa2c1472f04b4bd6dc",
+        "sourceSHA256": "54a8c693e349dbd9ded69f7d513d8f309ccfb3f6d89513fe80ccca6892dc1a69",
+        "referenceSHA256": "61f2c4a59a3a2dd4973b435f43b13302b1083ad5d4674a7d5d07b449deeef945"
+      },
+      "anchorFrame": 0,
+      "threeRecipeWorkerSeconds": 200.9204003349878,
+      "refinedFrames": 230,
+      "preservedFrames": 10,
+      "preservedRangesFrames": [
+        124,
+        125,
+        126,
+        127,
+        147,
+        148,
+        149,
+        186,
+        187,
+        188
+      ],
+      "outputs": {
+        "standard-clean": {
+          "sha256": "7293a2b8b836c9a581efcb502e714879672707dbd6b85b471d82ed4381d0dd1c",
+          "bytes": 4980421
+        },
+        "adaptive-clean": {
+          "sha256": "acd63b0b16d6214801b9d087f83edfccba362aac56204fffc804b527993b96d4",
+          "bytes": 5013267
+        },
+        "adaptive-patches": {
+          "sha256": "1cb03ab6e417a02dcdbbaf3831cfe968baa2e50909da8ed429d8866a98265d38",
+          "bytes": 5016224
+        }
+      },
+      "eyeDetail": {
+        "workerSeconds": 17.404896505002398,
+        "outputSHA256": "da63f0027498114abb82f0a35f416b0c838039829665c95f38e66d177c1bef47",
+        "changedFrames": 196,
+        "unchangedFrames": 44,
+        "counterNote": "Changed/unchanged use actual saved patches. The older action counter overlaps with unchanged frames."
+      }
+    },
+    {
+      "parentJobId": "f38f587d-47fc-431f-bb3a-6b632c147108",
+      "frames": 355,
+      "inputHashes": {
+        "baseSHA256": "73e967def9d7615a195129d2d7f9e4e08e2598d330ae5cedfa55a7fde1971f27",
+        "sourceSHA256": "f97bd8fd5cbd67d656feb93a3490d0bee62a9955bde93fcb05a0257ff0418af1",
+        "referenceSHA256": "c9c17858b681768c083787e99862da57536889044346657c259faa0d00b1f8fe"
+      },
+      "anchorFrame": 0,
+      "threeRecipeWorkerSeconds": 325.0357822460064,
+      "refinedFrames": 355,
+      "preservedFrames": 0,
+      "preservedRangesFrames": [],
+      "outputs": {
+        "standard-clean": {
+          "sha256": "7e29165744324ddc08f099dda51855719eb453202886b9aa5ff8fd9c2c81950e",
+          "bytes": 10939917
+        },
+        "adaptive-clean": {
+          "sha256": "ce87cc1470b4d01fdc34eb6e1b938c12edde1f590b4d9e0334722284867b8767",
+          "bytes": 10994281
+        },
+        "adaptive-patches": {
+          "sha256": "fe6e173e4e1efd78ad172e5bcca1bb049ceabc28f172cedd000e1406fd8aa872",
+          "bytes": 11004853
+        }
+      },
+      "eyeDetail": {
+        "workerSeconds": 34.5305105940206,
+        "outputSHA256": "0a6f8e37d4cb28467e7fa42c355fc76fe49fb716a2aa5d78d486983964ab231c",
+        "changedFrames": 337,
+        "unchangedFrames": 18,
+        "counterNote": "Changed/unchanged use actual saved patches. The older action counter overlaps with unchanged frames."
+      }
+    }
+  ],
+  "fixedShapeCPU": {
+    "outputStills": 40,
+    "seconds": 212.6373219160596,
+    "conclusion": "No clear improvement; not selected and not temporally validated"
+  },
+  "mediaChecks": "Every private output hash, decoded frame count/rate/dimensions and original audio packet sequence verified locally by the private builder. Per-frame protected-pixel checks precede lossy MP4 encoding.",
+  "gpu": {
+    "instanceId": 58291560,
+    "startUTC": "2026-10-29T23:04:34.431922+00:00",
+    "stopConfirmedUTC": "2026-10-30T00:08:36.894118+00:00",
+    "actualStatus": "exited",
+    "intendedStatus": "stopped",
+    "idlePauseRestored": true,
+    "quoteEstimateComputeUSD": 0.498097,
+    "quoteEstimateStorageUSD": 0.018975,
+    "invoice": false
+  },
+  "newViggleInference": false,
+  "newImagenInference": false,
+  "productRecipeChanged": false,
+  "paidOriginalsChanged": false,
+  "viewer": "tools/face-continuity-review.html",
+  "remaining": [
+    "Validate exact foreground/semantic boundary protection on real clips",
+    "Compare aperture-only calibration without resting-gaze regression",
+    "Select and implement a versioned production route with legacy recovery unchanged",
+    "Managed-worker integration, quality/timing validation and user review"
+  ]
+}
