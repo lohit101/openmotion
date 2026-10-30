@@ -183,9 +183,9 @@ export class Runner {
         if (job.facialConsistency) {
           facialPhase = true;
           if (!this.facial) throw new FacialConsistencyError('The directional video is saved; facial tools are unavailable.');
-          this.stage(job, 'Matching source expressions and facial identity', job.facialConsistency.processedFrames, job.facialConsistency.frames, 'frames');
+          this.stage(job, 'Matching source expressions and facial identity', job.facialConsistency.workUnits?.completed ?? job.facialConsistency.processedFrames, job.facialConsistency.workUnits?.total ?? job.facialConsistency.frames, job.facialConsistency.version === 'source-face-v5' ? 'work units' : 'frames');
           await this.facial.finish(job, { reference: reference.path, source: path.join(folder, 'prepared-source.mp4'), base, folder: path.join(folder, 'facial-consistency') }, signal,
-            (frame, frames, stage) => this.stage(job, stage, frame, frames, 'frames'));
+            (frame, frames, stage, unit) => this.stage(job, stage, frame, frames, unit || 'frames'));
           this.checkCancelled(job); facialPhase = false;
         }
         await poster(job.output!, job.poster!); this.stage(job, 'Checking subject scale and position');
@@ -389,9 +389,9 @@ export class Runner {
       if (job.facialConsistency) {
         facialPhase = true;
         if (!this.facial) throw new FacialConsistencyError('The rendered video is saved; facial consistency tools are unavailable.');
-        this.stage(job, 'Matching source expressions and facial identity', job.facialConsistency.processedFrames, job.facialConsistency.frames, 'frames');
+        this.stage(job, 'Matching source expressions and facial identity', job.facialConsistency.workUnits?.completed ?? job.facialConsistency.processedFrames, job.facialConsistency.workUnits?.total ?? job.facialConsistency.frames, job.facialConsistency.version === 'source-face-v5' ? 'work units' : 'frames');
         await this.facial.finish(job, { reference: reference.path, source: path.join(folder, 'prepared-source.mp4'), base, folder: path.join(folder, 'facial-consistency') }, signal,
-          (frame, frames, stage) => this.stage(job, stage, frame, frames, 'frames'));
+          (frame, frames, stage, unit) => this.stage(job, stage, frame, frames, unit || 'frames'));
         this.checkCancelled(job); await poster(job.output!, job.poster!); facialPhase = false;
       }
       if (!job.anchorChild && (job.framingVersion || isViggle(job.settings)) && job.settings.mode === 'swap') {

@@ -8,7 +8,7 @@ import { lorasFrom, type ConnectionManager } from './comfy';
 import { command } from './media';
 import { facialCommand } from './facial-consistency';
 
-export async function manageModelStorage(repo: string, instanceId: number, action: 'inventory' | 'delete', name?: string): Promise<{ loras?: InstalledLora[]; files?: { id: string; size: number; verified?: boolean }[]; name?: string; freedBytes?: number; freeBytes?: number; partials?: { id: string; size: number }[]; removed?: boolean; facialRuntimeReady?: boolean; facialCleanupRuntimeReady?: boolean; facialCalibratedRuntimeReady?: boolean }> {
+export async function manageModelStorage(repo: string, instanceId: number, action: 'inventory' | 'delete', name?: string): Promise<{ loras?: InstalledLora[]; files?: { id: string; size: number; verified?: boolean }[]; name?: string; freedBytes?: number; freeBytes?: number; partials?: { id: string; size: number }[]; removed?: boolean; facialRuntimeReady?: boolean; facialCleanupRuntimeReady?: boolean; facialCalibratedRuntimeReady?: boolean; facialEyeFinishRuntimeReady?: boolean }> {
   const args = ['-u', path.join(repo, 'scripts/managed_models.py'), '--instance-id', String(instanceId), '--action', action];
   if (action === 'delete') args.push('--lora', name!);
   const output = await command('python3', args, undefined, 45000);
@@ -115,6 +115,7 @@ export class ModelManager {
           this.state.facialRuntimeReady = !!result.facialRuntimeReady;
           this.state.facialCleanupRuntimeReady = !!result.facialCleanupRuntimeReady;
           this.state.facialCalibratedRuntimeReady = !!result.facialCalibratedRuntimeReady;
+          this.state.facialEyeFinishRuntimeReady = !!result.facialEyeFinishRuntimeReady;
           for (const file of this.state.files.filter(item => item.id.startsWith('face_consistency/'))) {
             if (['queued', 'downloading'].includes(file.status)) continue;
             const present = result.files?.find(item => item.id === file.id);
@@ -211,13 +212,13 @@ export class ModelManager {
     for (const file of this.state.files) if (file.status === 'queued') Object.assign(file, { status: 'missing', message: 'Cancelled. Click download to resume.', percent: null });
     await this.work; this.emit(); return this.state;
   }
-  async prepareFacialTools() {
+  async prepareFacialTools(version: 'source-face-v1' | 'source-face-v5' = 'source-face-v1') {
     if (this.state.busy) throw new Error('Wait for model storage work to finish.');
     const instanceId = this.store.value<number | null>('cloud-connected-instance', null);
     if (!instanceId || this.connection.status.state !== 'online' || this.connection.status.endpoint !== 'http://127.0.0.1:8188') throw new Error('Connect the managed GPU before preparing facial tools.');
     this.preparing++; this.state.busy = true; this.emit();
     try {
-      await facialCommand(this.repo, ['--instance-id', String(instanceId), '--action', 'prepare']);
+      await facialCommand(this.repo, ['--instance-id', String(instanceId), '--action', 'prepare', '--version', version]);
       if (this.store.value('cloud-connected-instance', null) !== instanceId) throw new Error('GPU changed during facial-tool setup.');
       await this.refresh(); return this.state;
     } finally { this.preparing--; this.state.busy = !!this.work || this.preparing > 0; this.emit(); }

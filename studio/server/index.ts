@@ -101,9 +101,10 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     const value = z.object({ files: z.array(z.string().max(300)).min(1).max(modelDefinitions.length) }).parse(req.body);
     res.status(202).json(await models.start(value.files));
   });
-  app.post('/api/facial-consistency/prepare', async (_req, res) => {
+  app.post('/api/facial-consistency/prepare', async (req, res) => {
     if (videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork() || cloud.state.busy || runner.busy || store.jobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status))) return void res.status(409).json({ error: 'Finish GPU work before preparing facial tools.' });
-    res.json(await models.prepareFacialTools());
+    const value = z.object({ version: z.enum(['source-face-v1', 'source-face-v5']).default('source-face-v1') }).strict().parse(req.body);
+    res.json(await models.prepareFacialTools(value.version));
   });
   app.post('/api/models/cancel', async (_req, res) => res.json(await models.cancel()));
   app.post('/api/models/delete', async (req, res) => {

@@ -8,22 +8,24 @@ export const facialProfileLabels: Record<FacialProfile, string> = {
 export const usesFacialConsistency = (settings: { engine?: string; facialConsistency?: FacialProfile }) =>
   settings.engine === 'viggle' && !!settings.facialConsistency && settings.facialConsistency !== 'off';
 
-export const facialVersionForSettings = (settings: { facialSceneMatch?: boolean; facialFeatureCleanup?: boolean; facialConsistency?: FacialProfile; facialEyeCalibration?: boolean }) =>
+export const facialVersionForSettings = (settings: { facialSceneMatch?: boolean; facialFeatureCleanup?: boolean; facialConsistency?: FacialProfile; facialEyeCalibration?: boolean; facialEyeFinish?: boolean }) =>
   settings.facialSceneMatch === false ? 'source-face-v1' as const : settings.facialFeatureCleanup === true
-    ? settings.facialConsistency === 'perform-onnx60' && settings.facialEyeCalibration === true ? 'source-face-v4' as const : 'source-face-v3' as const
+    ? settings.facialConsistency === 'perform-onnx60' && settings.facialEyeCalibration === true ? settings.facialEyeFinish === true ? 'source-face-v5' as const : 'source-face-v4' as const : 'source-face-v3' as const
     : 'source-face-v2' as const;
 
-export const facialRuntimeReadyForSettings = (settings: { engine?: string; facialConsistency?: FacialProfile; facialSceneMatch?: boolean; facialFeatureCleanup?: boolean; facialEyeCalibration?: boolean },
-  state: { facialRuntimeReady?: boolean; facialCleanupRuntimeReady?: boolean; facialCalibratedRuntimeReady?: boolean }) => !usesFacialConsistency(settings) ||
-  (facialVersionForSettings(settings) === 'source-face-v4' ? !!state.facialCalibratedRuntimeReady :
+export const facialRuntimeReadyForSettings = (settings: { engine?: string; facialConsistency?: FacialProfile; facialSceneMatch?: boolean; facialFeatureCleanup?: boolean; facialEyeCalibration?: boolean; facialEyeFinish?: boolean },
+  state: { facialRuntimeReady?: boolean; facialCleanupRuntimeReady?: boolean; facialCalibratedRuntimeReady?: boolean; facialEyeFinishRuntimeReady?: boolean }) => !usesFacialConsistency(settings) ||
+  (facialVersionForSettings(settings) === 'source-face-v5' ? !!state.facialEyeFinishRuntimeReady : facialVersionForSettings(settings) === 'source-face-v4' ? !!state.facialCalibratedRuntimeReady :
     facialVersionForSettings(settings) === 'source-face-v3' ? !!state.facialCleanupRuntimeReady : !!state.facialRuntimeReady);
 
 export interface FacialConsistencyRun {
-  version: 'source-face-v1' | 'source-face-v2' | 'source-face-v3' | 'source-face-v4'; profile: Exclude<FacialProfile, 'off'>; blend: 0.6; instanceId: number; profileSHA256: string;
+  version: 'source-face-v1' | 'source-face-v2' | 'source-face-v3' | 'source-face-v4' | 'source-face-v5'; profile: Exclude<FacialProfile, 'off'>; blend: 0.6; instanceId: number; profileSHA256: string;
   anchorFrame?: number;
   eyeCalibration?: { state: 'active' | 'skipped'; anchorFrame: number; reason?: string | null; eligibleEyes?: boolean[]; fileSHA256: string };
   state: 'pending' | 'preparing' | 'processing' | 'saving' | 'downloaded' | 'complete' | 'interrupted';
   processedFrames: number; frames: number;
+  workUnits?: { completed: number; total: number };
+  eyeFinish?: { version: 'source-eye-finish-v1'; restorationFrames: number; placementFrames: number; restorationSeconds: number; observationSeconds: number; placementSeconds: number; nativeOutputSHA256: string; sourceRGBTransferred: false };
   baseSHA256?: string; sourceSHA256?: string; referenceSHA256?: string; outputSHA256?: string;
   refinedFrames?: number; skippedFrames?: number; elapsedSeconds?: number; gpu?: string;
   cancellationConfirmed?: boolean;

@@ -22,7 +22,7 @@ function videoProgress(job: Job): number {
     if (face.state === 'complete') return /checking subject/.test(stage) ? 99 : 98;
     if (face.state === 'downloaded') return 98;
     if (face.state === 'saving') return 96 + ratio;
-    if (face.state === 'processing') return 80 + 16 * Math.min(1, face.processedFrames / Math.max(1, face.frames));
+    if (face.state === 'processing') return 80 + 16 * Math.min(1, (face.workUnits?.completed ?? face.processedFrames) / Math.max(1, face.workUnits?.total ?? face.frames));
     return /assembling/.test(stage) ? 76 : 78;
   }
   const count = Math.max(1, p.segments), saved = Math.min(count, job.segments.length);

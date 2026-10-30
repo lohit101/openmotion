@@ -30,7 +30,7 @@
 </main>
 <script>
 const $=s=>document.querySelector(s), videos=Array.from({length:4},()=>{const v=document.createElement('video');v.preload='auto';v.muted=true;v.playsInline=true;document.body.append(v);return v}), canvases=Array.from({length:4},(_,i)=>$('#canvas'+i));
-let manifest, item, crop=true, paired=false, loop=null, moving=false, playing=false, raf=0, generation=0;
+let manifest, item, crop=true, paired=new URLSearchParams(location.search).get('compare')==='1', loop=null, moving=false, playing=false, raf=0, generation=0;
 const visible=()=>paired?videos:videos.slice(0,3), fail=e=>{$('#error').textContent=String(e?.message||e);};
 function pause(){playing=false;cancelAnimationFrame(raf);videos.forEach(v=>v.pause());$('#play').textContent='Play';}
 function matrixAt(n,source=false){const rows=source?item.sourceMatrices:item.matrices;return rows?.[n]||rows?.slice(0,n).reverse().find(Boolean)||null;}
@@ -45,7 +45,7 @@ function method(select,which){
  const requested=which===0?item.preferred:item.secondary,chosen=item.variants.some(v=>v.id===requested)?requested:item.variants[0].id;
  const groups=new Map();
  for(const v of item.variants){
-  const group=v.id.startsWith('iris-')?'Eye movement tests':v.id.startsWith('restoration-')?'Eye restoration tests':v.id.startsWith('eye-post-')?'Native eye detail tests':v.id==='managed-eye-calibration'||v.id.startsWith('clean-features-')?'Versioned finishes':'Earlier experiments';
+  const group=v.id.startsWith('iris-')?'Eye movement tests':v.id.startsWith('restoration-')?'Eye restoration tests':v.id.startsWith('eye-post-')?'Native eye detail tests':v.id==='managed-eye-calibration'||v.id==='managed-eye-finish'||v.id.startsWith('clean-features-')?'Versioned finishes':'Earlier experiments';
   if(!groups.has(group)){const node=document.createElement('optgroup');node.label=group;groups.set(group,node);}
   const o=document.createElement('option');o.value=v.id;o.textContent=v.label;o.selected=v.id===chosen;groups.get(group).append(o);
  }
@@ -64,6 +64,7 @@ function renderStillTests(){
 async function load(id){
  pause();const token=++generation;item=manifest.cases.find(x=>x.id===id);if(!item)throw new Error('Unknown saved comparison.');
  $('#play').disabled=true;$('#error').textContent='';$('#scrub').max=item.frames-1;$('#reference').src=item.reference;$('#notes').textContent=item.notes||'';
+ $('#panelB').classList.toggle('hidden',!paired);$('#grid').classList.toggle('four',paired);$('#pair').setAttribute('aria-pressed',String(paired));
  renderStillTests();method($('#candidateA'),0);method($('#candidateB'),1);
  $('#descriptionA').textContent=item.variants.find(x=>x.id===$('#candidateA').value).description;$('#descriptionB').textContent=item.variants.find(x=>x.id===$('#candidateB').value).description;
  const src=[item[$('#left').value],item.current,item.variants.find(x=>x.id===$('#candidateA').value).url,item.variants.find(x=>x.id===$('#candidateB').value).url];

@@ -11,6 +11,10 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 MODEL_ROOT = ROOT.parent / 'models/face_consistency'
+EYE_FINISH_FILES = ['config/facial-consistency-eye-finish.lock.json',
+                    'config/facial-consistency-eye-finish-models.lock.json',
+                    'scripts/face_eye_finish.py', 'scripts/face_eye_motion.py',
+                    'scripts/face_eye_placement.py', 'scripts/face_eye_temporal.py']
 
 
 def digest(file):
@@ -26,6 +30,9 @@ def profile():
 
 
 def profile_hash(version='source-face-v1'):
+    if version == 'source-face-v5':
+        data = bytes.fromhex(profile_hash('source-face-v4'))
+        return hashlib.sha256(data + b''.join((ROOT / name).read_bytes() for name in EYE_FINISH_FILES)).hexdigest()
     data = ((ROOT / 'config/facial-consistency-runtime.lock.json').read_bytes() +
             (ROOT / 'config/facial-consistency-models.lock.json').read_bytes())
     if version == 'source-face-v2':
@@ -68,8 +75,11 @@ def inspect(verify=False, model_root=None, version='source-face-v1'):
     if not ready:
         missing.append('Isolated facial-processing runtime')
     manifest = json.loads((ROOT / 'config/facial-consistency-models.lock.json').read_text())
-    if version in ['source-face-v3', 'source-face-v4']:
+    if version in ['source-face-v3', 'source-face-v4', 'source-face-v5']:
         extra = json.loads((ROOT / 'config/facial-consistency-cleanup-models.lock.json').read_text())
+        manifest = {**manifest, 'files': [*manifest['files'], *extra['files']], 'total_bytes': manifest['total_bytes'] + extra['total_bytes']}
+    if version == 'source-face-v5':
+        extra = json.loads((ROOT / 'config/facial-consistency-eye-finish-models.lock.json').read_text())
         manifest = {**manifest, 'files': [*manifest['files'], *extra['files']], 'total_bytes': manifest['total_bytes'] + extra['total_bytes']}
     for item in manifest['files']:
         file = model_path(item, model_root)
@@ -91,7 +101,7 @@ def inspect(verify=False, model_root=None, version='source-face-v1'):
                          json.loads(marker.read_text()).get('cleanupWorkerSHA256') == digest(ROOT / 'scripts/facial_worker.py'))
     except (OSError, ValueError):
         cleanup_hash, cleanup_ready = None, False
-    if version in ['source-face-v3', 'source-face-v4'] and not cleanup_ready:
+    if version in ['source-face-v3', 'source-face-v4', 'source-face-v5'] and not cleanup_ready:
         ready = False
         missing.append('Updated facial feature-cleanup tools')
     try:
@@ -99,13 +109,31 @@ def inspect(verify=False, model_root=None, version='source-face-v1'):
         calibration_ready = cleanup_ready and json.loads(marker.read_text()).get('calibrationProfileSHA256') == calibration_hash
     except (OSError, ValueError):
         calibration_hash, calibration_ready = None, False
-    if version == 'source-face-v4' and not calibration_ready:
+    if version in ['source-face-v4', 'source-face-v5'] and not calibration_ready:
         ready = False
         missing.append('Updated facial eye-calibration tools')
+    try:
+        eye_hash = profile_hash('source-face-v5')
+        eye_ready = (calibration_ready and eye_python().is_file() and
+                     json.loads((ROOT / 'state/eye-runtime-ready.json').read_text()).get('profileSHA256') == eye_hash and
+                     json.loads((ROOT / 'state/eye-runtime-ready.json').read_text()).get('nativeBindingsVerified') is True)
+    except (OSError, ValueError):
+        eye_hash, eye_ready = None, False
+    if version == 'source-face-v5' and eye_ready and verify:
+        try:
+            subprocess.run([str(eye_python()), '-c', 'import mediapipe;assert mediapipe.__version__=="1.2.0";'
+                            'from mediapipe.tasks.python.core.mediapipe_c_bindings import load_raw_library;load_raw_library()'],
+                           check=True, capture_output=True, timeout=20)
+        except (OSError, subprocess.SubprocessError):
+            eye_ready = False
+    if version == 'source-face-v5' and not eye_ready:
+        ready = False
+        missing.append('Optional eye-finishing runtime')
     return {'ready': not missing, 'runtimeReady': ready, 'missing': missing, 'profileSHA256': profile_hash(),
             'sceneProfileSHA256': scene_hash if scene_ready else None, 'cleanupProfileSHA256': cleanup_hash if cleanup_ready else None,
             'cleanupWorkerSHA256': digest(ROOT / 'scripts/facial_worker.py') if cleanup_ready else None,
             'calibrationProfileSHA256': calibration_hash if calibration_ready else None,
+            'eyeFinishProfileSHA256': eye_hash if eye_ready else None,
             'timingSHA256': timing_hash if timing_ready else None, 'bytes': manifest['total_bytes']}
 
 
@@ -138,7 +166,47 @@ def link_models(model_root=None):
             alias.symlink_to(target)
 
 
-def prepare():
+def eye_python():
+    return ROOT / '.local/eye-venv/bin/python'
+
+
+def prepare_eye_runtime():
+    """Explicit optional CPU observer environment; never alter the CUDA face venv."""
+    python = eye_python()
+    settings = json.loads((ROOT / 'config/facial-consistency-eye-finish.lock.json').read_text())
+    if platform.machine() != 'x86_64':
+        raise ValueError('The tested optional eye runtime requires an x86_64 managed host.')
+    if shutil.disk_usage(ROOT).free < 5 * 1024**3 + settings['observation_runtime_reserve_bytes']:
+        raise ValueError('Free the optional eye-runtime working reserve before preparation.')
+    if not python.is_file():
+        subprocess.run([str(paths()[1]), '-m', 'venv', str(python.parent.parent)], check=True)
+    print('RECAST_FACIAL_STAGE Preparing isolated optional eye observer', flush=True)
+    # The official CPU Tasks binary links these small GLVND loaders even when
+    # its CPU delegate is selected. Check them before advertising readiness.
+    import ctypes
+    missing = []
+    for library in ['libEGL.so.1', 'libGLESv2.so.2']:
+        try:
+            ctypes.CDLL(library)
+        except OSError:
+            missing.append(library)
+    if missing:
+        if shutil.which('apt-get') is None:
+            raise ValueError('Install the EGL/GLES runtime libraries before preparing optional eye tools.')
+        subprocess.run(['apt-get', 'update'], env={**os.environ, 'DEBIAN_FRONTEND': 'noninteractive'}, check=True)
+        subprocess.run(['apt-get', 'install', '-y', '--no-install-recommends', 'libegl1', 'libgles2'],
+                       env={**os.environ, 'DEBIAN_FRONTEND': 'noninteractive'}, check=True)
+    subprocess.run([str(python), '-m', 'pip', 'install', '--only-binary=:all:', *settings['observation_runtime_packages']],
+                   env={**os.environ, 'PIP_NO_CACHE_DIR': '1'}, check=True)
+    subprocess.run([str(python), '-c', 'import mediapipe,cv2,numpy;assert mediapipe.__version__=="1.2.0";'
+                    'from mediapipe.tasks.python.core.mediapipe_c_bindings import load_raw_library;load_raw_library()'], check=True)
+    marker = ROOT / 'state/eye-runtime-ready.json'
+    temporary = marker.with_suffix('.tmp.json')
+    temporary.write_text(json.dumps({'profileSHA256': profile_hash('source-face-v5'), 'nativeBindingsVerified': True}))
+    temporary.replace(marker)
+
+
+def prepare(version='source-face-v1'):
     """Called only after an explicit download/update action, never Generate."""
     (ROOT / 'state').mkdir(parents=True, exist_ok=True)
     with (ROOT / 'state/runtime-setup.lock').open('a') as lock:
@@ -146,6 +214,8 @@ def prepare():
         if inspect()['runtimeReady']:
             link_models()
             write_ready_marker()
+            if version == 'source-face-v5':
+                prepare_eye_runtime()
             return
         if platform.machine() != 'x86_64':
             raise ValueError('Facial consistency currently needs an x86_64 NVIDIA host. No facial model download was started.')
@@ -174,4 +244,6 @@ def prepare():
         subprocess.run([str(python), '-c', 'import torch,onnxruntime as o;o.preload_dlls();assert torch.cuda.is_available() and "CUDAExecutionProvider" in o.get_available_providers()'], check=True)
         link_models()
         write_ready_marker()
+        if version == 'source-face-v5':
+            prepare_eye_runtime()
         print('RECAST_FACIAL_STAGE Face tools prepared; model weights stay on demand', flush=True)

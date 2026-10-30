@@ -11,6 +11,7 @@ import uuid
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 import facial_worker
+import facial_runtime
 
 
 class FacialWorkerProtocolTests(unittest.TestCase):
@@ -34,6 +35,16 @@ class FacialWorkerProtocolTests(unittest.TestCase):
     def test_poll_confirms_missing_handle_without_loading_models_or_request(self):
         value, _ = self.call_empty_request('poll')
         self.assertEqual(value['state'], 'interrupted')
+
+    def test_cached_native_runtime_still_prepares_the_explicit_optional_observer(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(facial_runtime, 'ROOT', Path(directory)), \
+                patch.object(facial_runtime, 'inspect', return_value={'runtimeReady': True}), \
+                patch.object(facial_runtime, 'link_models'), patch.object(facial_runtime, 'write_ready_marker'), \
+                patch.object(facial_runtime, 'prepare_eye_runtime') as optional:
+            facial_runtime.prepare()
+            optional.assert_not_called()
+            facial_runtime.prepare('source-face-v5')
+            optional.assert_called_once_with()
 
 
 if __name__ == '__main__':

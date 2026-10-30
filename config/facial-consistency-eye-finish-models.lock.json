@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "total_bytes": 380710246,
+  "usage": "Optional source-face-v5 eye-interior restoration and source-coordinate-only placement. Does not change v1\u2013v4 files or defaults. Model/runtime preparation is explicit.",
+  "files": [
+    {
+      "repo": "facefusion/models-3.0.0",
+      "revision": "728b9659bd9691bf32cbf7f61af478d94b7ba81e",
+      "filename": "codeformer.onnx",
+      "destination": "face_consistency/eye_finish/codeformer.onnx",
+      "size": 376951650,
+      "sha256": "21710e7ab61c82683576c428e9c1b6fe1ed419586b7b39e394c3449c294b550f",
+      "url": "https://huggingface.co/facefusion/models-3.0.0/resolve/728b9659bd9691bf32cbf7f61af478d94b7ba81e/codeformer.onnx"
+    },
+    {
+      "repo": "google-ai-edge/mediapipe",
+      "revision": "gcs-generation-1683136941468629",
+      "filename": "face_landmarker.task",
+      "destination": "face_consistency/eye_finish/face_landmarker.task",
+      "size": 3758596,
+      "sha256": "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff",
+      "url": "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task?generation=1683136941468629"
+    }
+  ]
+}

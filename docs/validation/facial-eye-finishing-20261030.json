@@ -1,0 +1,133 @@
+{
+  "recipe": "source-face-v5",
+  "profileSHA256": "665bac84437c6e61a91db8a25d193abd1989e1c7ddabb3815a38d8a267e02dfe",
+  "scope": "Optional post-pass on immutable paid animation; no new Viggle/Imagen inference.",
+  "device": "User-started RTX PRO 4500",
+  "frames": 811,
+  "cases": [
+    {
+      "jobId": "91fc37ed-28ac-4a52-8046-9f45638213b9",
+      "parentJobId": "f38f587d-47fc-431f-bb3a-6b632c147108",
+      "frames": 355,
+      "workerSeconds": 241.22621909098234,
+      "nativeWorkerSeconds": 138.10606159898452,
+      "managedFinishingSeconds": 393.888,
+      "allThreeFrameTracksHashVerified": true,
+      "originalAudioPacketsExact": true,
+      "frameTimingVerified": true,
+      "placementProtectedPixelsExact": true,
+      "uncertainNativeFramesRetainedExactly": 0,
+      "completedOfflineRecovery": true,
+      "outputSHA256": "d523b368519fd2bf4e611e8c72373b617d440cf3597940d62db8c4fafd74b0dc",
+      "receiptSHA256": "d9c5850b93274966194a4c4e4a7d62475f018b8bc869da7d3f3cd33b9690342d",
+      "eyeStages": {
+        "restorationSeconds": 54.93113540299237,
+        "observationSeconds": 13.563854834006634,
+        "placementSeconds": 32.15790837199893,
+        "restorationFrames": 334,
+        "placementFrames": 324,
+        "observerDevice": "CPU on the same managed GPU host",
+        "sourceRGBTransferred": false
+      },
+      "crossPlatformReplay": {
+        "maximumChannelDifference": 1,
+        "framesWithOneValueRounding": 30,
+        "projectedPermissionAreaDifferences": []
+      },
+      "recovery": {
+        "prefixFrames": 44,
+        "allPrefixRecordsUnchanged": true,
+        "calibrationFileUnchanged": true,
+        "nativeReceiptUnchanged": true
+      },
+      "timingCaution": "Includes intentional cancellation/resume/transfers; not complete Generate latency."
+    },
+    {
+      "jobId": "c7a4887e-c32a-46ab-a8ef-7e406bfc0a1a",
+      "parentJobId": "196f011e-6487-4a44-a655-fb13fc4672ca",
+      "frames": 216,
+      "workerSeconds": 159.0676773971063,
+      "nativeWorkerSeconds": 95.30176268902142,
+      "managedFinishingSeconds": 269.484,
+      "allThreeFrameTracksHashVerified": true,
+      "originalAudioPacketsExact": true,
+      "frameTimingVerified": true,
+      "placementProtectedPixelsExact": true,
+      "uncertainNativeFramesRetainedExactly": 0,
+      "completedOfflineRecovery": true,
+      "outputSHA256": "e58101f13ad4a7a2be0c16d2158a0c9bd8e57d95a898c06ebc6a2843538c8170",
+      "receiptSHA256": "cf65704bc27a3222920f3340022796f6209fa877ec07bc843b6236b59d27185f",
+      "eyeStages": {
+        "restorationSeconds": 34.04811857599998,
+        "observationSeconds": 7.389405788038857,
+        "placementSeconds": 20.535342546005268,
+        "restorationFrames": 202,
+        "placementFrames": 190,
+        "observerDevice": "CPU on the same managed GPU host",
+        "sourceRGBTransferred": false
+      },
+      "crossPlatformReplay": {
+        "maximumChannelDifference": 1,
+        "framesWithOneValueRounding": 9,
+        "projectedPermissionAreaDifferences": []
+      },
+      "recovery": {
+        "interruptedNativePrefixRecordsPreserved": 0
+      },
+      "timingCaution": "Includes intentional cancellation/resume/transfers; not complete Generate latency."
+    },
+    {
+      "jobId": "4f1fd7df-7e30-4013-8b20-86bbca84c0ab",
+      "parentJobId": "f179f035-44e7-4c3a-8ad6-70002aedd60d",
+      "frames": 240,
+      "workerSeconds": 133.76980247796746,
+      "nativeWorkerSeconds": 84.93331982794916,
+      "managedFinishingSeconds": 210.654,
+      "allThreeFrameTracksHashVerified": true,
+      "originalAudioPacketsExact": true,
+      "frameTimingVerified": true,
+      "placementProtectedPixelsExact": true,
+      "uncertainNativeFramesRetainedExactly": 10,
+      "completedOfflineRecovery": true,
+      "outputSHA256": "f767a2027138aa704b0b062d57fcdd6ac9b8ed58a2d223e3f7bc10974ec2a278",
+      "receiptSHA256": "3a9703bca45672e57996e8e56d38fcd651232e9207c26b22d3344f2ac6acf6c1",
+      "eyeStages": {
+        "restorationSeconds": 27.693448542966507,
+        "observationSeconds": 6.4912069870042615,
+        "placementSeconds": 13.626179762009997,
+        "restorationFrames": 203,
+        "placementFrames": 154,
+        "observerDevice": "CPU on the same managed GPU host",
+        "sourceRGBTransferred": false
+      },
+      "crossPlatformReplay": {
+        "maximumChannelDifference": 1,
+        "framesWithOneValueRounding": 13,
+        "projectedPermissionAreaDifferences": [
+          {
+            "frame": 211,
+            "macPermissionPixels": 352,
+            "linuxPermissionPixels": 351
+          }
+        ]
+      },
+      "recovery": {
+        "interruptedNativePrefixRecordsPreserved": 49
+      },
+      "timingCaution": "Includes intentional cancellation/resume/transfers; not complete Generate latency."
+    }
+  ],
+  "stop": {
+    "id": 58372286,
+    "actual": "exited",
+    "intended": "stopped",
+    "checkedAt": "2026-10-30T08:58:26.113526+00:00"
+  },
+  "qualityStatus": "Experimental and off by default. Does not fix face-wide smoothing or jaw-mask clipping found later on another user clip.",
+  "limits": [
+    "Integrity and opening/position diagnostics are not identity or gaze accuracy scores.",
+    "Delivered MP4 is compressed; exact protection applies to pre-encode pixels.",
+    "Full uninterrupted Generate latency was not measured.",
+    "CodeFormer S-Lab licence is not cleared for the future hosted service."
+  ]
+}

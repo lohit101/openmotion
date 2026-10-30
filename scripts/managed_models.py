@@ -81,9 +81,11 @@ def main():
                     'result["facialRuntimeReady"]=marker.is_file() and json.loads(marker.read_text()).get("sceneProfileSHA256")==sys.argv[5] and json.loads(marker.read_text()).get("timingSHA256")==sys.argv[6];'
                     'result["facialCleanupRuntimeReady"]=result["facialRuntimeReady"] and json.loads(marker.read_text()).get("cleanupProfileSHA256")==sys.argv[7] and json.loads(marker.read_text()).get("cleanupWorkerSHA256")==sys.argv[8];'
                     'result["facialCalibratedRuntimeReady"]=result["facialCleanupRuntimeReady"] and json.loads(marker.read_text()).get("calibrationProfileSHA256")==sys.argv[9];'
+                    'eye_marker=root.parent/"facial-runtime/state/eye-runtime-ready.json";'
+                    'result["facialEyeFinishRuntimeReady"]=result["facialCalibratedRuntimeReady"] and eye_marker.is_file() and json.loads(eye_marker.read_text()).get("profileSHA256")==sys.argv[10] and json.loads(eye_marker.read_text()).get("nativeBindingsVerified") is True;'
                     'print("RECAST_MODEL_STORAGE "+json.dumps(result))')
             facial = __import__('managed_facial_consistency')
-            vast.remote(config, ['python3', '-c', code, str(root / 'scripts'), str(root / 'models'), json.dumps(selected_manifest()['files']),json.dumps(face_files), facial.fingerprint('source-face-v2'), facial.digest(facial.ROOT / 'scripts/video_timing.py'), facial.fingerprint('source-face-v3'), facial.digest(facial.ROOT / 'scripts/facial_worker.py'), facial.fingerprint('source-face-v4')])
+            vast.remote(config, ['python3', '-c', code, str(root / 'scripts'), str(root / 'models'), json.dumps(selected_manifest()['files']),json.dumps(face_files), facial.fingerprint('source-face-v2'), facial.digest(facial.ROOT / 'scripts/video_timing.py'), facial.fingerprint('source-face-v3'), facial.digest(facial.ROOT / 'scripts/facial_worker.py'), facial.fingerprint('source-face-v4'), facial.fingerprint('source-face-v5')])
             return
         command = ['python3', str(root / 'scripts/model_storage.py'), '--model-dir', str(root / 'models')]
         if args.action == 'delete':
@@ -97,7 +99,7 @@ def main():
     manifest = selected_manifest(json.loads(args.model_files))
     if any(item['destination'].startswith('face_consistency/') for item in manifest['files']):
         from managed_facial_consistency import prepare_runtime
-        prepare_runtime(config)
+        prepare_runtime(config, 'source-face-v5' if any(item['destination'].startswith('face_consistency/eye_finish/') for item in manifest['files']) else 'source-face-v1')
     target = write_remote_manifest(config, manifest)
     downloader = root / ('facial-runtime/scripts/download_models.py' if any(item['destination'].startswith('face_consistency/') for item in manifest['files']) else 'scripts/download_models.py')
     vast.remote(config, [str(root / '.venv/bin/python'), str(downloader),
