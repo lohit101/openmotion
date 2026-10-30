@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 
 import vast
-from model_manifest import selected_manifest, write_remote_manifest
+from model_manifest import is_content_filter_weight, selected_manifest, write_remote_manifest
 
 
 MODEL_PATCH_PATHS = '''
@@ -68,7 +68,7 @@ def main():
         if args.action == 'inventory':
             face_files=[]
             for name in ['local-identity.lock.json','local-video-identity.lock.json']:
-                face_files.extend(json.loads((Path(__file__).resolve().parents[1]/'config'/name).read_text())['files'])
+                face_files.extend(item for item in json.loads((Path(__file__).resolve().parents[1]/'config'/name).read_text())['files'] if not is_content_filter_weight(item['path']))
             code = ('import sys,json,shutil;sys.path.insert(0,sys.argv[1]);from model_storage import inventory;'
                     'result=inventory(sys.argv[2]);result["freeBytes"]=shutil.disk_usage(sys.argv[2]).free;'
                     'from pathlib import Path;root=Path(sys.argv[2]);'

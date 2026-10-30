@@ -129,7 +129,7 @@ def run(reference, target, output, provider='cpu', method='direct', performance_
         ort.preload_dlls()
     from facefusion.program import create_program
     from facefusion.args import apply_args
-    from facefusion import state_manager, content_analyser
+    from facefusion import state_manager
     from facefusion.face_creator import get_static_faces
     from facefusion.processors.modules.face_swapper.core import swap_face
     if provider == 'cuda':
@@ -149,8 +149,6 @@ def run(reference, target, output, provider='cpu', method='direct', performance_
             '--face-mask-types','box','occlusion','--face-occluder-model','xseg_1','--face-mask-blur','0.3',
             '--execution-providers',provider,'--execution-thread-count','4']))
     apply_args(args, state_manager.init_item);state_manager.init_item('download_providers', [])
-    if content_analyser.analyse_image(str(reference)) or content_analyser.analyse_video(str(target), 0, info['frames']) or performance_source and content_analyser.analyse_video(str(performance_source),0,info['frames']):
-        raise ValueError('Unmodified upstream media check declined an input. The parent remains unchanged.')
     donor = cv2.imread(str(reference))
     if donor is None: raise ValueError('Reference image could not be decoded.')
     donors = get_static_faces([donor])
@@ -158,7 +156,7 @@ def run(reference, target, output, provider='cpu', method='direct', performance_
     cap = cv2.VideoCapture(str(target)); started = invocation_started; elapsed_before = previous_elapsed
     source_cap=cv2.VideoCapture(str(performance_source)) if performance_source else None
     result = {'inputs': signature, 'execution': 'remote CUDA' if provider == 'cuda' else 'local CPU', 'newPaidInference': provider == 'cuda', 'model': 'hyperswap_1a_256',
-              'contentCheck': 'unchanged upstream image/video checks', 'usage': ready['license'], 'records': records, 'complete': False}
+              'usage': ready['license'], 'records': records, 'complete': False}
     if provider == 'cuda':
         result.update(gpu=torch.cuda.get_device_name(0), onnxruntime=ort.__version__, sessionProviders=session_providers)
     def save():

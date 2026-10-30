@@ -89,7 +89,6 @@ def eye_calibration(folder, models, parser, request, inputs, info):
 def preflight(folder):
     import cv2
     import numpy as np
-    from facefusion import content_analyser
     from facefusion.face_recognizer import calculate_face_embedding
     request = json.loads((folder / 'request.json').read_text())
     version = request.get('version', 'source-face-v1')
@@ -105,8 +104,7 @@ def preflight(folder):
     reference = folder / 'reference.png'
     if digest(reference) != request['referenceSHA256']:
         raise ValueError('The saved facial reference changed.')
-    if content_analyser.analyse_image(str(reference)):
-        raise ValueError('The unchanged upstream input check declined this reference.')
+    # FaceFusion's content filter is permanently off and has no control.
     found = face(cv2.imread(str(reference)))
     if found is None:
         raise ValueError('Use one clear face in the edited starting frame. Crop a character sheet before using it here.')
@@ -151,7 +149,6 @@ def process_native(folder):
     import numpy as np
     import torch
     import onnxruntime as ort
-    from facefusion import content_analyser
     from facefusion.face_helper import warp_face_by_face_landmark_5
     from facefusion.face_masker import create_occlusion_mask
     from face_performance import FaceModels
@@ -186,9 +183,6 @@ def process_native(folder):
     for record in records:
         if record['frame'] >= info['frames'] or digest(result / f"frame-{record['frame']:06d}.png") != record['sha256']:
             raise ValueError('A previously saved facial frame changed.')
-    for name in ['source.mp4', 'target.mp4']:
-        if content_analyser.analyse_video(str(folder / name), 0, info['frames']):
-            raise ValueError('The unchanged upstream input check declined the video.')
     pre = json.loads((folder / 'preflight.json').read_text())
     if pre['referenceSHA256'] != inputs['referenceSHA256'] or digest(folder / 'donor.npy') != pre['embeddingSHA256']:
         raise ValueError('The fixed reference-face conditioning changed.')

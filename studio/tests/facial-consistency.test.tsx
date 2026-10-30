@@ -73,6 +73,7 @@ describe('selected automatic facial finishing', () => {
     expect(settingsSchema.parse({}).facialConsistency).toBe('off');
     const normal = { ...defaults, engine: 'viggle' as const, referencePreparation: 'prepared' as const };
     expect(modelFilesForSettings(normal).some(id => id.startsWith('face_consistency/'))).toBe(false);
+    expect(facialModelFiles.some(id => /nsfw_\d+/.test(id))).toBe(false);
     for (const facialConsistency of ['perform-onnx60', 'regional-onnx60'] as const) {
       expect(modelFilesForSettings({ ...normal, facialConsistency }).filter(id => id.startsWith('face_consistency/'))).toEqual([...facialModelFiles, ...facialCleanupModelFiles]);
       expect(modelFilesForSettings({ ...normal, facialConsistency, facialFeatureCleanup: false }).filter(id => id.startsWith('face_consistency/'))).toEqual(facialModelFiles);

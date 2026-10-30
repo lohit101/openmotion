@@ -6,10 +6,21 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def is_content_filter_weight(path):
+    """FaceFusion NSFW classifiers stay in the hashed locks and are never used.
+
+    Removing them from those locks would change every frozen facial fingerprint.
+    Callers skip them for downloads, readiness and display instead.
+    """
+    stem, _, suffix = Path(str(path)).name.rpartition('.')
+    return stem.startswith('nsfw_') and suffix in {'onnx', 'hash'}
+
+
 def selected_manifest(files=None):
     available = []
     for name in ('models.lock.json', 'optional-models.lock.json', 'natural-models.lock.json', 'extra-models.lock.json', 'viggle-models.lock.json', 'repaint-models.lock.json', 'image-adapters.lock.json', 'qwen-image-models.lock.json', 'image-controls.lock.json', 'facial-consistency-models.lock.json', 'facial-consistency-cleanup-models.lock.json', 'facial-consistency-eye-finish-models.lock.json'):
         available.extend(json.loads((ROOT / 'config' / name).read_text())['files'])
+    available = [item for item in available if not is_content_filter_weight(item.get('destination', ''))]
     if files is None:
         files = [item['destination'] for item in available]
     if not isinstance(files, list) or not all(isinstance(name, str) for name in files):

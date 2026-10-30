@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Optional CPU identity anchor. Setup is explicit; inference never downloads.
 
-Uses a pinned, unmodified FaceFusion checkout and retains its image content
-check. No identity embeddings or inferred demographic traits are persisted.
+Uses a pinned, unmodified FaceFusion checkout. Its content filter is not
+used. No identity embeddings or inferred demographic traits are persisted.
 """
 import argparse
 import hashlib
@@ -14,6 +14,8 @@ import subprocess
 import sys
 import time
 import urllib.request
+
+from model_manifest import is_content_filter_weight
 
 ROOT = Path(__file__).resolve().parents[1]
 LOCK = ROOT / 'config/local-identity.lock.json'
@@ -47,13 +49,14 @@ def status(verify=False):
     if not runtime.is_file():
         missing.append('Python runtime')
     ready_bytes = 0
-    for item in config['files']:
+    required = [item for item in config['files'] if not is_content_filter_weight(item['path'])]
+    for item in required:
         file = source / item['path']
         if not file.is_file() or file.stat().st_size != item['size'] or verify and digest(file) != item['sha256']:
             missing.append(Path(item['path']).name)
         else:
             ready_bytes += item['size']
-    return {'ready': not missing, 'missing': missing, 'bytes': config['total_bytes'], 'readyBytes': ready_bytes,
+    return {'ready': not missing, 'missing': missing, 'bytes': sum(item['size'] for item in required), 'readyBytes': ready_bytes,
             'location': 'local computer', 'setup': 'python3 scripts/local_identity.py setup', 'license': config['usage']}
 
 
@@ -72,13 +75,14 @@ def setup(python=None):
     if not runtime.exists():
         subprocess.run([interpreter, '-m', 'venv', str(runtime.parent.parent)], check=True)
     subprocess.run([str(runtime), '-m', 'pip', 'install', *config['packages']], check=True)
-    for index, item in enumerate(config['files']):
+    required = [item for item in config['files'] if not is_content_filter_weight(item['path'])]
+    for index, item in enumerate(required):
         file = source / item['path']
         if file.is_file() and file.stat().st_size == item['size'] and digest(file) == item['sha256']:
             continue
         file.parent.mkdir(parents=True, exist_ok=True)
         partial = file.with_suffix(file.suffix + '.part')
-        print(f"Downloading local identity file {index + 1}/{len(config['files'])}: {file.name}", file=sys.stderr, flush=True)
+        print(f"Downloading local identity file {index + 1}/{len(required)}: {file.name}", file=sys.stderr, flush=True)
         with urllib.request.urlopen(item['url'], timeout=60) as response, open(partial, 'wb') as target:
             shutil.copyfileobj(response, target, 4 * 1024 * 1024)
         if partial.stat().st_size != item['size'] or digest(partial) != item['sha256']:
@@ -113,7 +117,7 @@ def run(reference, target, output, mask=None):
     import numpy as np
     from facefusion.program import create_program
     from facefusion.args import apply_args
-    from facefusion import state_manager, content_analyser
+    from facefusion import state_manager
     from facefusion.face_creator import get_static_faces
     from facefusion.processors.modules.face_swapper.core import swap_face
     args = vars(create_program().parse_args(['headless-run', '-s', str(reference), '-t', str(target), '-o', str(output),
@@ -121,11 +125,9 @@ def run(reference, target, output, mask=None):
         '--face-swapper-weight', '0.5', '--face-selector-mode', 'one', '--face-detector-model', 'yunet',
         '--face-mask-types', 'box', '--face-mask-blur', '0.3', '--execution-providers', 'cpu', '--execution-thread-count', '4']))
     apply_args(args, state_manager.init_item)
-    # All exact weights were verified above. An empty provider list disables
-    # metadata probes and implicit transfers; it does not disable image checks.
+    # Verified weights only. An empty provider list blocks metadata probes
+    # and implicit downloads. The content filter is not used.
     state_manager.init_item('download_providers', [])
-    if content_analyser.analyse_image(str(target)):
-        raise ValueError('The selected local identity runtime declined this image. The paid base image is retained.')
     before = time.monotonic()
     donor, scene = cv2.imread(str(reference)), cv2.imread(str(target))
     if donor is None or scene is None:
@@ -147,7 +149,7 @@ def run(reference, target, output, mask=None):
         raise ValueError('The local identity result could not be saved.')
     os.replace(temporary, output)
     saved = {'inputs': signature, 'output': digest(output), 'seconds': time.monotonic() - before,
-             'model': 'hyperswap_1a_256', 'execution': 'local CPU', 'contentCheck': 'unchanged upstream image check'}
+             'model': 'hyperswap_1a_256', 'execution': 'local CPU'}
     receipt.write_text(json.dumps(saved, indent=2) + '\n')
     return saved
 

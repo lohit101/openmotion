@@ -8,6 +8,9 @@ describe('download inventory presentation', () => {
     const row=downloadRows(emptyModels(),snapshot).find(item=>item.id.startsWith('face-refinement/'))!;
     expect(row).toMatchObject({group:'core',onDisk:402742682,measured:true,usage:[{workflow:'GPU face refinement'}]});
     expect(row.id.startsWith('loras/')).toBe(false);
+    const hidden: ModelInventory = { ...snapshot, files: [...snapshot.files, { id: 'face_consistency/facefusion/nsfw_1.onnx', size: 80414194, partialSize: 0, measured: true }, { id: 'face-refinement/nsfw_2.onnx', size: 22489928, partialSize: 0, measured: true }] };
+    expect(downloadRows(emptyModels(), hidden).some(item => /nsfw_\d+/.test(item.id))).toBe(false);
+    expect(modelDefinitions.some(file => /nsfw_\d+/.test(file.filename))).toBe(false);
   });
   it('maps every bundled file to its actual workflow, including shared image preparation', () => {
     for (const file of modelDefinitions) expect(modelUsage(file.id).length).toBeGreaterThan(0);

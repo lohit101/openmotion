@@ -9,6 +9,8 @@ import shutil
 import subprocess
 import sys
 
+from model_manifest import is_content_filter_weight
+
 ROOT = Path(__file__).resolve().parents[1]
 MODEL_ROOT = ROOT.parent / 'models/face_consistency'
 EYE_FINISH_FILES = ['config/facial-consistency-eye-finish.lock.json',
@@ -89,7 +91,11 @@ def inspect(verify=False, model_root=None, version='source-face-v1'):
     if version in ['source-face-v5', 'source-face-v8']:
         extra = json.loads((ROOT / 'config/facial-consistency-eye-finish-models.lock.json').read_text())
         manifest = {**manifest, 'files': [*manifest['files'], *extra['files']], 'total_bytes': manifest['total_bytes'] + extra['total_bytes']}
+    ignored_bytes = 0
     for item in manifest['files']:
+        if is_content_filter_weight(item['destination']):
+            ignored_bytes += item['size']
+            continue
         file = model_path(item, model_root)
         if file.is_symlink() or file.parent.is_symlink() or not file.is_file() or file.stat().st_size != item['size'] or verify and digest(file) != item['sha256']:
             missing.append(item['destination'])
@@ -151,7 +157,7 @@ def inspect(verify=False, model_root=None, version='source-face-v1'):
             'calibrationProfileSHA256': calibration_hash if calibration_ready else None,
             'eyeFinishProfileSHA256': eye_hash if eye_ready else None,
             'geometryProfiles': geometry_hashes if geometry_ready else None,
-            'timingSHA256': timing_hash if timing_ready else None, 'bytes': manifest['total_bytes']}
+            'timingSHA256': timing_hash if timing_ready else None, 'bytes': manifest['total_bytes'] - ignored_bytes}
 
 
 def write_ready_marker():
@@ -173,6 +179,8 @@ def link_models(model_root=None):
         raise ValueError('Unexpected linked FaceFusion model folder.')
     folder.mkdir(parents=True, exist_ok=True)
     for name in profile()['facefusion_models']:
+        if is_content_filter_weight(name):
+            continue
         target = (Path(model_root or MODEL_ROOT) / 'facefusion' / name).resolve()
         alias = folder / name
         if alias.is_symlink():

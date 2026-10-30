@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
-from model_manifest import manifest_path, selected_manifest, required_setup_manifest
+from model_manifest import is_content_filter_weight, manifest_path, selected_manifest, required_setup_manifest
 from managed_models import check_connection
 from doctor import profile_schema_graph
 from check_workflows import check_api
@@ -72,6 +72,19 @@ class ModelProfileTests(unittest.TestCase):
             self.assertFalse(any('required-models.json' in command for command in commands))
             self.assertFalse(any('download_models.py' in command for command in commands))
             self.assertTrue(tunnel.called)
+
+    def test_facefusion_content_filter_is_not_a_download_or_readiness_requirement(self):
+        names = [item['destination'] for item in self.full['files']]
+        self.assertFalse(any(is_content_filter_weight(name) for name in names))
+        with self.assertRaises(ValueError):
+            selected_manifest(['face_consistency/facefusion/nsfw_1.onnx'])
+        from facial_runtime import inspect
+        from local_identity import status
+        report = inspect(model_root=Path('/tmp/recast-missing-face-models'))
+        self.assertFalse(any('nsfw_' in item for item in report['missing']))
+        self.assertFalse(any(str(name).startswith('nsfw_') for name in status()['missing']))
+        for relative in ('scripts/facial_worker.py', 'scripts/video_identity.py', 'scripts/local_identity.py'):
+            self.assertNotIn('content_analyser', (ROOT / relative).read_text())
 
     def test_required_bundle_covers_natural_recipe_but_never_optional_extras(self):
         manifest = required_setup_manifest()

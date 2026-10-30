@@ -24,8 +24,9 @@ export const I2V_SPEED = 'lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.saf
 export const DPO = 'wan2.1_SCAIL_2_DPO_lora_bf16.safetensors';
 export const SOCIAL_STYLE = 'Instagoon-v1-step00001400.safetensors';
 const scailModels = [...base.files, ...relight.files, ...natural.files, ...extras.files];
-export const pinnedModels = [...scailModels, ...viggle.files, ...repaint.files, ...imageAdapters.files, ...qwenImage.files, ...imageControls.files, ...facialModels.files, ...facialCleanupModels.files, ...facialEyeFinishModels.files];
-export const facialModelFiles = facialModels.files.map(file => file.destination);
+const contentFilterWeight = (destination: string) => /(?:^|\/)nsfw_\d+\./.test(destination);
+export const pinnedModels = [...scailModels, ...viggle.files, ...repaint.files, ...imageAdapters.files, ...qwenImage.files, ...imageControls.files, ...facialModels.files, ...facialCleanupModels.files, ...facialEyeFinishModels.files].filter(file => !contentFilterWeight(file.destination));
+export const facialModelFiles = facialModels.files.map(file => file.destination).filter(id => !contentFilterWeight(id));
 export const facialCleanupModelFiles = facialCleanupModels.files.map(file => file.destination);
 export const facialEyeFinishModelFiles = facialEyeFinishModels.files.map(file => file.destination);
 export const facialFilesForSettings = (settings: { facialSceneMatch?: boolean; facialFeatureCleanup?: boolean; facialConsistency?: Settings['facialConsistency']; facialEyeCalibration?: boolean; facialEyeFinish?: boolean }) =>
@@ -106,7 +107,7 @@ const descriptions: Record<string, [string, string, 'core' | 'adapter' | 'featur
   [RELIGHT]: ['Character relighting', 'Matches the replacement to source lighting and shadows', 'adapter'],
   [SOCIAL_STYLE]: ['Social media style · Instagooner', 'Casual influencer / phone-camera aesthetics. Video quality on SCAIL-2 is untested.', 'adapter'],
 };
-const facialLabels: Record<string, string> = { 'appearance_feature_extractor.onnx': 'PerformRecast appearance', 'motion_extractor.onnx': 'PerformRecast facial motion', 'warping_module.onnx': 'PerformRecast motion warping', 'spade_generator.onnx': 'PerformRecast face decoder', 'hyperswap_1a_256.onnx': 'ONNX identity swap · Hyperswap', 'arcface_w600k_r50.onnx': 'Face reference encoder', '2dfan4.onnx': 'Facial landmarks', 'yunet_2023_mar.onnx': 'Face detector', 'xseg_1.onnx': 'Face occlusion masks', 'nsfw_1.onnx': 'Upstream input check 1', 'nsfw_2.onnx': 'Upstream input check 2', 'nsfw_3.onnx': 'Upstream input check 3' };
+const facialLabels: Record<string, string> = { 'appearance_feature_extractor.onnx': 'PerformRecast appearance', 'motion_extractor.onnx': 'PerformRecast facial motion', 'warping_module.onnx': 'PerformRecast motion warping', 'spade_generator.onnx': 'PerformRecast face decoder', 'hyperswap_1a_256.onnx': 'ONNX identity swap · Hyperswap', 'arcface_w600k_r50.onnx': 'Face reference encoder', '2dfan4.onnx': 'Facial landmarks', 'yunet_2023_mar.onnx': 'Face detector', 'xseg_1.onnx': 'Face occlusion masks' };
 export const modelDefinitions = pinnedModels.map(file => {
   const facial = [...facialModels.files, ...facialCleanupModels.files, ...facialEyeFinishModels.files].some(item => item.destination === file.destination);
   const [label, description, group] = descriptions[filename(file.destination)] || [facialLabels[filename(file.destination)] || filename(file.destination), 'Source-driven facial consistency dependency. Shared by Standard and Regional, with a 60% identity blend.', 'feature' as const];
