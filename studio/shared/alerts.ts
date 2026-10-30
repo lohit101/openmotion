@@ -15,7 +15,7 @@ export const alertPreferencesSchema = z.object({
 });
 export type AlertPreferences = z.infer<typeof alertPreferencesSchema>;
 export function readAlertPreferences(value: unknown): AlertPreferences { const parsed = alertPreferencesSchema.safeParse(value); return parsed.success ? parsed.data : alertPreferencesSchema.parse({}); }
-export interface AlertTarget { view: 'gpu' | 'create' | 'image' | 'editor' | 'downloads' | 'alerts'; jobId?: string; }
+export interface AlertTarget { view: 'clarity' | 'gpu' | 'create' | 'image' | 'editor' | 'downloads' | 'alerts'; jobId?: string; }
 export interface ActivityAlert {
   id: string; category: AlertCategory; tone: 'success' | 'warning' | 'error'; title: string; body: string;
   detail?: string; target: AlertTarget; toast?: boolean;
@@ -61,11 +61,11 @@ export class ActivityAlertTracker {
       if (job.anchorChild || job.image?.segmentRepaint) continue; // Intermediate photo readiness is reported by its video, not as a final output alert.
       const old = this.jobs.get(job.id), changed = old?.status !== job.status;
       const recent = old || Date.parse(job.createdAt) >= this.startedAt;
-      if (this.initialized && recent && !job.deleted && (job.origin === 'render' || !!job.faceRefinement)) {
-        const base = { id: `generation:${job.id}:${job.status}:${job.finishedAt || job.progress.updatedAt}`, category: 'generation' as const, target: { view: job.mediaType === 'image' ? 'image' as const : 'create' as const, jobId: job.id } };
+      if (this.initialized && recent && !job.deleted && (job.origin === 'render' || !!job.upscale || !!job.faceRefinement)) {
+        const base = { id: `generation:${job.id}:${job.status}:${job.finishedAt || job.progress.updatedAt}`, category: 'generation' as const, target: { view: job.upscale ? 'clarity' as const : job.mediaType === 'image' ? 'image' as const : 'create' as const, jobId: job.id } };
         if (job.status === 'completed' && job.output && (changed || !old?.output)) {
           const skipped = job.facialConsistency?.eyeCalibration?.state === 'skipped';
-          alerts.push({ ...base, tone: skipped ? 'warning' : 'success', title: job.mediaType === 'image' ? 'Your image is ready' : 'Your video is ready',
+          alerts.push({ ...base, tone: skipped ? 'warning' : 'success', title: job.upscale ? 'Your upscaled video is ready' : job.mediaType === 'image' ? 'Your image is ready' : 'Your video is ready',
             body: skipped ? 'Saved to your library. Eye calibration was skipped because ' + facialCalibrationReason(job.facialConsistency?.eyeCalibration?.reason) + '. The existing facial finish was retained.' : 'Saved to your library. Open it to view the result.' });
         }
         else if (changed && ['failed', 'interrupted'].includes(job.status)) {

@@ -29,6 +29,7 @@ import { assertRepaintReady, resolveRepaintProfile } from './segment-repaint';
 import { clipFrameCount } from '../shared/clip';
 import { canFinishImageLocally, isImageJob } from '../shared/image-replacement';
 import { registerClipEditorRoutes } from './clip-editor';
+import { UpscaleManager, registerUpscaleRoutes } from './upscale';
 import { startLocalServer } from './local-server';
 import { registerVideoIdentityRoutes } from './video-identity';
 import { createGpuFaceBackend } from './gpu-video-identity';
@@ -67,7 +68,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   // Request activity is GPU work, not browsing or inventory refreshes. This also
   // invalidates idle probes when async request preflight has not queued work yet.
   app.use((req, res, next) => {
-    const work = req.method === 'POST' && (/^\/api\/(?:jobs(?:\/[^/]+\/(?:resume|refine-face))?|images\/jobs|models\/(?:download|delete)|video-identity\/gpu\/setup|facial-consistency\/prepare|connection\/connect)$/.test(req.path) ||
+    const work = req.method === 'POST' && (/^\/api\/upscale\/(?:prepare|jobs(?:\/[^/]+\/recover)?)$/.test(req.path) || /^\/api\/(?:jobs(?:\/[^/]+\/(?:resume|refine-face))?|images\/jobs|models\/(?:download|delete)|video-identity\/gpu\/setup|facial-consistency\/prepare|connection\/connect)$/.test(req.path) ||
       /^\/api\/cloud\/(?:launch|launches\/[^/]+\/continue|instances\/[^/]+\/(?:start|connect))$/.test(req.path));
     if (work) {
       if (idle.state.status === 'pausing') return void res.status(409).json({ error: 'GPU idle pause is in progress. Wait for its confirmed status, then start & connect before generating.' });
@@ -76,11 +77,18 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     next();
   });
   const clipEditor = registerClipEditorRoutes(app, store);
+  let upscale: UpscaleManager;
   const videoIdentity = registerVideoIdentityRoutes(app, store, repo, createGpuFaceBackend(store,repo,connection,()=>{
-    if(runner.busy || models.state.busy || cloud.state.busy || store.jobs().some(job=>job.origin==='render' && ['queued','running','reconnecting'].includes(job.status)))throw new Error('Finish current GPU setup, downloads or rendering before GPU face refinement.');
+    if(upscale?.busy || runner.busy || models.state.busy || cloud.state.busy || store.jobs().some(job=>job.origin==='render' && ['queued','running','reconnecting'].includes(job.status)))throw new Error('Finish current GPU setup, downloads or rendering before GPU face refinement.');
   }));
-  runner.externalGpuBusy=()=>videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork();
-  idle = new GpuIdleManager(store, cloud, connection, () => runner.busy || !!runner.active || models.state.busy || videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork() ||
+  upscale = new UpscaleManager(store, repo, connection, clipEditor, () => {
+    if (runner.busy || runner.active || models.state.busy || cloud.state.busy || videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork() || store.jobs().some(job => ['queued','running','reconnecting'].includes(job.status))) throw new Error('Finish current GPU setup or generation before Clarity.');
+  });
+  registerUpscaleRoutes(app, upscale, store);
+  const observeClarityStops = () => { for(const launch of cloud.state.launches)if(launch.instanceId&&((launch.phase==='stopped'&&launch.safetyStatus==='stopped')||(launch.phase==='destroyed'&&launch.safetyStatus==='disarmed')))upscale.observeProviderStop(launch.instanceId,Date.parse(launch.updatedAt)); };
+  observeClarityStops();store.on('event',event=>{if(event.type==='cloud')observeClarityStops();});
+  runner.externalGpuBusy=()=>upscale.busy || videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork();
+  idle = new GpuIdleManager(store, cloud, connection, () => upscale.busy || runner.busy || !!runner.active || models.state.busy || videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork() ||
     store.jobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status) ||
       (job.faceRefinement?.execution === 'remote CUDA' && job.faceRefinement.instanceId === store.value('cloud-connected-instance', null) &&
         job.status === 'interrupted' && job.cancellationConfirmed !== true)));
@@ -95,7 +103,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     req.on('close', () => { clearInterval(heartbeat); store.off('event', send); });
   });
   app.get('/api/cloud', (_req, res) => res.json(cloud.state));
-  const accountWorkActive = () => models.state.busy || videoIdentity.gpuBusy || runner.busy || runner.hasUnconfirmedFaceWork() ||
+  const accountWorkActive = () => upscale.busy || models.state.busy || videoIdentity.gpuBusy || runner.busy || runner.hasUnconfirmedFaceWork() ||
     store.jobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status));
   app.get('/api/cloud/account', (_req, res) => { res.setHeader('Cache-Control', 'no-store'); res.json(cloud.accountStatus(accountWorkActive() ? 'Finish current model setup or generation before updating account details.' : null)); });
   app.post('/api/cloud/account', async (req, res) => {
@@ -111,18 +119,18 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   app.post('/api/cloud/idle', (req, res) => { const { enabled } = z.object({ enabled: z.boolean() }).strict().parse(req.body); idle.configure(enabled); res.json(cloud.state); });
   app.get('/api/models', async (_req, res) => res.json(await models.refresh()));
   app.post('/api/models/download', async (req, res) => {
-    if (videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork() || cloud.state.busy || runner.busy || store.jobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status))) return void res.status(409).json({ error: 'Finish the current setup or render before downloading models.' });
+    if (upscale.busy || videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork() || cloud.state.busy || runner.busy || store.jobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status))) return void res.status(409).json({ error: 'Finish the current setup or render before downloading models.' });
     const value = z.object({ files: z.array(z.string().max(300)).min(1).max(modelDefinitions.length) }).parse(req.body);
     res.status(202).json(await models.start(value.files));
   });
   app.post('/api/facial-consistency/prepare', async (req, res) => {
-    if (videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork() || cloud.state.busy || runner.busy || store.jobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status))) return void res.status(409).json({ error: 'Finish GPU work before preparing facial tools.' });
+    if (upscale.busy || videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork() || cloud.state.busy || runner.busy || store.jobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status))) return void res.status(409).json({ error: 'Finish GPU work before preparing facial tools.' });
     const value = z.object({ version: z.enum(['source-face-v1', 'source-face-v2', 'source-face-v3', 'source-face-v4', 'source-face-v5', 'source-face-v6', 'source-face-v7', 'source-face-v8', 'source-face-v9', 'source-face-v10']).default('source-face-v6') }).strict().parse(req.body);
     res.json(await models.prepareFacialTools(value.version));
   });
   app.post('/api/models/cancel', async (_req, res) => res.json(await models.cancel()));
   app.post('/api/models/delete', async (req, res) => {
-    if (videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork() || cloud.state.busy || runner.busy || store.jobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status))) return void res.status(409).json({ error: 'Finish setup or rendering before removing a LoRA.' });
+    if (upscale.busy || videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork() || cloud.state.busy || runner.busy || store.jobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status))) return void res.status(409).json({ error: 'Finish setup or rendering before removing a LoRA.' });
     const value = z.object({ name: z.string().min(1).max(300) }).parse(req.body);
     res.json(await models.remove(value.name));
   });
@@ -194,7 +202,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     connection.disconnect(); res.json(connection.status);
   });
   app.post('/api/jobs', async (req, res) => {
-    if(videoIdentity.gpuBusy)return void res.status(409).json({error:'Wait for GPU face setup or refinement to finish.'});
+    if(upscale.busy || videoIdentity.gpuBusy)return void res.status(409).json({error:'Wait for GPU face setup or refinement to finish.'});
     if (cloud.state.busy || cloud.state.launches.some(l => ['stopping', 'destroying'].includes(l.phase) || (l.instanceId && l.safetyStatus === 'unconfirmed'))) return void res.status(503).json({ error: 'The GPU setup or stop status is not settled. Your draft is saved; check GPU cloud before generating.' });
     const value = z.object({ sourceId: z.string(), referenceId: z.string(), settings: settingsSchema, saveDiagnosticLatent: z.boolean().default(false) }).parse(req.body);
     const issue = engineIssue(value.settings); if (issue) return void res.status(400).json({ error: issue });
@@ -210,7 +218,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     const accepted = store.byKey(key); if (accepted) return void res.json(publicJob(accepted));
     await runner.reconcileFaceCancellations();
     if (runner.hasUnconfirmedFaceWork()) return void res.status(409).json({ error: 'A previous video’s facial pass still needs checking. Open it in My library and choose Check & resume. Existing media is kept; nothing new was queued.' });
-    if (videoIdentity.gpuBusy || models.state.busy || cloud.state.busy || connection.status.state !== 'online') return void res.status(409).json({ error: 'The GPU or model downloads changed while checking. Nothing was queued; wait for readiness before generating.' });
+    if (upscale.busy || videoIdentity.gpuBusy || models.state.busy || cloud.state.busy || connection.status.state !== 'online') return void res.status(409).json({ error: 'The GPU or model downloads changed while checking. Nothing was queued; wait for readiness before generating.' });
     if (models.state.error) return void res.status(503).json({ error: models.state.error });
     const missing = modelFilesForSettings(value.settings).filter(id => models.state.files.find(file => file.id === id)?.status !== 'installed');
     if (missing.length) return void res.status(409).json({ error: isViggle(value.settings) && value.settings.referencePreparation !== 'prepared' && missing.some(id => imageModelFiles.includes(id))
@@ -251,15 +259,17 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   app.post('/api/jobs/:id/cancel', async (req, res) => {
     const job = store.job(String(req.params.id)); if (!job) return void res.sendStatus(404);
     if (!['queued', 'running', 'reconnecting', 'interrupted'].includes(job.status)) return void res.json(publicJob(job));
+    if (job.upscale) { await upscale.cancel(job); return void res.json(publicJob(store.job(job.id)!)); }
     if (job.faceRefinement) { await videoIdentity.cancel(job); return void res.json(publicJob(store.job(job.id)!)); }
     await runner.cancel(job); res.json(publicJob(store.job(job.id)!));
   });
   app.post('/api/jobs/:id/resume', async (req, res) => {
     const job = store.job(String(req.params.id)); if (!job) return void res.sendStatus(404);
+    if (job.upscale) { await upscale.recover(job); return void res.json(publicJob(store.job(job.id)!)); }
     if (job.faceRefinement) { await videoIdentity.resume(job); return void res.json(publicJob(store.job(job.id)!)); }
     if (idle.state.status === 'pausing') return void res.status(409).json({ error: 'Wait for the automatic GPU pause to settle before resuming.' });
     if (job.anchorChild) return void res.status(409).json({ error: 'Check and resume the parent video so its saved branches stay coordinated.' });
-    if (videoIdentity.gpuBusy && !canFinishImageLocally(job) && !canFinishFacialLocally(job) && !canFinishAnchoredLocally(job)) return void res.status(409).json({error:'Finish GPU face refinement before resuming another render.'});
+    if ((upscale.busy || videoIdentity.gpuBusy) && !canFinishImageLocally(job) && !canFinishFacialLocally(job) && !canFinishAnchoredLocally(job)) return void res.status(409).json({error:'Finish GPU face refinement before resuming another render.'});
     if (connection.status.state !== 'online' && !canFinishImageLocally(job) && !canFinishFacialLocally(job) && !canFinishAnchoredLocally(job)) return void res.status(503).json({ error: 'Reconnect your GPU first.' });
     if (job.status !== 'interrupted') return void res.status(409).json({ error: 'Only an interrupted run can be resumed. Reuse settings to start another run.' });
     const value = z.object({ retryMissing: z.boolean().default(false) }).parse(req.body || {});
@@ -322,11 +332,11 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     const message = error instanceof z.ZodError ? error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join(' ') : error.code === 'LIMIT_FILE_SIZE' ? 'Videos can be up to 512 MB.' : error.message || 'This action could not be completed.';
     res.status(error instanceof z.ZodError ? 422 : error instanceof multer.MulterError ? 413 : 400).json({ error: String(message).slice(0, 2000) });
   });
-  return { app, store, connection, runner, cloud, models, clipEditor, videoIdentity, idle };
+  return { app, store, connection, runner, cloud, models, clipEditor, videoIdentity, upscale, idle };
 }
 async function main() {
   const port = Number(process.env.PORT || 3000);
-  const { server, store, cloud, models, clipEditor, videoIdentity, idle } = await startLocalServer(() => createApplication(), port);
+  const { server, store, cloud, models, clipEditor, videoIdentity, upscale, idle } = await startLocalServer(() => createApplication(), port);
   idle.start();
   console.log(`Recast: http://127.0.0.1:${port} (GPU disconnected until you connect)`);
   server.on('error', error => { console.error(error.message); idle.dispose(); cloud.dispose(); store.close(); process.exitCode = 1; });
@@ -334,7 +344,7 @@ async function main() {
   const shutdown = async () => {
     if (closing) return; closing = true; idle.dispose(); server.closeAllConnections(); server.close();
     const deadline = setTimeout(() => { console.error('Shutdown could not confirm all setup stops. Check your instances in Vast.'); process.exit(1); }, 60000);
-    try { await videoIdentity.shutdown(); await clipEditor.shutdown(); await models.cancel(); await cloud.shutdown(); clearTimeout(deadline); cloud.dispose(); store.close(); process.exit(0); }
+    try { await upscale.shutdown(); await videoIdentity.shutdown(); await clipEditor.shutdown(); await models.cancel(); await cloud.shutdown(); clearTimeout(deadline); cloud.dispose(); store.close(); process.exit(0); }
     catch (error) { console.error((error as Error).message); clearTimeout(deadline); cloud.dispose(); store.close(); process.exit(1); }
   };
   process.once('SIGINT', () => void shutdown()); process.once('SIGTERM', () => void shutdown());

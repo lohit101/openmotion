@@ -119,7 +119,7 @@ export class ModelManager {
           this.state.facialEyeFinishRuntimeReady = !!result.facialEyeFinishRuntimeReady;
           this.state.facialGeometryRuntimeReady = !!result.facialGeometryRuntimeReady;
           this.state.facialBoundaryRuntimeReady = !!result.facialBoundaryRuntimeReady;
-          for (const file of this.state.files.filter(item => item.id.startsWith('face_consistency/'))) {
+          for (const file of this.state.files.filter(item => (item.id.startsWith('face_consistency/') || item.id.startsWith('upscale/')))) {
             if (['queued', 'downloading'].includes(file.status)) continue;
             const present = result.files?.find(item => item.id === file.id);
             if (present?.verified && present.size === pinnedModels.find(item => item.destination === file.id)?.size) Object.assign(file, { status: 'installed', percent: 100, error: null, message: 'Verified on this GPU' });

@@ -1,0 +1,8 @@
+{
+  "total_bytes": 7016472997,
+  "files": [
+    {"repo":"ruchangyao/FlashVSR_plus","revision":"46b79520946ac67dec94d1566490690953c7debc","filename":"turbo/dit.safetensors","destination":"upscale/flashvsr-plus/turbo/dit.safetensors","size":5676070392,"sha256":"7862b92178176fa3aebc34c6c071daca6b56ab1dddb8e7ff9a01c47f5226ec8b","license":"apache-2.0"},
+    {"repo":"ruchangyao/FlashVSR_plus","revision":"46b79520946ac67dec94d1566490690953c7debc","filename":"turbo/lq_proj_in.safetensors","destination":"upscale/flashvsr-plus/turbo/lq_proj_in.safetensors","size":1151384272,"sha256":"e77b378ae12342eefbb58f924256f362a151b93ce73dd32808fcdaca9c051496","license":"apache-2.0"},
+    {"repo":"ruchangyao/FlashVSR_plus","revision":"46b79520946ac67dec94d1566490690953c7debc","filename":"TCDecoder.ckpt","destination":"upscale/flashvsr-plus/TCDecoder.ckpt","size":189018333,"sha256":"e224bdcf2f52745cbf4d393ff5374c2ba09e90285d5d19062d2bf63b915b6161","license":"apache-2.0"}
+  ]
+}

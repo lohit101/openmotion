@@ -1,0 +1,58 @@
+{
+  "date": "2026-10-31",
+  "feature": "Clarity",
+  "model": "FlashVSR+ Turbo",
+  "sourceRevision": "b548a2cc2c929d3d4676f2973abe27876ec4dee7",
+  "weightsRevision": "46b79520946ac67dec94d1566490690953c7debc",
+  "modelBytes": 7016472997,
+  "diskPlanningGB": 25,
+  "profileSHA256": "763c5f1a1032afd36f1017ea827ab0638d929827b7eea16eeffde2937156a23f",
+  "studio": {
+    "full": 487,
+    "focusedAfterFinalUIChanges": 20,
+    "typecheck": true,
+    "frontendBuild": true,
+    "serverBuild": true
+  },
+  "python": {
+    "clarityMedia": 6,
+    "clarityProtocol": 5,
+    "faceRuntimePackage": 2,
+    "modelStorage": 4,
+    "managedModelPaths": 2
+  },
+  "mediaEvidence": "Synthetic clips only; integer/fractional CFR, VFR/HDR rejection, rotated display dimensions, full RGB/FFV1 hash round-trip, copied audio packet payload. No AI upscaling quality inference.",
+  "browserReview": {
+    "isolatedData": true,
+    "navigationAndControls": "verified in native accessibility state",
+    "resolutionMenu": "720p and 1080p verified",
+    "layout": "Corrected shell column and final desktop layout visually verified in Brave; empty state, source/output panels and sidebar visible. Narrow viewport review pending."
+  },
+  "paid": {
+    "modelDownloads": 0,
+    "runtimePreparations": 0,
+    "rentalOrResumeActions": 0,
+    "newInference": 0
+  },
+  "timing": {
+    "measured": false,
+    "planningTargetSeconds": [
+      30,
+      120
+    ],
+    "scope": "Five-second 24 fps 480p to 720p; setup excluded; SDPA may exceed this target."
+  },
+  "pending": [
+    "Managed CUDA compatibility and memory benchmark",
+    "Real visual/identity/temporal review",
+    "Managed remote interruption/recovery validation"
+  ],
+  "deployment": {
+    "deployedAt": "2026-10-30T21:19:03.389599+00:00",
+    "savedJobsUnchanged": 276,
+    "draftsUnchanged": true,
+    "gpuResumed": false,
+    "connectionState": "offline",
+    "gpuToolsUpdated": false
+  }
+}

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { UpscaleRun } from './upscale';
 import type { CloudState } from './cloud';
 import { defaultNegativePrompt, defaultPrompt } from './prompts';
 import type { ModelsState } from './models';
@@ -71,7 +72,7 @@ export interface Job {
   pendingPrompt: string | null; uploads: { source: string; reference: string; preparedFrame?: string; face?: string; original?: string; mask?: string; noiseMask?: string; faceMask?: string; structure?: string; bodyMask?: string; bodyReference?: string; bodyAppearance?: string; bodyBase?: string; headReference?: string; repaintSegment?: number } | null;
   error: string | null; output: string | null; poster: string | null; cancelRequested: boolean;
   cancellationConfirmed?: boolean; submitting?: boolean; retryRequired?: boolean;
-  elapsedSeconds: number | null; origin: 'render' | 'import' | 'edit'; workflow: Record<string, GraphNode> | null;
+  elapsedSeconds: number | null; origin: 'render' | 'import' | 'edit' | 'upscale'; upscale?: UpscaleRun; workflow: Record<string, GraphNode> | null;
   edit?: ClipEditReceipt;
   hasWorkflow?: boolean;
   promptVersion?: 'scene-v1';

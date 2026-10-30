@@ -8,6 +8,7 @@ import repaint from '../../config/repaint-models.lock.json';
 import imageAdapters from '../../config/image-adapters.lock.json';
 import qwenImage from '../../config/qwen-image-models.lock.json';
 import imageControls from '../../config/image-controls.lock.json';
+import upscaleModels from '../../config/upscale-models.lock.json';
 import facialModels from '../../config/facial-consistency-models.lock.json';
 import facialCleanupModels from '../../config/facial-consistency-cleanup-models.lock.json';
 import facialEyeFinishModels from '../../config/facial-consistency-eye-finish-models.lock.json';
@@ -25,14 +26,15 @@ export const DPO = 'wan2.1_SCAIL_2_DPO_lora_bf16.safetensors';
 export const SOCIAL_STYLE = 'Instagoon-v1-step00001400.safetensors';
 const scailModels = [...base.files, ...relight.files, ...natural.files, ...extras.files];
 const contentFilterWeight = (destination: string) => /(?:^|\/)nsfw_\d+\./.test(destination);
-export const pinnedModels = [...scailModels, ...viggle.files, ...repaint.files, ...imageAdapters.files, ...qwenImage.files, ...imageControls.files, ...facialModels.files, ...facialCleanupModels.files, ...facialEyeFinishModels.files].filter(file => !contentFilterWeight(file.destination));
+export const pinnedModels = [...scailModels, ...viggle.files, ...repaint.files, ...imageAdapters.files, ...qwenImage.files, ...imageControls.files, ...facialModels.files, ...facialCleanupModels.files, ...facialEyeFinishModels.files, ...upscaleModels.files].filter(file => !contentFilterWeight(file.destination));
+export const upscaleModelFiles = upscaleModels.files.map(file => file.destination);
 export const facialModelFiles = facialModels.files.map(file => file.destination).filter(id => !contentFilterWeight(id));
 export const facialCleanupModelFiles = facialCleanupModels.files.map(file => file.destination);
 export const facialEyeFinishModelFiles = facialEyeFinishModels.files.map(file => file.destination);
 export const facialFilesForSettings = (settings: { facialSceneMatch?: boolean; facialFeatureCleanup?: boolean; facialConsistency?: Settings['facialConsistency']; facialEyeCalibration?: boolean; facialEyeFinish?: boolean; facialBoundaryBlend?: boolean }) =>
   [...facialModelFiles, ...(isCleanupFacialVersion(facialVersionForSettings(settings)) ? facialCleanupModelFiles : []),
     ...(isEyeFinishedFacialVersion(facialVersionForSettings(settings)) ? facialEyeFinishModelFiles : [])];
-export const modelWorkingReserve = (files: string[]) => 5 * 1024 ** 3 + (files.some(file => file.startsWith('face_consistency/')) ? 512 * 1024 ** 2 : 0);
+export const modelWorkingReserve = (files: string[]) => (files.some(file => file.startsWith('upscale/')) ? 15 : 5) * 1024 ** 3 + (files.some(file => file.startsWith('face_consistency/')) ? 512 * 1024 ** 2 : 0);
 export const setupModelFiles: string[] = setup.files;
 export const imageModelFiles = repaint.files.map(file => file.destination);
 export const IMAGE_IDENTITY = 'bfs_head_v1_flux-klein_4b.safetensors';
@@ -110,8 +112,8 @@ const descriptions: Record<string, [string, string, 'core' | 'adapter' | 'featur
 const facialLabels: Record<string, string> = { 'appearance_feature_extractor.onnx': 'PerformRecast appearance', 'motion_extractor.onnx': 'PerformRecast facial motion', 'warping_module.onnx': 'PerformRecast motion warping', 'spade_generator.onnx': 'PerformRecast face decoder', 'hyperswap_1a_256.onnx': 'ONNX identity swap · Hyperswap', 'arcface_w600k_r50.onnx': 'Face reference encoder', '2dfan4.onnx': 'Facial landmarks', 'yunet_2023_mar.onnx': 'Face detector', 'xseg_1.onnx': 'Face occlusion masks' };
 export const modelDefinitions = pinnedModels.map(file => {
   const facial = [...facialModels.files, ...facialCleanupModels.files, ...facialEyeFinishModels.files].some(item => item.destination === file.destination);
-  const [label, description, group] = descriptions[filename(file.destination)] || [facialLabels[filename(file.destination)] || filename(file.destination), 'Source-driven facial consistency dependency. Shared by Standard and Regional, with a 60% identity blend.', 'feature' as const];
-  const engine = facial ? 'facial' : viggle.files.some(item => item.destination === file.destination) ? 'viggle' : [...repaint.files, ...imageAdapters.files, ...qwenImage.files, ...imageControls.files].some(item => item.destination === file.destination) ? 'repaint' : 'scail2';
+  const [label, description, group] = (file.destination.startsWith('upscale/') ? [filename(file.destination) === 'dit.safetensors' ? 'FlashVSR+ Turbo transformer' : filename(file.destination) === 'TCDecoder.ckpt' ? 'FlashVSR+ video decoder' : 'FlashVSR+ input conditioning', 'Clarity video upscaling. Optional; never downloaded by selection or inference.', 'feature' as const] as const : undefined) || descriptions[filename(file.destination)] || [facialLabels[filename(file.destination)] || filename(file.destination), 'Source-driven facial consistency dependency. Shared by Standard and Regional, with a 60% identity blend.', 'feature' as const];
+  const engine = file.destination.startsWith('upscale/') ? 'upscale' : facial ? 'facial' : viggle.files.some(item => item.destination === file.destination) ? 'viggle' : [...repaint.files, ...imageAdapters.files, ...qwenImage.files, ...imageControls.files].some(item => item.destination === file.destination) ? 'repaint' : 'scail2';
   return { id: file.destination, filename: filename(file.destination), size: file.size, label, description, group,
     engine, included: group === 'core', experimental: filename(file.destination) === SOCIAL_STYLE,
     trigger: filename(file.destination) === SOCIAL_STYLE ? 'instag00n' : '',
