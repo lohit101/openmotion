@@ -1,0 +1,10 @@
+{
+  "version": "source-face-v3",
+  "expression": "Existing Standard/Regional source-driven expression; no reference-expression calibration",
+  "identity": "Fixed original donor, existing Hyperswap 512 pixel boost, 60 percent RGB blend before one final permission mask",
+  "mask": "Raw-target semantic face support, inward six-output-pixel boundary feather, complete visible eye/brow/mouth ownership, exact feature witness only, target XSeg occluders",
+  "composition": "Absolute corrected feature plane; bounded skin-only low-frequency lighting correction",
+  "eyeTexture": "Same raw animation, eroded corrected-eye interiors, source semantic-area and 68-point opening gates, forward/backward DIS confidence, 0.65 RGB restoration",
+  "protection": "No source hair matte projection; target hair, glasses and non-face regions protected; exact pixels outside projected permission before compressed export",
+  "limitations": "Does not lock facial geometry, invent correct iris detail, guarantee gaze/identity fidelity or repair uncertain/occluded/mismatched faces. Existing originals and source-face-v1/v2 recipes remain immutable."
+}

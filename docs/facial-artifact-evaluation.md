@@ -1,5 +1,9 @@
 # Facial artifact evaluation — 2026-10-30
 
+This records the initial private evaluation. The subsequently implemented,
+managed-backend-tested feature route is documented in
+[Complete facial feature ownership](facial-feature-cleanup.md).
+
 The user reported a detached eyebrow near 13–14 seconds, a doubled eyelid,
 milky eye detail and a face-side mark. The goal remains active. The current
 production recipe and all paid originals are unchanged; the following results

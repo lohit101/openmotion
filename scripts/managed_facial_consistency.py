@@ -33,12 +33,14 @@ def remote_root(config):
     return Path(config['remote_root']) / 'facial-runtime'
 
 
-def call(config, action, job=None, capture=True):
+def call(config, action, job=None, capture=True, version=None):
     root = remote_root(config)
     python = root / '.local/face-venv/bin/python' if action == 'preflight' else Path('python3')
     command = [str(python), str(root / 'scripts/facial_worker.py'), action]
     if job:
         command += ['--job', job]
+    if version:
+        command += ['--version', version]
     value = vast.remote(config, command, capture_output=capture, text=True)
     if not capture:
         return None
@@ -50,8 +52,9 @@ def call(config, action, job=None, capture=True):
 
 def upload_runtime(config):
     root = remote_root(config)
-    names = ['scripts/download_models.py', 'scripts/facial_runtime.py', 'scripts/facial_worker.py', 'scripts/video_timing.py', 'scripts/face_performance.py', 'scripts/scene_face_composite.py',
-             'config/facial-consistency-runtime.lock.json', 'config/facial-consistency-models.lock.json', 'config/facial-consistency-scene.lock.json', 'config/server.json']
+    names = ['scripts/download_models.py', 'scripts/facial_runtime.py', 'scripts/facial_worker.py', 'scripts/video_timing.py', 'scripts/face_performance.py', 'scripts/scene_face_composite.py', 'scripts/face_feature_cleanup.py',
+             'config/facial-consistency-runtime.lock.json', 'config/facial-consistency-models.lock.json', 'config/facial-consistency-scene.lock.json',
+             'config/facial-consistency-cleanup.lock.json', 'config/facial-consistency-cleanup-models.lock.json', 'config/server.json']
     with tempfile.TemporaryFile() as stream:
         with tarfile.open(fileobj=stream, mode='w:gz') as archive:
             for name in names:
@@ -89,11 +92,15 @@ def status(config, version='source-face-v1'):
         'test -f ' + str(remote_root(config) / 'scripts/facial_worker.py')], capture_output=True)
     if exists.returncode:
         return {'ready': False, 'runtimeReady': False, 'missing': ['Facial runtime'], 'profileSHA256': fingerprint()}
-    value = call(config, 'status')
+    value = call(config, 'status', version=version)
     if value.get('profileSHA256') != fingerprint():
         value.update(ready=False, runtimeReady=False, missing=[*value.get('missing', []), 'Updated facial tools'])
     if version == 'source-face-v2' and value.get('sceneProfileSHA256') != fingerprint(version):
         value.update(ready=False, runtimeReady=False, missing=[*value.get('missing', []), 'Updated scene-face tools'])
+    if version == 'source-face-v3' and value.get('cleanupProfileSHA256') != fingerprint(version):
+        value.update(ready=False, runtimeReady=False, missing=[*value.get('missing', []), 'Updated facial feature-cleanup tools'])
+    if version == 'source-face-v3' and value.get('cleanupWorkerSHA256') != digest(ROOT / 'scripts/facial_worker.py'):
+        value.update(ready=False, runtimeReady=False, missing=[*value.get('missing', []), 'Updated facial-processing worker'])
     if value.get('timingSHA256') != digest(ROOT / 'scripts/video_timing.py'):
         value.update(ready=False, runtimeReady=False, missing=[*value.get('missing', []), 'Updated frame-timing tools'])
     return value
@@ -139,7 +146,7 @@ def main():
     parser.add_argument('--action', choices=['status', 'prepare', 'preflight', 'run', 'cancel'], required=True)
     parser.add_argument('--job')
     parser.add_argument('--profile', choices=['perform-onnx60', 'regional-onnx60'])
-    parser.add_argument('--version', choices=['source-face-v1', 'source-face-v2'], default='source-face-v1')
+    parser.add_argument('--version', choices=['source-face-v1', 'source-face-v2', 'source-face-v3'], default='source-face-v1')
     parser.add_argument('--reference')
     parser.add_argument('--target')
     parser.add_argument('--source')
@@ -182,7 +189,7 @@ def main():
     vast.remote(config, ['mkdir', '-p', str(folder)])
     request = {'jobId': job, 'profile': args.profile, 'profileSHA256': fingerprint(args.version), 'referenceSHA256': digest(reference),
                'expected': {'frames': args.frames, 'width': args.width, 'height': args.height}}
-    if args.version == 'source-face-v2':
+    if args.version != 'source-face-v1':
         request['version'] = args.version
     write_request(config, folder, 'request.json', request)
     sync(config, str(reference), str(folder / 'reference.png'))

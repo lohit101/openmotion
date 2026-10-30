@@ -40,7 +40,7 @@ import type { AlertTarget } from '../shared/alerts';
 import type { EditorIntent } from './ClipEditorWorkspace';
 import GpuPowerControl from './GpuPowerControl';
 import FacialConsistencyControls from './FacialConsistencyControls';
-import { usesFacialConsistency } from '../shared/facial-consistency';
+import { facialRuntimeReadyForSettings } from '../shared/facial-consistency';
 import AnchorReferenceControls from './AnchorReferenceControls';
 import { videoDirectionFrames } from '../shared/anchored-video';
 
@@ -52,7 +52,7 @@ function Advanced({ settings: s, update, loras, downloads, source, reference }: 
   const options = [{ value: 'None', label: 'None', files: [] }, ...choices.map(v => ({ value: v, label: modelDefinitions.find(file => file.filename === v)?.label || shortLora(v), files: modelDefinitions.filter(file => file.filename === v).map(file => file.id) }))];
   const kleinReady = imageModelFiles.every(id => downloads.state.files.find(file => file.id === id)?.status === 'installed');
   if (isViggle(s)) return <div className="advanced-body">
-    <FacialConsistencyControls value={s.facialConsistency} change={v => update({ facialConsistency: v })} downloads={downloads} sceneMatch={s.facialSceneMatch} changeSceneMatch={v => update({ facialSceneMatch: v })} />
+    <FacialConsistencyControls value={s.facialConsistency} change={v => update({ facialConsistency: v })} downloads={downloads} sceneMatch={s.facialSceneMatch} changeSceneMatch={v => update({ facialSceneMatch: v })} cleanup={s.facialFeatureCleanup} changeCleanup={v => update({ facialFeatureCleanup: v })} />
     <div className="full-label"><FieldLabel label="Reference preparation" help={s.referencePreparation === 'prepared' ? 'Upload a frame from this exact shot with the character already replaced. This skips image editing and its downloads.' : 'The image editor first puts your character into a source frame, preserving pose, camera distance and scene lighting. Changing an option starts no downloads.'} />
       <DownloadSelect label="Reference preparation" value={s.referencePreparation} controls={downloads} onChange={v => update({ referencePreparation: v as Settings['referencePreparation'] })} options={[{ value: 'auto', label: 'Automatic · match character to source frame', files: imageModelFiles, disabled: !kleinReady || s.imagenRepaintEnabled, disabledReason: s.imagenRepaintEnabled ? 'Segment refresh uses an already edited starting frame.' : downloads.online ? 'Download the three Klein files to enable automatic frame preparation.' : 'Connect your GPU to check whether Klein is installed.' }, { value: 'prepared', label: 'Use an already edited source frame', files: [] }]} />
     </div>
@@ -190,9 +190,9 @@ export default function App() {
   const requiredFiles = modelFilesForSettings(draft.settings);
   const missingCustom = (isViggle(draft.settings) ? [] : [draft.settings.loraA, draft.settings.loraB]).filter(name => name !== 'None' && !connection?.loras.includes(name) && !modelDefinitions.some(file => file.filename === name));
   const modelFilesReady = requiredFiles.every(id => modelState.files.find(file => file.id === id)?.status === 'installed');
-  const facialToolsMissing = usesFacialConsistency(draft.settings) && !modelState.facialRuntimeReady;
+  const facialToolsMissing = !facialRuntimeReadyForSettings(draft.settings, modelState);
   const modelsReady = modelFilesReady &&
-    [draft.settings.loraA, draft.settings.loraB].every(name => name === 'None' || connection?.loras.includes(name)) && (!usesFacialConsistency(draft.settings) || !!modelState.facialRuntimeReady);
+    [draft.settings.loraA, draft.settings.loraB].every(name => name === 'None' || connection?.loras.includes(name)) && facialRuntimeReadyForSettings(draft.settings, modelState);
   const downloads: DownloadControls = { state: modelState, online, blocked: !!data?.cloud.busy || jobs.some(job => activeStates.includes(job.status)), settingUp: !!data?.cloud.busy, download: downloadModels, remove: removeLora };
   const [width, height] = geometry(draft.settings, source || { width: 480, height: 832 });
   const repaintProfile = draft.settings.imagenRepaint;

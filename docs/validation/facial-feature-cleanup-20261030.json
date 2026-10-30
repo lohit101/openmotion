@@ -1,0 +1,326 @@
+{
+  "date": "2026-10-30",
+  "status": "Implemented, managed-backend tested and safely deployed; open-eye softness remains; full facial-consistency goal active",
+  "version": "source-face-v3",
+  "cases": [
+    {
+      "jobId": "6faf9563-ec02-4d28-af08-2b8cec1ad654",
+      "parentJobId": "f38f587d-47fc-431f-bb3a-6b632c147108",
+      "version": "source-face-v3",
+      "profile": "perform-onnx60",
+      "profileSHA256": "286cb1cb40cc0eab2bdbca50bb365fe0b02dedd21d260f24b5c156013ce663b6",
+      "frames": 355,
+      "refinedFrames": 355,
+      "preservedFrames": 0,
+      "preservedFramesIndices": [],
+      "workerSeconds": 149.4945099640172,
+      "managedFinishingSeconds": 224.063,
+      "originalStandardWorkerSeconds": 110.33674846100621,
+      "inputHashes": {
+        "baseSHA256": "73e967def9d7615a195129d2d7f9e4e08e2598d330ae5cedfa55a7fde1971f27",
+        "sourceSHA256": "f97bd8fd5cbd67d656feb93a3490d0bee62a9955bde93fcb05a0257ff0418af1",
+        "referenceSHA256": "c9c17858b681768c083787e99862da57536889044346657c259faa0d00b1f8fe"
+      },
+      "outputSHA256": "713086060c830253dd932862f5559b2e65a9180664860e14cf52e414add2abf5",
+      "modelProviders": {
+        "appearance": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "motion": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "warp": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "decode": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "identity": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "parser": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ]
+      },
+      "allPreEncodeProtectedPixelsExact": true,
+      "losslessPrivateCache": {
+        "sha256": "d4a0f3379ec4d5d3cc64300dec48fdf87fe34754c2ba60bd1be435f9cf177ebf",
+        "bytes": 180172971,
+        "allPNGHashesReproduced": true
+      }
+    },
+    {
+      "jobId": "85df50e9-a5c3-4f2e-a702-246ab63f8d4a",
+      "parentJobId": "196f011e-6487-4a44-a655-fb13fc4672ca",
+      "version": "source-face-v3",
+      "profile": "perform-onnx60",
+      "profileSHA256": "286cb1cb40cc0eab2bdbca50bb365fe0b02dedd21d260f24b5c156013ce663b6",
+      "frames": 216,
+      "refinedFrames": 216,
+      "preservedFrames": 0,
+      "preservedFramesIndices": [],
+      "workerSeconds": 102.00564578201738,
+      "managedFinishingSeconds": 165.868,
+      "originalStandardWorkerSeconds": 70.9946245450119,
+      "inputHashes": {
+        "baseSHA256": "145467194d3bbc6f441a22b4c872f14ec262a9f0de38650cfecf81e5705b07a8",
+        "sourceSHA256": "453d43185501c28a79330cb84285cde786efed4bd14cef4b52c44f595081bbdb",
+        "referenceSHA256": "a38a715f96ccc7c2e5f340f0ad453a156eed4c6583e9b57a3e8a49e73cf86a5c"
+      },
+      "outputSHA256": "8c38d1c092cc75016477d3e4410346dd0afd79d1591e18de2da4685dc9c595fd",
+      "modelProviders": {
+        "appearance": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "motion": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "warp": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "decode": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "identity": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "parser": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ]
+      },
+      "allPreEncodeProtectedPixelsExact": true,
+      "losslessPrivateCache": {
+        "sha256": "cb65dd772e4220758031137531cdb3c758ecc18f69e6409ae61238fa963d0649",
+        "bytes": 159708974,
+        "allPNGHashesReproduced": true
+      }
+    },
+    {
+      "jobId": "b47c2dcb-7b87-4bf7-a07e-fc16e2264e89",
+      "parentJobId": "f179f035-44e7-4c3a-8ad6-70002aedd60d",
+      "version": "source-face-v3",
+      "profile": "perform-onnx60",
+      "profileSHA256": "286cb1cb40cc0eab2bdbca50bb365fe0b02dedd21d260f24b5c156013ce663b6",
+      "frames": 240,
+      "refinedFrames": 230,
+      "preservedFrames": 10,
+      "preservedFramesIndices": [
+        124,
+        125,
+        126,
+        127,
+        147,
+        148,
+        149,
+        186,
+        187,
+        188
+      ],
+      "workerSeconds": 90.82400342999608,
+      "managedFinishingSeconds": 152.252,
+      "originalStandardWorkerSeconds": 66.57619977902505,
+      "inputHashes": {
+        "baseSHA256": "24432eaaeb19ea1b20354cd3181f2c5720dff309e8880caa2c1472f04b4bd6dc",
+        "sourceSHA256": "54a8c693e349dbd9ded69f7d513d8f309ccfb3f6d89513fe80ccca6892dc1a69",
+        "referenceSHA256": "61f2c4a59a3a2dd4973b435f43b13302b1083ad5d4674a7d5d07b449deeef945"
+      },
+      "outputSHA256": "a31ad2dfedee40c5ae91ada3bb03e636b65e63511989d6980ffcbfe104240fcd",
+      "modelProviders": {
+        "appearance": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "motion": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "warp": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "decode": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "identity": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "parser": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ]
+      },
+      "allPreEncodeProtectedPixelsExact": true,
+      "losslessPrivateCache": {
+        "sha256": "724021298b257024bf8e646241ef5af947421bf42119e38bbf67cffe05134349",
+        "bytes": 83685976,
+        "allPNGHashesReproduced": true
+      }
+    },
+    {
+      "jobId": "2c38c4df-1984-4f4f-b685-178f602e7427",
+      "parentJobId": "f38f587d-47fc-431f-bb3a-6b632c147108",
+      "version": "source-face-v3",
+      "profile": "regional-onnx60",
+      "profileSHA256": "286cb1cb40cc0eab2bdbca50bb365fe0b02dedd21d260f24b5c156013ce663b6",
+      "frames": 355,
+      "refinedFrames": 355,
+      "preservedFrames": 0,
+      "preservedFramesIndices": [],
+      "workerSeconds": 149.612863257993,
+      "managedFinishingSeconds": 212.507,
+      "originalStandardWorkerSeconds": null,
+      "inputHashes": {
+        "baseSHA256": "73e967def9d7615a195129d2d7f9e4e08e2598d330ae5cedfa55a7fde1971f27",
+        "sourceSHA256": "f97bd8fd5cbd67d656feb93a3490d0bee62a9955bde93fcb05a0257ff0418af1",
+        "referenceSHA256": "c9c17858b681768c083787e99862da57536889044346657c259faa0d00b1f8fe"
+      },
+      "outputSHA256": "2d55cd3e5e51015b35f3fd7480e56e163833594e085cd889f7e4172c652327f6",
+      "modelProviders": {
+        "appearance": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "motion": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "warp": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "decode": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "identity": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "parser": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ]
+      },
+      "allPreEncodeProtectedPixelsExact": true,
+      "losslessPrivateCache": {
+        "sha256": "9d3bb0700a9b9056c73152ff7b338011fdb1f730a16ba00bb09d4d7fc7d85666",
+        "bytes": 180496029,
+        "allPNGHashesReproduced": true
+      }
+    }
+  ],
+  "gpu": {
+    "instanceId": 58291560,
+    "startUTC": "2026-10-30T00:55:28.214569+00:00",
+    "stopRequestedUTC": "2026-10-30T01:13:28.911653+00:00",
+    "stopConfirmedUTC": "2026-10-30T01:14:21.660983+00:00",
+    "actualStatus": "exited",
+    "intendedStatus": "stopped",
+    "idlePauseRestored": true,
+    "computeHourlyUSD": 0.4666666666666666,
+    "storageHourlyUSD": 0.01777777777777778,
+    "sessionSeconds": 1133.446414,
+    "estimatedComputeUSD": 0.146928,
+    "estimatedStorageUSD": 0.005597,
+    "relocatedPrivateArchiveBytes": 1271737947,
+    "estimatedArchiveEgressUSD": 0.004968,
+    "invoice": false,
+    "otherSmallPackageMediaTransfersItemized": false
+  },
+  "newModelWeightsDownloaded": false,
+  "existingParserReusedBytes": 93632546,
+  "newVideoInference": false,
+  "newImageInference": false,
+  "paidOriginalsChanged": false,
+  "legacyFingerprints": {
+    "source-face-v1": "ef8f273a320b6d34c5efccf690610ad92f1aac0fdb9c4d60c4906557ade5b419",
+    "source-face-v2": "3952a4da82fcb2284788137279c7716102bba1e5755b2f6968502dc38dec3c08"
+  },
+  "limitations": [
+    "Open-eye texture is still soft at some frames",
+    "No exact gaze or anatomy/identity-lock guarantee",
+    "Ten uncertain portrait frames retained, not repaired",
+    "Classified occluder protection does not prove every real occluder is correctly classified",
+    "Face-worker and managed finishing times are not complete Generate latency"
+  ],
+  "checks": {
+    "newFeaturePythonTests": 10,
+    "previousCompleteStudioSuite": 420,
+    "latestFocusedFacialSuite": 16,
+    "typeCheckAndBuildPassed": true,
+    "completeSuiteAfterFinalChangesPending": false,
+    "completeStudioSuite": 424,
+    "legacyFacePythonTests": 8,
+    "modelProfilePythonTests": 7,
+    "partialRequestProtocolPythonTests": 2,
+    "browserCleanupControlVerified": true
+  },
+  "viewer": "http://127.0.0.1:3012/artifacts/",
+  "localReload": {
+    "previousPID": 4009,
+    "currentPID": 32057,
+    "allExistingJobRowsUnchanged": true,
+    "savedVideoAndImageDraftsUnchanged": true,
+    "newCleanupDefault": true,
+    "connectedState": "offline",
+    "gpuResumed": false,
+    "libraryJobs": 223
+  },
+  "codeOnlyRuntimeUpdate": {
+    "instanceId": 58291560,
+    "startedAt": "2026-10-30T01:34:10.654175+00:00",
+    "originalIdlePause": true,
+    "scope": "Authorized code-only facial worker update and recovery/readiness checks. No model downloads or inference.",
+    "stopRequestedAt": "2026-10-30T01:35:53.267066+00:00",
+    "stopConfirmedAt": "2026-10-30T01:36:09.661418+00:00",
+    "actualStatus": "exited",
+    "intendedStatus": "stopped",
+    "quotedTotalHourly": 0.4844444444444444,
+    "computeHourly": 0.4666666666666666,
+    "sessionSeconds": 119.007243,
+    "estimatedComputeUSD": 0.015427,
+    "estimatedStorageUSD": 0.000588,
+    "runtime": {
+      "ready": true,
+      "runtimeReady": true,
+      "missing": [],
+      "profileSHA256": "ef8f273a320b6d34c5efccf690610ad92f1aac0fdb9c4d60c4906557ade5b419",
+      "sceneProfileSHA256": "3952a4da82fcb2284788137279c7716102bba1e5755b2f6968502dc38dec3c08",
+      "cleanupProfileSHA256": "286cb1cb40cc0eab2bdbca50bb365fe0b02dedd21d260f24b5c156013ce663b6",
+      "cleanupWorkerSHA256": "154f5e74732992333fe266e495a7d4687c7c4a444b051150ab293cddef8bfb7f",
+      "timingSHA256": "5f634463ce0279bf4fd94764280ed6d2787198aca6dbbd260c3cf3e7295ce321",
+      "bytes": 2320323066
+    },
+    "partialRequestRecovery": {
+      "jobId": "43fed8a3-fda1-440d-b916-b175bb02dcf8",
+      "neverSubmittedForInference": true,
+      "requestFileAbsent": true,
+      "poll": {
+        "state": "interrupted",
+        "running": false,
+        "error": "The facial worker stopped; saved frames remain on this instance."
+      },
+      "cancel": {
+        "running": false
+      }
+    },
+    "newModelDownload": false,
+    "newInference": false,
+    "idlePauseRestored": true,
+    "invoice": false
+  }
+}

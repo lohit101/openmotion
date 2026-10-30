@@ -10,6 +10,8 @@ from facial_runtime import profile_hash
 class SceneFaceCompositeTests(unittest.TestCase):
     def test_legacy_fingerprint_is_frozen_and_scene_version_is_distinct(self):
         self.assertEqual(profile_hash(),'ef8f273a320b6d34c5efccf690610ad92f1aac0fdb9c4d60c4906557ade5b419')
+        self.assertEqual(profile_hash('source-face-v2'),'3952a4da82fcb2284788137279c7716102bba1e5755b2f6968502dc38dec3c08')
+        self.assertNotEqual(profile_hash('source-face-v3'),profile_hash('source-face-v2'))
         self.assertNotEqual(profile_hash(),profile_hash('source-face-v2'))
         with self.assertRaises(ValueError):profile_hash('unknown')
     def test_no_change_delta_does_not_resample_the_base_scene(self):

@@ -9,7 +9,8 @@ import imageAdapters from '../../config/image-adapters.lock.json';
 import qwenImage from '../../config/qwen-image-models.lock.json';
 import imageControls from '../../config/image-controls.lock.json';
 import facialModels from '../../config/facial-consistency-models.lock.json';
-import { usesFacialConsistency } from './facial-consistency';
+import facialCleanupModels from '../../config/facial-consistency-cleanup-models.lock.json';
+import { facialVersionForSettings, usesFacialConsistency } from './facial-consistency';
 import { videoDirectionFrames } from './anchored-video';
 import { isViggle } from './engines';
 import type { Settings } from './types';
@@ -22,9 +23,12 @@ export const I2V_SPEED = 'lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.saf
 export const DPO = 'wan2.1_SCAIL_2_DPO_lora_bf16.safetensors';
 export const SOCIAL_STYLE = 'Instagoon-v1-step00001400.safetensors';
 const scailModels = [...base.files, ...relight.files, ...natural.files, ...extras.files];
-export const pinnedModels = [...scailModels, ...viggle.files, ...repaint.files, ...imageAdapters.files, ...qwenImage.files, ...imageControls.files, ...facialModels.files];
+export const pinnedModels = [...scailModels, ...viggle.files, ...repaint.files, ...imageAdapters.files, ...qwenImage.files, ...imageControls.files, ...facialModels.files, ...facialCleanupModels.files];
 export const facialModelFiles = facialModels.files.map(file => file.destination);
-export const modelWorkingReserve = (files: string[]) => 5 * 1024 ** 3 + (files.some(file => facialModelFiles.includes(file)) ? 512 * 1024 ** 2 : 0);
+export const facialCleanupModelFiles = facialCleanupModels.files.map(file => file.destination);
+export const facialFilesForSettings = (settings: { facialSceneMatch?: boolean; facialFeatureCleanup?: boolean }) =>
+  [...facialModelFiles, ...(facialVersionForSettings(settings) === 'source-face-v3' ? facialCleanupModelFiles : [])];
+export const modelWorkingReserve = (files: string[]) => 5 * 1024 ** 3 + (files.some(file => file.startsWith('face_consistency/')) ? 512 * 1024 ** 2 : 0);
 export const setupModelFiles: string[] = setup.files;
 export const imageModelFiles = repaint.files.map(file => file.destination);
 export const IMAGE_IDENTITY = 'bfs_head_v1_flux-klein_4b.safetensors';
@@ -53,7 +57,7 @@ const filename = (destination: string) => destination.split('/').at(-1)!;
 
 // Describe requirements only. Selection never initiates a download.
 export function modelFilesForSettings(s: Settings): string[] {
-  if (isViggle(s)) return [...new Set([...viggle.files.map(file => file.destination), ...(usesFacialConsistency(s) ? facialModelFiles : []), ...(s.referencePreparation === 'prepared' ? [] : repaint.files.map(file => file.destination)), ...(s.imagenRepaintEnabled && s.imagenRepaint && videoDirectionFrames(s).some(frames => frames > 124) ? qwenImageModelFiles.filter(file => !file.startsWith('loras/') || file.includes('turbo_lora')) : [])])];
+  if (isViggle(s)) return [...new Set([...viggle.files.map(file => file.destination), ...(usesFacialConsistency(s) ? facialFilesForSettings(s) : []), ...(s.referencePreparation === 'prepared' ? [] : repaint.files.map(file => file.destination)), ...(s.imagenRepaintEnabled && s.imagenRepaint && videoDirectionFrames(s).some(frames => frames > 124) ? qwenImageModelFiles.filter(file => !file.startsWith('loras/') || file.includes('turbo_lora')) : [])])];
   const adapters = new Set<string>();
   if (s.dpoStrength > 0) adapters.add(DPO);
   if (usesSpeedAdapter(s.preset)) adapters.add(s.preset === 'natural' && s.mode === 'swap' ? NATURAL_SPEED : I2V_SPEED);
@@ -68,6 +72,7 @@ export function presetModelFiles(preset: Settings['preset'], mode: Settings['mod
 }
 
 const descriptions: Record<string, [string, string, 'core' | 'adapter' | 'feature']> = {
+  'bisenet_resnet_34.onnx': ['Facial feature cleanup masks', 'Identifies complete eyes, eyebrows and mouth while protecting target hair, glasses and scene. Used only by facial feature cleanup.', 'feature'],
   'minimax_h3_ref2va_viggle_pruned_int8_convrot.safetensors': ['Viggle Animate INT8', 'Propagates a source-aligned character edit through the video', 'core'],
   'viggle_animate_dmd_lora.safetensors': ['Viggle distillation adapter', 'Required matching accelerator for the three-pass video recipe', 'adapter'],
   'fixed_embed_fwd_anyframe.safetensors': ['Viggle fixed conditioning', 'Tiny precomputed video conditioning; no video text encoder download', 'core'],
@@ -98,7 +103,7 @@ const descriptions: Record<string, [string, string, 'core' | 'adapter' | 'featur
 };
 const facialLabels: Record<string, string> = { 'appearance_feature_extractor.onnx': 'PerformRecast appearance', 'motion_extractor.onnx': 'PerformRecast facial motion', 'warping_module.onnx': 'PerformRecast motion warping', 'spade_generator.onnx': 'PerformRecast face decoder', 'hyperswap_1a_256.onnx': 'ONNX identity swap · Hyperswap', 'arcface_w600k_r50.onnx': 'Face reference encoder', '2dfan4.onnx': 'Facial landmarks', 'yunet_2023_mar.onnx': 'Face detector', 'xseg_1.onnx': 'Face occlusion masks', 'nsfw_1.onnx': 'Upstream input check 1', 'nsfw_2.onnx': 'Upstream input check 2', 'nsfw_3.onnx': 'Upstream input check 3' };
 export const modelDefinitions = pinnedModels.map(file => {
-  const facial = facialModels.files.some(item => item.destination === file.destination);
+  const facial = [...facialModels.files, ...facialCleanupModels.files].some(item => item.destination === file.destination);
   const [label, description, group] = descriptions[filename(file.destination)] || [facialLabels[filename(file.destination)] || filename(file.destination), 'Source-driven facial consistency dependency. Shared by Standard and Regional, with a 60% identity blend.', 'feature' as const];
   const engine = facial ? 'facial' : viggle.files.some(item => item.destination === file.destination) ? 'viggle' : [...repaint.files, ...imageAdapters.files, ...qwenImage.files, ...imageControls.files].some(item => item.destination === file.destination) ? 'repaint' : 'scail2';
   return { id: file.destination, filename: filename(file.destination), size: file.size, label, description, group,
@@ -112,7 +117,7 @@ export interface ModelFileState { id: string; status: ModelStatus; percent: numb
 export interface InstalledLora { name: string; size: number; partialSize?: number; included: boolean; }
 export interface ModelInventoryFile { id: string; size: number; partialSize: number; measured: boolean; }
 export interface ModelInventory { key: string; instanceId: number | null; endpoint: string; gpu: string | null; checkedAt: string; files: ModelInventoryFile[]; freeBytes?: number; }
-export interface ModelsState { files: ModelFileState[]; busy: boolean; refreshing: boolean; error: string | null; checkedAt: string | null; installedLoras: InstalledLora[]; deleting: string | null; diskFreeBytes?: number; inventories?: ModelInventory[]; facialRuntimeReady?: boolean; }
+export interface ModelsState { files: ModelFileState[]; busy: boolean; refreshing: boolean; error: string | null; checkedAt: string | null; installedLoras: InstalledLora[]; deleting: string | null; diskFreeBytes?: number; inventories?: ModelInventory[]; facialRuntimeReady?: boolean; facialCleanupRuntimeReady?: boolean; }
 export const emptyModels = (): ModelsState => ({ files: modelDefinitions.map(file => ({ id: file.id, status: 'unknown', percent: null, message: '', error: null })), busy: false, refreshing: false, error: null, checkedAt: null, installedLoras: [], deleting: null });
 
 export function modelBytes(files: string[]): number {

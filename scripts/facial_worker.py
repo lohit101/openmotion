@@ -110,6 +110,9 @@ def preflight(folder):
     # Initialize the actual models now, before any new video sampling is paid for.
     from face_performance import FaceModels
     FaceModels(MODEL_ROOT, embedding)
+    if version == 'source-face-v3':
+        from face_feature_cleanup import SemanticParser
+        SemanticParser(MODEL_ROOT)
     return {'ready': True, 'referenceSHA256': request['referenceSHA256'], 'profileSHA256': profile_hash(version)}
 
 
@@ -130,7 +133,7 @@ def process(folder):
     from facefusion import content_analyser
     from facefusion.face_helper import warp_face_by_face_landmark_5
     from facefusion.face_masker import create_occlusion_mask
-    from face_performance import FaceModels, composite_face, face_permission
+    from face_performance import FaceModels
     request = json.loads((folder / 'request.json').read_text())
     inputs = json.loads((folder / 'inputs.json').read_text())
     version = request.get('version', 'source-face-v1')
@@ -169,9 +172,15 @@ def process(folder):
     if pre['referenceSHA256'] != inputs['referenceSHA256'] or digest(folder / 'donor.npy') != pre['embeddingSHA256']:
         raise ValueError('The fixed reference-face conditioning changed.')
     models = FaceModels(MODEL_ROOT, np.load(folder / 'donor.npy'))
+    semantic_parser = None
+    if version == 'source-face-v3':
+        from face_feature_cleanup import SemanticParser
+        semantic_parser = SemanticParser(MODEL_ROOT)
     receipt = {'inputs': signature, 'complete': False, 'records': records, 'gpu': models.gpu, 'onnxruntime': ort.__version__,
         'providers': {key: session.get_providers() for key, session in models.sessions.items()}, 'elapsedSeconds': previous.get('elapsedSeconds', 0) if previous else 0,
         'profile': request['profile'], 'blend': .6, 'sourceGeometryMapping': {'from': [source_info['width'], source_info['height']], 'to': [info['width'], info['height']]}}
+    if semantic_parser is not None:
+        receipt['providers']['parser'] = semantic_parser.session.get_providers()
     elapsed = receipt['elapsedSeconds']
     started = time.monotonic()
     target = cv2.VideoCapture(str(folder / 'target.mp4'))
@@ -205,20 +214,18 @@ def process(folder):
             if gap[0] <= .25 and gap[1] <= .35:
                 driver, sm = warp_face_by_face_landmark_5(original, source_face[1], 'arcface_128', (512, 512))
                 crop, tm = warp_face_by_face_landmark_5(frame, target_face[1], 'arcface_128', (512, 512))
-                permission = cv2.warpAffine(face_permission(frame, target_face[0]), tm, (512, 512))
-                permission = np.minimum(permission, create_occlusion_mask(crop)).clip(0, 1)
-                # Source occlusions can only remove editing permission.
-                permission = np.minimum(permission, create_occlusion_mask(driver)).clip(0, 1)
-                if permission.sum() >= 1:
-                    corrected = models.correct(driver, crop, permission, request['profile'] == 'regional-onnx60')
-                    if version == 'source-face-v2':
-                        from scene_face_composite import composite_scene_face
-                        edited = composite_scene_face(frame, crop, corrected, tm, permission)
+                if version == 'source-face-v3':
+                    from face_feature_cleanup import cleanup_frame
+                    points = cv2.transform(source_face[2].reshape(1, 68, 2), sm)[0]
+                    edited, cleanup = cleanup_frame(models, semantic_parser, frame, crop, driver, tm, points,
+                        create_occlusion_mask(crop).clip(0, 1), request['profile'] == 'regional-onnx60')
+                    if cleanup['editablePixels']:
+                        record.update(action='refined', reason=None, cleanup=cleanup, matrix=tm.tolist(), sourceMatrix=sm.tolist())
                     else:
-                        edited = composite_face(frame, corrected, tm, permission)
-                    record.update(action='refined', reason=None)
+                        record['reason'] = 'face-occluded'
                 else:
-                    record['reason'] = 'face-occluded'
+                    edited, legacy_record = legacy_correction(models, request, version, frame, target_face, crop, tm, driver)
+                    record.update(legacy_record)
             else:
                 record['reason'] = 'source-output-pose-mismatch'
         destination = result / f'frame-{index:06d}.png'
@@ -252,14 +259,36 @@ def process(folder):
     return receipt
 
 
+def legacy_correction(models, request, version, frame, target_face, crop, tm, driver):
+    """Frozen source-face-v1/v2 math, kept apart from the new feature route."""
+    import cv2
+    import numpy as np
+    from facefusion.face_masker import create_occlusion_mask
+    from face_performance import composite_face, face_permission
+    permission = cv2.warpAffine(face_permission(frame, target_face[0]), tm, (512, 512))
+    permission = np.minimum(permission, create_occlusion_mask(crop)).clip(0, 1)
+    # Source occlusions can only remove editing permission.
+    permission = np.minimum(permission, create_occlusion_mask(driver)).clip(0, 1)
+    if permission.sum() >= 1:
+        corrected = models.correct(driver, crop, permission, request['profile'] == 'regional-onnx60')
+        if version == 'source-face-v2':
+            from scene_face_composite import composite_scene_face
+            edited = composite_scene_face(frame, crop, corrected, tm, permission)
+        else:
+            edited = composite_face(frame, corrected, tm, permission)
+        return edited, {'action': 'refined', 'reason': None}
+    return frame, {'reason': 'face-occluded'}
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('action', choices=['status', 'prepare', 'preflight', 'launch', 'poll', 'cancel', 'worker'])
     parser.add_argument('--job')
+    parser.add_argument('--version', choices=['source-face-v1', 'source-face-v2', 'source-face-v3'], default='source-face-v1')
     args = parser.parse_args()
     (ROOT / 'state').mkdir(parents=True, exist_ok=True)
     if args.action == 'status':
-        value = inspect()
+        value = inspect(version=args.version)
     elif args.action == 'prepare':
         idle()
         prepare()
@@ -269,6 +298,10 @@ def main():
         folder = ROOT / 'jobs' / job
         if not folder.is_dir():
             raise ValueError('Facial request is not prepared.')
+        # A failed upload may leave only the owned folder. Poll/cancel must
+        # still inspect its exact worker handle without needing request data.
+        version = (json.loads((folder / 'request.json').read_text()).get('version', 'source-face-v1')
+                   if args.action in ['launch', 'preflight', 'worker'] else 'source-face-v1')
         if args.action == 'cancel':
             (folder / 'result').mkdir(exist_ok=True)
             (folder / 'result/CANCEL').touch()
@@ -288,7 +321,7 @@ def main():
                 fcntl.flock(lock, fcntl.LOCK_EX)
                 if not running(folder):
                     idle()
-                    if not inspect(verify=True)['ready']:
+                    if not inspect(verify=True, version=version)['ready']:
                         raise ValueError('Download the selected facial tools first. Generate never installs models.')
                     frames = json.loads((folder / 'inputs.json').read_text())['target']
                     if __import__('shutil').disk_usage(folder).free < 5*1024**3 + frames['width']*frames['height']*frames['frames']*3:
@@ -303,7 +336,7 @@ def main():
             value = {'launched': True}
         else:
             idle()
-            if not inspect(verify=True)['ready']:
+            if not inspect(verify=True, version=version)['ready']:
                 raise ValueError('Selected facial weights or runtime are missing. Nothing was installed.')
             initialize()
             if args.action == 'preflight':

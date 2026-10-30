@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "total_bytes": 93632546,
+  "usage": "BiseNet region masks for explicit source-face-v3 cleanup. Upstream metadata identifies yakhyo/MIT; existing shared facial-model terms still apply.",
+  "files": [
+    {
+      "repo": "facefusion/models-3.0.0",
+      "revision": "728b9659bd9691bf32cbf7f61af478d94b7ba81e",
+      "filename": "bisenet_resnet_34.onnx",
+      "destination": "face_consistency/facefusion/bisenet_resnet_34.onnx",
+      "size": 93632546,
+      "sha256": "4a0b8c958a3c938913bd06a8365dbb3c8761afba6ecbf0d14b3b1f77eb230c96",
+      "url": "https://huggingface.co/facefusion/models-3.0.0/resolve/728b9659bd9691bf32cbf7f61af478d94b7ba81e/bisenet_resnet_34.onnx"
+    }
+  ]
+}

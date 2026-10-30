@@ -5,7 +5,7 @@ import { access, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Job } from '../shared/types';
 import { outputDimensions } from '../shared/types';
-import { canFinishFacialLocally, usesFacialConsistency, type FacialConsistencyRun } from '../shared/facial-consistency';
+import { canFinishFacialLocally, facialVersionForSettings, usesFacialConsistency, type FacialConsistencyRun } from '../shared/facial-consistency';
 import type { ConnectionManager } from './comfy';
 import type { Store } from './store';
 
@@ -19,6 +19,9 @@ export const facialFingerprint = (repo: string, version: FacialConsistencyRun['v
     .update(readFileSync(path.join(repo, 'config/facial-consistency-models.lock.json')));
   if (version === 'source-face-v2') hash.update(readFileSync(path.join(repo, 'config/facial-consistency-scene.lock.json')))
     .update(readFileSync(path.join(repo, 'scripts/scene_face_composite.py')));
+  if (version === 'source-face-v3') hash.update(readFileSync(path.join(repo, 'config/facial-consistency-cleanup.lock.json')))
+    .update(readFileSync(path.join(repo, 'config/facial-consistency-cleanup-models.lock.json')))
+    .update(readFileSync(path.join(repo, 'scripts/face_feature_cleanup.py')));
   return hash.digest('hex');
 };
 
@@ -60,7 +63,7 @@ export function facialCommand(repo: string, args: string[], signal?: AbortSignal
 export function newFacialRun(job: Pick<Job, 'settings' | 'progress'>, repo: string, instanceId: number | null): FacialConsistencyRun | undefined {
   if (!usesFacialConsistency(job.settings)) return undefined;
   if (!instanceId) throw new Error('Facial consistency requires a connected managed GPU.');
-  const version = job.settings.facialSceneMatch === false ? 'source-face-v1' : 'source-face-v2';
+  const version = facialVersionForSettings(job.settings);
   return { version, profile: job.settings.facialConsistency as FacialConsistencyRun['profile'], blend: .6,
     instanceId, profileSHA256: facialFingerprint(repo, version), state: 'pending', processedFrames: 0, frames: job.progress.targetFrames };
 }
@@ -74,7 +77,7 @@ export class ManagedFacialConsistency implements FacialBackend {
     if (facialFingerprint(this.repo, run.version) !== run.profileSHA256) throw new FacialConsistencyError('The saved facial recipe differs from these tools. The rendered video was preserved.');
     const [width, height] = outputDimensions(job);
     return ['--instance-id', String(run.instanceId), '--action', action, '--job', job.id, '--profile', run.profile,
-      '--frames', String(run.frames), '--width', String(width), '--height', String(height), ...(run.version === 'source-face-v2' ? ['--version', run.version] : []), ...(reference ? ['--reference', reference] : [])];
+      '--frames', String(run.frames), '--width', String(width), '--height', String(height), ...(run.version !== 'source-face-v1' ? ['--version', run.version] : []), ...(reference ? ['--reference', reference] : [])];
   }
   async preflight(job: Job, reference: string, signal: AbortSignal) {
     const run = job.facialConsistency!;
@@ -118,6 +121,10 @@ export class ManagedFacialConsistency implements FacialBackend {
       transport.instanceId !== run.instanceId || transport.jobId !== job.id || transport.receiptSHA256 !== faceHash(receiptFile) ||
       receipt.outputSHA256 !== faceHash(final) || !Number.isFinite(receipt.elapsedSeconds) || receipt.elapsedSeconds < 0 ||
       !Array.isArray(receipt.records) || receipt.records.length !== run.frames || receipt.records.some((record: any, index: number) => record.frame !== index || record.protectedPixelsExact !== true || !/^[0-9a-f]{64}$/.test(record.sha256)) ||
+      run.version === 'source-face-v3' && (receipt.providers?.parser?.[0] !== 'CUDAExecutionProvider' || receipt.records.some((record: any) => record.action === 'refined' &&
+        (!record.cleanup || !Array.isArray(record.cleanup.sourceEyeGates) || record.cleanup.sourceEyeGates.length !== 2 || record.cleanup.sourceEyeGates.some((value: any) => !Number.isFinite(value) || value < 0 || value > 1) ||
+          !Number.isInteger(record.cleanup.eyeTexturePixels) || record.cleanup.eyeTexturePixels < 0 || record.cleanup.eyeTexturePixels > 512 * 512 ||
+          !Number.isInteger(record.cleanup.editablePixels) || record.cleanup.editablePixels < 1 || record.cleanup.editablePixels > width * height))) ||
       receipt.refinedFrames + receipt.skippedFrames !== run.frames || ['appearance', 'motion', 'warp', 'decode', 'identity'].some(key => receipt.providers?.[key]?.[0] !== 'CUDAExecutionProvider'))
       throw new FacialConsistencyError('The facial result failed provenance, timing or checksum validation. Existing renders and remote output remain saved.');
     Object.assign(run, { state: 'complete', processedFrames: run.frames, outputSHA256: receipt.outputSHA256, refinedFrames: receipt.refinedFrames,

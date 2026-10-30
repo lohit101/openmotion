@@ -33,7 +33,7 @@ import { registerVideoIdentityRoutes } from './video-identity';
 import { createGpuFaceBackend } from './gpu-video-identity';
 import { GpuIdleManager } from './gpu-idle';
 import { ManagedFacialConsistency, newFacialRun } from './facial-consistency';
-import { canFinishFacialLocally, usesFacialConsistency } from '../shared/facial-consistency';
+import { canFinishFacialLocally, facialRuntimeReadyForSettings } from '../shared/facial-consistency';
 import { anchoredRun, canFinishAnchoredLocally, videoDirectionFrames } from '../shared/anchored-video';
 
 const STUDIO = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -199,7 +199,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     if (missing.length) return void res.status(409).json({ error: isViggle(value.settings) && value.settings.referencePreparation !== 'prepared' && missing.some(id => imageModelFiles.includes(id))
       ? 'Automatic frame preparation requires Klein. Download it beside Reference preparation, or create a frame in Imagen and select Use an already edited source frame. Nothing was queued.'
       : 'Download the required files in Models before generating. Nothing was queued.', missingModels: missing });
-    if (usesFacialConsistency(value.settings) && !models.state.facialRuntimeReady) return void res.status(409).json({ error: 'Prepare or update the facial tools beside Advanced settings before generating. Nothing was queued.' });
+    if (!facialRuntimeReadyForSettings(value.settings, models.state)) return void res.status(409).json({ error: 'Prepare or update the selected facial tools beside Advanced settings before generating. Nothing was queued.' });
     for (const name of [value.settings.loraA, value.settings.loraB]) if (name !== 'None' && !connection.status.loras.includes(name)) return void res.status(409).json({ error: 'Upload the selected custom LoRA before generating: ' + name });
     const source = store.asset(value.sourceId), reference = store.asset(value.referenceId); if (!source || !reference) throw new Error('Upload both inputs before generating.');
     validateSelection(source, reference, value.settings.start, value.settings.seconds, value.settings.fps);
