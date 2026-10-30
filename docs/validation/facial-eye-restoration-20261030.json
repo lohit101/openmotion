@@ -1,0 +1,382 @@
+{
+  "date": "2026-10-30",
+  "evaluationComplete": true,
+  "broaderQualityGoalComplete": false,
+  "productionDefaultsChanged": false,
+  "sourceFaceV4Frozen": true,
+  "newViggleOrImagenInference": false,
+  "newRental": false,
+  "scope": "Eye-interior restoration and source-driven image-space iris placement on the same three paid managed-v4 clips.",
+  "gpuRestoration": {
+    "recipe": "private-eye-restoration-v1",
+    "device": "CUDAExecutionProvider",
+    "workerSHA256": "5e644c06dca90b56a5ef0a6a213cfe5040043edc73b76b650d4c8064627aa40d",
+    "requestSHA256": "8385c89bae06a991a86fc76bd404fdb50c271636c15a8399f93d5f961b7f391a",
+    "model": {
+      "family": "CodeFormer",
+      "revision": "728b9659bd9691bf32cbf7f61af478d94b7ba81e",
+      "bytes": 376951650,
+      "sha256": "21710e7ab61c82683576c428e9c1b6fe1ed419586b7b39e394c3449c294b550f",
+      "fidelity": 1.0,
+      "blendWeights": [
+        0.35,
+        0.7
+      ],
+      "privateEvaluationOnly": true
+    },
+    "cases": [
+      {
+        "parentJobId": "f38f587d-47fc-431f-bb3a-6b632c147108",
+        "managedV4JobId": "be772f58-e340-4266-900f-64e55faa05c0",
+        "frames": 355,
+        "gpuPostPassSeconds": 69.15645124699222,
+        "outputs": {
+          "eyes35": {
+            "sha256": "4514c1d3cef62d42ff6721fc4a1d39880c37c9bff5ca773e0213f775118a91ce",
+            "bytes": 11059506,
+            "originalAudioPacketsExact": true,
+            "frameTimingVerified": true,
+            "preEncodePatchHashesVerified": true
+          },
+          "eyes70": {
+            "sha256": "86782d19924b18835f617174b6d3ee70e234fbe8f379fc0ddf0e9128e4695103",
+            "bytes": 11064698,
+            "originalAudioPacketsExact": true,
+            "frameTimingVerified": true,
+            "preEncodePatchHashesVerified": true
+          }
+        },
+        "modifiedFrames": 334,
+        "preservedUncertainFrames": 0,
+        "restorationModelSeconds": 17.41607385885436,
+        "noEyeEditFrames": 21
+      },
+      {
+        "parentJobId": "196f011e-6487-4a44-a655-fb13fc4672ca",
+        "managedV4JobId": "15fe6e19-2448-41ba-b74f-b919483fe812",
+        "frames": 216,
+        "gpuPostPassSeconds": 42.943860967003275,
+        "outputs": {
+          "eyes35": {
+            "sha256": "ef105a09969991e539c39df348de3cbabd4ac01ecadbff8f89d90173f230e7ec",
+            "bytes": 11132563,
+            "originalAudioPacketsExact": true,
+            "frameTimingVerified": true,
+            "preEncodePatchHashesVerified": true
+          },
+          "eyes70": {
+            "sha256": "65a671c855e357985051a2fdc2e4aa92f1782724181361a732745883a6f8eda2",
+            "bytes": 11138913,
+            "originalAudioPacketsExact": true,
+            "frameTimingVerified": true,
+            "preEncodePatchHashesVerified": true
+          }
+        },
+        "modifiedFrames": 202,
+        "preservedUncertainFrames": 0,
+        "restorationModelSeconds": 10.670130683254683,
+        "noEyeEditFrames": 14
+      },
+      {
+        "parentJobId": "f179f035-44e7-4c3a-8ad6-70002aedd60d",
+        "managedV4JobId": "15fab314-24c5-40aa-a5d2-9ee250e6cc5d",
+        "frames": 240,
+        "gpuPostPassSeconds": 33.99572137699579,
+        "outputs": {
+          "eyes35": {
+            "sha256": "90fdc08833e96c7bdee4efa0e6c10d8ed750d1822202fb5723cf991920d892e0",
+            "bytes": 5031978,
+            "originalAudioPacketsExact": true,
+            "frameTimingVerified": true,
+            "preEncodePatchHashesVerified": true
+          },
+          "eyes70": {
+            "sha256": "9971d74b84156632db8468e4723e25b34a680f92317ed20a081f5c35f9ab6bcc",
+            "bytes": 5035918,
+            "originalAudioPacketsExact": true,
+            "frameTimingVerified": true,
+            "preEncodePatchHashesVerified": true
+          }
+        },
+        "modifiedFrames": 204,
+        "preservedUncertainFrames": 10,
+        "restorationModelSeconds": 10.76170968794031,
+        "noEyeEditFrames": 36
+      }
+    ],
+    "all811PreEncodeFramesReconstructed": true,
+    "sourceAudioPacketsPreserved": true
+  },
+  "irisPlacement": {
+    "observationModel": {
+      "family": "MediaPipe Face Landmarker",
+      "packageVersion": "1.2.0",
+      "bytes": 3758596,
+      "sha256": "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff",
+      "device": "CPU on the Mac; isolated environment",
+      "productOrGpuInstall": false
+    },
+    "sourceRgbCopied": false,
+    "coordinateSystem": "Normalized image-space eye plane; not measured gaze angles.",
+    "rejectedPrototype": "Simple displacement could fold the eye interior and introduce threshold jumps.",
+    "fullV2": {
+      "recipe": "private-iris-flow-v2",
+      "workerSHA256": "48161635efae4359ffd8d82224a80d22a435471598960cfa505feeef00471aa2",
+      "helperSHA256": "89db52055c11e2abdc13f7e3fc2a4e0673058aef9ca74b8e2167e75faff25cd9",
+      "cases": [
+        {
+          "parentJobId": "f38f587d-47fc-431f-bb3a-6b632c147108",
+          "managedV4JobId": "be772f58-e340-4266-900f-64e55faa05c0",
+          "frames": 355,
+          "cpuPostPassSeconds": 56.88361245801207,
+          "outputs": {
+            "v4-flow65": {
+              "sha256": "679fb8f6bad17ab29086d7e03ea6bf32b0cca32fd0afa9b3f4a6ba2ff1438afc",
+              "frames": 355,
+              "fps": 24,
+              "originalAudioPacketsExact": true,
+              "preEncodePatchHashesVerified": true
+            },
+            "cf35-flow65": {
+              "sha256": "4551a6bef2700ebfc9209f212ff81a5c5295118728c4fd6ad4a4ff085f229760",
+              "frames": 355,
+              "fps": 24,
+              "originalAudioPacketsExact": true,
+              "preEncodePatchHashesVerified": true
+            }
+          },
+          "uncertainFramesPreserved": 0,
+          "changedFrames": {
+            "v4-flow65": 325,
+            "cf35-flow65": 321
+          }
+        },
+        {
+          "parentJobId": "196f011e-6487-4a44-a655-fb13fc4672ca",
+          "managedV4JobId": "15fe6e19-2448-41ba-b74f-b919483fe812",
+          "frames": 216,
+          "cpuPostPassSeconds": 34.884078000090085,
+          "outputs": {
+            "v4-flow65": {
+              "sha256": "837000c5a7f287ef4fe6d22872a6fe30d596510af406077c894b4a76f3f2f2d2",
+              "frames": 216,
+              "fps": 24,
+              "originalAudioPacketsExact": true,
+              "preEncodePatchHashesVerified": true
+            },
+            "cf35-flow65": {
+              "sha256": "c4829ebda6b4109aefaac77c0b878b4a8aed2b98b0124e2207f5b21fcb6156c9",
+              "frames": 216,
+              "fps": 24,
+              "originalAudioPacketsExact": true,
+              "preEncodePatchHashesVerified": true
+            }
+          },
+          "uncertainFramesPreserved": 0,
+          "changedFrames": {
+            "v4-flow65": 182,
+            "cf35-flow65": 186
+          }
+        },
+        {
+          "parentJobId": "f179f035-44e7-4c3a-8ad6-70002aedd60d",
+          "managedV4JobId": "15fab314-24c5-40aa-a5d2-9ee250e6cc5d",
+          "frames": 240,
+          "cpuPostPassSeconds": 24.638351417030208,
+          "outputs": {
+            "v4-flow65": {
+              "sha256": "63404c58ea6478e5f2061e7b93c4cff5fd5e32d394eb809fc379a7aa2e99c2df",
+              "frames": 240,
+              "fps": 24,
+              "originalAudioPacketsExact": true,
+              "preEncodePatchHashesVerified": true
+            },
+            "cf35-flow65": {
+              "sha256": "7e1f66ad826a1862ae27ae4b7a296c0db4c3a8ac9d7dd7bc1b87fd5f678c6120",
+              "frames": 240,
+              "fps": 24,
+              "originalAudioPacketsExact": true,
+              "preEncodePatchHashesVerified": true
+            }
+          },
+          "uncertainFramesPreserved": 10,
+          "changedFrames": {
+            "v4-flow65": 166,
+            "cf35-flow65": 161
+          }
+        }
+      ],
+      "decision": "Private comparison only; isolated observer-driven wobble inspected around main frame 219."
+    },
+    "temporalV3": {
+      "recipe": "private-iris-flow-v3",
+      "workerSHA256": "d7d68e69e757fc7d7e1dc5bc1099d6fb92df1b59abd258226f103c37788f20ab",
+      "helperSHA256": "89db52055c11e2abdc13f7e3fc2a4e0673058aef9ca74b8e2167e75faff25cd9",
+      "temporalHelperSHA256": "bb80753cebb7c61e45639a3f34e37d3843c06ca86e0c8a04dded65d18385bfc6",
+      "cases": [
+        {
+          "parentJobId": "f38f587d-47fc-431f-bb3a-6b632c147108",
+          "managedV4JobId": "be772f58-e340-4266-900f-64e55faa05c0",
+          "frames": 355,
+          "cpuPostPassSeconds": 57.500049042049795,
+          "outputs": {
+            "v4-flow65": {
+              "sha256": "73221d7a1c50d73a2d37bad503dd297ddded72a196db609bf6dff1ee85bddfeb",
+              "frames": 355,
+              "fps": 24,
+              "originalAudioPacketsExact": true,
+              "preEncodePatchHashesVerified": true
+            },
+            "cf35-flow65": {
+              "sha256": "5e4d14b252c8618124806af15e0253d1db365ed62608cf7e4e9f9b9d6dc931db",
+              "frames": 355,
+              "fps": 24,
+              "originalAudioPacketsExact": true,
+              "preEncodePatchHashesVerified": true
+            }
+          },
+          "uncertainFramesPreserved": 0,
+          "changedFrames": {
+            "v4-flow65": 321,
+            "cf35-flow65": 320
+          }
+        },
+        {
+          "parentJobId": "196f011e-6487-4a44-a655-fb13fc4672ca",
+          "managedV4JobId": "15fe6e19-2448-41ba-b74f-b919483fe812",
+          "frames": 216,
+          "cpuPostPassSeconds": 35.51097341708373,
+          "outputs": {
+            "v4-flow65": {
+              "sha256": "7549fc2f384822b22e4d7fbc85610a051eb076a47c0b5dc40c126eeb83e54333",
+              "frames": 216,
+              "fps": 24,
+              "originalAudioPacketsExact": true,
+              "preEncodePatchHashesVerified": true
+            },
+            "cf35-flow65": {
+              "sha256": "072313fd52e3a17356eb0778d3087a246103171eb05dabddd2a2147b05884845",
+              "frames": 216,
+              "fps": 24,
+              "originalAudioPacketsExact": true,
+              "preEncodePatchHashesVerified": true
+            }
+          },
+          "uncertainFramesPreserved": 0,
+          "changedFrames": {
+            "v4-flow65": 180,
+            "cf35-flow65": 186
+          }
+        },
+        {
+          "parentJobId": "f179f035-44e7-4c3a-8ad6-70002aedd60d",
+          "managedV4JobId": "15fab314-24c5-40aa-a5d2-9ee250e6cc5d",
+          "frames": 240,
+          "cpuPostPassSeconds": 25.351298750028946,
+          "outputs": {
+            "v4-flow65": {
+              "sha256": "48e95dae562a15e5d6aec2f77f981a1f632bcfd3afb409e288ef59f56a64833b",
+              "frames": 240,
+              "fps": 24,
+              "originalAudioPacketsExact": true,
+              "preEncodePatchHashesVerified": true
+            },
+            "cf35-flow65": {
+              "sha256": "d62e260795d75bd36b26b8aae329430af40a3e3f454d710f94e5b324931776be",
+              "frames": 240,
+              "fps": 24,
+              "originalAudioPacketsExact": true,
+              "preEncodePatchHashesVerified": true
+            }
+          },
+          "uncertainFramesPreserved": 10,
+          "changedFrames": {
+            "v4-flow65": 164,
+            "cf35-flow65": 158
+          }
+        }
+      ],
+      "syntheticChecksPassed": 5,
+      "method": "Three-frame median of corrective residuals only across clear, open observations; current-frame blink gates remain authoritative.",
+      "decision": "Private comparison only; prospective production integration not performed."
+    },
+    "all811FramesPerCandidateReconstructed": true,
+    "tenUncertainPortraitFramesRetained": true,
+    "sourceAudioPacketsPreserved": true
+  },
+  "visualReview": {
+    "mainIssueFrames": [
+      32,
+      49,
+      98,
+      332
+    ],
+    "isolatedMotionWindows": {
+      "hairAcrossEyes": [
+        217,
+        218,
+        219,
+        220,
+        221
+      ],
+      "continuity": [
+        171,
+        172,
+        173,
+        174,
+        175
+      ],
+      "portrait": [
+        222,
+        223,
+        224,
+        225,
+        226
+      ]
+    },
+    "findings": [
+      "Versioned v4 retains the repaired sampled brow, blink and face edge.",
+      "Eye restoration at 35% gives a modest iris detail improvement; 70% can look brighter or glassy.",
+      "Iris placement improves some sampled sideways glances but is not a gaze or identity lock.",
+      "The temporal candidate suppresses the inspected single-frame correction spike while retaining sampled blink frames.",
+      "Likeness, soft fine detail and the previous closing-mouth discrepancy remain imperfect."
+    ],
+    "playbackReachedFinalFrame": {
+      "hairAcrossEyes": 354,
+      "continuity": 215,
+      "portrait": 239
+    },
+    "playbackSpeed": 1.0,
+    "sampledVisualReview": true,
+    "allFramesVisuallyFlawlessClaimed": false,
+    "coveredPortraitFrameInspected": 124,
+    "viewerFreshNavigationVerified": true
+  },
+  "compute": {
+    "instanceId": 58291560,
+    "startedAt": "2026-10-30T04:54:20.846887+00:00",
+    "independentlyConfirmedStoppedAt": "2026-10-30T05:04:27.497393+00:00",
+    "actual": "exited",
+    "intended": "stopped",
+    "originalIdlePauseRestored": true,
+    "firstStopResponse": "Unconfirmed HTTP 400; independent provider confirmation followed.",
+    "conservativeSessionSeconds": 606.650506,
+    "savedComputeUsdPerHour": 0.4666666666666666,
+    "estimatedComputeUsd": 0.0786398804074074,
+    "additionalCosts": "Transfers and retained storage; this estimate is not an invoice or a per-clip price.",
+    "providerStateAfterCpuStudy": {
+      "id": 58291560,
+      "actual": "exited",
+      "intended": "stopped",
+      "checkedAt": "2026-10-30T06:07:58.893287+00:00"
+    }
+  },
+  "viewer": "http://127.0.0.1:3012/artifacts/",
+  "limitations": [
+    "Technical frame, timing and pixel checks are not identity, gaze or realism scores.",
+    "Driving landmark observations are not an independent accuracy evaluation.",
+    "Protected pixels are exact before lossy MP4 encoding.",
+    "No arbitrary-clip, cut or occlusion guarantee; only three existing clips evaluated.",
+    "Private experimental model dependencies are not installed by Generate or selection."
+  ]
+}

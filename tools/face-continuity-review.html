@@ -25,7 +25,7 @@
   <article class="panel"><h2>Candidate A</h2><select id="candidateA" aria-label="Candidate A"></select><canvas id="canvas2" width="512" height="512"></canvas><p id="descriptionA"></p></article>
   <article class="panel hidden" id="panelB"><h2>Candidate B</h2><select id="candidateB" aria-label="Candidate B"></select><canvas id="canvas3" width="512" height="512"></canvas><p id="descriptionB"></p></article>
  </div>
- <details id="stillTests" hidden><summary>Eye detail and identity resolution · still comparisons</summary><p>These are isolated saved frames, not complete video results. They help compare detail and likeness; they do not establish motion stability. Open a strip to inspect it at full size.</p><div id="stillGallery" class="still-gallery"></div></details>
+ <details id="stillTests" hidden><summary>Frame comparisons · close-up details</summary><p>Each strip shows one saved frame. Its caption distinguishes CPU still studies from frames of the full GPU video candidates above. Use video playback to review motion stability, and open a strip to inspect it at full size.</p><div id="stillGallery" class="still-gallery"></div></details>
  <details><summary>What these comparisons prove</summary><p id="notes"></p><p>All candidates reuse the same saved animation, source video, fixed donor and frame timing. The original audio is copied. Exact protected-pixel checks apply to the PNGs before MP4 compression. Processing counts, segmentation areas and optical-flow diagnostics are not identity or realism scores.</p><p>Use the issue buttons to inspect an exact frame or loop its surrounding motion. Arrow keys step frames, Space plays or pauses, and Escape pauses. Compare at normal speed as well as close-up.</p></details>
 </main>
 <script>
@@ -41,7 +41,16 @@ async function seek(v,t){await ready(v);if(Math.abs(v.currentTime-t)<.0001)retur
 async function move(n,keepLoop=false){pause();if(!keepLoop)loop=null;moving=true;try{await Promise.all(visible().map(v=>seek(v,(Math.min(item.frames-1,Math.max(0,n))+.25)/item.fps)));draw();}catch(e){fail(e);}finally{moving=false;}}
 async function play(){if(moving)return;$('#error').textContent='';try{await Promise.all(visible().map(ready));visible().forEach(v=>v.playbackRate=+$('#speed').value);await Promise.all(visible().map(v=>v.play()));playing=true;$('#play').textContent='Pause';tick();}catch(e){pause();fail(e);}}
 function tick(){if(!playing)return;const t=videos[1].currentTime;if(loop&&t>=loop[1]/item.fps){pause();move(loop[0],true).then(play);return;}if(videos[1].ended){pause();draw();return;}visible().forEach(v=>{if(Math.abs(v.currentTime-t)>.075)v.currentTime=t;});draw();raf=requestAnimationFrame(tick);}
-function method(select,which){const requested=which===0?item.preferred:item.secondary,chosen=item.variants.some(v=>v.id===requested)?requested:item.variants[0].id;select.replaceChildren(...item.variants.map(v=>{const o=document.createElement('option');o.value=v.id;o.textContent=v.label;o.selected=v.id===chosen;return o;}));}
+function method(select,which){
+ const requested=which===0?item.preferred:item.secondary,chosen=item.variants.some(v=>v.id===requested)?requested:item.variants[0].id;
+ const groups=new Map();
+ for(const v of item.variants){
+  const group=v.id.startsWith('iris-')?'Eye movement tests':v.id.startsWith('restoration-')?'Eye restoration tests':v.id.startsWith('eye-post-')?'Native eye detail tests':v.id==='managed-eye-calibration'||v.id.startsWith('clean-features-')?'Versioned finishes':'Earlier experiments';
+  if(!groups.has(group)){const node=document.createElement('optgroup');node.label=group;groups.set(group,node);}
+  const o=document.createElement('option');o.value=v.id;o.textContent=v.label;o.selected=v.id===chosen;groups.get(group).append(o);
+ }
+ select.replaceChildren(...['Versioned finishes','Eye movement tests','Eye restoration tests','Native eye detail tests','Earlier experiments'].filter(g=>groups.has(g)).map(g=>groups.get(g)));
+}
 async function updateCandidate(index){const select=index===2?$('#candidateA'):$('#candidateB'),v=item.variants.find(x=>x.id===select.value);$('#description'+(index===2?'A':'B')).textContent=v.description;const n=Math.floor(videos[1].currentTime*item.fps);pause();videos[index].src=v.url;videos[index].load();await move(n);}
 function renderStillTests(){
  const rows=Array.isArray(item.stillComparisons)?item.stillComparisons:[];
@@ -67,8 +76,8 @@ async function load(id){
  await move(item.initialFrame||0);if(token===generation)$('#play').disabled=false;
 }
 $('#home').onclick=()=>move(0).then(play);$('#cases').onchange=()=>load($('#cases').value).catch(fail);$('#candidateA').onchange=()=>updateCandidate(2).catch(fail);$('#candidateB').onchange=()=>updateCandidate(3).catch(fail);$('#play').onclick=()=>playing?pause():play();$('#prev').onclick=()=>move(Math.floor(videos[1].currentTime*item.fps)-1);$('#next').onclick=()=>move(Math.floor(videos[1].currentTime*item.fps)+1);$('#scrub').oninput=()=>move(+$('#scrub').value);$('#speed').onchange=()=>visible().forEach(v=>v.playbackRate=+$('#speed').value);$('#view').onclick=()=>{crop=!crop;$('#view').textContent=crop?'Face close-up':'Full frame';$('#view').setAttribute('aria-pressed',String(crop));draw();};$('#pair').onclick=async()=>{const n=Math.floor(videos[1].currentTime*item.fps);pause();paired=!paired;$('#panelB').classList.toggle('hidden',!paired);$('#grid').classList.toggle('four',paired);$('#pair').setAttribute('aria-pressed',String(paired));if(paired)videos[3].src=item.variants.find(v=>v.id===$('#candidateB').value).url;else videos[3].removeAttribute('src');videos[3].load();await move(n);};$('#left').onchange=async()=>{const n=Math.floor(videos[1].currentTime*item.fps);pause();$('#leftTitle').textContent=$('#left').selectedOptions[0].textContent;videos[0].src=item[$('#left').value];videos[0].load();await move(n);};document.addEventListener('keydown',e=>{if(e.key==='Escape'){pause();return;}if(/INPUT|SELECT|BUTTON/.test(e.target.tagName))return;if(e.key===' '){e.preventDefault();playing?pause():play();}if(e.key==='ArrowLeft')move(Math.floor(videos[1].currentTime*item.fps)-1);if(e.key==='ArrowRight')move(Math.floor(videos[1].currentTime*item.fps)+1);});
-window.addEventListener('pagehide',()=>{pause();videos.forEach(v=>{v.removeAttribute('src');v.load();});});
-window.addEventListener('pageshow',e=>{if(e.persisted&&item)load(item.id).catch(fail);});
+window.addEventListener('pagehide',pause);
+window.addEventListener('pageshow',e=>{if(e.persisted&&item)draw();});
 fetch('cases.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('Saved comparison manifest is unavailable.');return r.json();}).then(async data=>{manifest=data;if(!Array.isArray(data.cases)||!data.cases.length)throw new Error('No verified comparisons are ready yet.');$('#cases').replaceChildren(...data.cases.map(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.title;return o;}));await load(data.cases[0].id);}).catch(fail);
 </script>
 </html>

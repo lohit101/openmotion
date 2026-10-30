@@ -68,4 +68,40 @@ The nine CodeFormer stills took 108.063 seconds on CPU, with 8.017–10.075 seco
 
 The third study changes only the identity inference resolution: the current interleaved 512-pixel route versus one native 256-pixel pass, with or without retained input detail. It keeps the source, donor, saved calibration, 60% identity blend and compositor fixed. Nine still comparisons took 163.090 seconds on CPU. Four available control images match the previous actual CPU baseline exactly. The native 256-pixel route is softer in the inspected frames; adding input detail does not demonstrate a clear improvement. The existing identity path stays unchanged.
 
-The viewer now separates still studies from full video candidates, loads its fourth video only when requested, releases media on page exit, and reports the failing media panel when decoding fails. Its JavaScript syntax and three-/four-panel playback were checked. Media remain loopback-only and ignored. See the [sanitized detail-study record](validation/facial-eye-detail-20261030.json). No additional GPU session was started for these studies; five-minute idle pause remains enabled. The wider goal remains active: likeness, exact gaze, closure and fine texture are still imperfect.
+The viewer separates still studies from full video candidates, loads its fourth video only when requested, pauses on page exit, and reports the failing media panel when decoding fails. Its JavaScript syntax and three-/four-panel playback were checked. Media remain loopback-only and ignored. See the [sanitized detail-study record](validation/facial-eye-detail-20261030.json). No additional GPU session was started for those initial CPU studies. The later GPU follow-up below has its own timing, transfer and stop record. The wider goal remains active: likeness, exact gaze, closure and fine texture are still imperfect.
+
+## Full-video restoration and source-eye placement follow-up
+
+The next study reused the same 811 lossless managed v4 frames, chronological source videos and fixed donors. It did not submit another Viggle or Imagen generation. These are separate private post-processing candidates, not changes to `source-face-v4`, its fingerprint, Studio defaults or saved user preferences.
+
+The CodeFormer file from the earlier CPU still study was explicitly copied to the existing A6000's private evaluation cache. It remains outside the product model manifest. CUDA execution was required for the restoration model and existing parser. Two complete eye-only exports, at 35% and 70% restoration contribution, used the same fidelity weight 1.0 and source-visible/occlusion gates. A quiet CPU control exactly reproduced the earlier saved still outputs before the GPU run.
+
+| Existing clip | Frames | GPU post-pass for both variants | Restoration-model calls | Modified / retained uncertain |
+| --- | ---: | ---: | ---: | ---: |
+| Hair across eyes | 355 | 69.156 s | 17.416 s | 334 / 0 |
+| Later-reference continuity | 216 | 42.944 s | 10.670 s | 202 / 0 |
+| Portrait and hand occlusion | 240 | 33.996 s | 10.762 s | 204 / 10 |
+
+These times include the separate post-pass and two encodes, not Generate latency. Frames without an eligible eye edit are also retained. Independent reconstruction checked all pre-encode frame and patch hashes, output frame counts, decoded timing and copied original audio. Exact protected pixels refer to the frames before lossy MP4 encoding.
+
+The 35% variant gives clearer iris detail in the inspected main frame 98 without restoring the detached brow or doubled eyelid. The 70% variant can look too bright or glassy, and full-face restoration was already less convincing in the earlier still study. Restoration alone does not correct the source-to-output glance mismatch; it can move the apparent iris position slightly. This is a quality/fidelity trade-off, not an identity lock.
+
+The session began at 04:54:20 UTC. Its first stop request returned an unconfirmed HTTP 400; an independent provider refresh subsequently confirmed the exact instance `exited` / intended `stopped` at 05:04:27 UTC. The conservative start-to-confirmation compute estimate is $0.07864 at the saved existing-host rate, plus transfers and storage. It is not an invoice or a per-clip price. The original five-minute idle preference was restored. Hash-verified duplicate evaluation archives were released remotely after recovery; original paid animations, model files and local evidence were preserved.
+
+A separate isolated CPU environment on this Mac then tested image-space iris placement using the official [MediaPipe Face Landmarker](https://developers.google.com/edge/mediapipe/solutions/vision/face_landmarker/python). Its 3,758,596-byte task bundle is pinned by SHA-256 `64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff`; it was not added to Studio or the GPU runtime. Eye coordinates are estimates, not measured gaze angles. Source RGB is never copied into the replacement eyes.
+
+The first simple displacement prototype could fold the eye interior and was rejected. Private `iris-flow-v2` instead integrates a bounded velocity field inside the current character's eye interior, fixes the eyelid border, samples its RGB only once and rejects unsafe inverse Jacobians. It keeps current source blink/visibility gates and the original uncertain-face fallbacks. Full CPU exports took 56.884 / 34.884 / 24.638 seconds for the 355 / 216 / 240-frame clips, each including two candidates and two encodes. All 811 frame/patch hashes, timing and audio were independently checked. The sampled side glances move closer to the source, but inspection found an isolated landmark-driven wobble near main frame 219. This version remains an experiment.
+
+The follow-up private temporal test uses a three-frame median of the corrective residual only when all three observations for that eye are clear and open. It retains the current frame's blink gate and skips temporal reuse across uncertain or closing eyes. A monotonic step or ramp keeps its current-frame value; a one-frame outlier is suppressed. Five synthetic checks cover those cases, immutable observations and ambiguous current frames. This is an image-space correction, not 3D gaze recovery.
+
+| Temporal test | Frames | CPU wall time for both variants | Changed v4 / restoration base | Retained uncertain |
+| --- | ---: | ---: | ---: | ---: |
+| Hair across eyes | 355 | 57.500 s | 321 / 320 | 0 |
+| Later-reference continuity | 216 | 35.511 s | 180 / 186 | 0 |
+| Portrait and hand occlusion | 240 | 25.351 s | 164 / 158 | 10 |
+
+Both candidates again passed independent reconstruction of all 811 pre-encode frames, final timing/count/audio checks and the fixed eye-permission assertions. The saved main-frame 217–221 comparison shows less isolated corrective wobble than v2; continuity 171–175 and portrait 222–226 retain their blink progression. This does not prove accurate eye motion in every frame. Some glance mismatch, softness and the earlier mouth-closure discrepancy remain.
+
+The private page groups versioned finishes, eye-movement tests, restoration tests and native-detail tests. Candidate A starts at the actual managed v4 finish; Candidate B starts at **Source eye movement + clarity · temporal test**. Each still strip identifies whether it comes from a CPU still experiment or a full-video candidate. Normal-speed four-panel playback reached frames 354 / 215 / 239, with the issue frames, opening side glance, blink strips and covered portrait frame sampled visually. This is not a claim that every frame passes a realism review. Navigation pauses playback without resetting every decoder during page teardown. A fresh navigation successfully loaded the page; app/user tabs, Studio jobs and drafts were untouched.
+
+Complete-video evidence, timings and review decisions are recorded in the [sanitized follow-up record](validation/facial-eye-restoration-20261030.json). No experimental restoration or iris-flow candidate is enabled in production. Further work must preserve the frozen v4 recipe and paid originals rather than silently changing their compositor.
