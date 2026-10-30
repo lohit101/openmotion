@@ -1,5 +1,5 @@
 {
-  "version": "clarity-flashvsr-turbo-v2",
+  "version": "clarity-flashvsr-turbo-v3",
   "repository": "https://github.com/OpenImagingLab/FlashVSR_Plus.git",
   "revision": "b548a2cc2c929d3d4676f2973abe27876ec4dee7",
   "torch": "torch==2.7.1",
@@ -21,6 +21,8 @@
   "working_reserve_bytes": 5368709120,
   "max_duration_seconds": 300,
   "decoder_latent_chunk": 28,
+  "tiny_decoder_mode": "auto",
+  "execution": "streamed-input-cuda-color-v1",
   "quality_validation": "pending managed GPU comparison",
   "kernel_package": "operators/flashvsr_attn",
   "kernel_setuptools": "setuptools==80.9.0"

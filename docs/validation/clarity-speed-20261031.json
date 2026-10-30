@@ -1,0 +1,105 @@
+{
+  "date": "2026-10-31",
+  "feature": "Clarity v3 speed adapters and explicit Fast 1080p",
+  "scope": "Offline implementation only; no GPU contact, setup, downloads or paid test",
+  "baselineUpscaling": [
+    {
+      "height": 720,
+      "frames": 374,
+      "fps": "24",
+      "durationSeconds": 15.583333333333334,
+      "elapsedSeconds": 290.142,
+      "workerSeconds": 164.08801022398984,
+      "gpu": "A100 PCIe 40 GB",
+      "settings": {
+        "height": 720,
+        "motion": "fast",
+        "matchColors": true
+      },
+      "receiptUnchanged": true
+    },
+    {
+      "height": 1080,
+      "frames": 374,
+      "fps": "24",
+      "durationSeconds": 15.583333333333334,
+      "elapsedSeconds": 414.962,
+      "workerSeconds": 342.0571104270057,
+      "gpu": "A100 PCIe 40 GB",
+      "settings": {
+        "height": 1080,
+        "motion": "fast",
+        "matchColors": true
+      },
+      "receiptUnchanged": true
+    }
+  ],
+  "matchedGenerationExample": {
+    "durationSeconds": 8.958333333333334,
+    "sameSource": true,
+    "sameReference": true,
+    "settingsDifferOnlyInResolution": true,
+    "sameFinishingInstance": true,
+    "gpu": "NVIDIA RTX A6000",
+    "480pSeconds": 463.528,
+    "704pSeconds": 1074.381,
+    "includesFacialFinishing": true,
+    "comparisonLimit": "Different GPU from the saved upscales; not a matched end-to-end upscale versus generation benchmark"
+  },
+  "cpuPreparation": {
+    "fixture": "36 synthetic frames / 1.5 seconds at 24 fps; 864x480 SDR",
+    "scope": "Mac CPU input preparation only; not model or GPU speed",
+    "measurements": [
+      {
+        "height": 720,
+        "legacySeconds": 0.3921904170420021,
+        "streamedSeconds": 0.2911108749685809,
+        "ratio": 1.3472200826723857,
+        "preparedFileBytesAvoided": 2917082,
+        "modelInputHashIdentical": true
+      },
+      {
+        "height": 1080,
+        "legacySeconds": 0.7488794589880854,
+        "streamedSeconds": 0.5997740420280024,
+        "ratio": 1.2486026511849633,
+        "preparedFileBytesAvoided": 5231656,
+        "modelInputHashIdentical": true
+      }
+    ]
+  },
+  "checks": {
+    "studioTests": 491,
+    "studioTestFiles": 41,
+    "focusedStudioTests": 20,
+    "pythonExecutionTests": 8,
+    "pythonMediaTests": 6,
+    "pythonProtocolTests": 9,
+    "typescript": "passed",
+    "productionBuilds": "passed",
+    "pinnedWaveletCPUReplay": "exact",
+    "integerFractionalAndTaggedRGBReplay": "exact",
+    "cudaOOMSimulation": "CPU tensors only; no CUDA context",
+    "originalUpscaleReceiptsAndOutputHashes": "both unchanged and verified"
+  },
+  "deployment": {
+    "deployedAt": "2026-10-30T22:57:10.971623+00:00",
+    "savedJobsUnchanged": 281,
+    "draftsUnchanged": true,
+    "gpuResumed": false,
+    "connectionState": "offline",
+    "gpuToolsUpdated": false,
+    "feature": "Clarity streamed preparation, GPU color matching and explicit Fast 1080p",
+    "gpuTestsRun": 0,
+    "remoteInstalls": 0,
+    "modelDownloads": 0
+  },
+  "unvalidated": [
+    "Real v3 GPU timing",
+    "Real CUDA color numerical/visual equivalence",
+    "Peak GPU memory",
+    "Fast 1080p versus native detail/flicker",
+    "Managed remote interruption/recovery on v3"
+  ],
+  "automatedMorningTest": false
+}

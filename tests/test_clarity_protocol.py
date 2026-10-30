@@ -1,5 +1,6 @@
 """Managed transport status must never confuse unreachable with idle/missing."""
 import contextlib
+import hashlib
 import io
 import json
 from pathlib import Path
@@ -91,6 +92,34 @@ class ClarityProtocolTests(unittest.TestCase):
                 self.assertTrue(worker.base_installed())
                 args=run.call_args.args[0]
                 self.assertEqual(args[1],'-c');self.assertIn('importlib.metadata',args[2]);self.assertNotIn('pip',args)
+                config=json.loads(worker.PROFILE.read_text())
+                self.assertTrue(worker.kernel_installed(config))
+                args=run.call_args.args[0]
+                self.assertIn('flashvsr_attn.__file__',args[2])
+                self.assertNotIn('pip',args);self.assertNotIn('cuda',args[2])
+
+    def test_weight_cache_rehashes_a_changed_file_even_with_restored_mtime(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);file=root/'weight';file.write_bytes(b'correct bytes')
+            item={'destination':'upscale/test','sha256':hashlib.sha256(file.read_bytes()).hexdigest()}
+            with patch.object(worker,'ROOT',root):
+                self.assertTrue(worker.verified_weight(file,item))
+                original=file.stat()
+                with patch.object(worker,'sha',side_effect=AssertionError('Unchanged weight should reuse its checksum')):
+                    self.assertTrue(worker.verified_weight(file,item))
+                file.write_bytes(b'changed bytes')
+                worker.os.utime(file,ns=(original.st_atime_ns,original.st_mtime_ns))
+                self.assertFalse(worker.verified_weight(file,item))
+
+    def test_weight_cache_does_not_license_a_file_changed_during_hashing(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);file=root/'weight';file.write_bytes(b'before')
+            digest=hashlib.sha256(file.read_bytes()).hexdigest();item={'destination':'upscale/test','sha256':digest}
+            def changed(_file):
+                file.write_bytes(b'after');return digest
+            with patch.object(worker,'ROOT',root),patch.object(worker,'sha',side_effect=changed):
+                self.assertFalse(worker.verified_weight(file,item))
+                self.assertFalse((root/'state/verified-models.json').exists())
 
 
 if __name__ == '__main__':

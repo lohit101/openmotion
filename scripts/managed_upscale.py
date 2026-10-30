@@ -17,7 +17,7 @@ from managed_models import check_connection
 from managed_video_identity import sync
 from upscale_worker import ROOT, validate_source, profile_hash, sha
 
-FILES = ['scripts/upscale_worker.py', 'scripts/clarity_video.py', 'config/upscale-runtime.lock.json', 'config/upscale-models.lock.json', 'config/server.json']
+FILES = ['scripts/upscale_worker.py', 'scripts/clarity_video.py', 'scripts/clarity_execution.py', 'config/upscale-runtime.lock.json', 'config/upscale-models.lock.json', 'config/server.json']
 
 
 def call(config, action, job=None):

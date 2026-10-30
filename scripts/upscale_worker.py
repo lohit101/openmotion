@@ -56,6 +56,13 @@ def base_installed():
     return subprocess.run([str(PYTHON),'-c',code,PROFILE.read_text()],capture_output=True).returncode==0
 
 
+def kernel_installed(config):
+    if not PYTHON.is_file():return False
+    expected=SOURCE/config['kernel_package']/'flashvsr_attn/__init__.py'
+    code="import importlib.metadata as m,sys;from pathlib import Path;import flashvsr_attn;assert Path(flashvsr_attn.__file__).resolve()==Path(sys.argv[1]).resolve();assert m.version('setuptools')==sys.argv[2]"
+    return subprocess.run([str(PYTHON),'-c',code,str(expected),config['kernel_setuptools'].split('==')[1]],capture_output=True).returncode==0
+
+
 def sha(path):
     h = hashlib.sha256()
     with Path(path).open('rb') as stream:
@@ -69,7 +76,7 @@ def atomic(path, value):
 
 
 def profile_hash():
-    return hashlib.sha256(PROFILE.read_bytes()+MODELS.read_bytes()+Path(__file__).read_bytes()+(ROOT/'scripts/clarity_video.py').read_bytes()).hexdigest()
+    return hashlib.sha256(PROFILE.read_bytes()+MODELS.read_bytes()+Path(__file__).read_bytes()+(ROOT/'scripts/clarity_video.py').read_bytes()+(ROOT/'scripts/clarity_execution.py').read_bytes()).hexdigest()
 
 
 def state(path):
@@ -132,7 +139,7 @@ def inspect(verify=False):
     missing=[]; manifest=json.loads(MODELS.read_text()); config=json.loads(PROFILE.read_text())
     for item in manifest['files']:
         file=ROOT.parent/'models'/item['destination']
-        if file.is_symlink() or not file.is_file() or file.stat().st_size!=item['size'] or verify and sha(file)!=item['sha256']:
+        if file.is_symlink() or not file.is_file() or file.stat().st_size!=item['size'] or verify and not verified_weight(file,item):
             missing.append(item['destination'])
     marker=state(ROOT/'state/ready.json')
     ready=PYTHON.is_file() and marker.get('profileSHA256')==profile_hash() and kernel_verified(marker,config)
@@ -144,6 +151,23 @@ def inspect(verify=False):
             'error':state(ROOT/'state/setup.json').get('error'),'missing':missing,'profileSHA256':profile_hash(),
             'attention':config['attention'],'kernelCheck':marker.get('kernelCheck'),
             'modelBytes':manifest['total_bytes'],'runtimeReserveBytes':config['runtime_reserve_bytes']}
+
+
+def verified_weight(file,item):
+    """Hash once per exact file incarnation; invalidation includes ctime/inode.
+
+    Status remains read-only. Explicit inference verifies unknown/changed files;
+    an earlier valid checksum never licenses a file modified during hashing.
+    """
+    def identity():
+        stat=file.stat()
+        return {'size':stat.st_size,'mtimeNS':stat.st_mtime_ns,'ctimeNS':stat.st_ctime_ns,
+                'inode':stat.st_ino,'device':stat.st_dev,'sha256':item['sha256']}
+    cache_file=ROOT/'state/verified-models.json';cache=state(cache_file);before=identity()
+    if cache.get(item['destination'])==before:return True
+    if sha(file)!=item['sha256'] or identity()!=before:return False
+    cache[item['destination']]=before;atomic(cache_file,cache)
+    return True
 
 
 def idle():
@@ -178,8 +202,9 @@ def prepare():
         if not reuse_base:
             subprocess.run([str(PYTHON),'-m','pip','install',config['torch'],'--index-url',config['torch_index']],env=env,check=True)
             subprocess.run([str(PYTHON),'-m','pip','install',*config['packages']],env=env,check=True)
-        subprocess.run([str(PYTHON),'-m','pip','install',config['kernel_setuptools']],env=env,check=True)
-        subprocess.run([str(PYTHON),'-m','pip','install','--no-deps','--no-build-isolation','-e',str(SOURCE/config['kernel_package'])],env=env,check=True)
+        if not kernel_installed(config):
+            subprocess.run([str(PYTHON),'-m','pip','install',config['kernel_setuptools']],env=env,check=True)
+            subprocess.run([str(PYTHON),'-m','pip','install','--no-deps','--no-build-isolation','-e',str(SOURCE/config['kernel_package'])],env=env,check=True)
         subprocess.run([str(PYTHON),'-c','import torch;assert torch.__version__.startswith("2.7.1") and torch.cuda.is_available();import inference'],cwd=SOURCE,check=True)
         # The prompt tensor is part of the pinned source, not a new encoder.
         prompt=SOURCE/'prompt_tensor/posi_prompt.pth'
@@ -206,9 +231,12 @@ def progress(folder,value,stage,frames=None):
 
 def process(folder):
     import shutil
+    from clarity_execution import PhaseTimings, cpu_threads, streamed_input, DeviceColorCorrector, move_verified_bridge, processing_geometry, export_filter
+    timings=PhaseTimings();overall_started=time.monotonic()
     request=state(folder/'request.json'); config=json.loads(PROFILE.read_text()); source=folder/'source.video'
-    if request.get('profileSHA256')!=profile_hash() or sha(source)!=request['sourceSHA256']:
-        raise ValueError('Saved upscale inputs or recipe changed; no inference was repeated.')
+    with timings.measure('sourceVerification'):
+        if request.get('profileSHA256')!=profile_hash() or sha(source)!=request['sourceSHA256']:
+            raise ValueError('Saved upscale inputs or recipe changed; no inference was repeated.')
     if request.get('attention')!=config['attention']:raise ValueError('This attempt requires its original attention recipe. Create a new explicit retry with the updated runtime.')
     signature={k:request[k]for k in request}
     result=folder/'result';result.mkdir(exist_ok=True); receipt=state(result/'receipt.json')
@@ -216,10 +244,12 @@ def process(folder):
         if receipt.get('request')!=signature or sha(result/'final.mp4')!=receipt['outputSHA256']:raise ValueError('Saved upscale result failed verification.')
         return receipt
     if (folder/'attempt.json').exists(): raise ValueError('An earlier upscale attempt exists. Recover it or explicitly create a new retry; partial work was preserved.')
-    if not inspect(True)['ready']: raise ValueError('Download the Clarity weights and prepare its runtime explicitly first.')
-    if validate_source(source)!=request['input']: raise ValueError('Source timing or geometry changed.')
-    g=request['geometry'];expected=request['input']
-    working_bytes=config['working_reserve_bytes']+int(g['workWidth']*g['workHeight']*expected['frames']*6*1.25)
+    with timings.measure('preflight'):
+        if not inspect(True)['ready']: raise ValueError('Download the Clarity weights and prepare its runtime explicitly first.')
+        if validate_source(source)!=request['input']: raise ValueError('Source timing or geometry changed.')
+    target=request['geometry'];g=processing_geometry(request);expected=request['input']
+    # One verified RGB bridge and final MP4; no on-disk prepared video.
+    working_bytes=config['working_reserve_bytes']+int(g['outputWidth']*g['outputHeight']*expected['frames']*4*1.25)
     if shutil.disk_usage(ROOT).free < working_bytes: raise ValueError(f'Free at least {math.ceil(working_bytes/1024**3)} GiB for this full video and working reserve.')
     port=idle()
     def memory():
@@ -234,25 +264,21 @@ def process(folder):
             if memory()>=config['free_gpu_bytes']:break
             time.sleep(.5)
         if memory()<config['free_gpu_bytes']:raise ValueError('Clarity needs 20 GiB free VRAM. Finish other GPU work first.')
-    progress(folder,4,'Preparing full-frame video'); g=request['geometry']; expected=request['input']
-    # Supply the exact working aspect ratio so upstream centre-cropping is a no-op.
-    prepared=folder/'prepared.mkv'
-    vf=f'setpts=PTS-STARTPTS,scale={g["outputWidth"]}:{g["outputHeight"]}:flags=lanczos,pad={g["workWidth"]}:{g["workHeight"]}:{g["padX"]}:{g["padY"]}:color=black,setsar=1'
-    subprocess.run(['ffmpeg','-v','error','-nostdin','-y','-i',str(source),'-an','-vf',vf,'-c:v','ffv1','-pix_fmt','yuv420p','-level','3','-threads','2',str(prepared)],check=True)
-    test=info(prepared)
-    if test!={**expected,'width':g['workWidth'],'height':g['workHeight']}:raise ValueError('Preparation changed frame count or timing.')
     progress(folder,12,'Loading FlashVSR+ Turbo');atomic(folder/'attempt.json',{'request':signature,'startedAt':time.time()})
     started=time.monotonic();sys.path.insert(0,str(SOURCE))
+    import torch
+    threads=cpu_threads();torch.set_num_threads(threads)
     from inference import InferenceRequest,build_inference_pipeline
     from inference.presets import stream_config_for_mode
     from inference.loading import ModelPaths
     weights=ROOT.parent/'models/upscale/flashvsr-plus'
     settings=request['settings']
-    cfg=stream_config_for_mode('turbo',device='cuda:0',hardware_profile='auto',attn_kernel=config['attention'],decode_every=config['decoder_latent_chunk'],tiny_decoder_mode='serial',
+    cfg=stream_config_for_mode('turbo',device='cuda:0',hardware_profile='auto',attn_kernel=config['attention'],decode_every=config['decoder_latent_chunk'],tiny_decoder_mode=config['tiny_decoder_mode'],
         temporal_compression=4 if settings['motion']=='fast'else 2,color_correction=settings['matchColors'])
     if cfg.attn_kernel!=config['attention']:raise ValueError('Optimized Clarity attention is unavailable. Prepare the runtime; SDPA fallback is disabled.')
     paths=ModelPaths(dit=str(weights/'turbo/dit.safetensors'),lq_projection=str(weights/'turbo/lq_proj_in.safetensors'),tiny_decoder=str(weights/'TCDecoder.ckpt'),context=str(SOURCE/'prompt_tensor/posi_prompt.pth'))
-    pipeline=build_inference_pipeline(cfg,paths)
+    with timings.measure('modelLoading'):
+        pipeline=build_inference_pipeline(cfg,paths)
     progress(folder,18,'Upscaling video')
     from clarity_video import ClarityVideoWriter
     import inference.pipeline as pipeline_module
@@ -260,17 +286,27 @@ def process(folder):
         if count%8==0 or count==expected['frames']:progress(folder,18+67*min(1,count/expected['frames']),f'Upscaling · {count}/{expected["frames"]} frames',count)
     # Keep upstream model/attention math, replacing its H.264 intermediate
     # with verified lossless RGB; final MP4 is encoded only once.
-    pipeline_module.IncrementalVideoWriter=lambda file,fps,**kwargs:ClarityVideoWriter(file,expected['fps'],g,frame_progress)
+    pipeline_module.IncrementalVideoWriter=lambda file,fps,**kwargs:ClarityVideoWriter(file,expected['fps'],g,frame_progress,threads=threads,timings=timings)
+    # Stream the same chroma-aligned full frame directly into bounded native
+    # temporal windows. The source was already checked for exact CFR timing.
+    pipeline_module.iter_lq_video=lambda _request,**kwargs:streamed_input(source,g,expected,timings=timings,threads=threads,stats=color_stats,**kwargs)
+    pipeline_module.get_lq_video_fps=lambda _request:float(Fraction(expected['fps']))
+    pipeline_module.mux_source_audio=move_verified_bridge
+    import inference.runners.stream as stream_module
+    native_color=stream_module.WaveletColorCorrector;color_stats={}
+    stream_module.WaveletColorCorrector=lambda **kwargs:DeviceColorCorrector(native_color,timings=timings,stats=color_stats,**kwargs)
     def update(message):
         # Upstream progress is stage text; never turn elapsed time into fake %.
         progress(folder,state(folder/'worker.json').get('progress',18),message[-200:])
-    out=pipeline.infer(InferenceRequest(input_path=str(prepared),output_path=str(result/'working.mkv'),height=g['workHeight'],width=g['workWidth'],fps=float(Fraction(expected['fps']))),progress=update,video_preset='medium')
+    with timings.measure('inferenceAndBridge'):
+        out=pipeline.infer(InferenceRequest(input_path=str(source),output_path=str(result/'working.mkv'),height=g['workHeight'],width=g['workWidth'],fps=float(Fraction(expected['fps']))),progress=update,video_preset='medium')
     if out.frames!=expected['frames']:raise ValueError('Upscaling changed frame count; output was kept for inspection.')
     progress(folder,90,'Restoring original framing and audio')
     final=result/'final.part.mp4'
-    subprocess.run(['ffmpeg','-v','error','-nostdin','-y','-i',str(result/'working.mkv'),'-i',str(source),'-map','0:v:0','-map','1:a:0?',
-        '-vf','setsar=1','-r',expected['fps'],'-fps_mode','cfr','-frames:v',str(expected['frames']),'-c:v','libx264','-crf','16','-preset','medium','-threads','2','-pix_fmt','yuv420p','-c:a','copy','-movflags','+faststart',str(final)],check=True)
-    if info(final)!={**expected,'width':g['outputWidth'],'height':g['outputHeight']}:raise ValueError('Final upscale timing or geometry failed verification.')
+    with timings.measure('finalEncoding'):
+        subprocess.run(['ffmpeg','-v','error','-nostdin','-y','-threads',str(threads),'-i',str(result/'working.mkv'),'-i',str(source),'-map','0:v:0','-map','1:a:0?',
+            '-vf',export_filter(g,target),'-r',expected['fps'],'-fps_mode','cfr','-frames:v',str(expected['frames']),'-c:v','libx264','-crf','16','-preset','medium','-threads',str(threads),'-pix_fmt','yuv420p','-c:a','copy','-movflags','+faststart',str(final)],check=True)
+    if info(final)!={**expected,'width':target['outputWidth'],'height':target['outputHeight']}:raise ValueError('Final upscale timing or geometry failed verification.')
     def audio_hash(file):
         p=subprocess.run(['ffmpeg','-v','error','-i',str(file),'-map','0:a:0?','-c:a','copy','-f','data','-'],capture_output=True)
         if p.returncode and b'does not contain any stream'not in p.stderr:raise ValueError('Could not verify copied audio.')
@@ -279,9 +315,10 @@ def process(folder):
     if sha(source)!=request['sourceSHA256']:raise ValueError('Source changed during upscaling.')
     final.replace(result/'final.mp4')
     receipt={'complete':True,'request':signature,'outputSHA256':sha(result/'final.mp4'),'frames':expected['frames'],'fps':expected['fps'],
-        'width':g['outputWidth'],'height':g['outputHeight'],'workerSeconds':time.monotonic()-started,'attention':cfg.attn_kernel,'audioPreserved':True,'framingPreserved':True}
+        'width':target['outputWidth'],'height':target['outputHeight'],'workerSeconds':time.monotonic()-started,'attention':cfg.attn_kernel,'audioPreserved':True,'framingPreserved':True,
+        'workerTotalSeconds':time.monotonic()-overall_started,'phaseSeconds':timings.seconds,'execution':{'input':'streamed-input-v1','cpuThreads':threads,'modelWidth':g['outputWidth'],'modelHeight':g['outputHeight'],**color_stats},
+        'pipelineMetadata':out.metadata}
     atomic(result/'receipt.json',receipt)
-    prepared.unlink(missing_ok=True)
     (result/'working.mkv').unlink(missing_ok=True)
     return receipt
 

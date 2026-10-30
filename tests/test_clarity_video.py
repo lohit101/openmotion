@@ -75,7 +75,7 @@ class ClarityMediaTests(unittest.TestCase):
 
     def test_runtime_fingerprint_and_minimal_model_manifest(self):
         root = Path(__file__).resolve().parents[1]
-        names = ['config/upscale-runtime.lock.json', 'config/upscale-models.lock.json', 'scripts/upscale_worker.py', 'scripts/clarity_video.py']
+        names = ['config/upscale-runtime.lock.json', 'config/upscale-models.lock.json', 'scripts/upscale_worker.py', 'scripts/clarity_video.py', 'scripts/clarity_execution.py']
         self.assertEqual(profile_hash(), hashlib.sha256(b''.join((root / name).read_bytes() for name in names)).hexdigest())
         manifest = json.loads((root / names[1]).read_text())
         self.assertEqual(sum(f['size'] for f in manifest['files']), 7016472997)

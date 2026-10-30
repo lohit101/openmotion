@@ -13,7 +13,7 @@ import type { ConnectionManager } from '../server/comfy';
 import { defaults, type Bootstrap, type Job } from '../shared/types';
 import { emptyModels, modelBytes, upscaleModelFiles } from '../shared/models';
 import { modelUsage } from '../shared/downloads';
-import { upscaleGeometry, upscaleRequestSchema } from '../shared/upscale';
+import { upscaleGeometry, upscaleProcessingGeometry, upscaleRequestSchema, upscaleSettingsSchema } from '../shared/upscale';
 import { savedRunSettings, runSummary } from '../shared/library';
 import { overallProgressEstimate } from '../shared/generation-progress';
 import ClarityWorkspace from '../src/ClarityWorkspace';
@@ -43,7 +43,7 @@ beforeEach(async()=>{
       const frozen=JSON.parse(await readFile(arg('--request'),'utf8')),dest=arg('--output');await mkdir(dest,{recursive:true});
       const output=path.join(dest,'final.mp4'),g=frozen.geometry;
       await command('ffmpeg',['-v','error','-y','-i',arg('--source'),'-vf',`scale=${g.outputWidth}:${g.outputHeight}`,'-c:v','libx264','-pix_fmt','yuv420p',output]);
-      const receipt=path.join(dest,'receipt.json');await writeFile(receipt,JSON.stringify({complete:true,request:frozen,outputSHA256:mode==='forged'?'bad':await hash(output),frames:12,fps:'24',width:g.outputWidth,height:g.outputHeight,audioPreserved:true,framingPreserved:true,attention:frozen.attention||'sdpa',workerSeconds:.5}));
+      const receipt=path.join(dest,'receipt.json');await writeFile(receipt,JSON.stringify({complete:true,request:frozen,outputSHA256:mode==='forged'?'bad':await hash(output),frames:12,fps:'24',width:g.outputWidth,height:g.outputHeight,audioPreserved:true,framingPreserved:true,attention:frozen.attention||'sdpa',workerSeconds:.5,workerTotalSeconds:.7,phaseSeconds:{modelLoading:.1,colorMatching:.15,finalEncoding:.2},execution:{input:'streamed-input-v1',cpuThreads:4,colorCUDAFrames:12,colorCPUFrames:0,colorOOMFallbacks:0}}));
       await writeFile(path.join(dest,'transport.json'),JSON.stringify({jobId:arg('--job'),instanceId:123,receiptSHA256:await hash(receipt)}));progress?.(90,'Verifying saved upscale');return '';
     }
     throw new Error('Unexpected fixture command '+action);
@@ -69,10 +69,28 @@ describe('Clarity video upscaling',()=>{
     expect(modelBytes(upscaleModelFiles)).toBe(7016472997);expect(upscaleModelFiles).toHaveLength(3);
     expect(upscaleModelFiles.every(id=>modelUsage(id)[0].workflow==='Clarity')).toBe(true);
   });
+  it('keeps native as default and exposes lower AI geometry only for explicit Fast 1080p',()=>{
+    expect(upscaleSettingsSchema.parse({}).processing).toBeUndefined();
+    const native=upscaleSettingsSchema.parse({height:1080}),fast={...native,processing:'fast1080' as const};
+    expect(upscaleProcessingGeometry(864,480,native)).toEqual(upscaleGeometry(864,480,1080));
+    expect(upscaleProcessingGeometry(864,480,fast)).toEqual(upscaleGeometry(864,480,720));
+    expect(()=>upscaleProcessingGeometry(864,480,{...fast,height:720})).toThrow('1080p output');
+    expect(()=>upscaleProcessingGeometry(1248,704,fast)).not.toThrow();
+    expect(()=>upscaleProcessingGeometry(1280,720,fast)).toThrow('below 720p');
+  });
+  it('freezes both Fast 1080p AI dimensions and final dimensions without changing its source',async()=>{
+    const job=await manager.create({...request(),settings:{height:1080,motion:'fast',matchColors:true,processing:'fast1080'}});
+    const completed=await settled(job.id);expect(completed.status).toBe('completed');
+    expect(completed.upscale!.processingGeometry).toEqual(upscaleGeometry(64,96,720));
+    expect([completed.width,completed.height]).toEqual([1080,1620]);
+    const frozen=JSON.parse(await readFile(path.join(store.root,'jobs',job.id,'upscale-request.json'),'utf8'));
+    expect(frozen.geometry).toEqual(upscaleGeometry(64,96,1080));expect(frozen.processingGeometry).toEqual(upscaleGeometry(64,96,720));
+    expect(savedRunSettings(completed).processing).toBe('fast1080');
+  });
   it('creates a separate idempotent result and preserves both drafts, source bytes and timing',async()=>{
     const original=await hash(source.output!),drafts=JSON.stringify([store.draft(),store.imageDraft()]),input=request();
     const job=await manager.create(input),completed=await settled(job.id);expect(completed.status).toBe('completed');
-    expect(completed.origin).toBe('upscale');expect(completed.upscale).toMatchObject({fps:'24',frames:12,progress:100,remoteActive:false});
+    expect(completed.origin).toBe('upscale');expect(completed.upscale).toMatchObject({version:'clarity-flashvsr-turbo-v3',fps:'24',frames:12,progress:100,remoteActive:false,workerTotalSeconds:.7,phaseSeconds:{modelLoading:.1,colorMatching:.15,finalEncoding:.2},execution:{colorCUDAFrames:12,colorCPUFrames:0}});
     expect((await manager.create(input)).id).toBe(job.id);expect(calls.filter(c=>c==='run')).toHaveLength(1);expect(calls).not.toContain('prepare');
     expect(await hash(source.output!)).toBe(original);expect(store.job(source.id)).toEqual(source);expect(JSON.stringify([store.draft(),store.imageDraft()])).toBe(drafts);
     expect(savedRunSettings(completed)).not.toHaveProperty('seed');expect(runSummary(completed)[0][1]).toContain('Clarity');
@@ -94,6 +112,19 @@ describe('Clarity video upscaling',()=>{
     await writeFile(path.join(dest,'transport.json'),JSON.stringify({jobId:job.id,instanceId:123,receiptSHA256:await hash(path.join(dest,'receipt.json'))}));
     saved.upscale!.version='clarity-flashvsr-turbo-v1';saved.upscale!.profileSHA256=frozen.profileSHA256;saved.status='interrupted';saved.output=null;store.saveJob(saved);connection.status.state='offline';calls=[];
     await manager.recover(saved);const restored=await settled(job.id);expect(restored.status).toBe('completed');expect(restored.upscale!.attention).toBe('sdpa');expect(calls).toEqual([]);
+  });
+  it('recovers a frozen v2 sparse result offline without migrating its receipt or execution recipe',async()=>{
+    const job=await manager.create(request());await settled(job.id);
+    const saved=store.job(job.id)!,folder=path.join(store.root,'jobs',job.id),dest=path.join(folder,'upscale');
+    const frozen=JSON.parse(await readFile(path.join(folder,'upscale-request.json'),'utf8'));frozen.profileSHA256='legacy-v2-profile';
+    await writeFile(path.join(folder,'upscale-request.json'),JSON.stringify(frozen));
+    const receipt=JSON.parse(await readFile(path.join(dest,'receipt.json'),'utf8'));receipt.request=frozen;delete receipt.phaseSeconds;delete receipt.execution;delete receipt.workerTotalSeconds;
+    await writeFile(path.join(dest,'receipt.json'),JSON.stringify(receipt));const receiptHash=await hash(path.join(dest,'receipt.json'));
+    await writeFile(path.join(dest,'transport.json'),JSON.stringify({jobId:job.id,instanceId:123,receiptSHA256:receiptHash}));
+    saved.upscale!.version='clarity-flashvsr-turbo-v2';saved.upscale!.profileSHA256=frozen.profileSHA256;delete saved.upscale!.phaseSeconds;delete saved.upscale!.execution;delete saved.upscale!.workerTotalSeconds;
+    saved.status='interrupted';saved.output=null;store.saveJob(saved);connection.status.state='offline';calls=[];
+    await manager.recover(saved);const restored=await settled(job.id);expect(restored.status).toBe('completed');expect(restored.upscale!.version).toBe('clarity-flashvsr-turbo-v2');
+    expect(restored.upscale!.execution).toBeUndefined();expect(calls).toEqual([]);expect(await hash(path.join(dest,'receipt.json'))).toBe(receiptHash);
   });
   it('retains unconfirmed remote work as busy and requires positive cancellation evidence',async()=>{
     mode='unknown';const job=await manager.create(request());const failed=await settled(job.id);
