@@ -18,6 +18,19 @@ from managed_video_identity import sync
 from video_identity import video_info
 
 ROOT = Path(__file__).resolve().parents[1]
+FACIAL_RUNTIME_FILES = (
+    'scripts/download_models.py', 'scripts/model_manifest.py', 'scripts/facial_runtime.py', 'scripts/facial_worker.py',
+    'scripts/video_timing.py', 'scripts/face_performance.py', 'scripts/scene_face_composite.py',
+    'scripts/face_feature_cleanup.py', 'scripts/face_eye_calibration.py',
+    'config/facial-consistency-runtime.lock.json', 'config/facial-consistency-models.lock.json',
+    'config/facial-consistency-scene.lock.json', 'config/facial-consistency-cleanup.lock.json',
+    'config/facial-consistency-cleanup-models.lock.json', 'config/facial-consistency-eye.lock.json',
+    'config/server.json', 'config/facial-consistency-eye-finish.lock.json',
+    'config/facial-consistency-eye-finish-models.lock.json', 'scripts/face_eye_finish.py',
+    'scripts/face_eye_motion.py', 'scripts/face_eye_placement.py', 'scripts/face_eye_temporal.py',
+    'config/facial-consistency-geometry.lock.json', 'scripts/face_jaw_geometry.py',
+    'scripts/face_geometry_eye_finish.py', 'scripts/face_geometry_eye_motion.py',
+)
 
 
 def digest(file):
@@ -92,13 +105,7 @@ def prepare_memory(config, job, phase):
 
 def upload_runtime(config):
     root = remote_root(config)
-    names = ['scripts/download_models.py', 'scripts/facial_runtime.py', 'scripts/facial_worker.py', 'scripts/video_timing.py', 'scripts/face_performance.py', 'scripts/scene_face_composite.py', 'scripts/face_feature_cleanup.py', 'scripts/face_eye_calibration.py',
-             'config/facial-consistency-runtime.lock.json', 'config/facial-consistency-models.lock.json', 'config/facial-consistency-scene.lock.json',
-             'config/facial-consistency-cleanup.lock.json', 'config/facial-consistency-cleanup-models.lock.json', 'config/facial-consistency-eye.lock.json', 'config/server.json',
-             'config/facial-consistency-eye-finish.lock.json', 'config/facial-consistency-eye-finish-models.lock.json',
-             'scripts/face_eye_finish.py', 'scripts/face_eye_motion.py', 'scripts/face_eye_placement.py', 'scripts/face_eye_temporal.py']
-    names += ['config/facial-consistency-geometry.lock.json', 'scripts/face_jaw_geometry.py',
-              'scripts/face_geometry_eye_finish.py', 'scripts/face_geometry_eye_motion.py']
+    names = FACIAL_RUNTIME_FILES
     with tempfile.TemporaryFile() as stream:
         with tarfile.open(fileobj=stream, mode='w:gz') as archive:
             for name in names:
