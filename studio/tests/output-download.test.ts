@@ -2,7 +2,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { mkdtemp, readFile, rm, writeFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { afterEach, beforeEach, expect, it } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { downloadOutput, DownloadError } from '../server/download';
 
 let root: string;
@@ -70,8 +70,13 @@ it('reports actual inactivity as a transfer error and keeps partial bytes and ex
 
 it('preserves user cancellation and does not retry it', async () => {
   const destination = path.join(root, 'cancel.bin'), controller = new AbortController(), reason = new Error('Cancelled by user'); let requests = 0;
-  const url = await serve((_req, res) => { requests++; res.writeHead(200, { 'Content-Length': 8192 }); res.write(Buffer.alloc(4096)); setTimeout(() => controller.abort(reason), 30); });
-  await expect(downloadOutput(url, destination, controller.signal)).rejects.toBe(reason);
+  const url = await serve((_req, res) => { requests++; res.writeHead(200, { 'Content-Length': 8192 }); res.write(Buffer.alloc(4096)); });
+  const pending = downloadOutput(url, destination, controller.signal);
+  try {
+    await vi.waitFor(async () => expect((await stat(destination + '.part')).size).toBe(4096), { timeout: 3000 });
+    controller.abort(reason);
+    await expect(pending).rejects.toBe(reason);
+  } finally { controller.abort(reason); await pending.catch(() => {}); }
   expect(requests).toBe(1); expect((await stat(destination + '.part')).size).toBe(4096);
 });
 
