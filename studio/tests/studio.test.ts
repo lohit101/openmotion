@@ -232,7 +232,7 @@ describe('local app with the captured ComfyUI protocol', () => {
         await copyFile(store.asset(job.referenceId)!.path, path.join(folder, 'identity.png'));
         await copyFile(store.asset(job.image!.faceId!)!.path, path.join(folder, 'face.png'));
         for (const name of ['edit-mask.png', 'working-mask.png']) await copyFile(store.asset(job.image!.maskId!)!.path, path.join(folder, name));
-        return { hasFace: true, warnings: [] };
+        return { hasFace: true, warnings: [], headLayout: { version: 'source-head-layout-v1', status: 'unavailable', reason: 'Protocol fixture contains no real face.' } };
       }
       await copyFile(path.join(folder, 'gpu-result.png'), path.join(folder, 'final.png'));
       return { status: 'review', warnings: [], backgroundProtected: true, outsideMaskMaxDifference: 0, sourceFace: true, referenceFace: true, outputFace: true };

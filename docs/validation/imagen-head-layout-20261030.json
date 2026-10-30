@@ -1,0 +1,54 @@
+{
+  "feature": "Imagen source head layout",
+  "date": "2026-10-30",
+  "newRecipes": [
+    "body-only-v8",
+    "body-only-single-v3"
+  ],
+  "selectedCandidate": "source-layout",
+  "testCount": 3,
+  "modelDownloads": 0,
+  "newRentalsOrResumes": 0,
+  "nativeGpuSeconds": [
+    13.189,
+    9.963,
+    10.042
+  ],
+  "testWallSeconds": [
+    31.924,
+    28.635,
+    34.411
+  ],
+  "checks": {
+    "studioTestsPassed": 466,
+    "legacyImagePythonChecks": 27,
+    "newHeadLayoutPythonChecks": 8,
+    "historicalGraphsUnchangedFromPriorCompiler": 93,
+    "preexistingSavedGraphDifferences": 6,
+    "typescript": "passed",
+    "productionBuild": "passed"
+  },
+  "selectedDiagnostics": {
+    "faceHeightRatio": 0.9146235392641326,
+    "rollDifferenceDegrees": 6.164334316151468,
+    "noseOffsetDifference": 0.024203223324210932
+  },
+  "visualReview": "Full images and synchronized head/ear crops inspected; comparison opened in Preview",
+  "cpuHeadWarp": "rejected for visible neck/hair/scene seams, not enabled",
+  "computeStopIndependentlyConfirmed": true,
+  "providerState": "exited",
+  "intendedState": "stopped",
+  "authorizedBudgetUsd": 0.03,
+  "conservativeSessionEstimateUsdThroughConfirmedStop": 0.0455,
+  "budgetOverrunDisclosed": true,
+  "estimateIsInvoice": false,
+  "idlePreferenceChanged": false,
+  "exactScaleOrIdentityLockClaimed": false,
+  "deployment": {
+    "localBuildReloaded": true,
+    "all252SavedJobsUnchanged": true,
+    "bothDraftsUnchanged": true,
+    "accountSetupRouteAvailable": true,
+    "gpuResumed": false
+  }
+}

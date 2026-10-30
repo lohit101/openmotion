@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { Asset, Job } from './types';
 import type { CharacterSnapshot } from './characters';
+import type { SourceHeadLayout } from './imagen-head-layout';
 
 export const legacyImagePrompt = `Replace the main person in IMAGE 1 (target photograph) with the person from IMAGE 2 (identity reference). Produce one photorealistic photograph, with no changes beyond the replacement.
 
@@ -29,11 +30,20 @@ export const bodyOnlyPrompt = bodyOnlyPromptV1 + `\n\nKeep visible occluders and
 // The older prompts remain frozen for historical graphs and staged recipes.
 export const conciseBodyOnlyPrompt = `Replace the person in <image1> with the person from <image2> and <image3>. Use <image3> for their exact facial identity and hair, and <image2> for their physique and body proportions. The replacement person wears the original clothes and accessories from <image1>, fitted naturally to the new physique. Keep <image1>'s pose, head rotation, gaze, expression, screen position and camera distance. Match the original scene lighting and photographic texture. Keep the background unchanged. Preserve the original garment design, neckline, sleeves and printed details. Keep the original eyeglasses, earrings, bracelets and other accessories wherever visible in <image1>; do not add reference jewelry. Do not copy the reference's expression or head pose. Keep covered or back-facing faces hidden.`;
 
+// New source-layout recipe. The accepted v7 prompt above stays frozen.
+export const sourceHeadBodyOnlyPrompt = conciseBodyOnlyPrompt + ` Keep the apparent head size, skull height, face center, head tilt, side turn and camera perspective from <image1>. Transfer the replacement head, face, ears, hairline and hair as one anatomically connected head at that source scale; do not insert a smaller face inside the original hair or leave detached ears. Preserve the reference person's own facial proportions, adapted to the source viewing angle. Keep the original earrings attached naturally to the replacement ears. The reference images supply appearance only, never a new head pose, portrait crop or camera distance.`;
+
+export function sourceHeadBodyConditioningPrompt(prompt: string, single = false): string {
+  const base = single ? sourceHeadBodyOnlyPrompt.replace('from <image2> and <image3>', 'from <image2>').replaceAll('<image3>', '<image2>') : sourceHeadBodyOnlyPrompt;
+  const extra = prompt.trim();
+  return base + (extra && ![sourceHeadBodyOnlyPrompt, bodyOnlyPrompt, bodyOnlyPromptV1, conciseBodyOnlyPrompt, defaultImagePrompt, legacyImagePrompt].includes(extra) ? '\nAdditional edit requirements: ' + extra : '');
+}
+
 // User-accepted native photo 545ff68d. Reference crops stay bound to the current
 // character assets; a preset never carries another character's asset IDs.
 export const sourceFramePreset = {
   model: 'qwen21', qwenRecipe: 'body-only', qwenQuality: 'fast', bodyOnlyStrategy: 'native', bodyOnlyReuseId: null, bodyOnlyPose: false,
-  prompt: conciseBodyOnlyPrompt, megapixels: 1, protectBackground: true, feather: 12, maskExpand: 64, maskFillHoles: true,
+  prompt: sourceHeadBodyOnlyPrompt, megapixels: 1, protectBackground: true, feather: 12, maskExpand: 64, maskFillHoles: true,
   qwenHeadRefine: false, structureStrength: 0, repairMaskGaps: false, qwenRelight: false, qwenNormalizeReference: false,
   qwenEdgeOnly: false, qwenSceneIntegration: false, qwenLayoutOnly: false, localIdentity: false, qwenIdentityGuide: false,
   qwenBodyPose: false, bodyPoseStrength: .65, faceDetail: false, identityRefine: false, seed: 1583893113, randomSeed: false,
@@ -96,7 +106,7 @@ export const imageSettingsSchema = z.object({
   identityRefine: z.boolean().default(false),
   seed: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).default(sourceFramePreset.seed),
   randomSeed: z.boolean().default(false),
-}).transform(settings => ({ ...settings, prompt: settings.model === 'qwen21' && settings.qwenRecipe === 'body-only' && [bodyOnlyPrompt, bodyOnlyPromptV1].includes(settings.prompt) ? conciseBodyOnlyPrompt : (settings.model !== 'qwen21' || settings.qwenRecipe !== 'body-only') && [bodyOnlyPrompt, conciseBodyOnlyPrompt].includes(settings.prompt) ? defaultImagePrompt : settings.prompt }));
+}).transform(settings => ({ ...settings, prompt: settings.model === 'qwen21' && settings.qwenRecipe === 'body-only' && [bodyOnlyPrompt, bodyOnlyPromptV1].includes(settings.prompt) ? conciseBodyOnlyPrompt : (settings.model !== 'qwen21' || settings.qwenRecipe !== 'body-only') && [bodyOnlyPrompt, conciseBodyOnlyPrompt, sourceHeadBodyOnlyPrompt].includes(settings.prompt) ? defaultImagePrompt : settings.prompt }));
 export type ImageSettings = z.infer<typeof imageSettingsSchema>;
 export const imageDefaults = imageSettingsSchema.parse({});
 export function sourceFrameImageSettings(current?: ImageSettings): ImageSettings {
@@ -111,7 +121,7 @@ export const imageDraftSchema = z.object({
 export type ImageDraft = z.infer<typeof imageDraftSchema>;
 export const emptyImageDraft = (): ImageDraft => imageDraftSchema.parse({});
 export interface ImageGeometry { width: number; height: number; contentWidth: number; contentHeight: number; x: number; y: number; outputWidth: number; outputHeight: number; }
-export interface ImageReview { status: 'review' | 'warning'; warnings: string[]; backgroundProtected: boolean; outsideMaskMaxDifference: number | null; sourceFace: boolean; referenceFace: boolean; outputFace: boolean; outsideHeadMaxDifference?: number; }
+export interface ImageReview { status: 'review' | 'warning'; warnings: string[]; backgroundProtected: boolean; outsideMaskMaxDifference: number | null; sourceFace: boolean; referenceFace: boolean; outputFace: boolean; outsideHeadMaxDifference?: number; headLayout?: { status: 'available' | 'unavailable'; faceSizeRatio?: number; faceHeightRatio?: number; centerOffsetDiagonal?: number; rollDifferenceDegrees?: number; noseOffsetDifference?: number }; }
 export const localFramingSchema = z.object({
   version: z.literal('foreground-scale-v1'), parentJobId: z.string().optional(),
   scale: z.number().finite().min(1).max(1.5), matrix: z.array(z.array(z.number().finite()).length(3)).length(2),
@@ -122,7 +132,7 @@ export const localFramingSchema = z.object({
   geometry: z.object({ headSizeRatio: z.number().finite().positive(), faceCenterOffsetPixels: z.array(z.number().finite()).length(2) }).nullable(),
 });
 export interface ImageRun {
-  version?: 'masked-latent-v2' | 'masked-latent-v3' | 'masked-latent-v4' | 'scene-anchor-v1' | 'scene-anchor-v2' | 'scene-anchor-v3' | 'scene-anchor-v4' | 'scene-anchor-v5' | 'scene-anchor-v6' | 'scene-anchor-v7' | 'scene-anchor-v8' | 'native-mask-v1' | 'native-scene-v1' | 'identity-first-v1' | 'identity-first-v2' | 'body-identity-v1' | 'body-identity-v2' | 'body-only-v1' | 'body-only-v2' | 'body-only-v3' | 'body-only-v4' | 'body-only-v5' | 'body-only-v6' | 'body-only-v7' | 'body-only-single-v1' | 'body-only-single-v2';
+  version?: 'masked-latent-v2' | 'masked-latent-v3' | 'masked-latent-v4' | 'scene-anchor-v1' | 'scene-anchor-v2' | 'scene-anchor-v3' | 'scene-anchor-v4' | 'scene-anchor-v5' | 'scene-anchor-v6' | 'scene-anchor-v7' | 'scene-anchor-v8' | 'native-mask-v1' | 'native-scene-v1' | 'identity-first-v1' | 'identity-first-v2' | 'body-identity-v1' | 'body-identity-v2' | 'body-only-v1' | 'body-only-v2' | 'body-only-v3' | 'body-only-v4' | 'body-only-v5' | 'body-only-v6' | 'body-only-v7' | 'body-only-v8' | 'body-only-single-v1' | 'body-only-single-v2' | 'body-only-single-v3';
   character?: CharacterSnapshot;
   scopeMaskId?: string;
   segmentRepaint?: { videoJobId: string; segment: number; frame: number };
@@ -131,7 +141,7 @@ export interface ImageRun {
   headPrompt?: string;
   reusedBody?: { jobId: string; sha256: string };
   settings: ImageSettings; faceId: string | null; maskId: string | null; geometry: ImageGeometry;
-  prepared?: { hasFace: boolean; warnings: string[]; headEdit?: { x: number; y: number; size: number; resolution: number } }; review?: ImageReview; resultAssetId?: string;
+  prepared?: { hasFace: boolean; warnings: string[]; headEdit?: { x: number; y: number; size: number; resolution: number }; headLayout?: SourceHeadLayout }; review?: ImageReview; resultAssetId?: string;
   localFraming?: z.infer<typeof localFramingSchema> & { parentJobId: string };
 }
 export const isImageJob = (job: Pick<Job, 'mediaType'>): boolean => job.mediaType === 'image';

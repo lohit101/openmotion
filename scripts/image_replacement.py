@@ -13,6 +13,7 @@ import subprocess
 import sys
 
 from reference_geometry import YuNetDetector, atomic_json, atomic_png, confident_faces, dependencies, sha256
+import imagen_head_layout
 
 
 def read_image(file, gray=False):
@@ -164,6 +165,8 @@ def fingerprint(request):
     payload = {"files": files, "settings": request["settings"], "geometry": request["geometry"]}
     if request.get("version"):
         payload["version"] = request["version"]
+    if request.get('version') in imagen_head_layout.RECIPES:
+        payload['sourceHeadLayoutProfile'] = sha256(Path(imagen_head_layout.__file__))
     if request["settings"].get("localIdentity", False):
         payload["localIdentityProfile"] = sha256(Path(__file__).resolve().parents[1] / 'config/local-identity.lock.json')
     if request['settings'].get('qwenBodyPose', False) or request.get('version') == 'body-only-v4' and request['settings'].get('bodyOnlyPose', False):
@@ -180,7 +183,7 @@ def prepare(request, folder, model):
         previous = json.loads(marker.read_text())
         if previous["fingerprint"] != signature or any(not (folder / name).is_file() or sha256(folder / name) != digest for name, digest in previous["outputs"].items()):
             raise ValueError("Saved image inputs changed or are incomplete. Reuse settings for a new job; this run will not silently change its conditioning.")
-        return {"hasFace": previous["hasFace"], "warnings": previous["warnings"], **({'headEdit': previous['headEdit']} if 'headEdit' in previous else {})}
+        return {"hasFace": previous["hasFace"], "warnings": previous["warnings"], **{key: previous[key] for key in ('headEdit', 'headLayout') if key in previous}}
     source, reference = read_image(request["source"]), read_image(request["reference"])
     g, s = request["geometry"], request["settings"]
     if (source.shape[1], source.shape[0]) != (g["outputWidth"], g["outputHeight"]):
@@ -197,20 +200,20 @@ def prepare(request, folder, model):
     qwen = s.get("model") == "qwen21"
     scene = qwen and request.get("version") in ("scene-anchor-v1", "scene-anchor-v2", "scene-anchor-v3", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7", "scene-anchor-v8")
     body_identity = request.get('version') in ('body-identity-v1', 'body-identity-v2')
-    body_only = request.get('version') in ('body-only-v1', 'body-only-v2', 'body-only-v3', 'body-only-v4', 'body-only-v5', 'body-only-v6', 'body-only-v7', 'body-only-single-v1', 'body-only-single-v2')
+    body_only = request.get('version') in ('body-only-v1', 'body-only-v2', 'body-only-v3', 'body-only-v4', 'body-only-v5', 'body-only-v6', 'body-only-v7', 'body-only-v8', 'body-only-single-v1', 'body-only-single-v2', 'body-only-single-v3')
     staged_body_only = request.get('version') in ('body-only-v3', 'body-only-v4')
     native_mask = body_identity or body_only or request.get("version") in ("native-mask-v1", "native-scene-v1", "identity-first-v1", "identity-first-v2", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7", "scene-anchor-v8")
     head_refine = (scene or native_mask) and s.get("qwenHeadRefine", False)
     reference_input, cropped = reference_field_of_view(reference, source, model) if request.get("version") == "masked-latent-v4" and not qwen else (reference, False)
-    if request.get('version') in ('body-only-v2', 'body-only-v3', 'body-only-v4', 'body-only-v5', 'body-only-v6', 'body-only-v7', 'body-only-single-v1', 'body-only-single-v2'):
+    if request.get('version') in ('body-only-v2', 'body-only-v3', 'body-only-v4', 'body-only-v5', 'body-only-v6', 'body-only-v7', 'body-only-v8', 'body-only-single-v1', 'body-only-single-v2', 'body-only-single-v3'):
         reference_input = reference_view(reference_input, s.get('bodyReferenceView'))
     atomic_png(folder / "identity.png", padded(reference_input, 1_500_000 if body_only else 590_000 if qwen else 1_000_000, 32 if qwen else 16))
     outputs = ["target.png", "original.png", "identity.png"]
-    if body_only and request.get('version') not in ('body-only-single-v1', 'body-only-single-v2'):
+    if body_only and request.get('version') not in ('body-only-single-v1', 'body-only-single-v2', 'body-only-single-v3'):
         if not request.get('face'):
             raise ValueError('Body-only replacement requires its facial identity reference or sheet.')
         facial_reference = read_image(request['face'])
-        if request.get('version') in ('body-only-v2', 'body-only-v3', 'body-only-v4', 'body-only-v5', 'body-only-v6', 'body-only-v7', 'body-only-single-v1', 'body-only-single-v2'):
+        if request.get('version') in ('body-only-v2', 'body-only-v3', 'body-only-v4', 'body-only-v5', 'body-only-v6', 'body-only-v7', 'body-only-v8', 'body-only-single-v1', 'body-only-single-v2', 'body-only-single-v3'):
             facial_reference = reference_view(facial_reference, s.get('faceReferenceView'))
         atomic_png(folder / 'face.png', padded(facial_reference, 1_500_000, 32))
         outputs.append('face.png')
@@ -243,7 +246,7 @@ def prepare(request, folder, model):
         outputs.append('body-reference-canvas.png')
     if local_identity:
         outputs += ['identity-anchored-target.png', 'identity-anchored-target.identity.json']
-    warnings, has_face = [], body_only and request.get('version') not in ('body-only-single-v1', 'body-only-single-v2')
+    warnings, has_face = [], body_only and request.get('version') not in ('body-only-single-v1', 'body-only-single-v2', 'body-only-single-v3')
     if cropped:
         warnings.append("The full-body identity reference was cropped to match the target's tighter field of view. The original reference is retained.")
     refine = (request.get("version") in ["masked-latent-v3", "masked-latent-v4"] and s.get("identityRefine", False)) or head_refine
@@ -397,6 +400,12 @@ def prepare(request, folder, model):
         atomic_png(folder / "source-structure.png", source_structure(source, g, model, guide_mask, identity_guide))
         outputs.append("source-structure.png")
     details = {'headEdit': head_edit} if head_edit else {}
+    if request.get('version') in imagen_head_layout.RECIPES:
+        details['headLayout'] = imagen_head_layout.describe(detect(source, model), source.shape[1], source.shape[0])
+        atomic_json(folder / 'source-head-layout.json', details['headLayout'])
+        outputs.append('source-head-layout.json')
+        if details['headLayout']['status'] != 'available':
+            warnings.append('Source head layout could not be measured unambiguously. The original frame remains the pose guide; hidden faces will not be invented.')
     atomic_json(marker, {"fingerprint": signature, "hasFace": has_face, "warnings": warnings, "outputs": {name: sha256(folder / name) for name in outputs}, **details})
     return {"hasFace": has_face, "warnings": warnings, **details}
 
@@ -477,7 +486,15 @@ def finish(request, folder, model):
     output = read_image(folder / "gpu-result.png")
     if source.shape != output.shape:
         raise ValueError("The GPU returned unexpected dimensions. The paid result is retained locally; no new generation was submitted.")
-    warnings = list(json.loads((folder / "image-inputs.json").read_text())["warnings"])
+    saved_inputs = json.loads((folder / "image-inputs.json").read_text())
+    warnings = list(saved_inputs["warnings"])
+    head_layout_before = None
+    if request.get('version') in imagen_head_layout.RECIPES:
+        layout_file = folder / 'source-head-layout.json'
+        expected = saved_inputs['outputs'].get(layout_file.name)
+        if not expected or not layout_file.is_file() or sha256(layout_file) != expected:
+            raise ValueError('The saved source-head layout changed. The paid output is retained; no new generation was submitted.')
+        head_layout_before = json.loads(layout_file.read_text())
     protected = request["settings"]["protectBackground"]
     outside_difference = None
     if protected and request["settings"].get("qwenSceneIntegration", False):
@@ -525,8 +542,8 @@ def finish(request, folder, model):
     faces = {}
     settings = request["settings"]
     face_used = (settings.get("model") != "qwen21" and (settings["faceDetail"] or settings.get("identityRefine", False))) or (request.get("version") in ("scene-anchor-v1", "scene-anchor-v2", "scene-anchor-v3", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7", "scene-anchor-v8", "native-mask-v1", "native-scene-v1", "identity-first-v1", "identity-first-v2", "body-identity-v1", "body-identity-v2") and settings.get("qwenHeadRefine", False))
-    reference_file = (str(folder / 'face.png') if request.get('version') in ('body-only-v2', 'body-only-v3', 'body-only-v4', 'body-only-v5', 'body-only-v6', 'body-only-v7') else request.get("face") if face_used or request.get('version') == 'body-only-v1' else None) or request["reference"]
-    if request.get('version') in ('body-only-single-v1', 'body-only-single-v2'):
+    reference_file = (str(folder / 'face.png') if request.get('version') in ('body-only-v2', 'body-only-v3', 'body-only-v4', 'body-only-v5', 'body-only-v6', 'body-only-v7', 'body-only-v8') else request.get("face") if face_used or request.get('version') == 'body-only-v1' else None) or request["reference"]
+    if request.get('version') in ('body-only-single-v1', 'body-only-single-v2', 'body-only-single-v3'):
         reference_file = str(folder / 'identity.png')
     if request.get("version") in ("native-mask-v1", "native-scene-v1", "identity-first-v1", "identity-first-v2", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7", "scene-anchor-v8", "body-identity-v1", "body-identity-v2") and face_used:
         reference_file = str(folder / "face.png")
@@ -549,6 +566,13 @@ def finish(request, folder, model):
               "sourceFace": bool(faces["source"]), "referenceFace": bool(faces["reference"]), "outputFace": bool(faces["output"])}
     if outside_head is not None:
         review['outsideHeadMaxDifference'] = outside_head
+    if request.get('version') in imagen_head_layout.RECIPES:
+        after = imagen_head_layout.describe([faces['output']] if faces['output'] else [], output.shape[1], output.shape[0])
+        layout = imagen_head_layout.compare(head_layout_before, after)
+        review['headLayout'] = layout
+        if layout.get('rollDifferenceDegrees', 0) > 8 or layout.get('noseOffsetDifference', 0) > .18:
+            warnings.append('The generated head tilt or turn may differ from the source frame. Review direction and ear placement before animating.')
+            review['status'] = 'warning'
     atomic_json(folder / "image-review.json", review)
     return review
 

@@ -9,6 +9,8 @@ import { applyProgress } from '../server/comfy';
 import { publicJob } from '../server/store';
 import { bodyOnlyStagedPrompts } from '../server/qwen-body-only-staged-workflow';
 import { bodyOnlyHeadPrompt } from '../server/qwen-head-detail-workflow';
+import { sourceHeadBodyOnlyPrompt, sourceHeadBodyConditioningPrompt } from '../shared/image-replacement';
+import { sourceHeadLayoutPrompt } from '../shared/imagen-head-layout';
 
 const legacyImageDefaults = { ...imageDefaults, model: 'klein4b' as const, qwenRecipe: 'whole-person' as const, prompt: defaultImagePrompt, faceDetail: true, structureStrength: .8, feather: 4, maskExpand: 0, maskFillHoles: false, seed: 20261027 };
 const repo = path.resolve(import.meta.dirname, '../..');
@@ -28,6 +30,34 @@ function fixture(): Job {
     uploads: { source: 'target.png', reference: 'identity.png', face: 'face.png', original: 'original.png', mask: 'mask.png', noiseMask: 'mask.png' }, segments: [], context: '', pendingPrompt: null, error: null, output: null, poster: null, cancelRequested: false, elapsedSeconds: null, origin: 'render', workflow: null };
 }
 describe('source-preserving Klein image replacement', () => {
+  it('freezes source scale and pose instructions only for the new native recipe', () => {
+    const job = fixture(); job.image!.settings = { ...imageDefaults };
+    const layout = { version: 'source-head-layout-v1' as const, status: 'available' as const, rollDegrees: -12, noseOffset: .3 };
+    for (const single of [false, true]) {
+      job.image!.version = single ? 'body-only-single-v3' : 'body-only-v8';
+      job.image!.conditioningPrompt = sourceHeadBodyConditioningPrompt(conciseBodyOnlyPrompt, single);
+      job.image!.prepared = { hasFace: !single, warnings: [], headLayout: layout };
+      const graph = compileWorkflow({}, job);
+      expect(validateGraph(graph, catalog)).toEqual([]);
+      const prompt = String(graph['108'].inputs.prompt);
+      expect(prompt).toContain('apparent head size'); expect(prompt).toContain('hair as one anatomically connected head');
+      expect(prompt).toContain('earrings attached naturally'); expect(prompt).toContain('eye line rises');
+      expect(prompt).toContain('head turned toward the right'); expect(prompt.includes('<image3>')).toBe(!single);
+      expect(graph['118'].inputs.steps).toBe(8); expect(Object.values(graph).filter(n => n.class_type === 'KSampler')).toHaveLength(1);
+      expect(imageFilesForSettings(job.image!.settings)).toHaveLength(4);
+    }
+    job.image!.version = 'body-only-v7'; job.image!.conditioningPrompt = conciseBodyOnlyPrompt;
+    expect(compileWorkflow({}, job)['108'].inputs.prompt).toBe(conciseBodyOnlyPrompt);
+    job.image!.version = 'body-only-v8'; delete job.image!.prepared;
+    expect(() => compileWorkflow({}, job)).toThrow('frozen source-head layout');
+  });
+  it('does not invent source pose cues for hidden, ambiguous or frontal faces', () => {
+    expect(sourceHeadLayoutPrompt({ version: 'source-head-layout-v1', status: 'unavailable' })).toBe('');
+    expect(sourceHeadLayoutPrompt({ version: 'source-head-layout-v1', status: 'available', rollDegrees: 1, noseOffset: .05 })).toBe('');
+    expect(sourceHeadLayoutPrompt({ version: 'source-head-layout-v1', status: 'available', rollDegrees: 9, noseOffset: -.4 })).toContain('head turned toward the left');
+    expect(sourceHeadBodyConditioningPrompt('Keep the blue buttons.')).toContain('Keep the blue buttons.');
+    expect(sourceHeadBodyConditioningPrompt(sourceHeadBodyOnlyPrompt)).toBe(sourceHeadBodyOnlyPrompt);
+  });
   it('supports a genuine source-plus-one-character photo edit without inventing a third reference', () => {
     const job = fixture(); job.image!.version = 'body-only-single-v1'; job.image!.settings = { ...imageDefaults };
     job.image!.conditioningPrompt = singleImageConditioningPrompt(''); delete job.uploads!.face;
@@ -208,7 +238,7 @@ describe('source-preserving Klein image replacement', () => {
     expect(imageFilesForSettings(job.image!.settings)).toContain(QWEN_STRUCTURE);
   });
   it('uses a separate draft and only the existing three image models', () => {
-    expect(emptyImageDraft().settings.prompt).toBe(conciseBodyOnlyPrompt);
+    expect(emptyImageDraft().settings.prompt).toBe(sourceHeadBodyOnlyPrompt);
     expect(emptyImageDraft().settings.protectBackground).toBe(true);
     expect(imageModelFiles).toHaveLength(3); expect(modelBytes(imageModelFiles)).toBe(12_451_817_860);
     expect(imageModelFiles.some(name => /viggle|SCAIL|lora/i.test(name))).toBe(false);

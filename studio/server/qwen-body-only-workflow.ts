@@ -2,6 +2,7 @@ import type { Graph, Job } from '../shared/types';
 import { bodyOnlyConditioningPrompt } from '../shared/image-replacement';
 import { compileQwenBodyOnlyStagedWorkflow } from './qwen-body-only-staged-workflow';
 import { addBodyOnlyHeadDetail } from './qwen-head-detail-workflow';
+import { hasSourceHeadLayout, sourceHeadLayoutPrompt } from '../shared/imagen-head-layout';
 
 /** Native three-reference editor. The body/outfit-transfer BFS LoRA is excluded. */
 export function compileQwenBodyOnlyWorkflow(job: Job): Graph {
@@ -12,7 +13,10 @@ export function compileQwenBodyOnlyWorkflow(job: Job): Graph {
   if (!run || !u?.source || !u.reference || !single && !u.face || !u.original || !u.mask || !run.settings.protectBackground) throw new Error('Body-only replacement needs the target, body reference, face reference and painted edit area.');
   const s = run.settings, g = run.geometry, graph: Graph = {};
   const add = (id: string, class_type: string, inputs: Record<string, unknown>, title: string) => { graph[id] = { class_type, inputs, _meta: { title } }; };
-  const prompt = ['body-only-v2', 'body-only-v7'].includes(run.version || '') || single ? run.conditioningPrompt : bodyOnlyConditioningPrompt(s.prompt, true);
+  const layout = hasSourceHeadLayout(run.version);
+  if (layout && !run.prepared?.headLayout) throw new Error('The frozen source-head layout check is missing. Prepare this new image before submission.');
+  const savedPrompt = ['body-only-v2', 'body-only-v7', 'body-only-v8'].includes(run.version || '') || single ? run.conditioningPrompt : bodyOnlyConditioningPrompt(s.prompt, true);
+  const prompt = savedPrompt && savedPrompt + (layout ? sourceHeadLayoutPrompt(run.prepared!.headLayout) : '');
   if (!prompt?.trim()) throw new Error('The saved body-only conditioning prompt is missing. Reuse settings for a new image; this run will not change its instructions.');
   add('1', 'LoadImage', { image: u.source }, 'Target scene · original outfit, pose and camera');
   add('4', 'LoadImage', { image: u.reference }, 'Body reference · physique only, ignore its outfit');
