@@ -1,0 +1,92 @@
+{
+  "date": "2026-10-30",
+  "kind": "private-cpu-native-projection-study",
+  "broaderGoalComplete": false,
+  "gpuOrProviderActions": false,
+  "newExpressionOrIdentityInference": false,
+  "productionFinishingChanged": false,
+  "stills": {
+    "frames": 15,
+    "cpuSeconds": 18.460229958058335,
+    "fourVariantsIndependentlyReconstructedExact": true,
+    "structuralCudaMaskMetadataMatches": 3,
+    "largestSourceJawVisibilityDelta": 0.03851493058109745,
+    "medianEyeSpatialEnergyRatioCubic": 1.067749264180675,
+    "metricIsIdentityOrRealismScore": false
+  },
+  "fullVideo": {
+    "uniquePaidFrames": 622,
+    "alternativeExports": 6,
+    "totalCpuWallSeconds": 558.6756054590223,
+    "cases": [
+      {
+        "parentJobId": "f38f587d-47fc-431f-bb3a-6b632c147108",
+        "frames": 355,
+        "cpuProcessingSecondsBeforeEncoding": 297.37051637505647,
+        "refinedFrames": 355,
+        "preservedUncertainFrames": 0,
+        "outputSHA256": {
+          "cubic": "2375d374f17be81aebca28ac478e48d8054fff002ab576f86945024f5d870157",
+          "cubic-skin": "0dda85f784ad43a3df6df846780243c6564759b1bcae5df6e40320732e868ee8"
+        },
+        "allPngFileHashesVerified": true,
+        "frameCountTimingAndAudioVerified": true,
+        "workerProtectedPixelsExactVsSavedBaseline": true
+      },
+      {
+        "parentJobId": "196f011e-6487-4a44-a655-fb13fc4672ca",
+        "frames": 216,
+        "cpuProcessingSecondsBeforeEncoding": 203.70935145800468,
+        "refinedFrames": 216,
+        "preservedUncertainFrames": 0,
+        "outputSHA256": {
+          "cubic": "b52791ce5efab75ff1f8d4e3069741ce8d2018ba5a2b50e510625a00a6cfc552",
+          "cubic-skin": "ab03300a8b6c4a196092956a61905f84dd40176a029bd3700ea9952acddede03"
+        },
+        "allPngFileHashesVerified": true,
+        "frameCountTimingAndAudioVerified": true,
+        "workerProtectedPixelsExactVsSavedBaseline": true
+      },
+      {
+        "parentJobId": "307e0451-b94f-4750-a54c-cccf298a5ea5",
+        "frames": 51,
+        "cpuProcessingSecondsBeforeEncoding": 41.46161337499507,
+        "refinedFrames": 48,
+        "preservedUncertainFrames": 3,
+        "outputSHA256": {
+          "cubic": "faf93138325cf2266136b5cbcc37b75e363c12b44a81f6884652a3427670d840",
+          "cubic-skin": "572b6f4ff0f19e47dacf6ed8f38c3cf649eb617fc44a33682fcab7c044270504"
+        },
+        "allPngFileHashesVerified": true,
+        "frameCountTimingAndAudioVerified": true,
+        "workerProtectedPixelsExactVsSavedBaseline": true
+      }
+    ],
+    "independentFullCudaPermissionReplay": false
+  },
+  "privateViewer": {
+    "fullVideoCases": 3,
+    "stills": 15,
+    "javascriptSyntax": "passed",
+    "selectorChecks": 48,
+    "legacyPreferredVariantsUnchanged": true,
+    "projectionReview": "saved jaw finish versus cubic-only; combined skin variant selectable"
+  },
+  "visualReview": {
+    "stillsAcrossFourClips": true,
+    "mainBlinkAndBrowTurnStrips": true,
+    "mainCombinedNativePlaybackStartAndEndObserved": true,
+    "allSixExportsFullyVisuallyReviewed": false,
+    "remainingFindings": [
+      "Sharpening is modest.",
+      "Source/output eyelid aperture and gaze still differ.",
+      "Eye/skin texture is still soft in places.",
+      "Combined skin residual has no clear enough visual advantage to select."
+    ],
+    "productionSelection": "none"
+  },
+  "creditHold": "All paid work remains held until the user confirms a refill.",
+  "planSHA256": "af6d509cf490ee8900b493e88e9c4b81c04c2fb7892d43837f79363d2a9e11c9",
+  "workerSHA256": "2f5a5fa42c8294ca56c9dfe10dbc036489ea7f424c32d1fca961dd8e12a7e3c5",
+  "stillPlanSHA256": "823d0eb296757cc8462b42757c22df6a6c6672d0014ab3be2bfda3a094cdaef4"
+}

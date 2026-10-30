@@ -42,14 +42,18 @@ async function move(n,keepLoop=false){pause();if(!keepLoop)loop=null;moving=true
 async function play(){if(moving)return;$('#error').textContent='';try{await Promise.all(visible().map(ready));visible().forEach(v=>v.playbackRate=+$('#speed').value);await Promise.all(visible().map(v=>v.play()));playing=true;$('#play').textContent='Pause';tick();}catch(e){pause();fail(e);}}
 function tick(){if(!playing)return;const t=videos[1].currentTime;if(loop&&t>=loop[1]/item.fps){pause();move(loop[0],true).then(play);return;}if(videos[1].ended){pause();draw();return;}visible().forEach(v=>{if(Math.abs(v.currentTime-t)>.075)v.currentTime=t;});draw();raf=requestAnimationFrame(tick);}
 function method(select,which){
- const requested=new URLSearchParams(location.search).get('review')==='jaw'&&item.variants.some(v=>v.id==='jaw-fixed')?(which===0?'jaw-control':'jaw-fixed'):(which===0?item.preferred:item.secondary),chosen=item.variants.some(v=>v.id===requested)?requested:item.variants[0].id;
+ const review=new URLSearchParams(location.search).get('review');
+ let requested=which===0?item.preferred:item.secondary;
+ if(review==='jaw'&&item.variants.some(v=>v.id==='jaw-fixed'))requested=which===0?'jaw-control':'jaw-fixed';
+ if(review==='projection'&&item.variants.some(v=>v.id==='projection-cubic'))requested=which===0?'jaw-fixed':'projection-cubic';
+ const chosen=item.variants.some(v=>v.id===requested)?requested:item.variants[0].id;
  const groups=new Map();
  for(const v of item.variants){
-  const group=v.id.startsWith('jaw-')?'Jaw blend tests':v.id.startsWith('iris-')?'Eye movement tests':v.id.startsWith('restoration-')?'Eye restoration tests':v.id.startsWith('eye-post-')?'Native eye detail tests':v.id==='managed-eye-calibration'||v.id==='managed-eye-finish'||v.id.startsWith('clean-features-')?'Versioned finishes':'Earlier experiments';
+  const group=v.id.startsWith('projection-')?'Sampling and texture tests':v.id.startsWith('jaw-')?'Jaw blend tests':v.id.startsWith('iris-')?'Eye movement tests':v.id.startsWith('restoration-')?'Eye restoration tests':v.id.startsWith('eye-post-')?'Native eye detail tests':v.id==='managed-eye-calibration'||v.id==='managed-eye-finish'||v.id.startsWith('clean-features-')?'Versioned finishes':'Earlier experiments';
   if(!groups.has(group)){const node=document.createElement('optgroup');node.label=group;groups.set(group,node);}
   const o=document.createElement('option');o.value=v.id;o.textContent=v.label;o.selected=v.id===chosen;groups.get(group).append(o);
  }
- select.replaceChildren(...['Versioned finishes','Jaw blend tests','Eye movement tests','Eye restoration tests','Native eye detail tests','Earlier experiments'].filter(g=>groups.has(g)).map(g=>groups.get(g)));
+ select.replaceChildren(...['Versioned finishes','Jaw blend tests','Sampling and texture tests','Eye movement tests','Eye restoration tests','Native eye detail tests','Earlier experiments'].filter(g=>groups.has(g)).map(g=>groups.get(g)));
 }
 async function updateCandidate(index){const select=index===2?$('#candidateA'):$('#candidateB'),v=item.variants.find(x=>x.id===select.value);$('#description'+(index===2?'A':'B')).textContent=v.description;const n=Math.floor(videos[1].currentTime*item.fps);pause();videos[index].src=v.url;videos[index].load();await move(n);}
 function renderStillTests(){
