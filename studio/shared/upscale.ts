@@ -11,7 +11,7 @@ export const upscaleSourceSchema = z.object({ jobId: z.string().uuid().optional(
 export type UpscaleSource = z.infer<typeof upscaleSourceSchema>;
 export const upscaleRequestSchema = z.object({ source: upscaleSourceSchema, settings: upscaleSettingsSchema, requestKey: z.string().uuid() }).strict();
 export interface UpscaleRun {
-  version: 'clarity-flashvsr-turbo-v1'; model: 'FlashVSR+ Turbo'; settings: UpscaleSettings;
+  version: 'clarity-flashvsr-turbo-v1' | 'clarity-flashvsr-turbo-v2'; model: 'FlashVSR+ Turbo'; settings: UpscaleSettings;
   source: UpscaleSource; sourceTitle: string; sourceSHA256: string; sourceWidth: number; sourceHeight: number;
   instanceId: number; profileSHA256: string; fps: string; frames: number;
   outputWidth: number; outputHeight: number; workWidth: number; workHeight: number; padX: number; padY: number;

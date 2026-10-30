@@ -22,6 +22,39 @@ MODELS = ROOT / 'config/upscale-models.lock.json'
 SOURCE = ROOT / '.local/flashvsr-plus'
 PYTHON = ROOT / '.local/venv/bin/python'
 
+# Only runs from explicit preparation, before a readiness marker is written.
+# Tiny masked attention comparison; never loads video weights or expands HD masks.
+KERNEL_CHECK = r'''
+import json, torch
+from flashvsr_attn import stream_block_sparse_attention
+from inference.presets import stream_config_for_mode
+assert torch.cuda.is_available(), 'CUDA is unavailable'
+cfg=stream_config_for_mode('turbo',device='cuda:0',hardware_profile='auto',attn_kernel='triton_block_sparse')
+assert cfg.attn_kernel=='triton_block_sparse', 'Optimized attention was not selected'
+torch.manual_seed(123)
+with torch.inference_mode():
+ q=torch.randn(1,2,2,128,128,device='cuda',dtype=torch.bfloat16)
+ k=torch.randn(1,2,3,128,128,device='cuda',dtype=torch.bfloat16);v=torch.randn_like(k)
+ mask=torch.tensor([[[[True,False,True],[False,True,True]]]],device='cuda').expand(1,2,2,3).contiguous()
+ actual=stream_block_sparse_attention(q,k,v,mask)
+ full=mask.repeat_interleave(128,dim=-2).repeat_interleave(128,dim=-1)
+ expected=torch.nn.functional.scaled_dot_product_attention(q.flatten(2,3),k.flatten(2,3),v.flatten(2,3),attn_mask=full).reshape_as(actual)
+ torch.testing.assert_close(actual,expected,rtol=.03,atol=.03)
+ assert torch.isfinite(actual).all().item(), 'Attention produced non-finite values'
+ print('RECAST_KERNEL '+json.dumps({'backend':cfg.attn_kernel,'passed':True,'gpu':torch.cuda.get_device_name(),'maxError':(actual-expected).abs().max().item()}))
+'''
+
+
+def kernel_verified(marker, config):
+    check=marker.get('kernelCheck',{})
+    return check.get('passed')is True and check.get('backend')==config['attention']
+
+
+def base_installed():
+    if not PYTHON.is_file():return False
+    code="import importlib.metadata as m,json,sys;v=json.loads(sys.argv[1]);assert m.version('torch').split('+')[0]=='2.7.1';assert int(m.version('triton').split('.')[0])>=3;assert all(m.version(p.split('==')[0])==p.split('==')[1] for p in v['packages'])"
+    return subprocess.run([str(PYTHON),'-c',code,PROFILE.read_text()],capture_output=True).returncode==0
+
 
 def sha(path):
     h = hashlib.sha256()
@@ -102,13 +135,14 @@ def inspect(verify=False):
         if file.is_symlink() or not file.is_file() or file.stat().st_size!=item['size'] or verify and sha(file)!=item['sha256']:
             missing.append(item['destination'])
     marker=state(ROOT/'state/ready.json')
-    ready=PYTHON.is_file() and marker.get('profileSHA256')==profile_hash()
+    ready=PYTHON.is_file() and marker.get('profileSHA256')==profile_hash() and kernel_verified(marker,config)
     try: ready=ready and subprocess.check_output(['git','-C',str(SOURCE),'rev-parse','HEAD'],stderr=subprocess.DEVNULL,text=True).strip()==config['revision']
     except (OSError,subprocess.SubprocessError): ready=False
-    if not ready: missing.append('Isolated Clarity runtime')
+    if not ready: missing.append('Optimized Clarity runtime · prepare once to add Triton attention; existing weights are reused')
     active_jobs=[p.name for p in (ROOT/'jobs').glob('*')if p.is_dir()and running(p)]
     return {'ready':not missing,'preparing':setup_running(),'processing':bool(active_jobs),'activeJobs':active_jobs,
             'error':state(ROOT/'state/setup.json').get('error'),'missing':missing,'profileSHA256':profile_hash(),
+            'attention':config['attention'],'kernelCheck':marker.get('kernelCheck'),
             'modelBytes':manifest['total_bytes'],'runtimeReserveBytes':config['runtime_reserve_bytes']}
 
 
@@ -127,8 +161,10 @@ def prepare():
         if any(running(p)for p in (ROOT/'jobs').glob('*')if p.is_dir()): raise ValueError('Finish the existing Clarity upscale before preparing tools.')
         if platform.machine()!='x86_64': raise ValueError('This Clarity runtime currently requires an x86_64 CUDA host.')
         if not (3,10) <= sys.version_info[:2] <= (3,12): raise ValueError('Clarity setup needs Python 3.10–3.12 on the host.')
-        if shutil.disk_usage(ROOT).free < config['runtime_reserve_bytes']+config['working_reserve_bytes']:
-            raise ValueError('Free at least 15 GiB for the isolated runtime and working reserve before preparation.')
+        reuse_base=base_installed()
+        reserve=config['working_reserve_bytes']+(256*1024**2 if reuse_base else config['runtime_reserve_bytes'])
+        if shutil.disk_usage(ROOT).free < reserve:
+            raise ValueError(f'Free at least {math.ceil(reserve/1024**3)} GiB for Clarity preparation and working reserve.')
         atomic(ROOT/'state/setup-pid.json',{'pid':os.getpid()})
         (ROOT/'state/ready.json').unlink(missing_ok=True)
         SOURCE.parent.mkdir(parents=True,exist_ok=True)
@@ -139,8 +175,11 @@ def prepare():
             raise ValueError('The saved FlashVSR source revision differs; existing files were preserved.')
         if not PYTHON.exists(): subprocess.run([sys.executable,'-m','venv',str(PYTHON.parent.parent)],check=True)
         env={**os.environ,'PIP_NO_CACHE_DIR':'1'}
-        subprocess.run([str(PYTHON),'-m','pip','install',config['torch'],'--index-url',config['torch_index']],env=env,check=True)
-        subprocess.run([str(PYTHON),'-m','pip','install',*config['packages']],env=env,check=True)
+        if not reuse_base:
+            subprocess.run([str(PYTHON),'-m','pip','install',config['torch'],'--index-url',config['torch_index']],env=env,check=True)
+            subprocess.run([str(PYTHON),'-m','pip','install',*config['packages']],env=env,check=True)
+        subprocess.run([str(PYTHON),'-m','pip','install',config['kernel_setuptools']],env=env,check=True)
+        subprocess.run([str(PYTHON),'-m','pip','install','--no-deps','--no-build-isolation','-e',str(SOURCE/config['kernel_package'])],env=env,check=True)
         subprocess.run([str(PYTHON),'-c','import torch;assert torch.__version__.startswith("2.7.1") and torch.cuda.is_available();import inference'],cwd=SOURCE,check=True)
         # The prompt tensor is part of the pinned source, not a new encoder.
         prompt=SOURCE/'prompt_tensor/posi_prompt.pth'
@@ -150,7 +189,12 @@ def prepare():
             with urllib.request.urlopen(f'https://media.githubusercontent.com/media/OpenImagingLab/FlashVSR_Plus/{config["revision"]}/prompt_tensor/posi_prompt.pth',timeout=60)as r,temp.open('wb')as f: shutil.copyfileobj(r,f)
             if sha(temp)!=expected: raise ValueError('The pinned context tensor failed checksum verification.')
             temp.replace(prompt)
-        atomic(ROOT/'state/ready.json',{'profileSHA256':profile_hash(),'promptSHA256':sha(prompt)})
+        output=subprocess.check_output([str(PYTHON),'-c',KERNEL_CHECK],cwd=SOURCE,text=True)
+        lines=[line[len('RECAST_KERNEL '):]for line in output.splitlines()if line.startswith('RECAST_KERNEL ')]
+        check=json.loads(lines[-1])if lines else {}
+        marker={'profileSHA256':profile_hash(),'promptSHA256':sha(prompt),'kernelCheck':check}
+        if not kernel_verified(marker,config):raise ValueError('Optimized attention failed its CUDA self-test. Clarity remains unready.')
+        atomic(ROOT/'state/ready.json',marker)
 
 
 def progress(folder,value,stage,frames=None):
@@ -165,6 +209,7 @@ def process(folder):
     request=state(folder/'request.json'); config=json.loads(PROFILE.read_text()); source=folder/'source.video'
     if request.get('profileSHA256')!=profile_hash() or sha(source)!=request['sourceSHA256']:
         raise ValueError('Saved upscale inputs or recipe changed; no inference was repeated.')
+    if request.get('attention')!=config['attention']:raise ValueError('This attempt requires its original attention recipe. Create a new explicit retry with the updated runtime.')
     signature={k:request[k]for k in request}
     result=folder/'result';result.mkdir(exist_ok=True); receipt=state(result/'receipt.json')
     if receipt.get('complete'):
@@ -203,8 +248,9 @@ def process(folder):
     from inference.loading import ModelPaths
     weights=ROOT.parent/'models/upscale/flashvsr-plus'
     settings=request['settings']
-    cfg=stream_config_for_mode('turbo',device='cuda:0',hardware_profile='generic',attn_kernel='sdpa',decode_every=config['decoder_latent_chunk'],tiny_decoder_mode='serial',
+    cfg=stream_config_for_mode('turbo',device='cuda:0',hardware_profile='auto',attn_kernel=config['attention'],decode_every=config['decoder_latent_chunk'],tiny_decoder_mode='serial',
         temporal_compression=4 if settings['motion']=='fast'else 2,color_correction=settings['matchColors'])
+    if cfg.attn_kernel!=config['attention']:raise ValueError('Optimized Clarity attention is unavailable. Prepare the runtime; SDPA fallback is disabled.')
     paths=ModelPaths(dit=str(weights/'turbo/dit.safetensors'),lq_projection=str(weights/'turbo/lq_proj_in.safetensors'),tiny_decoder=str(weights/'TCDecoder.ckpt'),context=str(SOURCE/'prompt_tensor/posi_prompt.pth'))
     pipeline=build_inference_pipeline(cfg,paths)
     progress(folder,18,'Upscaling video')
@@ -233,7 +279,7 @@ def process(folder):
     if sha(source)!=request['sourceSHA256']:raise ValueError('Source changed during upscaling.')
     final.replace(result/'final.mp4')
     receipt={'complete':True,'request':signature,'outputSHA256':sha(result/'final.mp4'),'frames':expected['frames'],'fps':expected['fps'],
-        'width':g['outputWidth'],'height':g['outputHeight'],'workerSeconds':time.monotonic()-started,'attention':'sdpa','audioPreserved':True,'framingPreserved':True}
+        'width':g['outputWidth'],'height':g['outputHeight'],'workerSeconds':time.monotonic()-started,'attention':cfg.attn_kernel,'audioPreserved':True,'framingPreserved':True}
     atomic(result/'receipt.json',receipt)
     prepared.unlink(missing_ok=True)
     (result/'working.mkv').unlink(missing_ok=True)

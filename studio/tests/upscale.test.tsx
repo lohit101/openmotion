@@ -43,7 +43,7 @@ beforeEach(async()=>{
       const frozen=JSON.parse(await readFile(arg('--request'),'utf8')),dest=arg('--output');await mkdir(dest,{recursive:true});
       const output=path.join(dest,'final.mp4'),g=frozen.geometry;
       await command('ffmpeg',['-v','error','-y','-i',arg('--source'),'-vf',`scale=${g.outputWidth}:${g.outputHeight}`,'-c:v','libx264','-pix_fmt','yuv420p',output]);
-      const receipt=path.join(dest,'receipt.json');await writeFile(receipt,JSON.stringify({complete:true,request:frozen,outputSHA256:mode==='forged'?'bad':await hash(output),frames:12,fps:'24',width:g.outputWidth,height:g.outputHeight,audioPreserved:true,framingPreserved:true,attention:'sdpa',workerSeconds:.5}));
+      const receipt=path.join(dest,'receipt.json');await writeFile(receipt,JSON.stringify({complete:true,request:frozen,outputSHA256:mode==='forged'?'bad':await hash(output),frames:12,fps:'24',width:g.outputWidth,height:g.outputHeight,audioPreserved:true,framingPreserved:true,attention:frozen.attention||'sdpa',workerSeconds:.5}));
       await writeFile(path.join(dest,'transport.json'),JSON.stringify({jobId:arg('--job'),instanceId:123,receiptSHA256:await hash(receipt)}));progress?.(90,'Verifying saved upscale');return '';
     }
     throw new Error('Unexpected fixture command '+action);
@@ -84,6 +84,16 @@ describe('Clarity video upscaling',()=>{
     const job=await manager.create(request());expect((await settled(job.id)).status).toBe('completed');
     const saved=store.job(job.id)!;saved.status='interrupted';saved.output=null;store.saveJob(saved);connection.status.state='offline';calls=[];
     await manager.recover(saved);expect((await settled(job.id)).status).toBe('completed');expect(calls).toEqual([]);
+  });
+  it('keeps historical SDPA receipts recoverable after new jobs switch to sparse attention',async()=>{
+    const job=await manager.create(request());await settled(job.id);
+    const saved=store.job(job.id)!,folder=path.join(store.root,'jobs',job.id),dest=path.join(folder,'upscale');
+    const frozen=JSON.parse(await readFile(path.join(folder,'upscale-request.json'),'utf8'));delete frozen.attention;frozen.profileSHA256='legacy-sdpa-profile';
+    await writeFile(path.join(folder,'upscale-request.json'),JSON.stringify(frozen));
+    const receipt=JSON.parse(await readFile(path.join(dest,'receipt.json'),'utf8'));receipt.request=frozen;receipt.attention='sdpa';await writeFile(path.join(dest,'receipt.json'),JSON.stringify(receipt));
+    await writeFile(path.join(dest,'transport.json'),JSON.stringify({jobId:job.id,instanceId:123,receiptSHA256:await hash(path.join(dest,'receipt.json'))}));
+    saved.upscale!.version='clarity-flashvsr-turbo-v1';saved.upscale!.profileSHA256=frozen.profileSHA256;saved.status='interrupted';saved.output=null;store.saveJob(saved);connection.status.state='offline';calls=[];
+    await manager.recover(saved);const restored=await settled(job.id);expect(restored.status).toBe('completed');expect(restored.upscale!.attention).toBe('sdpa');expect(calls).toEqual([]);
   });
   it('retains unconfirmed remote work as busy and requires positive cancellation evidence',async()=>{
     mode='unknown';const job=await manager.create(request());const failed=await settled(job.id);

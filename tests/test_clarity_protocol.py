@@ -72,6 +72,26 @@ class ClarityProtocolTests(unittest.TestCase):
                     worker.main()
                 process.assert_not_called()
 
+    def test_ready_requires_a_successful_sparse_kernel_check(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);(root/'state').mkdir();python=root/'python';python.touch()
+            manifest=root/'models.json';manifest.write_text(json.dumps({'files':[],'total_bytes':0}))
+            profile=root/'profile.json';profile.write_text(json.dumps({'revision':'pinned','attention':'triton_block_sparse','runtime_reserve_bytes':100}))
+            marker={'profileSHA256':'bound'}
+            with patch.object(worker,'ROOT',root),patch.object(worker,'PYTHON',python),patch.object(worker,'MODELS',manifest),patch.object(worker,'PROFILE',profile),patch.object(worker,'profile_hash',return_value='bound'),patch.object(worker.subprocess,'check_output',return_value='pinned'):
+                for check,expected in [(None,False),({'passed':True,'backend':'sdpa'},False),({'passed':False,'backend':'triton_block_sparse'},False),({'passed':True,'backend':'triton_block_sparse'},True)]:
+                    marker['kernelCheck']=check or {}; (root/'state/ready.json').write_text(json.dumps(marker))
+                    self.assertEqual(worker.inspect()['ready'],expected)
+
+    def test_kernel_self_test_is_syntactically_valid_and_base_probe_is_read_only(self):
+        compile(worker.KERNEL_CHECK,'kernel-check','exec')
+        with tempfile.TemporaryDirectory()as temp:
+            python=Path(temp)/'python';python.touch()
+            with patch.object(worker,'PYTHON',python),patch.object(worker.subprocess,'run',return_value=subprocess.CompletedProcess([],0))as run:
+                self.assertTrue(worker.base_installed())
+                args=run.call_args.args[0]
+                self.assertEqual(args[1],'-c');self.assertIn('importlib.metadata',args[2]);self.assertNotIn('pip',args)
+
 
 if __name__ == '__main__':
     unittest.main()

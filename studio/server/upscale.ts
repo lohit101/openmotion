@@ -96,14 +96,14 @@ export class UpscaleManager {
       const timing=await exactVideoInfo(this.repo,source.file,true);
       if(timing.width!==source.meta.width||timing.height!==source.meta.height||timing.frames!==source.meta.frames)throw new Error('Source geometry or timing changed while checking. Nothing was queued.');
       this.assertIdle();if(this.instance()!==instance)throw new Error('GPU changed during source validation.');
-      const run:UpscaleRun={version:'clarity-flashvsr-turbo-v1',model:'FlashVSR+ Turbo',settings:request.settings,source:request.source,sourceTitle:source.meta.title,sourceSHA256:hash,
+      const run:UpscaleRun={version:'clarity-flashvsr-turbo-v2',model:'FlashVSR+ Turbo',settings:request.settings,source:request.source,sourceTitle:source.meta.title,sourceSHA256:hash,
         sourceWidth:timing.width,sourceHeight:timing.height,instanceId:instance,profileSHA256:profile,fps:timing.fps||fps,frames:timing.frames,...geometry,remoteActive:false,progress:0,stage:'Preparing upscale'};
       const sourceId=request.source.assetId||randomUUID();
       if(!request.source.assetId){const file=await stat(source.file);this.store.addAsset({id:sourceId,kind:'video',name:source.meta.title,path:source.file,poster:this.store.job(request.source.jobId!)?.poster||'',width:timing.width,height:timing.height,fps:source.meta.fps,duration:source.meta.duration,hasAudio:source.meta.hasAudio,size:file.size,createdAt});}
       const job:Job={id,title:`${source.meta.title.replace(/\.[^.]+$/,'')} · Clarity ${request.settings.height}p`,status:'running',sourceId,referenceId:'',createdAt,startedAt:createdAt,favorite:false,deleted:false,origin:'upscale',upscale:run,
         settings:{...defaults,fps:source.meta.fps as Settings['fps'],seconds:source.meta.duration},width:geometry.outputWidth,height:geometry.outputHeight,progress:{stage:'Preparing upscale',node:null,value:0,max:timing.frames,unit:'frames',segment:1,segments:1,completedFrames:0,targetFrames:timing.frames,updatedAt:Date.now()},
         segments:[],context:'',pendingPrompt:null,uploads:null,error:null,output:null,poster:null,cancelRequested:false,elapsedSeconds:null,workflow:null};
-      const frozen={jobId:id,profileSHA256:profile,sourceSHA256:hash,input:timing,geometry,settings:request.settings};
+      const frozen={jobId:id,attention:'triton_block_sparse',profileSHA256:profile,sourceSHA256:hash,input:timing,geometry,settings:request.settings};
       await writeFile(path.join(folder,'upscale-request.json'),JSON.stringify(frozen));this.store.addJob(job,key);
       this.start(job,source.file,false);return job;
     }finally{this.starting=false;}
@@ -129,7 +129,7 @@ export class UpscaleManager {
       const actual=await exactVideoInfo(this.repo,output);
       if(!receipt.complete||JSON.stringify(receipt.request)!==JSON.stringify(frozen)||receipt.request.profileSHA256!==u.profileSHA256||receipt.request.sourceSHA256!==u.sourceSHA256||
         transport.jobId!==job.id||transport.instanceId!==u.instanceId||transport.receiptSHA256!==await fileHash(path.join(dest,'receipt.json'))||receipt.outputSHA256!==await fileHash(output)||
-        actual.frames!==u.frames||actual.fps!==u.fps||actual.width!==u.outputWidth||actual.height!==u.outputHeight||receipt.frames!==u.frames||receipt.fps!==u.fps||receipt.width!==u.outputWidth||receipt.height!==u.outputHeight||!receipt.audioPreserved||!receipt.framingPreserved||receipt.attention!=='sdpa')throw new Error('Upscale provenance or timing validation failed. Existing files were preserved.');
+        actual.frames!==u.frames||actual.fps!==u.fps||actual.width!==u.outputWidth||actual.height!==u.outputHeight||receipt.frames!==u.frames||receipt.fps!==u.fps||receipt.width!==u.outputWidth||receipt.height!==u.outputHeight||!receipt.audioPreserved||!receipt.framingPreserved||receipt.attention!==(u.version==='clarity-flashvsr-turbo-v1'?'sdpa':'triton_block_sparse'))throw new Error('Upscale provenance or timing validation failed. Existing files were preserved.');
       job.output=output;job.poster=path.join(folder,'poster.jpg');await poster(output,job.poster);job.status='completed';job.error=null;job.finishedAt=new Date().toISOString();job.elapsedSeconds=(Date.now()-Date.parse(job.startedAt||job.createdAt))/1000;
       Object.assign(u,{remoteActive:false,progress:100,stage:'Ready',outputSHA256:receipt.outputSHA256,workerSeconds:receipt.workerSeconds,attention:receipt.attention});Object.assign(job.progress,{stage:'Complete',value:u.frames,completedFrames:u.frames,updatedAt:Date.now()});this.store.saveJob(job);
     }catch(error){
