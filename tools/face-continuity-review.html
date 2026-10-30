@@ -42,14 +42,14 @@ async function move(n,keepLoop=false){pause();if(!keepLoop)loop=null;moving=true
 async function play(){if(moving)return;$('#error').textContent='';try{await Promise.all(visible().map(ready));visible().forEach(v=>v.playbackRate=+$('#speed').value);await Promise.all(visible().map(v=>v.play()));playing=true;$('#play').textContent='Pause';tick();}catch(e){pause();fail(e);}}
 function tick(){if(!playing)return;const t=videos[1].currentTime;if(loop&&t>=loop[1]/item.fps){pause();move(loop[0],true).then(play);return;}if(videos[1].ended){pause();draw();return;}visible().forEach(v=>{if(Math.abs(v.currentTime-t)>.075)v.currentTime=t;});draw();raf=requestAnimationFrame(tick);}
 function method(select,which){
- const requested=which===0?item.preferred:item.secondary,chosen=item.variants.some(v=>v.id===requested)?requested:item.variants[0].id;
+ const requested=new URLSearchParams(location.search).get('review')==='jaw'&&item.variants.some(v=>v.id==='jaw-fixed')?(which===0?'jaw-control':'jaw-fixed'):(which===0?item.preferred:item.secondary),chosen=item.variants.some(v=>v.id===requested)?requested:item.variants[0].id;
  const groups=new Map();
  for(const v of item.variants){
-  const group=v.id.startsWith('iris-')?'Eye movement tests':v.id.startsWith('restoration-')?'Eye restoration tests':v.id.startsWith('eye-post-')?'Native eye detail tests':v.id==='managed-eye-calibration'||v.id==='managed-eye-finish'||v.id.startsWith('clean-features-')?'Versioned finishes':'Earlier experiments';
+  const group=v.id.startsWith('jaw-')?'Jaw blend tests':v.id.startsWith('iris-')?'Eye movement tests':v.id.startsWith('restoration-')?'Eye restoration tests':v.id.startsWith('eye-post-')?'Native eye detail tests':v.id==='managed-eye-calibration'||v.id==='managed-eye-finish'||v.id.startsWith('clean-features-')?'Versioned finishes':'Earlier experiments';
   if(!groups.has(group)){const node=document.createElement('optgroup');node.label=group;groups.set(group,node);}
   const o=document.createElement('option');o.value=v.id;o.textContent=v.label;o.selected=v.id===chosen;groups.get(group).append(o);
  }
- select.replaceChildren(...['Versioned finishes','Eye movement tests','Eye restoration tests','Native eye detail tests','Earlier experiments'].filter(g=>groups.has(g)).map(g=>groups.get(g)));
+ select.replaceChildren(...['Versioned finishes','Jaw blend tests','Eye movement tests','Eye restoration tests','Native eye detail tests','Earlier experiments'].filter(g=>groups.has(g)).map(g=>groups.get(g)));
 }
 async function updateCandidate(index){const select=index===2?$('#candidateA'):$('#candidateB'),v=item.variants.find(x=>x.id===select.value);$('#description'+(index===2?'A':'B')).textContent=v.description;const n=Math.floor(videos[1].currentTime*item.fps);pause();videos[index].src=v.url;videos[index].load();await move(n);}
 function renderStillTests(){
@@ -63,6 +63,7 @@ function renderStillTests(){
 }
 async function load(id){
  pause();const token=++generation;item=manifest.cases.find(x=>x.id===id);if(!item)throw new Error('Unknown saved comparison.');
+ $('#cases').value=id;
  $('#play').disabled=true;$('#error').textContent='';$('#scrub').max=item.frames-1;$('#reference').src=item.reference;$('#notes').textContent=item.notes||'';
  $('#panelB').classList.toggle('hidden',!paired);$('#grid').classList.toggle('four',paired);$('#pair').setAttribute('aria-pressed',String(paired));
  renderStillTests();method($('#candidateA'),0);method($('#candidateB'),1);
@@ -79,6 +80,6 @@ async function load(id){
 $('#home').onclick=()=>move(0).then(play);$('#cases').onchange=()=>load($('#cases').value).catch(fail);$('#candidateA').onchange=()=>updateCandidate(2).catch(fail);$('#candidateB').onchange=()=>updateCandidate(3).catch(fail);$('#play').onclick=()=>playing?pause():play();$('#prev').onclick=()=>move(Math.floor(videos[1].currentTime*item.fps)-1);$('#next').onclick=()=>move(Math.floor(videos[1].currentTime*item.fps)+1);$('#scrub').oninput=()=>move(+$('#scrub').value);$('#speed').onchange=()=>visible().forEach(v=>v.playbackRate=+$('#speed').value);$('#view').onclick=()=>{crop=!crop;$('#view').textContent=crop?'Face close-up':'Full frame';$('#view').setAttribute('aria-pressed',String(crop));draw();};$('#pair').onclick=async()=>{const n=Math.floor(videos[1].currentTime*item.fps);pause();paired=!paired;$('#panelB').classList.toggle('hidden',!paired);$('#grid').classList.toggle('four',paired);$('#pair').setAttribute('aria-pressed',String(paired));if(paired)videos[3].src=item.variants.find(v=>v.id===$('#candidateB').value).url;else videos[3].removeAttribute('src');videos[3].load();await move(n);};$('#left').onchange=async()=>{const n=Math.floor(videos[1].currentTime*item.fps);pause();$('#leftTitle').textContent=$('#left').selectedOptions[0].textContent;videos[0].src=item[$('#left').value];videos[0].load();await move(n);};document.addEventListener('keydown',e=>{if(e.key==='Escape'){pause();return;}if(/INPUT|SELECT|BUTTON/.test(e.target.tagName))return;if(e.key===' '){e.preventDefault();playing?pause():play();}if(e.key==='ArrowLeft')move(Math.floor(videos[1].currentTime*item.fps)-1);if(e.key==='ArrowRight')move(Math.floor(videos[1].currentTime*item.fps)+1);});
 window.addEventListener('pagehide',pause);
 window.addEventListener('pageshow',e=>{if(e.persisted&&item)draw();});
-fetch('cases.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('Saved comparison manifest is unavailable.');return r.json();}).then(async data=>{manifest=data;if(!Array.isArray(data.cases)||!data.cases.length)throw new Error('No verified comparisons are ready yet.');$('#cases').replaceChildren(...data.cases.map(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.title;return o;}));await load(data.cases[0].id);}).catch(fail);
+fetch('cases.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('Saved comparison manifest is unavailable.');return r.json();}).then(async data=>{manifest=data;if(!Array.isArray(data.cases)||!data.cases.length)throw new Error('No verified comparisons are ready yet.');$('#cases').replaceChildren(...data.cases.map(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.title;return o;}));const requested=new URLSearchParams(location.search).get('clip');await load(data.cases.some(c=>c.id===requested)?requested:data.cases[0].id);}).catch(fail);
 </script>
 </html>

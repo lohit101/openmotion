@@ -11,7 +11,7 @@ import imageControls from '../../config/image-controls.lock.json';
 import facialModels from '../../config/facial-consistency-models.lock.json';
 import facialCleanupModels from '../../config/facial-consistency-cleanup-models.lock.json';
 import facialEyeFinishModels from '../../config/facial-consistency-eye-finish-models.lock.json';
-import { facialVersionForSettings, usesFacialConsistency } from './facial-consistency';
+import { facialVersionForSettings, usesFacialConsistency, isCleanupFacialVersion, isEyeFinishedFacialVersion } from './facial-consistency';
 import { videoDirectionFrames } from './anchored-video';
 import { isViggle } from './engines';
 import type { Settings } from './types';
@@ -29,8 +29,8 @@ export const facialModelFiles = facialModels.files.map(file => file.destination)
 export const facialCleanupModelFiles = facialCleanupModels.files.map(file => file.destination);
 export const facialEyeFinishModelFiles = facialEyeFinishModels.files.map(file => file.destination);
 export const facialFilesForSettings = (settings: { facialSceneMatch?: boolean; facialFeatureCleanup?: boolean; facialConsistency?: Settings['facialConsistency']; facialEyeCalibration?: boolean; facialEyeFinish?: boolean }) =>
-  [...facialModelFiles, ...(['source-face-v3', 'source-face-v4', 'source-face-v5'].includes(facialVersionForSettings(settings)) ? facialCleanupModelFiles : []),
-    ...(facialVersionForSettings(settings) === 'source-face-v5' ? facialEyeFinishModelFiles : [])];
+  [...facialModelFiles, ...(isCleanupFacialVersion(facialVersionForSettings(settings)) ? facialCleanupModelFiles : []),
+    ...(isEyeFinishedFacialVersion(facialVersionForSettings(settings)) ? facialEyeFinishModelFiles : [])];
 export const modelWorkingReserve = (files: string[]) => 5 * 1024 ** 3 + (files.some(file => file.startsWith('face_consistency/')) ? 512 * 1024 ** 2 : 0);
 export const setupModelFiles: string[] = setup.files;
 export const imageModelFiles = repaint.files.map(file => file.destination);
@@ -122,7 +122,7 @@ export interface ModelFileState { id: string; status: ModelStatus; percent: numb
 export interface InstalledLora { name: string; size: number; partialSize?: number; included: boolean; }
 export interface ModelInventoryFile { id: string; size: number; partialSize: number; measured: boolean; }
 export interface ModelInventory { key: string; instanceId: number | null; endpoint: string; gpu: string | null; checkedAt: string; files: ModelInventoryFile[]; freeBytes?: number; }
-export interface ModelsState { files: ModelFileState[]; busy: boolean; refreshing: boolean; error: string | null; checkedAt: string | null; installedLoras: InstalledLora[]; deleting: string | null; diskFreeBytes?: number; inventories?: ModelInventory[]; facialRuntimeReady?: boolean; facialCleanupRuntimeReady?: boolean; facialCalibratedRuntimeReady?: boolean; facialEyeFinishRuntimeReady?: boolean; }
+export interface ModelsState { files: ModelFileState[]; busy: boolean; refreshing: boolean; error: string | null; checkedAt: string | null; installedLoras: InstalledLora[]; deleting: string | null; diskFreeBytes?: number; inventories?: ModelInventory[]; facialRuntimeReady?: boolean; facialCleanupRuntimeReady?: boolean; facialCalibratedRuntimeReady?: boolean; facialEyeFinishRuntimeReady?: boolean; facialGeometryRuntimeReady?: boolean; }
 export const emptyModels = (): ModelsState => ({ files: modelDefinitions.map(file => ({ id: file.id, status: 'unknown', percent: null, message: '', error: null })), busy: false, refreshing: false, error: null, checkedAt: null, installedLoras: [], deleting: null });
 
 export function modelBytes(files: string[]): number {

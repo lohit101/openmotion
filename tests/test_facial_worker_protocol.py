@@ -46,6 +46,17 @@ class FacialWorkerProtocolTests(unittest.TestCase):
             facial_runtime.prepare('source-face-v5')
             optional.assert_called_once_with()
 
+    def test_jaw_update_reuses_native_runtime_and_only_eye_variant_prepares_observer(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(facial_runtime, 'ROOT', Path(directory)), \
+                patch.object(facial_runtime, 'inspect', return_value={'runtimeReady': True}), \
+                patch.object(facial_runtime, 'link_models'), patch.object(facial_runtime, 'write_ready_marker'), \
+                patch.object(facial_runtime, 'prepare_eye_runtime') as optional:
+            facial_runtime.prepare('source-face-v6')
+            facial_runtime.prepare('source-face-v7')
+            optional.assert_not_called()
+            facial_runtime.prepare('source-face-v8')
+            optional.assert_called_once_with()
+
 
 if __name__ == '__main__':
     unittest.main()

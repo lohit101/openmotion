@@ -1,0 +1,10 @@
+{
+  "version": "source-jaw-geometry-v1",
+  "source_jaw_minimum_visible_fraction": 0.85,
+  "maximum_outward_jaw_fraction_of_face_height": 0.12,
+  "outer_jaw_feather_source_pixels": 4,
+  "minimum_source_jaw_area_crop_pixels": 30,
+  "editable_destination_classes": [1, 14],
+  "new_chin_destination_class": 14,
+  "new_chin_generated_class": 1
+}

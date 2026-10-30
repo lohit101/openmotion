@@ -98,7 +98,7 @@ def preflight(folder):
     expected = request['expected']
     if not all(isinstance(expected.get(key), int) for key in ['width', 'height', 'frames']) or not 1 <= expected['frames'] <= 720 or not all(64 <= expected[key] <= 4096 for key in ['width', 'height']):
         raise ValueError('Invalid expected facial video dimensions or frame count.')
-    if version in ['source-face-v4', 'source-face-v5'] and (request['profile'] != 'perform-onnx60' or type(request.get('anchorFrame')) is not int or not 0 <= request['anchorFrame'] < expected['frames']):
+    if version in ['source-face-v4', 'source-face-v5', 'source-face-v7', 'source-face-v8'] and (request['profile'] != 'perform-onnx60' or type(request.get('anchorFrame')) is not int or not 0 <= request['anchorFrame'] < expected['frames']):
         raise ValueError('Choose a matching source-anchor frame for Standard eye calibration before rendering.')
     if __import__('shutil').disk_usage(folder).free < 5*1024**3 + expected['width']*expected['height']*expected['frames']*3:
         raise ValueError('Free more disk space for resumable face frames before rendering. No video sampling was submitted.')
@@ -117,10 +117,10 @@ def preflight(folder):
     # Initialize the actual models now, before any new video sampling is paid for.
     from face_performance import FaceModels
     FaceModels(MODEL_ROOT, embedding)
-    if version in ['source-face-v3', 'source-face-v4', 'source-face-v5']:
+    if version in ['source-face-v3', 'source-face-v4', 'source-face-v5', 'source-face-v6', 'source-face-v7', 'source-face-v8']:
         from face_feature_cleanup import SemanticParser
         SemanticParser(MODEL_ROOT)
-    if version == 'source-face-v5':
+    if version in ['source-face-v5', 'source-face-v8']:
         from face_eye_finish import preflight_eye_tools
         preflight_eye_tools()
     return {'ready': True, 'referenceSHA256': request['referenceSHA256'], 'profileSHA256': profile_hash(version)}
@@ -137,6 +137,9 @@ def running(folder):
 
 def process(folder):
     request = json.loads((folder / 'request.json').read_text())
+    if request.get('version') == 'source-face-v8':
+        from face_geometry_eye_finish import finish
+        return finish(folder, process_native)
     if request.get('version') == 'source-face-v5':
         from face_eye_finish import finish
         return finish(folder, process_native)
@@ -191,7 +194,7 @@ def process_native(folder):
         raise ValueError('The fixed reference-face conditioning changed.')
     models = FaceModels(MODEL_ROOT, np.load(folder / 'donor.npy'))
     semantic_parser = None
-    if version in ['source-face-v3', 'source-face-v4', 'source-face-v5']:
+    if version in ['source-face-v3', 'source-face-v4', 'source-face-v5', 'source-face-v6', 'source-face-v7', 'source-face-v8']:
         from face_feature_cleanup import SemanticParser
         semantic_parser = SemanticParser(MODEL_ROOT)
     receipt = {'inputs': signature, 'complete': False, 'records': records, 'gpu': models.gpu, 'onnxruntime': ort.__version__,
@@ -200,7 +203,7 @@ def process_native(folder):
     if semantic_parser is not None:
         receipt['providers']['parser'] = semantic_parser.session.get_providers()
     correction_models = models
-    if version in ['source-face-v4', 'source-face-v5']:
+    if version in ['source-face-v4', 'source-face-v5', 'source-face-v7', 'source-face-v8']:
         correction_models, calibration = eye_calibration(folder, models, semantic_parser, request, inputs, info)
         if previous and previous.get('calibration') != calibration:
             raise ValueError('The saved calibration receipt changed; existing face frames were preserved.')
@@ -238,14 +241,19 @@ def process_native(folder):
             if gap[0] <= .25 and gap[1] <= .35:
                 driver, sm = warp_face_by_face_landmark_5(original, source_face[1], 'arcface_128', (512, 512))
                 crop, tm = warp_face_by_face_landmark_5(frame, target_face[1], 'arcface_128', (512, 512))
-                if version in ['source-face-v3', 'source-face-v4', 'source-face-v5']:
-                    from face_feature_cleanup import cleanup_frame
+                if version in ['source-face-v3', 'source-face-v4', 'source-face-v5', 'source-face-v6', 'source-face-v7', 'source-face-v8']:
                     points = cv2.transform(source_face[2].reshape(1, 68, 2), sm)[0]
-                    edited, cleanup = cleanup_frame(correction_models, semantic_parser, frame, crop, driver, tm, points,
-                        create_occlusion_mask(crop).clip(0, 1), request['profile'] == 'regional-onnx60')
+                    if version in ['source-face-v6', 'source-face-v7', 'source-face-v8']:
+                        from face_jaw_geometry import cleanup_frame
+                        edited, cleanup = cleanup_frame(correction_models, semantic_parser, frame, crop, driver, tm, points,
+                            create_occlusion_mask(crop).clip(0, 1), create_occlusion_mask(driver).clip(0, 1), request['profile'] == 'regional-onnx60')
+                    else:
+                        from face_feature_cleanup import cleanup_frame
+                        edited, cleanup = cleanup_frame(correction_models, semantic_parser, frame, crop, driver, tm, points,
+                            create_occlusion_mask(crop).clip(0, 1), request['profile'] == 'regional-onnx60')
                     if cleanup['editablePixels']:
                         record.update(action='refined', reason=None, cleanup=cleanup, matrix=tm.tolist(), sourceMatrix=sm.tolist())
-                        if version in ['source-face-v4', 'source-face-v5'] and receipt['calibration']['state'] == 'active':
+                        if version in ['source-face-v4', 'source-face-v5', 'source-face-v7', 'source-face-v8'] and receipt['calibration']['state'] == 'active':
                             record['calibration'] = correction_models.last
                     else:
                         record['reason'] = 'face-occluded'
@@ -310,7 +318,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('action', choices=['status', 'prepare', 'preflight', 'launch', 'poll', 'cancel', 'worker'])
     parser.add_argument('--job')
-    parser.add_argument('--version', choices=['source-face-v1', 'source-face-v2', 'source-face-v3', 'source-face-v4', 'source-face-v5'], default='source-face-v1')
+    parser.add_argument('--version', choices=['source-face-v1', 'source-face-v2', 'source-face-v3', 'source-face-v4', 'source-face-v5', 'source-face-v6', 'source-face-v7', 'source-face-v8'], default='source-face-v1')
     args = parser.parse_args()
     (ROOT / 'state').mkdir(parents=True, exist_ok=True)
     if args.action == 'status':
@@ -340,7 +348,7 @@ def main():
             if receipt.exists():
                 r = json.loads(receipt.read_text())
                 value.update(frame=len(r['records']), frames=r['inputs']['target']['frames'])
-                if r['inputs'].get('version') == 'source-face-v5':
+                if r['inputs'].get('version') in ['source-face-v5', 'source-face-v8']:
                     count = r['inputs']['target']['frames']
                     progress = folder / 'result/eye-finish/progress.json'
                     if progress.exists():

@@ -15,7 +15,7 @@ import { canFinishImageLocally, isImageJob, type ImageReview } from '../shared/i
 import { ImageFinalizationError, processImage } from './image-processing';
 import { DownloadError, type DownloadProgress } from './download';
 import { prepareSegmentRepaint, replaceFailedRepaint, RepaintWaitError, type RepaintTargetPreparer } from './segment-repaint';
-import { canFinishFacialLocally } from '../shared/facial-consistency';
+import { canFinishFacialLocally, isEyeFinishedFacialVersion } from '../shared/facial-consistency';
 import { faceHash, FacialConsistencyError, type FacialBackend } from './facial-consistency';
 import { AnchorWaitError, assertAnchorChild, projectAnchorChild, runAnchoredBranches } from './anchored-video';
 import { canFinishAnchoredLocally } from '../shared/anchored-video';
@@ -183,7 +183,7 @@ export class Runner {
         if (job.facialConsistency) {
           facialPhase = true;
           if (!this.facial) throw new FacialConsistencyError('The directional video is saved; facial tools are unavailable.');
-          this.stage(job, 'Matching source expressions and facial identity', job.facialConsistency.workUnits?.completed ?? job.facialConsistency.processedFrames, job.facialConsistency.workUnits?.total ?? job.facialConsistency.frames, job.facialConsistency.version === 'source-face-v5' ? 'work units' : 'frames');
+          this.stage(job, 'Matching source expressions and facial identity', job.facialConsistency.workUnits?.completed ?? job.facialConsistency.processedFrames, job.facialConsistency.workUnits?.total ?? job.facialConsistency.frames, isEyeFinishedFacialVersion(job.facialConsistency.version) ? 'work units' : 'frames');
           await this.facial.finish(job, { reference: reference.path, source: path.join(folder, 'prepared-source.mp4'), base, folder: path.join(folder, 'facial-consistency') }, signal,
             (frame, frames, stage, unit) => this.stage(job, stage, frame, frames, unit || 'frames'));
           this.checkCancelled(job); facialPhase = false;
@@ -389,7 +389,7 @@ export class Runner {
       if (job.facialConsistency) {
         facialPhase = true;
         if (!this.facial) throw new FacialConsistencyError('The rendered video is saved; facial consistency tools are unavailable.');
-        this.stage(job, 'Matching source expressions and facial identity', job.facialConsistency.workUnits?.completed ?? job.facialConsistency.processedFrames, job.facialConsistency.workUnits?.total ?? job.facialConsistency.frames, job.facialConsistency.version === 'source-face-v5' ? 'work units' : 'frames');
+        this.stage(job, 'Matching source expressions and facial identity', job.facialConsistency.workUnits?.completed ?? job.facialConsistency.processedFrames, job.facialConsistency.workUnits?.total ?? job.facialConsistency.frames, isEyeFinishedFacialVersion(job.facialConsistency.version) ? 'work units' : 'frames');
         await this.facial.finish(job, { reference: reference.path, source: path.join(folder, 'prepared-source.mp4'), base, folder: path.join(folder, 'facial-consistency') }, signal,
           (frame, frames, stage, unit) => this.stage(job, stage, frame, frames, unit || 'frames'));
         this.checkCancelled(job); await poster(job.output!, job.poster!); facialPhase = false;

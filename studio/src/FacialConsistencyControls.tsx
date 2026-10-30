@@ -23,7 +23,7 @@ export default function FacialConsistencyControls({ value, change, downloads, sc
   const prepare = async () => {
     setPreparing(true);
     const id = toast.loading('Preparing facial tools', { description: 'Updating the isolated GPU runtime. Installed weights are reused.' });
-    try { await api('/facial-consistency/prepare', { version: facialVersionForSettings(settings) === 'source-face-v5' ? 'source-face-v5' : 'source-face-v1' }); toast.success('Facial tools ready', { id }); }
+    try { await api('/facial-consistency/prepare', { version: facialVersionForSettings(settings) }); toast.success('Facial tools ready', { id }); }
     catch (error) { toast.error('Facial tools need attention', { id, description: (error as Error).message }); }
     finally { setPreparing(false); }
   };
@@ -34,7 +34,7 @@ export default function FacialConsistencyControls({ value, change, downloads, sc
     {active && changeSceneMatch && <Toggle label="Match face to scene" checked={sceneMatch !== false} onChange={changeSceneMatch}
       detail="Keeps the same expression and 60% identity blend, with bounded lighting/detail correction and inward edge blending. Preserves the surrounding hair, body and scene. Uses the existing models. Turn off for the original facial finish." />}
     {active && sceneMatch !== false && changeCleanup && <Toggle label="Clean eye and eyebrow edges" checked={cleanup !== false} onChange={changeCleanup}
-      detail="Keeps the selected source-expression profile. Uses complete feature masks and gated eye detail, with one extra 94 MB parser. Turn off for the previous scene-matched finish." />}
+      detail="Keeps the selected source-expression profile. Uses complete feature masks and gated eye detail, with one extra 94 MB parser. Allows a clearly visible speaking chin to move beyond the original jaw edge, while protecting surrounding hair, clothes and scene. Turn off for the previous scene-matched finish." />}
     {value === 'perform-onnx60' && sceneMatch !== false && cleanup !== false && changeEyeCalibration && <Toggle label="Calibrate eye appearance" checked={eyeCalibration === true} onChange={changeEyeCalibration}
       detail="Uses the matching source moment and your edited reference to improve eye appearance. Keeps source mouth and jaw performance. Requires the reference timestamp to match the video; unclear anchor faces or eyes skip calibration with a saved reason. Uses the installed models." />}
     {value === 'perform-onnx60' && sceneMatch !== false && cleanup !== false && eyeCalibration === true && changeEyeFinish && <Toggle label="Restore eye detail & match glances · beta" checked={eyeFinish === true} onChange={changeEyeFinish}

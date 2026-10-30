@@ -6,7 +6,7 @@ import path from 'node:path';
 import type { Job } from '../shared/types';
 import { outputDimensions } from '../shared/types';
 import { frameFloor } from '../shared/clip';
-import { canFinishFacialLocally, facialVersionForSettings, usesFacialConsistency, type FacialConsistencyRun } from '../shared/facial-consistency';
+import { canFinishFacialLocally, facialVersionForSettings, usesFacialConsistency, isCalibratedFacialVersion, isCleanupFacialVersion, isEyeFinishedFacialVersion, isGeometryFacialVersion, type FacialConsistencyRun } from '../shared/facial-consistency';
 import type { ConnectionManager } from './comfy';
 import type { Store } from './store';
 
@@ -15,6 +15,14 @@ export class FacialConsistencyError extends Error {
 }
 export const faceHash = (file: string) => createHash('sha256').update(readFileSync(file)).digest('hex');
 export const facialFingerprint = (repo: string, version: FacialConsistencyRun['version'] = 'source-face-v1') => {
+  const bases = { 'source-face-v6': 'source-face-v3', 'source-face-v7': 'source-face-v4', 'source-face-v8': 'source-face-v5' } as const;
+  if (version in bases) {
+    const base = bases[version as keyof typeof bases];
+    const hash = createHash('sha256').update(Buffer.from(facialFingerprint(repo, base), 'hex'));
+    for (const name of ['config/facial-consistency-geometry.lock.json', 'scripts/face_jaw_geometry.py',
+      ...(version === 'source-face-v8' ? ['scripts/face_geometry_eye_finish.py', 'scripts/face_geometry_eye_motion.py'] : [])]) hash.update(readFileSync(path.join(repo, name)));
+    return hash.digest('hex');
+  }
   if (version === 'source-face-v5') {
     const hash = createHash('sha256').update(Buffer.from(facialFingerprint(repo, 'source-face-v4'), 'hex'));
     for (const name of ['config/facial-consistency-eye-finish.lock.json', 'config/facial-consistency-eye-finish-models.lock.json', 'scripts/face_eye_finish.py', 'scripts/face_eye_motion.py', 'scripts/face_eye_placement.py', 'scripts/face_eye_temporal.py']) hash.update(readFileSync(path.join(repo, name)));
@@ -73,10 +81,10 @@ export function newFacialRun(job: Pick<Job, 'settings' | 'progress'>, repo: stri
   if (!instanceId) throw new Error('Facial consistency requires a connected managed GPU.');
   const version = facialVersionForSettings(job.settings);
   const anchorFrame = job.settings.referenceTime == null ? 0 : Math.round(job.settings.referenceTime * job.settings.fps) - frameFloor(job.settings.start, job.settings.fps);
-  if (['source-face-v4', 'source-face-v5'].includes(version) && (!Number.isInteger(anchorFrame) || anchorFrame < 0 || anchorFrame >= job.progress.targetFrames))
+  if (isCalibratedFacialVersion(version) && (!Number.isInteger(anchorFrame) || anchorFrame < 0 || anchorFrame >= job.progress.targetFrames))
     throw new Error('Choose the matching source reference frame inside this clip before using eye calibration.');
   return { version, profile: job.settings.facialConsistency as FacialConsistencyRun['profile'], blend: .6,
-    ...(['source-face-v4', 'source-face-v5'].includes(version) ? { anchorFrame } : {}),
+    ...(isCalibratedFacialVersion(version) ? { anchorFrame } : {}),
     instanceId, profileSHA256: facialFingerprint(repo, version), state: 'pending', processedFrames: 0, frames: job.progress.targetFrames };
 }
 
@@ -87,12 +95,12 @@ export class ManagedFacialConsistency implements FacialBackend {
     if (this.store.value('cloud-connected-instance', null) !== run.instanceId || this.connection.status.state !== 'online' || this.connection.status.endpoint !== 'http://127.0.0.1:8188')
       throw new FacialConsistencyError('Reconnect the original GPU instance to continue this saved facial pass.');
     if (facialFingerprint(this.repo, run.version) !== run.profileSHA256) throw new FacialConsistencyError('The saved facial recipe differs from these tools. The rendered video was preserved.');
-    if (['source-face-v4', 'source-face-v5'].includes(run.version) && action !== 'cancel' && (!Number.isInteger(run.anchorFrame) || run.anchorFrame! < 0 || run.anchorFrame! >= run.frames))
+    if (isCalibratedFacialVersion(run.version) && action !== 'cancel' && (!Number.isInteger(run.anchorFrame) || run.anchorFrame! < 0 || run.anchorFrame! >= run.frames))
       throw new FacialConsistencyError('The saved eye-calibration anchor is invalid. Existing renders were preserved.');
     const [width, height] = outputDimensions(job);
     return ['--instance-id', String(run.instanceId), '--action', action, '--job', job.id, '--profile', run.profile,
       '--frames', String(run.frames), '--width', String(width), '--height', String(height), ...(run.version !== 'source-face-v1' ? ['--version', run.version] : []),
-      ...(['source-face-v4', 'source-face-v5'].includes(run.version) && Number.isInteger(run.anchorFrame) ? ['--anchor-frame', String(run.anchorFrame)] : []), ...(reference ? ['--reference', reference] : [])];
+      ...(isCalibratedFacialVersion(run.version) && Number.isInteger(run.anchorFrame) ? ['--anchor-frame', String(run.anchorFrame)] : []), ...(reference ? ['--reference', reference] : [])];
   }
   async preflight(job: Job, reference: string, signal: AbortSignal) {
     const run = job.facialConsistency!;
@@ -115,13 +123,13 @@ export class ManagedFacialConsistency implements FacialBackend {
     // A fully downloaded receipt can finish offline, without another GPU call.
     const receiptFile = path.join(files.folder, 'receipt.json'), final = path.join(files.folder, 'final.mp4');
     let downloaded = false;
-    try { await access(receiptFile); await access(final); await access(path.join(files.folder, 'transport.json')); if (['source-face-v4', 'source-face-v5'].includes(run.version)) await access(path.join(files.folder, 'calibration.json')); if (run.version === 'source-face-v5') for (const name of ['native-receipt.json', 'eye-finish/request.json', 'eye-finish/restoration.json', 'eye-finish/observations.json', 'eye-finish/placement.json']) await access(path.join(files.folder, name)); downloaded = true; } catch { /* Use the same remote worker below. */ }
+    try { await access(receiptFile); await access(final); await access(path.join(files.folder, 'transport.json')); if (isCalibratedFacialVersion(run.version)) await access(path.join(files.folder, 'calibration.json')); if (isEyeFinishedFacialVersion(run.version)) for (const name of ['native-receipt.json', 'eye-finish/request.json', 'eye-finish/restoration.json', 'eye-finish/observations.json', 'eye-finish/placement.json']) await access(path.join(files.folder, name)); downloaded = true; } catch { /* Use the same remote worker below. */ }
     if (!downloaded) {
       if (canFinishFacialLocally(job)) throw new FacialConsistencyError('A downloaded face result is missing locally; reconnect to recover its existing remote copy.');
       run.state = 'processing'; run.remoteActive = true; this.store.saveJob(job);
       await facialCommand(this.repo, [...this.args(job, 'run', files.reference), '--source', files.source, '--target', files.base, '--output', files.folder], signal,
         (frame, frames, stage) => {
-          const eyeFinish = run.version === 'source-face-v5';
+          const eyeFinish = isEyeFinishedFacialVersion(run.version);
           if (frames !== run.frames * (eyeFinish ? 4 : 1) || frame < 0 || frame > frames) return;
           if (eyeFinish) run.workUnits = { completed: Math.max(run.workUnits?.completed || 0, frame), total: frames };
           run.processedFrames = Math.max(run.processedFrames, eyeFinish ? Math.max(0, frame - 3 * run.frames) : frame);
@@ -130,7 +138,7 @@ export class ManagedFacialConsistency implements FacialBackend {
     }
     run.remoteActive = false; run.state = 'downloaded'; this.store.saveJob(job);
     const receipt = JSON.parse(await readFile(receiptFile, 'utf8')), transport = JSON.parse(await readFile(path.join(files.folder, 'transport.json'), 'utf8'));
-    if (['source-face-v4', 'source-face-v5'].includes(run.version)) {
+    if (isCalibratedFacialVersion(run.version)) {
       let saved: any;
       try { saved = JSON.parse(await readFile(path.join(files.folder, 'calibration.json'), 'utf8')); }
       catch { throw new FacialConsistencyError('The saved eye calibration is missing or invalid. Rendered output was kept.'); }
@@ -151,7 +159,7 @@ export class ManagedFacialConsistency implements FacialBackend {
           : !!r.calibration))
         throw new FacialConsistencyError('The eye-calibration anchor or saved-state provenance failed validation. Existing output was kept.');
     }
-    if (run.version === 'source-face-v5') {
+    if (isEyeFinishedFacialVersion(run.version)) {
       const eye = receipt.eyeFinish;
       const manifest = JSON.parse(readFileSync(path.join(this.repo, 'config/facial-consistency-eye-finish-models.lock.json'), 'utf8'));
       const paths = { 'native-receipt.json': eye?.nativeReceiptSHA256, 'eye-finish/request.json': eye?.requestSHA256,
@@ -184,6 +192,18 @@ export class ManagedFacialConsistency implements FacialBackend {
         nativeOutputSHA256: eye.nativeOutputSHA256, sourceRGBTransferred: false };
     }
     const [width, height] = outputDimensions(job);
+    if (isGeometryFacialVersion(run.version)) {
+      const geometry = JSON.parse(readFileSync(path.join(this.repo, 'config/facial-consistency-geometry.lock.json'), 'utf8'));
+      const reasons = ['source-jaw-not-visible', 'source-jaw-outside-crop', 'jaw-geometry-uncertain', 'no-outward-jaw-motion'];
+      if (!Array.isArray(receipt.records) || receipt.records.some((record: any) => {
+        if (record.action !== 'refined') return false;
+        const jaw = record.cleanup?.jawGeometry;
+        return !jaw || jaw.version !== geometry.version || !Number.isFinite(jaw.sourceJawVisibility) || jaw.sourceJawVisibility < 0 || jaw.sourceJawVisibility > 1 ||
+          ['extensionPixels', 'bridgePixels', 'supportPixels'].some(key => !Number.isInteger(jaw[key]) || jaw[key] < 0 || jaw[key] > 512 * 512) ||
+          (jaw.reason === null ? jaw.extensionPixels < 1 || jaw.supportPixels < jaw.extensionPixels || jaw.sourceJawVisibility < geometry.source_jaw_minimum_visible_fraction :
+            !reasons.includes(jaw.reason) || jaw.extensionPixels !== 0 || jaw.bridgePixels !== 0 || jaw.supportPixels !== 0);
+      })) throw new FacialConsistencyError('The jaw-geometry receipt failed validation. Existing rendered video was preserved.');
+    }
     if (!receipt.complete || receipt.profile !== run.profile || receipt.blend !== .6 || receipt.inputs?.version !== run.version ||
       receipt.inputs.request?.profileSHA256 !== run.profileSHA256 || receipt.inputs.request?.jobId !== job.id || receipt.inputs.request?.profile !== run.profile ||
       receipt.inputs.baseSHA256 !== signature.baseSHA256 || receipt.inputs.sourceSHA256 !== signature.sourceSHA256 || receipt.inputs.referenceSHA256 !== signature.referenceSHA256 ||
@@ -192,7 +212,7 @@ export class ManagedFacialConsistency implements FacialBackend {
       transport.instanceId !== run.instanceId || transport.jobId !== job.id || transport.receiptSHA256 !== faceHash(receiptFile) ||
       receipt.outputSHA256 !== faceHash(final) || !Number.isFinite(receipt.elapsedSeconds) || receipt.elapsedSeconds < 0 ||
       !Array.isArray(receipt.records) || receipt.records.length !== run.frames || receipt.records.some((record: any, index: number) => record.frame !== index || record.protectedPixelsExact !== true || !/^[0-9a-f]{64}$/.test(record.sha256)) ||
-      ['source-face-v3', 'source-face-v4', 'source-face-v5'].includes(run.version) && (receipt.providers?.parser?.[0] !== 'CUDAExecutionProvider' || receipt.records.some((record: any) => record.action === 'refined' &&
+      isCleanupFacialVersion(run.version) && (receipt.providers?.parser?.[0] !== 'CUDAExecutionProvider' || receipt.records.some((record: any) => record.action === 'refined' &&
         (!record.cleanup || !Array.isArray(record.cleanup.sourceEyeGates) || record.cleanup.sourceEyeGates.length !== 2 || record.cleanup.sourceEyeGates.some((value: any) => !Number.isFinite(value) || value < 0 || value > 1) ||
           !Number.isInteger(record.cleanup.eyeTexturePixels) || record.cleanup.eyeTexturePixels < 0 || record.cleanup.eyeTexturePixels > 512 * 512 ||
           !Number.isInteger(record.cleanup.editablePixels) || record.cleanup.editablePixels < 1 || record.cleanup.editablePixels > width * height))) ||
@@ -200,7 +220,7 @@ export class ManagedFacialConsistency implements FacialBackend {
       throw new FacialConsistencyError('The facial result failed provenance, timing or checksum validation. Existing renders and remote output remain saved.');
     Object.assign(run, { state: 'complete', processedFrames: run.frames, outputSHA256: receipt.outputSHA256, refinedFrames: receipt.refinedFrames,
       skippedFrames: receipt.skippedFrames, elapsedSeconds: receipt.elapsedSeconds, gpu: receipt.gpu });
-    if (['source-face-v4', 'source-face-v5'].includes(run.version)) run.eyeCalibration = { state: receipt.calibration.state, anchorFrame: run.anchorFrame!,
+    if (isCalibratedFacialVersion(run.version)) run.eyeCalibration = { state: receipt.calibration.state, anchorFrame: run.anchorFrame!,
       reason: receipt.calibration.reason, eligibleEyes: receipt.calibration.eligibleEyes, fileSHA256: receipt.calibration.fileSHA256 };
     job.output = final;
     this.store.saveJob(job);

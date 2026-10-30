@@ -5,21 +5,31 @@ export type FacialProfile = z.infer<typeof facialProfileSchema>;
 export const facialProfileLabels: Record<FacialProfile, string> = {
   off: 'Off', 'perform-onnx60': 'Standard + ONNX 60%', 'regional-onnx60': 'Regional + ONNX 60%',
 };
+export const facialVersions = ['source-face-v1', 'source-face-v2', 'source-face-v3', 'source-face-v4', 'source-face-v5',
+  'source-face-v6', 'source-face-v7', 'source-face-v8'] as const;
+export const isCleanupFacialVersion = (version: string) => ['source-face-v3', 'source-face-v4', 'source-face-v5', 'source-face-v6', 'source-face-v7', 'source-face-v8'].includes(version);
+export const isCalibratedFacialVersion = (version: string) => ['source-face-v4', 'source-face-v5', 'source-face-v7', 'source-face-v8'].includes(version);
+export const isEyeFinishedFacialVersion = (version: string) => ['source-face-v5', 'source-face-v8'].includes(version);
+export const isGeometryFacialVersion = (version: string) => ['source-face-v6', 'source-face-v7', 'source-face-v8'].includes(version);
 export const usesFacialConsistency = (settings: { engine?: string; facialConsistency?: FacialProfile }) =>
   settings.engine === 'viggle' && !!settings.facialConsistency && settings.facialConsistency !== 'off';
 
 export const facialVersionForSettings = (settings: { facialSceneMatch?: boolean; facialFeatureCleanup?: boolean; facialConsistency?: FacialProfile; facialEyeCalibration?: boolean; facialEyeFinish?: boolean }) =>
   settings.facialSceneMatch === false ? 'source-face-v1' as const : settings.facialFeatureCleanup === true
-    ? settings.facialConsistency === 'perform-onnx60' && settings.facialEyeCalibration === true ? settings.facialEyeFinish === true ? 'source-face-v5' as const : 'source-face-v4' as const : 'source-face-v3' as const
+    ? settings.facialConsistency === 'perform-onnx60' && settings.facialEyeCalibration === true ? settings.facialEyeFinish === true ? 'source-face-v8' as const : 'source-face-v7' as const : 'source-face-v6' as const
     : 'source-face-v2' as const;
 
 export const facialRuntimeReadyForSettings = (settings: { engine?: string; facialConsistency?: FacialProfile; facialSceneMatch?: boolean; facialFeatureCleanup?: boolean; facialEyeCalibration?: boolean; facialEyeFinish?: boolean },
-  state: { facialRuntimeReady?: boolean; facialCleanupRuntimeReady?: boolean; facialCalibratedRuntimeReady?: boolean; facialEyeFinishRuntimeReady?: boolean }) => !usesFacialConsistency(settings) ||
-  (facialVersionForSettings(settings) === 'source-face-v5' ? !!state.facialEyeFinishRuntimeReady : facialVersionForSettings(settings) === 'source-face-v4' ? !!state.facialCalibratedRuntimeReady :
-    facialVersionForSettings(settings) === 'source-face-v3' ? !!state.facialCleanupRuntimeReady : !!state.facialRuntimeReady);
+  state: { facialRuntimeReady?: boolean; facialCleanupRuntimeReady?: boolean; facialCalibratedRuntimeReady?: boolean; facialEyeFinishRuntimeReady?: boolean; facialGeometryRuntimeReady?: boolean }) => {
+  if (!usesFacialConsistency(settings)) return true;
+  const version = facialVersionForSettings(settings);
+  if (isGeometryFacialVersion(version) && !state.facialGeometryRuntimeReady) return false;
+  return isEyeFinishedFacialVersion(version) ? !!state.facialEyeFinishRuntimeReady : isCalibratedFacialVersion(version) ? !!state.facialCalibratedRuntimeReady :
+    isCleanupFacialVersion(version) ? !!state.facialCleanupRuntimeReady : !!state.facialRuntimeReady;
+};
 
 export interface FacialConsistencyRun {
-  version: 'source-face-v1' | 'source-face-v2' | 'source-face-v3' | 'source-face-v4' | 'source-face-v5'; profile: Exclude<FacialProfile, 'off'>; blend: 0.6; instanceId: number; profileSHA256: string;
+  version: typeof facialVersions[number]; profile: Exclude<FacialProfile, 'off'>; blend: 0.6; instanceId: number; profileSHA256: string;
   anchorFrame?: number;
   eyeCalibration?: { state: 'active' | 'skipped'; anchorFrame: number; reason?: string | null; eligibleEyes?: boolean[]; fileSHA256: string };
   state: 'pending' | 'preparing' | 'processing' | 'saving' | 'downloaded' | 'complete' | 'interrupted';

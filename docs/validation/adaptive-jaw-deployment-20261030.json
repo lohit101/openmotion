@@ -1,0 +1,54 @@
+{
+  "date": "2026-10-30",
+  "status": "app-enabled-gpu-tools-pending-host-availability",
+  "userRequestedEarlyDeployment": true,
+  "scope": "new facial finishing with feature cleanup; existing v1-v5 runs unchanged",
+  "legacyFingerprintsUnchanged": true,
+  "fingerprints": {
+    "source-face-v1": "ef8f273a320b6d34c5efccf690610ad92f1aac0fdb9c4d60c4906557ade5b419",
+    "source-face-v2": "3952a4da82fcb2284788137279c7716102bba1e5755b2f6968502dc38dec3c08",
+    "source-face-v3": "286cb1cb40cc0eab2bdbca50bb365fe0b02dedd21d260f24b5c156013ce663b6",
+    "source-face-v4": "4520b9613ed3e9d9b5e105baa85cc3332064d3564a0e759fa2af91426ac65239",
+    "source-face-v5": "665bac84437c6e61a91db8a25d193abd1989e1c7ddabb3815a38d8a267e02dfe",
+    "source-face-v6": "6ce5188c6f39a7aebc38d38eeb2a7d37fada236fce1c0908246e179773fa84d8",
+    "source-face-v7": "dc4776f15dd9829b995c46972de52baf9f74af32a1ecc08ffc261b9a1aec4294",
+    "source-face-v8": "2653e3d2c8d27223f2861f69efb461456493666bca4131c3995e3a38d3d3765f"
+  },
+  "tests": {
+    "jawHelper": 8,
+    "workerProtocol": 4,
+    "studioFacial": 42,
+    "productionBuild": "passed"
+  },
+  "localReload": {
+    "all233JobRowsUnchanged": true,
+    "bothSavedDraftsUnchanged": true
+  },
+  "weights": {
+    "newJawModelBytes": 0,
+    "existingFaceStackReused": true,
+    "optionalEyeBetaDefault": false
+  },
+  "gpu": {
+    "kind": "RTX PRO 4500",
+    "resume": "refused-resources-unavailable",
+    "providerComputeStopped": true,
+    "modelDiskPreserved": true,
+    "newRentalCreated": false,
+    "managedV6V7V8Recovery": "pending",
+    "independentPermissionReplay": "pending"
+  },
+  "priorComparison": {
+    "clips": 8,
+    "frames": 1722,
+    "heldOutClips": 3,
+    "heldOutFrames": 435,
+    "terminalMediaVerified": true,
+    "completePngBackup": false
+  },
+  "qualityLimitations": [
+    "Identity, gaze and fine texture still need review.",
+    "No universal quality or flawless occlusion claim."
+  ],
+  "backgroundTesting": "Give user renders and downloads priority; do not overlap private GPU work."
+}
