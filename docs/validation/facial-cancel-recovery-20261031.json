@@ -1,0 +1,18 @@
+{
+  "date": "2026-10-31",
+  "issue": "Cancelled facial preflight retained uncertain remote activity and blocked Generate",
+  "jobId": "cd08aacd-768b-4430-81e9-48ca22190922",
+  "sameInstance": 58431164,
+  "remoteCancellationConfirmed": true,
+  "newWorkSubmitted": false,
+  "automaticRecheck": "Only already-requested cancellations on the connected rental; unknown activity stays blocked",
+  "tests": 53,
+  "typecheckAndBuild": "passed",
+  "deployment": {
+    "savedJobsUnchanged": 267,
+    "bothDraftsUnchanged": true,
+    "connection": "online",
+    "initialReconnectObservation": "First probe deadline elapsed; subsequent read confirmed online",
+    "gpuResumed": false
+  }
+}

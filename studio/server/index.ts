@@ -201,13 +201,15 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     if (isViggle(value.settings) && value.saveDiagnosticLatent) return void res.status(400).json({ error: 'Viggle exports its conditioning frame and video; SCAIL latent diagnostics are not available.' });
     const key = req.get('Idempotency-Key'); if (!key || key.length > 120) return void res.status(400).json({ error: 'A request ID is required.' });
     const existing = store.byKey(key); if (existing) return void res.json(publicJob(existing));
-    if (runner.hasUnconfirmedFaceWork()) return void res.status(409).json({ error: 'A previous video’s facial pass needs checking. Open it in My library and choose Check & resume. Its rendered video is saved; nothing new was queued.' });
+    await runner.reconcileFaceCancellations();
+    if (runner.hasUnconfirmedFaceWork()) return void res.status(409).json({ error: 'A previous video’s facial pass still needs checking. Open it in My library and choose Check & resume. Existing media is kept; nothing new was queued.' });
     const repaint = resolveRepaintProfile(store, value.settings, value.referenceId, value.sourceId);
     if (connection.status.state !== 'online') return void res.status(503).json({ error: 'Connect the GPU before generating. Your draft is saved locally.' });
     if (models.state.busy) return void res.status(409).json({ error: 'Wait for model downloads to finish before generating.' });
     await models.refresh();
     const accepted = store.byKey(key); if (accepted) return void res.json(publicJob(accepted));
-    if (runner.hasUnconfirmedFaceWork()) return void res.status(409).json({ error: 'A previous video’s facial pass needs checking. Open it in My library and choose Check & resume. Its rendered video is saved; nothing new was queued.' });
+    await runner.reconcileFaceCancellations();
+    if (runner.hasUnconfirmedFaceWork()) return void res.status(409).json({ error: 'A previous video’s facial pass still needs checking. Open it in My library and choose Check & resume. Existing media is kept; nothing new was queued.' });
     if (videoIdentity.gpuBusy || models.state.busy || cloud.state.busy || connection.status.state !== 'online') return void res.status(409).json({ error: 'The GPU or model downloads changed while checking. Nothing was queued; wait for readiness before generating.' });
     if (models.state.error) return void res.status(503).json({ error: models.state.error });
     const missing = modelFilesForSettings(value.settings).filter(id => models.state.files.find(file => file.id === id)?.status !== 'installed');

@@ -58,6 +58,20 @@ const successfulFinish: FacialBackend['finish'] = async (job, files, _signal, pr
 };
 
 describe('selected automatic facial finishing', () => {
+  it.each(['confirmed', 'unknown', 'not-requested'] as const)('rechecks only requested facial cancellations before new work: %s', async mode => {
+    const { runner, store, job } = await fixture();
+    job.status = 'interrupted'; job.cancelRequested = mode !== 'not-requested';
+    job.facialConsistency!.remoteActive = true; store.saveJob(job, false);
+    const cancel = vi.fn(async (value: Job) => {
+      if (mode === 'unknown') throw new Error('Unreachable worker');
+      value.facialConsistency!.remoteActive = false; value.facialConsistency!.cancellationConfirmed = true;
+    });
+    runner.facial = { cancel, preflight: vi.fn(), finish: vi.fn() };
+    await runner.reconcileFaceCancellations();
+    expect(cancel).toHaveBeenCalledTimes(mode === 'not-requested' ? 0 : 1);
+    expect(runner.hasUnconfirmedFaceWork()).toBe(mode !== 'confirmed');
+    expect(store.job(job.id)!.status).toBe(mode === 'confirmed' ? 'cancelled' : 'interrupted');
+  });
   it('freezes scene finishing separately while retaining the exact original recipe on request', () => {
     const job = { settings: { ...defaults, engine: 'viggle' as const, facialConsistency: 'perform-onnx60' as const }, progress: { targetFrames: 120 } } as Job;
     expect(newFacialRun(job, repo, 123)).toMatchObject({ version: 'source-face-v7', anchorFrame: 0, profileSHA256: facialFingerprint(repo, 'source-face-v7') });

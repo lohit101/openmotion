@@ -26,11 +26,25 @@ export class Runner {
   busy = false; active: Job | null = null; abort: AbortController | null = null;
   private resumes = new Map<string, Promise<void>>();
   private runningJobs = new Map<string, Job>();
+  private cancellationRecheck: Promise<void> | null = null;
   public geometry: ReferenceGeometry;
   public imageProcessor = processImage;
   public repaintTargetPreparer?: RepaintTargetPreparer;
   public facial?: FacialBackend;
   hasUnconfirmedFaceWork() { return this.store.jobs().some(job => job.status === 'interrupted' && job.facialConsistency?.remoteActive && job.facialConsistency.instanceId === this.store.value('cloud-connected-instance', null) && !job.facialConsistency.cancellationConfirmed); }
+  async reconcileFaceCancellations() {
+    if (this.cancellationRecheck) return this.cancellationRecheck;
+    if (this.busy || this.active || !this.facial || this.connection.status.state !== 'online') return;
+    this.cancellationRecheck = (async () => {
+      for (const job of this.store.jobs()) {
+        if (job.status !== 'interrupted' || !job.cancelRequested || !job.facialConsistency?.remoteActive ||
+          job.facialConsistency.instanceId !== this.store.value('cloud-connected-instance', null) || job.facialConsistency.cancellationConfirmed) continue;
+        try { await this.cancel(job); }
+        catch { /* Unknown remote activity remains protected by the existing guard. */ }
+      }
+    })().finally(() => { this.cancellationRecheck = null; });
+    return this.cancellationRecheck;
+  }
   constructor(public store: Store, public connection: ConnectionManager, public template: Graph, public repo: string, geometry?: ReferenceGeometry) { this.geometry = geometry || localReferenceGeometry(repo); }
   interrupt(reason: string) {
     this.abort?.abort(new OfflineError(reason));
