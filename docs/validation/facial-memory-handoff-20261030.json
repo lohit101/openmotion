@@ -1,0 +1,41 @@
+{
+  "date": "2026-10-30",
+  "fixCommit": "5b185bf",
+  "gpu": "RTX PRO 4500 Blackwell, 32 GB class",
+  "cause": "Idle ComfyUI retained CUDA model/cache allocations while the separate ONNX facial runtime initialized.",
+  "originalAllocationFailureBytes": 9437184,
+  "manualCauseConfirmation": {
+    "beforeUsedMiB": 28056,
+    "afterUsedMiB": 1156,
+    "comfyQueuesEmpty": true,
+    "modelFilesDeleted": false,
+    "serverRestarted": false
+  },
+  "recoveredSavedRun": {
+    "frames": 356,
+    "workerSeconds": 133.1126803990337,
+    "parentVideoAndSourceFileHashesUnchanged": true,
+    "parentFilesChecked": 2,
+    "newVideoOrImageInference": false
+  },
+  "automaticNextRun": {
+    "frames": 120,
+    "version": "source-face-v4",
+    "status": "completed",
+    "preflightCacheRetained": true,
+    "minimumFreeBytes": 10737418240,
+    "beforeFreeBytes": 9370075136,
+    "afterFreeBytes": 33168556032,
+    "cacheReleasedAutomatically": true,
+    "cudaFinishingComplete": true
+  },
+  "offlineMemoryChecks": 8,
+  "controllerStopEvidenceChecksPassed": true,
+  "recipeFingerprintsChanged": false,
+  "qualitySettingsChanged": false,
+  "implicitDownloadsOrRentalActions": false,
+  "limitations": [
+    "This verifies the observed idle-cache collision and these two real runs, not every possible OOM or external workload.",
+    "Worker time is facial finishing only, not complete Generate latency."
+  ]
+}
