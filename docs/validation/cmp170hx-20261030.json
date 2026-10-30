@@ -1,0 +1,33 @@
+{
+  "date": "2026-10-30",
+  "feature": "CMP 170HX selection",
+  "providerCatalog": "https://console.vast.ai/api/v0/gpu_names/unique/",
+  "providerModel": "CMP 170HX",
+  "uiFilter": "170HX",
+  "allGpuSearchIncludesModel": true,
+  "setupProbeNames": [
+    "CMP 170HX",
+    "NVIDIA CMP 170HX",
+    "170HX"
+  ],
+  "existingBudgetMemoryCudaFiltersPreserved": true,
+  "classification": "experimental; no live workflow benchmark",
+  "checks": {
+    "cloudTests": 97,
+    "typescript": "passed",
+    "frontendBackendBuild": "passed"
+  },
+  "deployment": {
+    "deployedAt": "2026-10-30T17:30:17.403136+00:00",
+    "savedJobsUnchanged": 260,
+    "draftsUnchanged": true,
+    "accountSetupRouteAvailable": true,
+    "gpuResumed": false,
+    "connectionState": "offline",
+    "gpuToolsUpdated": false,
+    "feature": "CMP 170HX selection",
+    "legacyToolsStillReady": null
+  },
+  "paidInferenceSubmitted": false,
+  "gpuModelTransfers": false
+}

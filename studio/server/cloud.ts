@@ -138,7 +138,7 @@ export function normalizeOffer(raw: any, filters: OfferFilters, modelGB = MODEL_
   if (!withinDownloadBudget(downloadPerGB)) reasons.push(`Download fees must be known and at most $${DOWNLOAD_PRICE_CEILING.toFixed(3)}/GB.`);
   if (!withinComputeBudget(computeHourly)) reasons.push(computeHourly === null ? 'GPU compute pricing is unavailable; the budget cannot be checked.' : `GPU compute exceeds the $${GPU_COMPUTE_CEILING.toFixed(2)}/hour budget. Storage is quoted separately.`);
   const reportedVram = number(raw.gpu_ram), vram = reportedVram && reportedVram > 0 ? reportedVram / 1024 : unified ? ram : 0;
-  if (!supportedGpuName(gpu)) reasons.push('Choose a supported NVIDIA RTX, A-series or DGX/datacenter GPU.'); if (Number(raw.num_gpus) !== 1) reasons.push('This workflow uses one GPU.');
+  if (!supportedGpuName(gpu)) reasons.push('Choose a supported NVIDIA RTX, CMP, A-series or DGX/datacenter GPU.'); if (Number(raw.num_gpus) !== 1) reasons.push('This workflow uses one GPU.');
   const askId = Number(raw.ask_contract_id ?? raw.id);
   if (!Number.isSafeInteger(askId) || askId <= 0) reasons.push('A valid rental ask ID is required.');
   if (!Number.isSafeInteger(Number(raw.machine_id)) || Number(raw.machine_id) <= 0) reasons.push('A valid host machine ID is required.');

@@ -298,7 +298,7 @@ describe('Vast marketplace, billing and lifecycle', () => {
     expect(query).toMatchObject({ allocated_storage: 128, cpu_ram: { gte: 64000 }, num_gpus: { eq: 1 }, cpu_arch: { in: ['amd64', 'arm64'] } });
     expect(query.gpu_ram).toBeUndefined();
   });
-  it.each(['RTX PRO 5000', 'L4', 'L40', 'L40S'])('can search and verify %s while retaining discrete VRAM checks', async gpu => {
+  it.each(['RTX PRO 5000', 'L4', 'L40', 'L40S', 'CMP 170HX'])('can search and verify %s while retaining discrete VRAM checks', async gpu => {
     const fixture = provider(), client = new VastClient(async () => 'fixture-secret', fixture.fetcher);
     const settings = offerFiltersSchema.parse({ gpu }); await client.offers(settings);
     expect(fixture.calls[0].body).toMatchObject({ gpu_name: { eq: gpu }, gpu_ram: { gte: 24000 } });
