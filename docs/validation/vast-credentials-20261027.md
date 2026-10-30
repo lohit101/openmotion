@@ -1,5 +1,7 @@
 # Shared Vast credentials
 
+Historical validation. The removal of in-app setup below is superseded by [the 2026-10-30 first-run setup](../user-setup.md). The shared CLI-compatible credential file remains the sole source of truth; the new account form writes to it explicitly.
+
 All Vast operations now read `~/.config/vastai/vast_api_key`, the existing local Vast CLI credential, for every request. Environment overrides and app-local key fallbacks are removed. Replacing the CLI credential takes effect without restarting Recast.
 
 Removed the account/key modal, key entry/replacement/removal controls, credential-source metadata, obsolete styles and the POST/DELETE `/api/cloud/key` endpoints. Missing or blank credentials show an unavailable state with a retry action; alternate keys cannot silently select another account. Credentials remain server-side.

@@ -8,6 +8,8 @@ bash scripts/studio.sh
 
 Open **http://127.0.0.1:3000**. See [Studio setup and instance management](studio/README.md). Starting the app does not rent or resume a GPU. Keep `studio/data/` for private drafts/media and `.local/` for local connection/runtime state; neither belongs in Git.
 
+For a new installation, open **GPU cloud → Set up Vast account**. Enter your own [Vast API key](https://cloud.vast.ai/manage-keys/) and choose **Create or reuse a Recast key**, or select an existing local private-key file. **Verify & save** checks your account without renting compute. The same controls are in **Settings → Connection → Account & SSH keys**. No Vast CLI installation or developer SSH key is required. [First-run setup and credential storage](docs/user-setup.md).
+
 - **Imagen** edits a photo or extracted video frame with native Qwen Image 2.1 INT8/Turbo. The current body-only recipe transfers character appearance while retaining source clothing, accessories, pose and scene. Select one body view and one facial view from a saved character, or use the two-image route. [Recipe, comparisons and remaining limits](docs/imagen-consistency-20261029.md).
 - **Characters** saves separate body/face sheets and selected views. Each run freezes its character revision and crop coordinates. [Character guide](docs/characters-and-imagen.md).
 - **Remotion** uses Viggle Animate with a reviewed edited frame, native 24 fps and versioned five-frame continuation for longer clips. Optional [Imagen boundary refresh](docs/remotion-imagen-segment-refresh.md) refreshes visible facial identity between windows. [Viggle workflow](docs/viggle-workflow.md).

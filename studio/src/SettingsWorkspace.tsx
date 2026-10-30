@@ -6,6 +6,7 @@ import { api, Toggle } from './components';
 import { FieldLabel } from './InfoTip';
 import AlertSettings from './AlertSettings';
 import ProcessingSettings from './ProcessingSettings';
+import VastAccountSetup from './VastAccountSetup';
 
 export type SettingsTab = 'connection' | 'processing' | 'downloads' | 'extras' | 'alerts';
 const tabs: { id: SettingsTab; label: string }[] = [{ id: 'connection', label: 'Connection' }, { id: 'processing', label: 'Processing' }, { id: 'downloads', label: 'Downloads' }, { id: 'extras', label: 'Extras' }, { id: 'alerts', label: 'Alerts' }];
@@ -25,7 +26,7 @@ function ConnectionSettings({ connection, cloud, setCloud, error, browse }: { co
     catch (reason) { error((reason as Error).message); }
   };
   return <section className="settings-connection" aria-labelledby="connection-settings-heading">
-    <h2 id="connection-settings-heading">GPU connection</h2><p className="settings-description">Your files and library stay on this Mac. Connect when you’re ready to work.</p>
+    <h2 id="connection-settings-heading">GPU connection</h2><p className="settings-description">Your files and library stay on this computer. Connect when you’re ready to work.</p><div className="settings-vast-account"><div><strong>Vast account & SSH key</strong><p>{cloud.configured ? 'An API key is saved on this computer.' : 'Add your own account to browse and rent GPUs.'}</p></div><VastAccountSetup cloud={cloud} setCloud={setCloud} /></div>
     <div className={`connection-summary ${connection.state}`}><Plug size={22} /><div><strong>{connection.state === 'online' ? connection.gpu : connection.state === 'connecting' ? 'Connecting to your GPU' : 'Offline workspace'}</strong><p>{connection.message}</p></div></div>
     <button className="secondary-button" onClick={browse}><Lightning size={14} />Browse GPUs & manage instances</button>
     <div className="connection-help"><Toggle label="Pause GPU after 5 idle minutes" checked={cloud.idle?.enabled ?? true} disabled={savingIdle || !cloud.idle || cloud.idle.status === 'pausing'} onChange={enabled => void changeIdle(enabled)}

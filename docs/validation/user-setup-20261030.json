@@ -1,0 +1,20 @@
+{
+  "feature": "local Vast account and SSH setup",
+  "date": "2026-10-30",
+  "checks": {
+    "typescript": "passed",
+    "studioTestFiles": 40,
+    "studioTestsPassed": 464,
+    "newIsolatedAccountTests": 13,
+    "frontendBuild": "passed",
+    "backendBuild": "passed",
+    "whitespace": "passed",
+    "browserVisualQA": "deferred while the user operated the production window"
+  },
+  "validationProvider": "mock, rejects mutations",
+  "paidInferenceSubmitted": false,
+  "realCredentialsChanged": false,
+  "gpuLifecycleActions": 0,
+  "productionRestarted": false,
+  "existingModelAndGenerationRecipesChanged": false
+}

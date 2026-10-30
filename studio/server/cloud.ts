@@ -2,7 +2,6 @@ import { access, mkdir, readFile } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import { spawn, type ChildProcess } from 'node:child_process';
 import path from 'node:path';
-import os from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { createConnection } from 'node:net';
 import { EmptyHostError, hasNoContainerSignals, hostSilenceExpired, observeHostSilence } from './provisioning-health';
@@ -13,6 +12,8 @@ import { command } from './media';
 import type { CloudInstance, CloudLaunch, CloudState, GpuOffer, GpuFavourite, OfferFilters } from '../shared/cloud';
 import { canRetryRental, DOWNLOAD_PRICE_CEILING, GPU_COMPUTE_CEILING, isDgxSpark, isGraceBlackwell, offerFiltersSchema, offerGpuFilter, sameGpuModel, supportedGpuName, withinComputeBudget, withinDownloadBudget } from '../shared/cloud';
 import { modelBytes, modelFilesForSettings, pinnedModels, setupModelFiles } from '../shared/models';
+import { CloudCredentials } from './cloud-credentials';
+import type { CloudAccountInput, CloudAccountStatus } from '../shared/cloud-account';
 
 const MODEL_GB = modelBytes(setupModelFiles) / 1e9;
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -34,7 +35,7 @@ export function hasRegisteredSshKey(response: unknown, publicKey: string) {
   return registeredSshKeys(response).some(key => typeof key === 'string' ? publicKeyIdentity(key) === expected : key && !key.deleted_at &&
     [key.public_key, key.key, key.ssh_key].some(value => publicKeyIdentity(value) === expected));
 }
-type CloudOptions = {
+export type CloudOptions = {
   fetcher?: typeof fetch; base?: string; provision?: (instance: any, log: (line: string) => void, signal: AbortSignal) => Promise<void>;
   preflight?: (identity: string) => Promise<void>; sshIdentity?: string;
   probe?: (instance: any, identity: string) => Promise<boolean>;
@@ -166,7 +167,7 @@ export function normalizeOffer(raw: any, filters: OfferFilters, modelGB = MODEL_
 }
 
 export class CloudManager {
-  client: VastClient; state: CloudState; private keyFile: string; private quotes = new Map<string, { offer: GpuOffer; filters: OfferFilters }>();
+  client: VastClient; state: CloudState; private credentials: CloudCredentials; private quotes = new Map<string, { offer: GpuOffer; filters: OfferFilters }>();
   private rawInstances: any[] = []; private provision: ChildProcess | null = null; private activeLaunch: string | null = null; private refreshPromise: Promise<CloudState> | null = null; private stopped = new Set<string>();
   private activeAbort: AbortController | null = null; private safetyTimer: ReturnType<typeof setInterval> | null = null; private safetyBusy = false;
   private activeTask: Promise<void> | null = null;
@@ -176,7 +177,7 @@ export class CloudManager {
   private favouriteChecks = new Map<string, string>();
   private resuming = new Set<string>();
   constructor(public store: Store, public connection: ConnectionManager, public runner: Runner, public repo: string, options: CloudOptions = {}) {
-    this.options = options; this.keyFile = path.join(os.homedir(), '.config', 'vastai', 'vast_api_key');
+    this.options = options; this.credentials = new CloudCredentials(store, options.sshIdentity);
     this.client = new VastClient(() => this.key(), options.fetcher, options.base);
     const launches = store.value<CloudLaunch[]>('cloud-launches', []);
     for (const launch of launches) {
@@ -216,13 +217,59 @@ export class CloudManager {
   }
   private options: CloudOptions;
   private readKey() {
-    try { return readFileSync(this.keyFile, 'utf8').trim(); }
-    catch { return ''; }
+    return this.credentials.readKey();
   }
   async key() {
     const key = this.readKey(); this.state.configured = !!key;
-    if (!key) throw new Error('Vast credentials are unavailable. Configure the Vast CLI on this Mac, then retry.');
+    if (!key) throw new Error('Add your Vast API key in Account & SSH keys, or configure the Vast CLI, then retry.');
     return key;
+  }
+  private accountBlockReason() {
+    if (this.state.busy || this.runner.active || this.runner.externalGpuBusy?.() || this.runner.hasUnconfirmedFaceWork?.() ||
+      this.store.jobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status))) return 'Finish current setup, downloads and generation before updating account details.';
+    if (this.state.launches.some(launch => ['unconfirmed', 'stop_requested'].includes(launch.safetyStatus || '') ||
+      (!launch.instanceId && launch.creationAttempted && launch.phase === 'unknown'))) return 'Resolve the unconfirmed rental or compute stop in My instances before changing accounts.';
+    return null;
+  }
+  accountStatus(extraBlock: string | null = null): CloudAccountStatus {
+    const reason = extraBlock || this.accountBlockReason(); return this.credentials.status(!reason, reason);
+  }
+  private sshIdentity(launch?: CloudLaunch) {
+    const saved = this.store.value<Record<string, string>>('cloud-ssh-identities', {});
+    if (launch && saved[launch.id]) return saved[launch.id];
+    if (launch?.instanceId) {
+      try {
+        const connection = JSON.parse(readFileSync(path.join(this.repo, '.local/connection.json'), 'utf8'));
+        if (connection.instance_id === launch.instanceId && typeof connection.identity === 'string' && path.isAbsolute(connection.identity)) return connection.identity;
+      } catch { /* No matching manual/legacy connection. */ }
+    }
+    return this.credentials.identity();
+  }
+  async configureAccount(input: CloudAccountInput, stillIdle: () => boolean = () => true) {
+    const blocked = this.accountBlockReason(); if (blocked || !stillIdle()) throw new Error(blocked || 'Finish GPU work before updating account details.');
+    const previous = this.readKey(), key = input.apiKey || previous;
+    if (!key) throw new Error('Enter your Vast API key.');
+    this.state.busy = true; this.emit();
+    try {
+      // Read-only validation: saving credentials never registers a provider key or rents compute.
+      const candidate = new VastClient(async () => key, this.client.fetcher, this.client.base);
+      const instances = await candidate.instances(); registeredSshKeys(await candidate.request('/api/v0/ssh/'));
+      const owned = this.state.launches.filter(launch => launch.instanceId && launch.phase !== 'destroyed');
+      const connected = this.store.value<number | null>('cloud-connected-instance', null);
+      const required = [...new Set([...owned.map(launch => launch.instanceId!), ...(connected ? [connected] : [])])];
+      if (key !== previous && required.some(id => !instances.some(instance => instance.id === id)))
+        throw new Error('This key cannot access an existing Recast rental. Keep a key for the same Vast account, or resolve those rentals before switching accounts.');
+      if (!stillIdle() || this.readKey() !== previous) throw new Error('Work or credentials changed during verification. Nothing was saved; retry when idle.');
+      const identity = await this.credentials.prepareIdentity(input);
+      if (!stillIdle() || this.readKey() !== previous) throw new Error('Work or credentials changed during SSH-key checks. Account details were not changed.');
+      const identities = this.store.value<Record<string, string>>('cloud-ssh-identities', {});
+      for (const launch of owned) identities[launch.id] ||= this.sshIdentity(launch);
+      // Commit the verified credential before selecting the new default SSH identity.
+      if (input.apiKey) await this.credentials.saveKey(key);
+      this.store.set('cloud-ssh-identities', identities); this.credentials.select(input, identity);
+      this.quotes.clear(); this.state.configured = true; this.state.error = null;
+      return this.credentials.status(true, null);
+    } finally { this.state.busy = false; this.emit(); }
   }
   emit() {
     this.store.set('cloud-launches', this.state.launches);
@@ -385,22 +432,24 @@ export class CloudManager {
   async checkConfiguration(quote: string) {
     const selected = this.quotes.get(quote); if (!selected || selected.offer.totalHourly === null) throw new Error('Refresh the marketplace and choose an offer first.');
     const checks: { name: string; ok: boolean; message: string }[] = [];
-    const check = async (name: string, run: () => Promise<unknown>) => { try { await run(); checks.push({ name, ok: true, message: 'Passed' }); } catch (error) { checks.push({ name, ok: false, message: (error as Error).message }); } };
-    const dedicated = this.options.sshIdentity || path.join(os.homedir(), '.ssh/comfyui_vast'); const identity = existsSync(dedicated) ? dedicated : path.join(this.store.root, 'private/id_ed25519');
+    const check = async (name: string, run: () => Promise<unknown>) => { try { const value = await run(); checks.push({ name, ok: true, message: typeof value === 'string' ? value : 'Passed' }); } catch (error) { checks.push({ name, ok: false, message: (error as Error).message }); } };
+    const identity = this.sshIdentity();
     await check('Local tools, SSH authentication and deployment files', () => this.localPreflight(identity));
     await check('Existing account SSH key', async () => {
       const publicKey = (await readFile(identity + '.pub', 'utf8')).trim();
-      if (!hasRegisteredSshKey(await this.client.request('/api/v0/ssh/'), publicKey)) throw new Error('This public key will be registered when you launch. No key was changed by this check.');
+      if (!hasRegisteredSshKey(await this.client.request('/api/v0/ssh/'), publicKey)) return 'This public key will be registered when you launch. No rental or key change was requested by this check.';
     });
     await check('Exact rental ask, hardware, hourly price and transfer fees', () => this.verifyOffer(selected.offer, selected.filters, selected.offer.totalHourly!));
     return { ready: checks.every(c => c.ok), checks, checkedAt: new Date().toISOString(), rentalRequests: 0 };
   }
   assertIdle() { if (this.runner.externalGpuBusy?.() || this.runner.active || this.store.jobs().some(j => j.origin === 'render' && ['queued', 'running', 'reconnecting'].includes(j.status))) throw new Error('Cancel or finish the render queue or GPU face refinement before changing GPU instances.'); }
   change(launch: CloudLaunch, phase: CloudLaunch['phase'], message: string) { launch.phase = phase; launch.message = message; launch.updatedAt = new Date().toISOString(); this.emit(); }
-  async ensureSshKey() {
-    const dedicated = this.options.sshIdentity || path.join(os.homedir(), '.ssh/comfyui_vast'); let identity = existsSync(dedicated) && existsSync(dedicated + '.pub') ? dedicated : path.join(this.store.root, 'private/id_ed25519');
+  async ensureSshKey(launch?: CloudLaunch) {
+    const identity = this.sshIdentity(launch);
+    if (!existsSync(identity) && identity !== this.credentials.managedIdentity) throw new Error('The selected private SSH key is missing. Update Account & SSH keys before renting.');
     if (!existsSync(identity)) { await mkdir(path.dirname(identity), { recursive: true, mode: 0o700 }); await command('ssh-keygen', ['-q', '-t', 'ed25519', '-N', '', '-C', 'recast-studio', '-f', identity]); }
-    await access(identity); const publicKey = (await readFile(identity + '.pub', 'utf8')).trim(); if (!/^ssh-(ed25519|rsa) [A-Za-z0-9+/=]+/.test(publicKey)) throw new Error('The local SSH public key is invalid.');
+    await access(identity); const publicKey = (await readFile(identity + '.pub', 'utf8')).trim(); if (!/^(?:ssh-(?:ed25519|rsa)|ecdsa-sha2-nistp(?:256|384|521)) [A-Za-z0-9+/=]+/.test(publicKey)) throw new Error('The local SSH public key is invalid.');
+    if (launch) { const identities = this.store.value<Record<string, string>>('cloud-ssh-identities', {}); identities[launch.id] = identity; this.store.set('cloud-ssh-identities', identities); }
     const response = await this.client.request('/api/v0/ssh/');
     if (!hasRegisteredSshKey(response, publicKey)) {
       try { await this.client.request('/api/v0/ssh/', 'POST', { ssh_key: publicKey }); }
@@ -430,7 +479,7 @@ export class CloudManager {
       if (unresolved) throw new Error('A previous rental request or compute stop is still unconfirmed. Resolve it in My instances or Vast before creating another paid rental.');
       const existing = this.state.instances.find(i => i.managed && !i.computeStopped && i.id !== launch.instanceId);
       if (existing) throw new Error(`Instance #${existing.id} is still active. Stop or use it before renting another GPU.`);
-      const identity = await this.ensureSshKey();
+      const identity = await this.ensureSshKey(launch);
       await this.localPreflight(identity);
       const fresh = await this.verifyOffer(launch.offer, filters, ceiling, launch.approvedTransfer);
       if (this.closing || this.stopped.has(launch.id)) return;
@@ -473,7 +522,7 @@ export class CloudManager {
     if (this.stopChecks.has(launch.id)) throw new Error('Wait for stop confirmation before restarting this rental.');
     this.stopped.delete(launch.id); launch.safetyStatus = 'disarmed'; launch.setupDeadline = null; launch.lastFailure = undefined; this.state.busy = true; this.activeLaunch = launch.id; this.change(launch, 'checking', 'Checking local prerequisites before resuming this existing rental.');
     this.activeTask = (async () => { try {
-      const identity = await this.ensureSshKey(); await this.localPreflight(identity);
+      const identity = await this.ensureSshKey(launch); await this.localPreflight(identity);
       if (this.closing || this.stopped.has(launch.id)) return;
       const current = this.rawInstances.find(instance => instance.id === launch.instanceId);
       if (!current) throw new Error('The existing rental could not be confirmed. Refresh before reconnecting.');

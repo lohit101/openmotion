@@ -260,7 +260,7 @@ describe('Vast marketplace, billing and lifecycle', () => {
     if (state === 'missing') await rm(file); else await writeFile(file, ' \n');
     await cloud.refresh();
     expect(cloud.state.configured).toBe(false);
-    expect(cloud.state.error).toContain('Configure the Vast CLI');
+    expect(cloud.state.error).toContain('Account & SSH keys');
     expect(fixture.calls).toHaveLength(0);
     const reopened = new CloudManager(store!, cloud.connection, cloud.runner, cloud.repo, { backgroundSafety: false });
     expect(reopened.state.configured).toBe(false); reopened.dispose();

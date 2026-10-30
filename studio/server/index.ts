@@ -12,7 +12,8 @@ import { Runner } from './runner';
 import { filmstrip, ingest } from './media';
 import { seedExamples } from './seed';
 import { validateSelection } from './workflow';
-import { CloudManager } from './cloud';
+import { CloudManager, type CloudOptions } from './cloud';
+import { cloudAccountSchema } from '../shared/cloud-account';
 import { ModelManager } from './models';
 import { imageModelFiles, modelDefinitions, modelFilesForSettings } from '../shared/models';
 import { offerFiltersSchema } from '../shared/cloud';
@@ -39,13 +40,13 @@ import { anchoredRun, canFinishAnchoredLocally, videoDirectionFrames } from '../
 const STUDIO = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const REPO = path.dirname(STUDIO);
 const publicAsset = (asset: Asset) => ({ ...asset, path: '', poster: 'ready' });
-export async function createApplication(options: { dataRoot?: string; seed?: boolean; repo?: string; allowSSH?: boolean; catalog?: Catalog; template?: Graph; geometry?: ReferenceGeometry } = {}) {
+export async function createApplication(options: { dataRoot?: string; seed?: boolean; repo?: string; allowSSH?: boolean; catalog?: Catalog; template?: Graph; geometry?: ReferenceGeometry; cloudOptions?: CloudOptions; frontendRoot?: string } = {}) {
   const repo = options.repo || REPO;
   const store = new Store(options.dataRoot || process.env.RECAST_DATA || path.join(STUDIO, 'data'));
   const catalog: Catalog = options.catalog || JSON.parse(readFileSync(path.join(repo, 'integration-snapshot/object-info.json'), 'utf8'));
   const template: Graph = options.template || JSON.parse(readFileSync(path.join(repo, 'workflows/api/scail2_int8_swap.json'), 'utf8'));
   const connection = new ConnectionManager(store, repo, catalog), runner = new Runner(store, connection, template, repo, options.geometry);
-  const cloud = new CloudManager(store, connection, runner, repo);
+  const cloud = new CloudManager(store, connection, runner, repo, options.cloudOptions);
   const models = new ModelManager(store, connection, repo);
   runner.facial = new ManagedFacialConsistency(store, repo, connection);
   if (options.seed !== false) await seedExamples(store, repo);
@@ -94,6 +95,19 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     req.on('close', () => { clearInterval(heartbeat); store.off('event', send); });
   });
   app.get('/api/cloud', (_req, res) => res.json(cloud.state));
+  const accountWorkActive = () => models.state.busy || videoIdentity.gpuBusy || runner.busy || runner.hasUnconfirmedFaceWork() ||
+    store.jobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status));
+  app.get('/api/cloud/account', (_req, res) => { res.setHeader('Cache-Control', 'no-store'); res.json(cloud.accountStatus(accountWorkActive() ? 'Finish current model setup or generation before updating account details.' : null)); });
+  app.post('/api/cloud/account', async (req, res) => {
+    // Credential changes accept same-origin local forms, including the Vite proxy.
+    const origin = req.get('origin');
+    if (req.get('sec-fetch-site') === 'cross-site' || origin && new URL(origin).origin !== `${req.protocol}://${req.get('host')}`)
+      return void res.status(403).json({ error: 'Open Account & SSH keys in this local Recast app to save credentials.' });
+    if (accountWorkActive()) return void res.status(409).json({ error: 'Finish model setup or generation before updating account details.' });
+    const input = cloudAccountSchema.parse(req.body);
+    const account = await cloud.configureAccount(input, () => !accountWorkActive());
+    res.setHeader('Cache-Control', 'no-store'); res.json({ account, cloud: cloud.state });
+  });
   app.post('/api/cloud/idle', (req, res) => { const { enabled } = z.object({ enabled: z.boolean() }).strict().parse(req.body); idle.configure(enabled); res.json(cloud.state); });
   app.get('/api/models', async (_req, res) => res.json(await models.refresh()));
   app.post('/api/models/download', async (req, res) => {
@@ -298,7 +312,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     if (req.query.download) res.attachment(`${job.title.replace(/[^a-zA-Z0-9 _-]/g, '').slice(0, 70)}.mp4`);
     res.sendFile(target);
   });
-  const frontend = path.join(STUDIO, 'dist');
+  const frontend = options.frontendRoot || path.join(STUDIO, 'dist');
   if (existsSync(frontend)) { app.use(express.static(frontend)); app.get('/{*path}', (_req, res) => res.sendFile(path.join(frontend, 'index.html'))); }
   app.use((error: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     const message = error instanceof z.ZodError ? error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join(' ') : error.code === 'LIMIT_FILE_SIZE' ? 'Videos can be up to 512 MB.' : error.message || 'This action could not be completed.';
