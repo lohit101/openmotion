@@ -1,0 +1,382 @@
+{
+  "complete": true,
+  "date": "2026-10-30",
+  "kind": "private-post-calibration-eye-detail-study",
+  "productionRecipeChanged": false,
+  "newViggleInference": false,
+  "newImagenInference": false,
+  "newGpuSession": false,
+  "execution": "CPU on this Mac; no production model manifest changes",
+  "baseProfileSHA256": "4520b9613ed3e9d9b5e105baa85cc3332064d3564a0e759fa2af91426ac65239",
+  "nativeEyeRuns": [
+    {
+      "parentJobId": "f38f587d-47fc-431f-bb3a-6b632c147108",
+      "managedV4JobId": "be772f58-e340-4266-900f-64e55faa05c0",
+      "receiptSHA256": "ad3eca457aa75891f3c7e1b6d1f3717cbf41204a3d1f1ae9698b4a7fcab5d1b0",
+      "workerSHA256": "f641453c6215391795f5b0715c465484fb78bcca024a5c952fc7d4297b44cd5a",
+      "baseArchiveSHA256": "d6b16f62365d9b7477e379803d65b7606523f48c93bb0cc99c840963e09adbce",
+      "frames": 355,
+      "cpuWallSeconds": 287.51707691699266,
+      "originalUncertainFramesRetained": 0,
+      "bothClosedOrHiddenEyeFramesUnchanged": 17,
+      "outputs": {
+        "rgb35": {
+          "sha256": "59bbfdd29acf42082a58d3c2d4173d97f3728c086b52d16402d7ffe54ec8301f",
+          "frames": 355,
+          "fps": 24,
+          "originalAudioPacketsExact": true,
+          "reconstructedPreEncodeFrameHashesVerified": true
+        },
+        "rgb100": {
+          "sha256": "7d09a142e187c4afa6117e69cbd23663f8cdcca262a7e5a73a87969b54612158",
+          "frames": 355,
+          "fps": 24,
+          "originalAudioPacketsExact": true,
+          "reconstructedPreEncodeFrameHashesVerified": true
+        },
+        "high-frequency35": {
+          "sha256": "7f26a78e29659a4fc5acbd4fbffe09f03df64c32ad107d65a8138aae780cceb4",
+          "frames": 355,
+          "fps": 24,
+          "originalAudioPacketsExact": true,
+          "reconstructedPreEncodeFrameHashesVerified": true
+        }
+      }
+    },
+    {
+      "parentJobId": "196f011e-6487-4a44-a655-fb13fc4672ca",
+      "managedV4JobId": "15fe6e19-2448-41ba-b74f-b919483fe812",
+      "receiptSHA256": "7c300aa3784ae4623f8c4923c7375882b592c76b72815db07192d2d937bd0b3b",
+      "workerSHA256": "f641453c6215391795f5b0715c465484fb78bcca024a5c952fc7d4297b44cd5a",
+      "baseArchiveSHA256": "3a451c719e5a11b341f7486d8098bd5e043e122b2ff4de57370982f967e2ed07",
+      "frames": 216,
+      "cpuWallSeconds": 165.06705358298495,
+      "originalUncertainFramesRetained": 0,
+      "bothClosedOrHiddenEyeFramesUnchanged": 10,
+      "outputs": {
+        "rgb35": {
+          "sha256": "c1320ac078dca5898352efc420bc18f5aa0b0eb9f7590b573af07f3255ce3985",
+          "frames": 216,
+          "fps": 24,
+          "originalAudioPacketsExact": true,
+          "reconstructedPreEncodeFrameHashesVerified": true
+        },
+        "rgb100": {
+          "sha256": "04fe7a9b9667ca881f540d0c5a6fa5cea332e881cb655bd788aabd5ad3b38d88",
+          "frames": 216,
+          "fps": 24,
+          "originalAudioPacketsExact": true,
+          "reconstructedPreEncodeFrameHashesVerified": true
+        },
+        "high-frequency35": {
+          "sha256": "9632fdad15113f322ee4410796f8cdd4946a0ef70652320fd635de5a66928d43",
+          "frames": 216,
+          "fps": 24,
+          "originalAudioPacketsExact": true,
+          "reconstructedPreEncodeFrameHashesVerified": true
+        }
+      }
+    },
+    {
+      "parentJobId": "f179f035-44e7-4c3a-8ad6-70002aedd60d",
+      "managedV4JobId": "15fab314-24c5-40aa-a5d2-9ee250e6cc5d",
+      "receiptSHA256": "95ef7d0bfbc2c64ffda350fe66b34f39a8707fe773ba72fb79b5dc3d286fe498",
+      "workerSHA256": "f641453c6215391795f5b0715c465484fb78bcca024a5c952fc7d4297b44cd5a",
+      "baseArchiveSHA256": "9f389614270dd02d5abb6ec98323db202f3486255b655df22b0adda0cfabfbff",
+      "frames": 240,
+      "cpuWallSeconds": 202.2596347919898,
+      "originalUncertainFramesRetained": 10,
+      "bothClosedOrHiddenEyeFramesUnchanged": 31,
+      "outputs": {
+        "rgb35": {
+          "sha256": "e736801a9467122ef84420029df24aa6b316f7ddb13f1b52857a65da82d1ceed",
+          "frames": 240,
+          "fps": 24,
+          "originalAudioPacketsExact": true,
+          "reconstructedPreEncodeFrameHashesVerified": true
+        },
+        "rgb100": {
+          "sha256": "98815d82a2ea9328f0429207fafb1937517b7a7aa3906153a55d3aa73a8902c1",
+          "frames": 240,
+          "fps": 24,
+          "originalAudioPacketsExact": true,
+          "reconstructedPreEncodeFrameHashesVerified": true
+        },
+        "high-frequency35": {
+          "sha256": "a72308d70abcbafe48d71d97f15ff1001cf9f9e04a40e32db6cfd249198a78d0",
+          "frames": 240,
+          "fps": 24,
+          "originalAudioPacketsExact": true,
+          "reconstructedPreEncodeFrameHashesVerified": true
+        }
+      }
+    }
+  ],
+  "stillsStudies": {
+    "restoration": {
+      "receiptSHA256": "adb8a23935e10d639139253d05ea335fc043dafd00c41a26e458e7ce71e1feea",
+      "workerSHA256": "060c1140ccc0a861585d19969b772be34fbcb650be3459a6934d2338d193cea4",
+      "frames": 9,
+      "cpuWallSeconds": 108.06322779098991,
+      "fullVideoValidated": false,
+      "records": [
+        {
+          "parentJobId": "f38f587d-47fc-431f-bb3a-6b632c147108",
+          "frame": 32,
+          "outputsSHA256": {
+            "v4 baseline": "5acfb32837fa90d45b79c8db59b7c0d09da59632bb9ddc4f0377a4bbffb5db30",
+            "native RGB100": "5acfb32837fa90d45b79c8db59b7c0d09da59632bb9ddc4f0377a4bbffb5db30",
+            "CodeFormer eyes 35": "5acfb32837fa90d45b79c8db59b7c0d09da59632bb9ddc4f0377a4bbffb5db30",
+            "CodeFormer eyes 70": "5acfb32837fa90d45b79c8db59b7c0d09da59632bb9ddc4f0377a4bbffb5db30",
+            "CodeFormer face25": "af1ae0cee5d17f26fe872b38b3a9d9fa768f20bde0714a98a2adb418c2c0d657"
+          },
+          "fidelityWeight": 1.0,
+          "modelCpuSeconds": 9.04013316705823
+        },
+        {
+          "parentJobId": "f38f587d-47fc-431f-bb3a-6b632c147108",
+          "frame": 49,
+          "outputsSHA256": {
+            "v4 baseline": "7c17ea840c0038e695b85a398fb530bb970949aa78719f5cc102dcd252b631ec",
+            "native RGB100": "60f2dfce2a8296a6d263afcae872ba7edaea58f247c8d2df09ded67a8aa29c3a",
+            "CodeFormer eyes 35": "d5f12ec0ad3d9d9f38e341ea98072dee6d9b7237d6edd86af879bd956516eaa1",
+            "CodeFormer eyes 70": "36b027654b05d162307cb1bbbc8215ff7debc2ab810169672bda8dfbc9570d31",
+            "CodeFormer face25": "c8a2dbf95f667e16122c577a4e62826d8637193dd77279aae1623c763ee33e0c"
+          },
+          "fidelityWeight": 1.0,
+          "modelCpuSeconds": 10.07507837493904
+        },
+        {
+          "parentJobId": "f38f587d-47fc-431f-bb3a-6b632c147108",
+          "frame": 98,
+          "outputsSHA256": {
+            "v4 baseline": "7dbda257693d1bd84049dfc32926c4dbc8de7495fb2ba5f66dd69463ad872c8a",
+            "native RGB100": "77851c430bf1884437696359edf7a62855de8d339c75dd73694c4d93d39f15d9",
+            "CodeFormer eyes 35": "fdd86673d7157c970f256d93e7986397c160fd96e0e443d1e374f03ffd0d861c",
+            "CodeFormer eyes 70": "95f2882310aa1dfdc77dc351ccf242e8cac300e5ead717ecc51ef50693cb3f2e",
+            "CodeFormer face25": "11a8c46a98d2eba209e9c0cc7f98317283ccc13e954887c5c8e04223fc7e78b6"
+          },
+          "fidelityWeight": 1.0,
+          "modelCpuSeconds": 9.502647208049893
+        },
+        {
+          "parentJobId": "f38f587d-47fc-431f-bb3a-6b632c147108",
+          "frame": 332,
+          "outputsSHA256": {
+            "v4 baseline": "1d05dd94f93fc047bfb8e2e17e95182d8e78cbbded48385664bcf82be35b3106",
+            "native RGB100": "6f9ee614435d53286b85c530f06ecfd32b0d900f799a6ae10d3f74a59657e54c",
+            "CodeFormer eyes 35": "4a895c0019b0842f588993bdda085439d95c2b06e3fe295f66f0bf9d5ef112e3",
+            "CodeFormer eyes 70": "5cb10d0cbf928a2569675dd2fe7d6035c817cd4fc03f9e339c52371c7f14e46d",
+            "CodeFormer face25": "4e4203031a4920951fc5e973e86685c0d70dc86847ef119caac9fcb2b0e15228"
+          },
+          "fidelityWeight": 1.0,
+          "modelCpuSeconds": 8.057132959016599
+        },
+        {
+          "parentJobId": "196f011e-6487-4a44-a655-fb13fc4672ca",
+          "frame": 45,
+          "outputsSHA256": {
+            "v4 baseline": "9261c34f81ffdd36ff00ec19b5a7be28f942c5951af14c7431c51c15ccb5d1df",
+            "native RGB100": "a6af289f50476df4b5671b9c190f64870eb16fbabe520f38dc2b5df0c295b9cc",
+            "CodeFormer eyes 35": "fd2a4c2704c3b9c66eb5a7c579064f9a5c5d0f72337fa5373a0373993912353b",
+            "CodeFormer eyes 70": "388655bfdb1d72e803dfb860345fd1b9f7fb7455c3bff6e567e5850c724a8fe6",
+            "CodeFormer face25": "037254abb87a0794825d75bbf852ad8bc55fa5b2494e1147bc11b2b2ad570b7b"
+          },
+          "fidelityWeight": 1.0,
+          "modelCpuSeconds": 8.315161042031832
+        },
+        {
+          "parentJobId": "196f011e-6487-4a44-a655-fb13fc4672ca",
+          "frame": 169,
+          "outputsSHA256": {
+            "v4 baseline": "1a4551ee04b8dec26ea093184a234d1ee8ae73b222b7ab9576aade749d91c455",
+            "native RGB100": "329ac5737a51c683d29de64001a31d0fbcfa1d4079001578e650c20350c3256e",
+            "CodeFormer eyes 35": "363da3f2b40da52f19317720330f30d3fc2896690d26a5f5fcddf29759e77b12",
+            "CodeFormer eyes 70": "f8f591e4ef8e373a0c96bddfc819f4e3baf88899e81d6f8c1e40b386ca45c46e",
+            "CodeFormer face25": "014b76f608209ea3086455fac04ca7e170cac0ff3fa40bb6ec93ae52cecbfcc3"
+          },
+          "fidelityWeight": 1.0,
+          "modelCpuSeconds": 8.53804245905485
+        },
+        {
+          "parentJobId": "196f011e-6487-4a44-a655-fb13fc4672ca",
+          "frame": 215,
+          "outputsSHA256": {
+            "v4 baseline": "c55fec329742349904e7a9f562265b68b77f90dd1e15f5649526b55252ce325a",
+            "native RGB100": "c55fec329742349904e7a9f562265b68b77f90dd1e15f5649526b55252ce325a",
+            "CodeFormer eyes 35": "c55fec329742349904e7a9f562265b68b77f90dd1e15f5649526b55252ce325a",
+            "CodeFormer eyes 70": "c55fec329742349904e7a9f562265b68b77f90dd1e15f5649526b55252ce325a",
+            "CodeFormer face25": "467edf8506d31886a973c69c8d79e07b1e4e7719e8650b2f453897c265483187"
+          },
+          "fidelityWeight": 1.0,
+          "modelCpuSeconds": 8.017438207985833
+        },
+        {
+          "parentJobId": "f179f035-44e7-4c3a-8ad6-70002aedd60d",
+          "frame": 0,
+          "outputsSHA256": {
+            "v4 baseline": "8d916c8736361f031aa4f914662e1f54657369f3c75ecb3b6e9e64907bc5c853",
+            "native RGB100": "dc41fc047c772c6cedb985c5efae8bc2f6e96fdcecd0494ce231a6b42ab2e909",
+            "CodeFormer eyes 35": "a06d26b6d22ffb8c0a2eda4b10c8a7cd6a20f263144790184a2bdb774932d5fd",
+            "CodeFormer eyes 70": "ef3b3cb77508fbb1b1e8f8784048278523d62190408a9f0c95b17f00be52229f",
+            "CodeFormer face25": "cbf3bdd4eee88063c209033e6491f67e154cadea945cccb2f97a65ae5f3f0c56"
+          },
+          "fidelityWeight": 1.0,
+          "modelCpuSeconds": 9.755651790997945
+        },
+        {
+          "parentJobId": "f179f035-44e7-4c3a-8ad6-70002aedd60d",
+          "frame": 180,
+          "outputsSHA256": {
+            "v4 baseline": "c7b992faeb3edfc5cbd8548cfe72088e16e9f4d78dc64239fcc7623e49e2fac0",
+            "native RGB100": "9cead35280680489272539fad3950c386922caa0e62244bd3accc5ba2d27ecca",
+            "CodeFormer eyes 35": "50f0697aef7fa174179da1be0f64de51873ad9929c496112498acc93d0e79fbc",
+            "CodeFormer eyes 70": "133eae8b8797c58151c6628e23f93c7972c8934948becff29ce221f681c51ef6",
+            "CodeFormer face25": "b596d7c5a51d580f711fb084e16313285c3d364b48087f69f30b9c19f8d4ceec"
+          },
+          "fidelityWeight": 1.0,
+          "modelCpuSeconds": 8.529994125012308
+        }
+      ],
+      "additionalModel": {
+        "repository": "facefusion/models-3.0.0",
+        "revision": "728b9659bd9691bf32cbf7f61af478d94b7ba81e",
+        "file": "codeformer.onnx",
+        "size": 376951650,
+        "sha256": "21710e7ab61c82683576c428e9c1b6fe1ed419586b7b39e394c3449c294b550f",
+        "installedOn": "Mac private evaluation only",
+        "installedOnGpu": false
+      }
+    },
+    "identityResolution": {
+      "receiptSHA256": "c1b489b2aa9fd64d9d196c769ad6c0349556e12624747dafc1fe4b7e9ff47e91",
+      "workerSHA256": "f146738022acd8dab4ab27e7aa83e8a981258682e023fc9e6ef67b1881f824ef",
+      "frames": 9,
+      "cpuWallSeconds": 163.09024395805318,
+      "fullVideoValidated": false,
+      "records": [
+        {
+          "parentJobId": "f38f587d-47fc-431f-bb3a-6b632c147108",
+          "frame": 32,
+          "outputsSHA256": {
+            "pixel512": "5ad2a643c39d7e27ea94b15079438240cb1fd55784e50805872110cc43cad5bf",
+            "native256": "90a5ca86ad5d8b3830558cdda79c85801e20eab42da2eb26ef21fb021186fe3e",
+            "native256-texture": "5a1e5ddf3af4633a1116114eeecca2c2b90bd8072fda181f864696cc77268cce"
+          },
+          "baselineMatchesPriorActualCPU": null
+        },
+        {
+          "parentJobId": "f38f587d-47fc-431f-bb3a-6b632c147108",
+          "frame": 49,
+          "outputsSHA256": {
+            "pixel512": "72b36bf7df05442aa212f25ba9474e270338a1c45d0239edd8f7e29047c1c74f",
+            "native256": "d663ce4b1400e3fea3d0c702cab94c646de513162ff8925d542df91f9db8e8de",
+            "native256-texture": "b4ce02c650d2115865ef7b61312cba6bee6564dba0f06a8752677cd654d3bd24"
+          },
+          "baselineMatchesPriorActualCPU": null
+        },
+        {
+          "parentJobId": "f38f587d-47fc-431f-bb3a-6b632c147108",
+          "frame": 98,
+          "outputsSHA256": {
+            "pixel512": "cfe592e330103f8568af8f59b25d9b830e5080e0808d2a548306eb2bf4ccdef1",
+            "native256": "c8b1e9c7af512eccf610cf807ba0181fcb78dd02f76e093f9cb6ab3eaa544d6b",
+            "native256-texture": "c1811f1dc066efa523e2247cb68e90131737f0291ddb2c208607f99a0fbdd714"
+          },
+          "baselineMatchesPriorActualCPU": true
+        },
+        {
+          "parentJobId": "f38f587d-47fc-431f-bb3a-6b632c147108",
+          "frame": 332,
+          "outputsSHA256": {
+            "pixel512": "c7b10b83d97991d24d7770c331a7e1be19fbb39c721080372ff444a5c15db1a2",
+            "native256": "915920ded72b94f42dca49197a732e7c4e05898396b96cd211204fdcaa66e2b2",
+            "native256-texture": "bf05e29a31835a7f608167b969599a25c94d3cc710d0c78092602acda4611ae4"
+          },
+          "baselineMatchesPriorActualCPU": null
+        },
+        {
+          "parentJobId": "196f011e-6487-4a44-a655-fb13fc4672ca",
+          "frame": 45,
+          "outputsSHA256": {
+            "pixel512": "9924afac54d2b212af50790924586f6ecda3538ad56c8c358b33dd1905b59d29",
+            "native256": "c9de1f4a7889906d5715c5a411b7889c303fcc98371d67f16401df2c3279e3e8",
+            "native256-texture": "fa6e20378ae56304d9675817dc02282df4a7939cb3ba425c9de3eccbc82081d7"
+          },
+          "baselineMatchesPriorActualCPU": true
+        },
+        {
+          "parentJobId": "196f011e-6487-4a44-a655-fb13fc4672ca",
+          "frame": 169,
+          "outputsSHA256": {
+            "pixel512": "aa5a66cadf1e92e1cb6521302892ec45cb1e1a780ccd9cc8cf9da43004c3c70f",
+            "native256": "cf4b21269f447fb8fd77d76bf5717edb7d250349c8c6ae72b02d0948c6651838",
+            "native256-texture": "9fd0f4f1400ce2629634af1a3eef56da3f81b16464e0cea8d40378430a9e51b1"
+          },
+          "baselineMatchesPriorActualCPU": null
+        },
+        {
+          "parentJobId": "196f011e-6487-4a44-a655-fb13fc4672ca",
+          "frame": 215,
+          "outputsSHA256": {
+            "pixel512": "0ae060a12456074cb68ff67c3bbe678a2fe81d8b43a6fe9611875b36a863f9ed",
+            "native256": "e4fcbdda1d786113e0ffc8e1c23830797759b983bb5c4aa69ffc08686f7eaf01",
+            "native256-texture": "da523014265674b41397448ff2bf969297980791db827e947a5791a894d866d0"
+          },
+          "baselineMatchesPriorActualCPU": true
+        },
+        {
+          "parentJobId": "f179f035-44e7-4c3a-8ad6-70002aedd60d",
+          "frame": 0,
+          "outputsSHA256": {
+            "pixel512": "67702319b8c36c6aa000f1a381424f3e45ac083dc93c3ddd6c8e7234e1d73566",
+            "native256": "b7e718d6a616c2fb261079a294b45c5dd633077e5512269daf26a79c4ce60246",
+            "native256-texture": "0e640e0f132a6a27f8bbc781ad7e8b215ae7ac866cc72fd6ea1bf3302e38bd7e"
+          },
+          "baselineMatchesPriorActualCPU": true
+        },
+        {
+          "parentJobId": "f179f035-44e7-4c3a-8ad6-70002aedd60d",
+          "frame": 180,
+          "outputsSHA256": {
+            "pixel512": "b62ca619dc6b3da99ff303994f3acb24349119cb1b3c16e98bec0c595f09c640",
+            "native256": "b6fb31c9509922d3726f86e6a13c81e86897068becab0d9c3e818b68696256d7",
+            "native256-texture": "f255ea4ba2826162c209b9e6fe883f311c24c0b553d26c587a87368697847e68"
+          },
+          "baselineMatchesPriorActualCPU": null
+        }
+      ]
+    }
+  },
+  "limitations": [
+    "Frame counts, protected-pixel checks and flow diagnostics are not identity, gaze or realism scores.",
+    "The native-eye recipe uses detail from the same raw animation, which can itself contain wrong pupils or gaze.",
+    "No full-video CodeFormer or identity-resolution timing/temporal claim is established.",
+    "CPU wall times include detection, parsing, compositing and three parallel encodes; they are not GPU or complete Generate times.",
+    "Protected-pixel equality applies before lossy MP4 encoding."
+  ],
+  "validatedAt": "2026-10-30T04:44:03.989756+00:00",
+  "observations": {
+    "nativeEyeDetail": "Main frame 98 shows modest additional iris definition at RGB100; source blink and eyebrow/edge intervals plus normal-speed playback were inspected. Exact gaze/identity and universal temporal fidelity remain unproved. Other two full exports are available, but not yet reviewed in full motion for this post-pass.",
+    "restoration": "Selected stills show sharper pupils at eyes35/eyes70, with brighter/glassy appearance at stronger settings. Face25 smooths appearance. No complete restoration video was made.",
+    "identityResolution": "Native 256 is softer in inspected stills; retained input detail does not demonstrate a clear advantage. Existing identity route remains unchanged.",
+    "decision": "Keep production source-face-v4 immutable. None of these private detail candidates is enabled by default."
+  },
+  "providerObservation": {
+    "checkedAt": "2026-10-30T04:43:03.934697+00:00",
+    "instances": [
+      {
+        "id": 58291560,
+        "actual": "exited",
+        "intended": "stopped"
+      }
+    ],
+    "newGpuSessionForStudy": false
+  },
+  "viewerValidation": {
+    "javascriptSyntax": "passed",
+    "nativeBrowser": "Three and four populated panels, native RGB100 selection, named main issue frames, 0.5x eye loop and 1x full main playback reached frame 354/354. User subsequently switched to Library; do not take over their active tab.",
+    "newStillGallery": "Hash-verified restoration and identity-resolution contact sheets; lazy images and separate still-only captions."
+  },
+  "additionalGpuComputeCostUsd": 0
+}

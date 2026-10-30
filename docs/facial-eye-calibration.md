@@ -45,3 +45,27 @@ The implementation passed 436 Studio tests in 39 files, forty focused Python che
 Compute was independently confirmed `exited` / intended `stopped` at 03:30:46 UTC, with the original five-minute idle preference restored. The measured session estimate is about $0.177 compute, or $0.184 including retained disk during that interval, plus media/network transfers and subsequent retained storage. This includes setup, archive movement and recovery testing; it is not an invoice or a per-clip price.
 
 See the [sanitized validation record](validation/facial-eye-calibration-20261030.json). Private media, per-frame records, face calibration vectors and full local evidence remain ignored under `backups/face-artifacts-20261030/v4-validation/`.
+
+## Private detail studies after v4
+
+Three additional CPU studies test the remaining softness without changing the frozen v4 recipe, Studio preferences, paid animations or image/video inference. They remain evaluation candidates in the private comparison page.
+
+The native-eye post-pass reuses the exact lossless v4 frames and the same raw animation. It limits changes to source-visible eye interiors, uses forward/backward optical-flow confidence and XSeg occlusion, and asserts unchanged pixels outside its projected permission mask before encoding. The three candidates apply up to 35% or 100% registered RGB difference, or 35% high-frequency difference. Those are detail weights, not identity strengths. Confidence, visibility and inward feathering reduce the actual contribution. Closed/hidden eyes and untrackable faces retain the v4 frame.
+
+| Existing clip | Frames | CPU wall time for three variants | Frames with no eye edit |
+| --- | ---: | ---: | ---: |
+| Hair across eyes | 355 | 287.517 s | 17 |
+| Later-reference continuity | 216 | 165.067 s | 13 |
+| Portrait and hand occlusion | 240 | 202.260 s | 36 |
+
+These CPU times include parsing, registration, compositing and three encodes; the first also ran alongside a separate CPU still study. They are not GPU timings or complete Generate times. All original uncertain-face frames remain unchanged before compression, including the ten portrait frames retained by v4. Independent patch reconstruction verifies each saved pre-encode frame hash; export checks verify decoded timing/count, final file hashes and original audio packets.
+
+In the main clip, RGB100 gives some additional iris definition at frame 98. The blink/brow/edge intervals and normal-speed playback were checked against v4. This is a modest detail change; it does not establish exact gaze or likeness. The other complete clips are available for review, with their source-motion event buttons. No native-eye candidate has replaced the production compositor.
+
+A separate nine-frame study uses the official FaceFusion CodeFormer ONNX file, pinned revision `728b9659bd9691bf32cbf7f61af478d94b7ba81e`, SHA-256 `21710e7ab61c82683576c428e9c1b6fe1ed419586b7b39e394c3449c294b550f`. The 376,951,650-byte file was downloaded only into this Mac's ignored evaluation cache. There is no GPU model transfer or new product download requirement. The experiment uses FFHQ-aligned 512-pixel faces and fidelity weight 1.0; the upstream model exposes a quality/fidelity trade-off rather than an identity guarantee. See the [official CodeFormer instructions](https://github.com/sczhou/CodeFormer#testing) and [FaceFusion enhancer implementation](https://github.com/facefusion/facefusion/blob/master/facefusion/processors/modules/face_enhancer/core.py).
+
+The nine CodeFormer stills took 108.063 seconds on CPU, with 8.017–10.075 seconds per restoration-model call. Eye-only 35% and 70% blends sharpen some pupils; the stronger blend can look brighter or glassy. A 25% face-wide comparison smooths appearance. These are still-only findings; temporal stability and GPU latency have not been measured. None is enabled in the product.
+
+The third study changes only the identity inference resolution: the current interleaved 512-pixel route versus one native 256-pixel pass, with or without retained input detail. It keeps the source, donor, saved calibration, 60% identity blend and compositor fixed. Nine still comparisons took 163.090 seconds on CPU. Four available control images match the previous actual CPU baseline exactly. The native 256-pixel route is softer in the inspected frames; adding input detail does not demonstrate a clear improvement. The existing identity path stays unchanged.
+
+The viewer now separates still studies from full video candidates, loads its fourth video only when requested, releases media on page exit, and reports the failing media panel when decoding fails. Its JavaScript syntax and three-/four-panel playback were checked. Media remain loopback-only and ignored. See the [sanitized detail-study record](validation/facial-eye-detail-20261030.json). No additional GPU session was started for these studies; five-minute idle pause remains enabled. The wider goal remains active: likeness, exact gaze, closure and fine texture are still imperfect.
