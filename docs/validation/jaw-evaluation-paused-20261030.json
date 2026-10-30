@@ -1,0 +1,147 @@
+{
+  "status": "paused-at-user-request",
+  "checkpointCommit": "9e7fd7e",
+  "branch": "wip/adaptive-jaw-20261030-paused",
+  "enabledInApp": false,
+  "newViggleOrImagenInference": false,
+  "newTestGpuComputeUsdPerHour": 0.2533333333333333,
+  "newTestGpuTotalUsdPerHour": 0.2829629629629629,
+  "maskCohortFrames": 1722,
+  "heldOutFrames": 435,
+  "allSixteenTerminalExportsSHA256Verified": true,
+  "allPaidRawParentsAlreadyLocal": true,
+  "fullPngBackupComplete": false,
+  "managedRecipeValidationComplete": false,
+  "independentGpuPermissionReplayComplete": false,
+  "newProductionBuildOrReload": false,
+  "softwareChecks": {
+    "studioTests": 451,
+    "facePythonChecks": 40,
+    "workerProtocolChecks": 4,
+    "launchChecks": 5,
+    "memoryChecks": 8,
+    "modelProfileChecks": 7,
+    "typescriptCheck": true,
+    "privateViewerSyntax": true
+  },
+  "cases": [
+    {
+      "parentJobId": "da57fbd2-0084-4276-ba79-f5a06a8f6959",
+      "role": "development-regression",
+      "frames": 356,
+      "refined": 356,
+      "retainedUncertainFrames": 0,
+      "jawPermissionExpandedFrames": 310,
+      "workerSeconds": 494.59941393404733,
+      "outputSHA256": {
+        "control": "bf0de8639df9accf4fea87145ada59d9d5e40426f2ab998fddccb044c82dc12e",
+        "jaw-fixed": "1b07fe2fba8a4f4730563fb56bd88b055b26e96130c7651cf59ed1b8e7aec627"
+      }
+    },
+    {
+      "parentJobId": "d8a6b683-ce09-46fe-a2cc-5a89fa8d9456",
+      "role": "development-regression",
+      "frames": 120,
+      "refined": 120,
+      "retainedUncertainFrames": 0,
+      "jawPermissionExpandedFrames": 84,
+      "workerSeconds": 175.26482811802998,
+      "outputSHA256": {
+        "control": "d23ebe1d8cb7f57942181581ff3d4cb17c4ff7c1c6a06d115be6a3ca6b4d21db",
+        "jaw-fixed": "6d26e0b52f139d817315795b0d6726598025565585040127d3babdac49df2a17"
+      }
+    },
+    {
+      "parentJobId": "f38f587d-47fc-431f-bb3a-6b632c147108",
+      "role": "development-regression",
+      "frames": 355,
+      "refined": 355,
+      "retainedUncertainFrames": 0,
+      "jawPermissionExpandedFrames": 196,
+      "workerSeconds": 527.5337300479878,
+      "outputSHA256": {
+        "control": "86866a2f9a45cee8e968f4f0fc563e4f9872a86ebc6c36c60928c3a23a7b3cca",
+        "jaw-fixed": "8891617897882e0c599eccd73657222a438957ddcf7707345b9ff76ace9bc040"
+      }
+    },
+    {
+      "parentJobId": "196f011e-6487-4a44-a655-fb13fc4672ca",
+      "role": "development-regression",
+      "frames": 216,
+      "refined": 216,
+      "retainedUncertainFrames": 0,
+      "jawPermissionExpandedFrames": 216,
+      "workerSeconds": 353.13653871498536,
+      "outputSHA256": {
+        "control": "cb5050deb1a1389424424d2eeda76739d808ee9141be647db31066ef1de45964",
+        "jaw-fixed": "7a4bb0595d19bf009939e4c8f00ca2f6fcacc0e24e9c068f2e768557e4d85372"
+      }
+    },
+    {
+      "parentJobId": "f179f035-44e7-4c3a-8ad6-70002aedd60d",
+      "role": "development-regression",
+      "frames": 240,
+      "refined": 230,
+      "retainedUncertainFrames": 10,
+      "jawPermissionExpandedFrames": 199,
+      "workerSeconds": 319.8234114330262,
+      "outputSHA256": {
+        "control": "791c33a07fa628d684aa185e73830ac2e49b7c0f028e297d76ec74810fd88ee4",
+        "jaw-fixed": "6d71d18d5959e097db7b2508ba75e2c5a7ed64fbee75370db092220b40ef7e84"
+      }
+    },
+    {
+      "parentJobId": "307e0451-b94f-4750-a54c-cccf298a5ea5",
+      "role": "held-out-no-parameter-tuning",
+      "frames": 51,
+      "refined": 48,
+      "retainedUncertainFrames": 3,
+      "jawPermissionExpandedFrames": 47,
+      "workerSeconds": 61.269140417920426,
+      "outputSHA256": {
+        "control": "6d292d81ecb8aab97847e8109086e969aaaf4173cea4bff138b4f2174d8df43f",
+        "jaw-fixed": "5659795c13055a204a1d0fdc67dd1f0d38ecd5097bea177fa3a649d71146358f"
+      }
+    },
+    {
+      "parentJobId": "c9cf894b-d48d-4c21-9c9c-970c9474a404",
+      "role": "held-out-no-parameter-tuning",
+      "frames": 24,
+      "refined": 19,
+      "retainedUncertainFrames": 5,
+      "jawPermissionExpandedFrames": 19,
+      "workerSeconds": 27.333334436058067,
+      "outputSHA256": {
+        "control": "ccb4fe5cf054d228f27cf03c3e44cb967a0682cfe03d34f8e979e3038d80ec5b",
+        "jaw-fixed": "18f0fed695b752ff222c3667136f71882403baf38ccfd7e5db038e9b7a0ec4a1"
+      }
+    },
+    {
+      "parentJobId": "6d1e446a-52d1-4df9-a99e-bba2f2458811",
+      "role": "held-out-no-parameter-tuning",
+      "frames": 360,
+      "refined": 360,
+      "retainedUncertainFrames": 0,
+      "jawPermissionExpandedFrames": 332,
+      "workerSeconds": 472.87535566906445,
+      "outputSHA256": {
+        "control": "85737c88cbd145aac82c660fa5a9195bebbe23dcd49a4bd43651f5b5e2838a4f",
+        "jaw-fixed": "c6186054cefea650dcc77fcd5a729211d18fd8d2ae4281c9e0f4e3e87dd9dceb"
+      }
+    }
+  ],
+  "provider": {
+    "checkedAt": "2026-10-30T11:30:14.065313+00:00",
+    "instances": [],
+    "testRentalListed": false,
+    "originalRentalListed": false
+  },
+  "dashboardInstances": [],
+  "idlePauseRestored": true,
+  "notes": [
+    "The new GPU was no longer listed when independently checked; do not describe it as a successfully confirmed stop response.",
+    "Controllers exited after SSH failure; no new native v6/v7/v8 tests completed.",
+    "All matched control/candidate MP4s and receipts are local; only part of the raw PNG/crop backup completed before the rental disappeared.",
+    "Sampled jaw improvement and passing integrity checks do not establish universally flawless anatomy, identity, gaze or realism."
+  ]
+}
