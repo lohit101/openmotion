@@ -50,6 +50,25 @@ def call(config, action, job=None, capture=True, version=None):
     return json.loads(rows[-1])
 
 
+def prepare_memory(config, job, phase):
+    # Run the small admission helper before CUDA initialization, including when
+    # recovering an older paid recipe. It is independent of recipe fingerprints.
+    source = (ROOT / 'scripts/facial_memory.py').read_text()
+    try:
+        value = vast.remote(config, ['python3', '-c', source, str(remote_root(config)), job, phase],
+                            capture_output=True, text=True)
+    except subprocess.CalledProcessError as error:
+        try:
+            if call(config, 'poll', job).get('running') is False:
+                print('RECAST_FACIAL_STOPPED', flush=True)
+        except (ValueError, OSError, subprocess.SubprocessError):
+            pass
+        raise ValueError((error.stderr or 'Could not verify free GPU memory before facial processing. Saved video was kept.')[-2000:]) from None
+    result = json.loads(value.stdout)
+    print('RECAST_FACIAL_MEMORY ' + json.dumps(result), flush=True)
+    return result
+
+
 def upload_runtime(config):
     root = remote_root(config)
     names = ['scripts/download_models.py', 'scripts/facial_runtime.py', 'scripts/facial_worker.py', 'scripts/video_timing.py', 'scripts/face_performance.py', 'scripts/scene_face_composite.py', 'scripts/face_feature_cleanup.py', 'scripts/face_eye_calibration.py',
@@ -201,6 +220,13 @@ def main():
     write_request(config, folder, 'request.json', request)
     sync(config, str(reference), str(folder / 'reference.png'))
     if args.action == 'preflight':
+        if cancelled:
+            print('RECAST_FACIAL_STOPPED\nRECAST_FACIAL_CANCELLED', flush=True)
+            raise ValueError('Facial reference check cancelled before GPU submission.')
+        prepare_memory(config, job, 'preflight')
+        if cancelled:
+            print('RECAST_FACIAL_STOPPED\nRECAST_FACIAL_CANCELLED', flush=True)
+            raise ValueError('Facial reference check cancelled before GPU submission.')
         try:
             value = call(config, 'preflight', job)
         except subprocess.CalledProcessError as error:
@@ -230,6 +256,10 @@ def main():
     if cancelled:
         print('RECAST_FACIAL_STOPPED', flush=True)
         print('RECAST_FACIAL_CANCELLED', flush=True)
+        raise ValueError('Facial processing cancelled before GPU submission.')
+    prepare_memory(config, job, 'run')
+    if cancelled:
+        print('RECAST_FACIAL_STOPPED\nRECAST_FACIAL_CANCELLED', flush=True)
         raise ValueError('Facial processing cancelled before GPU submission.')
     call(config, 'launch', job)
     sent = False
