@@ -31,10 +31,13 @@ def profile_hash(version='source-face-v1'):
     if version == 'source-face-v2':
         data += ((ROOT / 'config/facial-consistency-scene.lock.json').read_bytes() +
                  (ROOT / 'scripts/scene_face_composite.py').read_bytes())
-    elif version == 'source-face-v3':
+    elif version in ['source-face-v3', 'source-face-v4']:
         data += ((ROOT / 'config/facial-consistency-cleanup.lock.json').read_bytes() +
                  (ROOT / 'config/facial-consistency-cleanup-models.lock.json').read_bytes() +
                  (ROOT / 'scripts/face_feature_cleanup.py').read_bytes())
+        if version == 'source-face-v4':
+            data += ((ROOT / 'config/facial-consistency-eye.lock.json').read_bytes() +
+                     (ROOT / 'scripts/face_eye_calibration.py').read_bytes())
     elif version != 'source-face-v1':
         raise ValueError('Unsupported frozen facial recipe.')
     return hashlib.sha256(data).hexdigest()
@@ -65,7 +68,7 @@ def inspect(verify=False, model_root=None, version='source-face-v1'):
     if not ready:
         missing.append('Isolated facial-processing runtime')
     manifest = json.loads((ROOT / 'config/facial-consistency-models.lock.json').read_text())
-    if version == 'source-face-v3':
+    if version in ['source-face-v3', 'source-face-v4']:
         extra = json.loads((ROOT / 'config/facial-consistency-cleanup-models.lock.json').read_text())
         manifest = {**manifest, 'files': [*manifest['files'], *extra['files']], 'total_bytes': manifest['total_bytes'] + extra['total_bytes']}
     for item in manifest['files']:
@@ -88,12 +91,21 @@ def inspect(verify=False, model_root=None, version='source-face-v1'):
                          json.loads(marker.read_text()).get('cleanupWorkerSHA256') == digest(ROOT / 'scripts/facial_worker.py'))
     except (OSError, ValueError):
         cleanup_hash, cleanup_ready = None, False
-    if version == 'source-face-v3' and not cleanup_ready:
+    if version in ['source-face-v3', 'source-face-v4'] and not cleanup_ready:
         ready = False
         missing.append('Updated facial feature-cleanup tools')
+    try:
+        calibration_hash = profile_hash('source-face-v4')
+        calibration_ready = cleanup_ready and json.loads(marker.read_text()).get('calibrationProfileSHA256') == calibration_hash
+    except (OSError, ValueError):
+        calibration_hash, calibration_ready = None, False
+    if version == 'source-face-v4' and not calibration_ready:
+        ready = False
+        missing.append('Updated facial eye-calibration tools')
     return {'ready': not missing, 'runtimeReady': ready, 'missing': missing, 'profileSHA256': profile_hash(),
             'sceneProfileSHA256': scene_hash if scene_ready else None, 'cleanupProfileSHA256': cleanup_hash if cleanup_ready else None,
             'cleanupWorkerSHA256': digest(ROOT / 'scripts/facial_worker.py') if cleanup_ready else None,
+            'calibrationProfileSHA256': calibration_hash if calibration_ready else None,
             'timingSHA256': timing_hash if timing_ready else None, 'bytes': manifest['total_bytes']}
 
 
@@ -102,6 +114,7 @@ def write_ready_marker():
     temporary = marker.with_suffix('.tmp.json')
     temporary.write_text(json.dumps({'profileSHA256': profile_hash(), 'sceneProfileSHA256': profile_hash('source-face-v2'),
                                      'cleanupProfileSHA256': profile_hash('source-face-v3'),
+                                     'calibrationProfileSHA256': profile_hash('source-face-v4'),
                                      'cleanupWorkerSHA256': digest(ROOT / 'scripts/facial_worker.py'),
                                      'timingSHA256': digest(ROOT / 'scripts/video_timing.py')}))
     temporary.replace(marker)

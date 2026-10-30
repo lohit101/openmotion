@@ -4,6 +4,7 @@ import type { ModelsState } from './models';
 import { modelDefinitions } from './models';
 import type { LocalExport } from './clip-editor';
 import { setupNotice } from './cloud-status';
+import { facialCalibrationReason } from './facial-consistency';
 
 export const alertCategories = ['connection', 'models', 'generation', 'exports'] as const;
 export type AlertCategory = typeof alertCategories[number];
@@ -62,7 +63,11 @@ export class ActivityAlertTracker {
       const recent = old || Date.parse(job.createdAt) >= this.startedAt;
       if (this.initialized && recent && !job.deleted && (job.origin === 'render' || !!job.faceRefinement)) {
         const base = { id: `generation:${job.id}:${job.status}:${job.finishedAt || job.progress.updatedAt}`, category: 'generation' as const, target: { view: job.mediaType === 'image' ? 'image' as const : 'create' as const, jobId: job.id } };
-        if (job.status === 'completed' && job.output && (changed || !old?.output)) alerts.push({ ...base, tone: 'success', title: job.mediaType === 'image' ? 'Your image is ready' : 'Your video is ready', body: 'Saved to your library. Open it to view the result.' });
+        if (job.status === 'completed' && job.output && (changed || !old?.output)) {
+          const skipped = job.facialConsistency?.eyeCalibration?.state === 'skipped';
+          alerts.push({ ...base, tone: skipped ? 'warning' : 'success', title: job.mediaType === 'image' ? 'Your image is ready' : 'Your video is ready',
+            body: skipped ? 'Saved to your library. Eye calibration was skipped because ' + facialCalibrationReason(job.facialConsistency?.eyeCalibration?.reason) + '. The existing facial finish was retained.' : 'Saved to your library. Open it to view the result.' });
+        }
         else if (changed && ['failed', 'interrupted'].includes(job.status)) {
           const photo = job.viggleRepaint?.activePhotoId && snapshot.jobs.find(p => p.id === job.viggleRepaint!.activePhotoId);
           const repaintFailed = photo && photo.status === 'failed';

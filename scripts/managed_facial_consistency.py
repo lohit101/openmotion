@@ -52,9 +52,9 @@ def call(config, action, job=None, capture=True, version=None):
 
 def upload_runtime(config):
     root = remote_root(config)
-    names = ['scripts/download_models.py', 'scripts/facial_runtime.py', 'scripts/facial_worker.py', 'scripts/video_timing.py', 'scripts/face_performance.py', 'scripts/scene_face_composite.py', 'scripts/face_feature_cleanup.py',
+    names = ['scripts/download_models.py', 'scripts/facial_runtime.py', 'scripts/facial_worker.py', 'scripts/video_timing.py', 'scripts/face_performance.py', 'scripts/scene_face_composite.py', 'scripts/face_feature_cleanup.py', 'scripts/face_eye_calibration.py',
              'config/facial-consistency-runtime.lock.json', 'config/facial-consistency-models.lock.json', 'config/facial-consistency-scene.lock.json',
-             'config/facial-consistency-cleanup.lock.json', 'config/facial-consistency-cleanup-models.lock.json', 'config/server.json']
+             'config/facial-consistency-cleanup.lock.json', 'config/facial-consistency-cleanup-models.lock.json', 'config/facial-consistency-eye.lock.json', 'config/server.json']
     with tempfile.TemporaryFile() as stream:
         with tarfile.open(fileobj=stream, mode='w:gz') as archive:
             for name in names:
@@ -99,8 +99,10 @@ def status(config, version='source-face-v1'):
         value.update(ready=False, runtimeReady=False, missing=[*value.get('missing', []), 'Updated scene-face tools'])
     if version == 'source-face-v3' and value.get('cleanupProfileSHA256') != fingerprint(version):
         value.update(ready=False, runtimeReady=False, missing=[*value.get('missing', []), 'Updated facial feature-cleanup tools'])
-    if version == 'source-face-v3' and value.get('cleanupWorkerSHA256') != digest(ROOT / 'scripts/facial_worker.py'):
+    if version in ['source-face-v3', 'source-face-v4'] and value.get('cleanupWorkerSHA256') != digest(ROOT / 'scripts/facial_worker.py'):
         value.update(ready=False, runtimeReady=False, missing=[*value.get('missing', []), 'Updated facial-processing worker'])
+    if version == 'source-face-v4' and value.get('calibrationProfileSHA256') != fingerprint(version):
+        value.update(ready=False, runtimeReady=False, missing=[*value.get('missing', []), 'Updated eye-calibration tools'])
     if value.get('timingSHA256') != digest(ROOT / 'scripts/video_timing.py'):
         value.update(ready=False, runtimeReady=False, missing=[*value.get('missing', []), 'Updated frame-timing tools'])
     return value
@@ -146,7 +148,8 @@ def main():
     parser.add_argument('--action', choices=['status', 'prepare', 'preflight', 'run', 'cancel'], required=True)
     parser.add_argument('--job')
     parser.add_argument('--profile', choices=['perform-onnx60', 'regional-onnx60'])
-    parser.add_argument('--version', choices=['source-face-v1', 'source-face-v2', 'source-face-v3'], default='source-face-v1')
+    parser.add_argument('--version', choices=['source-face-v1', 'source-face-v2', 'source-face-v3', 'source-face-v4'], default='source-face-v1')
+    parser.add_argument('--anchor-frame', type=int)
     parser.add_argument('--reference')
     parser.add_argument('--target')
     parser.add_argument('--source')
@@ -191,6 +194,10 @@ def main():
                'expected': {'frames': args.frames, 'width': args.width, 'height': args.height}}
     if args.version != 'source-face-v1':
         request['version'] = args.version
+    if args.version == 'source-face-v4':
+        if args.profile != 'perform-onnx60' or args.anchor_frame is None or not 0 <= args.anchor_frame < args.frames:
+            raise ValueError('The frozen Standard source-anchor frame is required for eye calibration.')
+        request['anchorFrame'] = args.anchor_frame
     write_request(config, folder, 'request.json', request)
     sync(config, str(reference), str(folder / 'reference.png'))
     if args.action == 'preflight':
@@ -242,11 +249,13 @@ def main():
                 raise ValueError(value.get('error', 'Facial processing was interrupted; its saved frames remain.'))
             break
         time.sleep(1)
-    for name in ['final.mp4', 'receipt.json']:
+    for name in ['final.mp4', 'receipt.json', *(['calibration.json'] if args.version == 'source-face-v4' else [])]:
         sync(config, str(folder / 'result' / name), str(output / name), download=True)
     receipt = json.loads((output / 'receipt.json').read_text())
     if not receipt.get('complete') or receipt['inputs'] != {**inputs, 'version': args.version} or digest(output / 'final.mp4') != receipt['outputSHA256']:
         raise ValueError('Facial-result provenance/checksum failed. The remote result is kept for recovery.')
+    if args.version == 'source-face-v4' and digest(output / 'calibration.json') != receipt.get('calibration', {}).get('fileSHA256'):
+        raise ValueError('The saved eye calibration failed checksum validation. Existing output was kept.')
     (output / 'transport.json').write_text(json.dumps({'jobId': job, 'instanceId': args.instance_id, 'receiptSHA256': digest(output / 'receipt.json')}))
     print('RECAST_FACIAL ' + json.dumps({key: value for key, value in receipt.items() if key != 'records'}), flush=True)
 

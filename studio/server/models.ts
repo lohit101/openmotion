@@ -8,7 +8,7 @@ import { lorasFrom, type ConnectionManager } from './comfy';
 import { command } from './media';
 import { facialCommand } from './facial-consistency';
 
-export async function manageModelStorage(repo: string, instanceId: number, action: 'inventory' | 'delete', name?: string): Promise<{ loras?: InstalledLora[]; files?: { id: string; size: number; verified?: boolean }[]; name?: string; freedBytes?: number; freeBytes?: number; partials?: { id: string; size: number }[]; removed?: boolean; facialRuntimeReady?: boolean; facialCleanupRuntimeReady?: boolean }> {
+export async function manageModelStorage(repo: string, instanceId: number, action: 'inventory' | 'delete', name?: string): Promise<{ loras?: InstalledLora[]; files?: { id: string; size: number; verified?: boolean }[]; name?: string; freedBytes?: number; freeBytes?: number; partials?: { id: string; size: number }[]; removed?: boolean; facialRuntimeReady?: boolean; facialCleanupRuntimeReady?: boolean; facialCalibratedRuntimeReady?: boolean }> {
   const args = ['-u', path.join(repo, 'scripts/managed_models.py'), '--instance-id', String(instanceId), '--action', action];
   if (action === 'delete') args.push('--lora', name!);
   const output = await command('python3', args, undefined, 45000);
@@ -114,6 +114,7 @@ export class ModelManager {
           this.state.diskFreeBytes = Number.isFinite(result.freeBytes) && result.freeBytes! >= 0 ? result.freeBytes : undefined;
           this.state.facialRuntimeReady = !!result.facialRuntimeReady;
           this.state.facialCleanupRuntimeReady = !!result.facialCleanupRuntimeReady;
+          this.state.facialCalibratedRuntimeReady = !!result.facialCalibratedRuntimeReady;
           for (const file of this.state.files.filter(item => item.id.startsWith('face_consistency/'))) {
             if (['queued', 'downloading'].includes(file.status)) continue;
             const present = result.files?.find(item => item.id === file.id);

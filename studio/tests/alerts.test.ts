@@ -57,6 +57,17 @@ describe('activity alert transitions', () => {
     expect(tracker.collect(snapshot([job('run', 'failed')]))[0].title).toBe('Generation failed');
     expect(tracker.collect(snapshot([job('run', 'cancelled')]))).toEqual([]);
   });
+  it('announces skipped eye calibration once without calling a saved video failed', () => {
+    const tracker = new ActivityAlertTracker(now); tracker.collect(snapshot([job('run', 'running')]));
+    const result = snapshot([job('run', 'completed', { output: 'ready', facialConsistency: {
+      version: 'source-face-v4', profile: 'perform-onnx60', blend: .6, instanceId: 123, profileSHA256: 'test', state: 'complete', processedFrames: 120, frames: 120,
+      eyeCalibration: { state: 'skipped', anchorFrame: 0, reason: 'anchor-face-uncertain', fileSHA256: 'test' },
+    } })]);
+    const alerts = tracker.collect(result);
+    expect(alerts).toHaveLength(1); expect(alerts[0]).toMatchObject({ title: 'Your video is ready', tone: 'warning' });
+    expect(alerts[0].body).toContain('one clear face'); expect(alerts[0].body).not.toContain('anchor-face-uncertain');
+    expect(tracker.collect(result)).toEqual([]);
+  });
   it('follows confirmed connection transitions and distinguishes initial connection failure from disconnection', () => {
     const tracker = new ActivityAlertTracker(now), data = snapshot(); data.connection.state = 'offline'; tracker.collect(data);
     const connecting = { ...data, connection: { ...data.connection, state: 'connecting' as const } };

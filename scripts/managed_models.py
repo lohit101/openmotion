@@ -80,9 +80,10 @@ def main():
                     'marker=root.parent/"facial-runtime/state/runtime-ready.json";'
                     'result["facialRuntimeReady"]=marker.is_file() and json.loads(marker.read_text()).get("sceneProfileSHA256")==sys.argv[5] and json.loads(marker.read_text()).get("timingSHA256")==sys.argv[6];'
                     'result["facialCleanupRuntimeReady"]=result["facialRuntimeReady"] and json.loads(marker.read_text()).get("cleanupProfileSHA256")==sys.argv[7] and json.loads(marker.read_text()).get("cleanupWorkerSHA256")==sys.argv[8];'
+                    'result["facialCalibratedRuntimeReady"]=result["facialCleanupRuntimeReady"] and json.loads(marker.read_text()).get("calibrationProfileSHA256")==sys.argv[9];'
                     'print("RECAST_MODEL_STORAGE "+json.dumps(result))')
             facial = __import__('managed_facial_consistency')
-            vast.remote(config, ['python3', '-c', code, str(root / 'scripts'), str(root / 'models'), json.dumps(selected_manifest()['files']),json.dumps(face_files), facial.fingerprint('source-face-v2'), facial.digest(facial.ROOT / 'scripts/video_timing.py'), facial.fingerprint('source-face-v3'), facial.digest(facial.ROOT / 'scripts/facial_worker.py')])
+            vast.remote(config, ['python3', '-c', code, str(root / 'scripts'), str(root / 'models'), json.dumps(selected_manifest()['files']),json.dumps(face_files), facial.fingerprint('source-face-v2'), facial.digest(facial.ROOT / 'scripts/video_timing.py'), facial.fingerprint('source-face-v3'), facial.digest(facial.ROOT / 'scripts/facial_worker.py'), facial.fingerprint('source-face-v4')])
             return
         command = ['python3', str(root / 'scripts/model_storage.py'), '--model-dir', str(root / 'models')]
         if args.action == 'delete':

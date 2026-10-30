@@ -81,6 +81,11 @@ def face(frame):
     return box, five, points
 
 
+def eye_calibration(folder, models, parser, request, inputs, info):
+    from face_eye_calibration import prepare_eye_calibration
+    return prepare_eye_calibration(folder, models, parser, request, inputs, info, face)
+
+
 def preflight(folder):
     import cv2
     import numpy as np
@@ -93,6 +98,8 @@ def preflight(folder):
     expected = request['expected']
     if not all(isinstance(expected.get(key), int) for key in ['width', 'height', 'frames']) or not 1 <= expected['frames'] <= 720 or not all(64 <= expected[key] <= 4096 for key in ['width', 'height']):
         raise ValueError('Invalid expected facial video dimensions or frame count.')
+    if version == 'source-face-v4' and (request['profile'] != 'perform-onnx60' or type(request.get('anchorFrame')) is not int or not 0 <= request['anchorFrame'] < expected['frames']):
+        raise ValueError('Choose a matching source-anchor frame for Standard eye calibration before rendering.')
     if __import__('shutil').disk_usage(folder).free < 5*1024**3 + expected['width']*expected['height']*expected['frames']*3:
         raise ValueError('Free more disk space for resumable face frames before rendering. No video sampling was submitted.')
     reference = folder / 'reference.png'
@@ -110,7 +117,7 @@ def preflight(folder):
     # Initialize the actual models now, before any new video sampling is paid for.
     from face_performance import FaceModels
     FaceModels(MODEL_ROOT, embedding)
-    if version == 'source-face-v3':
+    if version in ['source-face-v3', 'source-face-v4']:
         from face_feature_cleanup import SemanticParser
         SemanticParser(MODEL_ROOT)
     return {'ready': True, 'referenceSHA256': request['referenceSHA256'], 'profileSHA256': profile_hash(version)}
@@ -173,7 +180,7 @@ def process(folder):
         raise ValueError('The fixed reference-face conditioning changed.')
     models = FaceModels(MODEL_ROOT, np.load(folder / 'donor.npy'))
     semantic_parser = None
-    if version == 'source-face-v3':
+    if version in ['source-face-v3', 'source-face-v4']:
         from face_feature_cleanup import SemanticParser
         semantic_parser = SemanticParser(MODEL_ROOT)
     receipt = {'inputs': signature, 'complete': False, 'records': records, 'gpu': models.gpu, 'onnxruntime': ort.__version__,
@@ -181,6 +188,12 @@ def process(folder):
         'profile': request['profile'], 'blend': .6, 'sourceGeometryMapping': {'from': [source_info['width'], source_info['height']], 'to': [info['width'], info['height']]}}
     if semantic_parser is not None:
         receipt['providers']['parser'] = semantic_parser.session.get_providers()
+    correction_models = models
+    if version == 'source-face-v4':
+        correction_models, calibration = eye_calibration(folder, models, semantic_parser, request, inputs, info)
+        if previous and previous.get('calibration') != calibration:
+            raise ValueError('The saved calibration receipt changed; existing face frames were preserved.')
+        receipt['calibration'] = calibration
     elapsed = receipt['elapsedSeconds']
     started = time.monotonic()
     target = cv2.VideoCapture(str(folder / 'target.mp4'))
@@ -214,13 +227,15 @@ def process(folder):
             if gap[0] <= .25 and gap[1] <= .35:
                 driver, sm = warp_face_by_face_landmark_5(original, source_face[1], 'arcface_128', (512, 512))
                 crop, tm = warp_face_by_face_landmark_5(frame, target_face[1], 'arcface_128', (512, 512))
-                if version == 'source-face-v3':
+                if version in ['source-face-v3', 'source-face-v4']:
                     from face_feature_cleanup import cleanup_frame
                     points = cv2.transform(source_face[2].reshape(1, 68, 2), sm)[0]
-                    edited, cleanup = cleanup_frame(models, semantic_parser, frame, crop, driver, tm, points,
+                    edited, cleanup = cleanup_frame(correction_models, semantic_parser, frame, crop, driver, tm, points,
                         create_occlusion_mask(crop).clip(0, 1), request['profile'] == 'regional-onnx60')
                     if cleanup['editablePixels']:
                         record.update(action='refined', reason=None, cleanup=cleanup, matrix=tm.tolist(), sourceMatrix=sm.tolist())
+                        if version == 'source-face-v4' and receipt['calibration']['state'] == 'active':
+                            record['calibration'] = correction_models.last
                     else:
                         record['reason'] = 'face-occluded'
                 else:
@@ -284,7 +299,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('action', choices=['status', 'prepare', 'preflight', 'launch', 'poll', 'cancel', 'worker'])
     parser.add_argument('--job')
-    parser.add_argument('--version', choices=['source-face-v1', 'source-face-v2', 'source-face-v3'], default='source-face-v1')
+    parser.add_argument('--version', choices=['source-face-v1', 'source-face-v2', 'source-face-v3', 'source-face-v4'], default='source-face-v1')
     args = parser.parse_args()
     (ROOT / 'state').mkdir(parents=True, exist_ok=True)
     if args.action == 'status':

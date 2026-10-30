@@ -8,14 +8,15 @@ import { FieldLabel } from './InfoTip';
 import { api, Toggle } from './components';
 import { DownloadSelect, type DownloadControls } from './ModelDownloads';
 
-export default function FacialConsistencyControls({ value, change, downloads, sceneMatch, changeSceneMatch, cleanup, changeCleanup }: {
+export default function FacialConsistencyControls({ value, change, downloads, sceneMatch, changeSceneMatch, cleanup, changeCleanup, eyeCalibration, changeEyeCalibration }: {
   value: Settings['facialConsistency']; change: (value: FacialProfile) => void; downloads: DownloadControls;
   sceneMatch?: boolean; changeSceneMatch?: (value: boolean) => void;
   cleanup?: boolean; changeCleanup?: (value: boolean) => void;
+  eyeCalibration?: boolean; changeEyeCalibration?: (value: boolean) => void;
 }) {
   const [preparing, setPreparing] = useState(false);
   const active = !!value && value !== 'off';
-  const settings = { engine: 'viggle', facialConsistency: value, facialSceneMatch: sceneMatch, facialFeatureCleanup: cleanup ?? true };
+  const settings = { engine: 'viggle', facialConsistency: value, facialSceneMatch: sceneMatch, facialFeatureCleanup: cleanup ?? true, facialEyeCalibration: eyeCalibration === true };
   const files = facialFilesForSettings(settings);
   const installed = files.every(id => downloads.state.files.find(file => file.id === id)?.status === 'installed');
   const prepare = async () => {
@@ -33,6 +34,8 @@ export default function FacialConsistencyControls({ value, change, downloads, sc
       detail="Keeps the same expression and 60% identity blend, with bounded lighting/detail correction and inward edge blending. Preserves the surrounding hair, body and scene. Uses the existing models. Turn off for the original facial finish." />}
     {active && sceneMatch !== false && changeCleanup && <Toggle label="Clean eye and eyebrow edges" checked={cleanup !== false} onChange={changeCleanup}
       detail="Keeps the selected source-expression profile. Uses complete feature masks and gated eye detail, with one extra 94 MB parser. Turn off for the previous scene-matched finish." />}
+    {value === 'perform-onnx60' && sceneMatch !== false && cleanup !== false && changeEyeCalibration && <Toggle label="Calibrate eye appearance" checked={eyeCalibration === true} onChange={changeEyeCalibration}
+      detail="Uses the matching source moment and your edited reference to improve eye appearance. Keeps source mouth and jaw performance. Requires the reference timestamp to match the video; unclear anchor faces or eyes skip calibration with a saved reason. Uses the installed models." />}
     {active && installed && !facialRuntimeReadyForSettings(settings, downloads.state) && <button type="button" className="secondary-button" disabled={preparing || !downloads.online || downloads.blocked || downloads.state.busy} onClick={() => void prepare()}><DownloadSimple size={15} />{preparing ? 'Preparing face tools…' : 'Prepare / update facial tools'}</button>}
   </div>;
 }

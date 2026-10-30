@@ -1,0 +1,10 @@
+{
+  "version": "source-face-v4",
+  "base": "Frozen source-face-v3 feature ownership, scene protection and gated 65 percent native eye texture",
+  "calibration": "Fixed original facial reference minus the matching chronological source-anchor expression; horizontal eye, mouth and jaw offsets excluded",
+  "anchor": "Freeze referenceTime minus output-frame-aligned trim start; bind the exact prepared-source video and decoded anchor frame in receipts",
+  "visibility": "Require a single confident pose-compatible anchor face and at least one visible eye in both anchor and reference. Disable calibration for hidden anchor eyes. Record an explicit skipped-calibration reason when unavailable",
+  "expression": "Standard source performance only; vertical eye calibration is gated by current visible source-eye area relative to its anchor. No reference mouth or jaw offsets",
+  "identity": "Existing fixed donor and 60 percent Hyperswap RGB blend before the unchanged v3 feature compositor",
+  "limitations": "Not an anatomy, identity, gaze or mouth-closure guarantee. Regional and paid v1/v2/v3 runs retain their frozen routes. No extra models or implicit setup"
+}

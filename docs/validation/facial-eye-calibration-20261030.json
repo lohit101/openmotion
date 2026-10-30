@@ -1,0 +1,287 @@
+{
+  "date": "2026-10-30",
+  "scope": "Three managed finishing derivatives of existing paid animation; one deliberate same-worker cancellation/resume. No new Viggle or Imagen sampling.",
+  "version": "source-face-v4",
+  "fingerprints": {
+    "source-face-v1": "ef8f273a320b6d34c5efccf690610ad92f1aac0fdb9c4d60c4906557ade5b419",
+    "source-face-v2": "3952a4da82fcb2284788137279c7716102bba1e5755b2f6968502dc38dec3c08",
+    "source-face-v3": "286cb1cb40cc0eab2bdbca50bb365fe0b02dedd21d260f24b5c156013ce663b6",
+    "source-face-v4": "4520b9613ed3e9d9b5e105baa85cc3332064d3564a0e759fa2af91426ac65239"
+  },
+  "newDefault": "Calibrate eye appearance defaults on for new Standard + ONNX 60%, with scene matching and feature cleanup. Explicit false and Regional retain v3; saved jobs retain their frozen versions.",
+  "additionalModelBytes": 0,
+  "fixedIdentityBlend": 0.6,
+  "sourceAnchorIndices": [
+    0,
+    45,
+    0
+  ],
+  "runs": [
+    {
+      "jobId": "be772f58-e340-4266-900f-64e55faa05c0",
+      "parentJobId": "f38f587d-47fc-431f-bb3a-6b632c147108",
+      "profile": "perform-onnx60",
+      "managedFinishingSeconds": 249.304,
+      "outputSHA256": "70880999d003d54238289786e8cc1e9781840808a182290172923a0b3f57e8b7",
+      "recovery": {
+        "prefixFrames": 81,
+        "allPrefixRecordsUnchanged": true,
+        "calibrationFileUnchanged": true
+      },
+      "newVideoInference": false,
+      "newImageInference": false,
+      "frames": 355,
+      "workerSeconds": 154.55607714896905,
+      "refinedFrames": 355,
+      "preservedFrames": [],
+      "eyeCalibration": {
+        "state": "active",
+        "anchorFrame": 0,
+        "reason": null,
+        "eligibleEyes": [
+          true,
+          true
+        ],
+        "fileSHA256": "0c75a6fdfdccf2d93f6d0ebed0107c59f6a4a876af58c585743274e5f377fc26"
+      },
+      "protectedPixelsCheckedBeforeEncoding": true,
+      "originalAudioPacketsUnchanged": true,
+      "losslessPrivateArchiveSHA256": "d6b16f62365d9b7477e379803d65b7606523f48c93bb0cc99c840963e09adbce",
+      "losslessPrivateArchiveBytes": 180576783,
+      "losslessArchiveDecodedFramesMatchRemotePNGs": true,
+      "localRawDecodeDifferences": [],
+      "cudaProviders": {
+        "appearance": "CUDAExecutionProvider",
+        "motion": "CUDAExecutionProvider",
+        "warp": "CUDAExecutionProvider",
+        "decode": "CUDAExecutionProvider",
+        "identity": "CUDAExecutionProvider",
+        "parser": "CUDAExecutionProvider"
+      }
+    },
+    {
+      "jobId": "15fe6e19-2448-41ba-b74f-b919483fe812",
+      "parentJobId": "196f011e-6487-4a44-a655-fb13fc4672ca",
+      "profile": "perform-onnx60",
+      "managedFinishingSeconds": 211.911,
+      "outputSHA256": "f33f62e05f6cde096064ff065d8ec5a25cd7f6cbc30196a3d33dd8a9205b0e20",
+      "recovery": null,
+      "newVideoInference": false,
+      "newImageInference": false,
+      "frames": 216,
+      "workerSeconds": 105.20907917100703,
+      "refinedFrames": 216,
+      "preservedFrames": [],
+      "eyeCalibration": {
+        "state": "active",
+        "anchorFrame": 45,
+        "reason": null,
+        "eligibleEyes": [
+          true,
+          true
+        ],
+        "fileSHA256": "a1ae6ef7618636146330a4eeecdba09d39e4e2f2b67f06093a2294013b128a96"
+      },
+      "protectedPixelsCheckedBeforeEncoding": true,
+      "originalAudioPacketsUnchanged": true,
+      "losslessPrivateArchiveSHA256": "3a451c719e5a11b341f7486d8098bd5e043e122b2ff4de57370982f967e2ed07",
+      "losslessPrivateArchiveBytes": 159813975,
+      "losslessArchiveDecodedFramesMatchRemotePNGs": true,
+      "localRawDecodeDifferences": [],
+      "cudaProviders": {
+        "appearance": "CUDAExecutionProvider",
+        "motion": "CUDAExecutionProvider",
+        "warp": "CUDAExecutionProvider",
+        "decode": "CUDAExecutionProvider",
+        "identity": "CUDAExecutionProvider",
+        "parser": "CUDAExecutionProvider"
+      }
+    },
+    {
+      "jobId": "15fab314-24c5-40aa-a5d2-9ee250e6cc5d",
+      "parentJobId": "f179f035-44e7-4c3a-8ad6-70002aedd60d",
+      "profile": "perform-onnx60",
+      "managedFinishingSeconds": 161.513,
+      "outputSHA256": "0871f11aff5a0835c99d9afd2564e26a8313a4be7ca39445edcb5ce7ada2206d",
+      "recovery": null,
+      "newVideoInference": false,
+      "newImageInference": false,
+      "frames": 240,
+      "workerSeconds": 95.98702872399008,
+      "refinedFrames": 230,
+      "preservedFrames": [
+        124,
+        125,
+        126,
+        127,
+        147,
+        148,
+        149,
+        186,
+        187,
+        188
+      ],
+      "eyeCalibration": {
+        "state": "active",
+        "anchorFrame": 0,
+        "reason": null,
+        "eligibleEyes": [
+          true,
+          true
+        ],
+        "fileSHA256": "b8aaba788145114b519f9994b8acf1766648fe32bc951cfeae2656fc7df8a3f1"
+      },
+      "protectedPixelsCheckedBeforeEncoding": true,
+      "originalAudioPacketsUnchanged": true,
+      "losslessPrivateArchiveSHA256": "9f389614270dd02d5abb6ec98323db202f3486255b655df22b0adda0cfabfbff",
+      "losslessPrivateArchiveBytes": 83834113,
+      "losslessArchiveDecodedFramesMatchRemotePNGs": true,
+      "localRawDecodeDifferences": [
+        {
+          "frame": 124,
+          "meanAbsoluteRGBDifference": 1.7829853296279907,
+          "maximumRGBDifference": 10
+        },
+        {
+          "frame": 125,
+          "meanAbsoluteRGBDifference": 1.910826563835144,
+          "maximumRGBDifference": 11
+        },
+        {
+          "frame": 126,
+          "meanAbsoluteRGBDifference": 2.676363945007324,
+          "maximumRGBDifference": 13
+        },
+        {
+          "frame": 127,
+          "meanAbsoluteRGBDifference": 2.406968593597412,
+          "maximumRGBDifference": 17
+        },
+        {
+          "frame": 147,
+          "meanAbsoluteRGBDifference": 2.1798441410064697,
+          "maximumRGBDifference": 16
+        },
+        {
+          "frame": 148,
+          "meanAbsoluteRGBDifference": 2.3878014087677,
+          "maximumRGBDifference": 15
+        },
+        {
+          "frame": 149,
+          "meanAbsoluteRGBDifference": 2.472787380218506,
+          "maximumRGBDifference": 15
+        },
+        {
+          "frame": 186,
+          "meanAbsoluteRGBDifference": 2.509535789489746,
+          "maximumRGBDifference": 11
+        },
+        {
+          "frame": 187,
+          "meanAbsoluteRGBDifference": 2.731278896331787,
+          "maximumRGBDifference": 10
+        },
+        {
+          "frame": 188,
+          "meanAbsoluteRGBDifference": 2.582963705062866,
+          "maximumRGBDifference": 11
+        }
+      ],
+      "cudaProviders": {
+        "appearance": "CUDAExecutionProvider",
+        "motion": "CUDAExecutionProvider",
+        "warp": "CUDAExecutionProvider",
+        "decode": "CUDAExecutionProvider",
+        "identity": "CUDAExecutionProvider",
+        "parser": "CUDAExecutionProvider"
+      }
+    }
+  ],
+  "runtime": {
+    "ready": true,
+    "runtimeReady": true,
+    "missing": [],
+    "profileSHA256": "ef8f273a320b6d34c5efccf690610ad92f1aac0fdb9c4d60c4906557ade5b419",
+    "sceneProfileSHA256": "3952a4da82fcb2284788137279c7716102bba1e5755b2f6968502dc38dec3c08",
+    "cleanupProfileSHA256": "286cb1cb40cc0eab2bdbca50bb365fe0b02dedd21d260f24b5c156013ce663b6",
+    "cleanupWorkerSHA256": "faa28cc13538139ff7630b9c77455d5543035f0c803ed55f30c4bad94afff85f",
+    "calibrationProfileSHA256": "4520b9613ed3e9d9b5e105baa85cc3332064d3564a0e759fa2af91426ac65239",
+    "timingSHA256": "5f634463ce0279bf4fd94764280ed6d2787198aca6dbbd260c3cf3e7295ce321",
+    "bytes": 2320323066
+  },
+  "qualityReview": {
+    "viewer": "http://127.0.0.1:3012/artifacts/",
+    "candidate": "Eye calibration \u00b7 Standard (managed)",
+    "mainFrames": [
+      32,
+      49,
+      98,
+      332
+    ],
+    "continuityFrames": [
+      45,
+      169,
+      215
+    ],
+    "portraitFrames": [
+      0,
+      124,
+      180
+    ],
+    "observations": [
+      "Sampled detached brow and doubled eyelid are absent in v3 and v4.",
+      "v4 has clearer open irises than v3 at main frame 98 and retains the sampled portrait side glance.",
+      "The speaking anchor remains open; the earlier broad calibration had incorrectly closed it.",
+      "Covered portrait frames are retained by the GPU worker, and every lossless archive frame exactly matches its remote PNG pixel hash. Local decoding of the compressed raw input gives small RGB differences; it is not an independent cross-platform bit-exact raw comparison."
+    ],
+    "limits": [
+      "Some fine iris and skin softness remain.",
+      "The pursed/closed mouth at continuity frame 215 remains inaccurate in both v3 and v4.",
+      "Exact gaze, facial geometry and identity fidelity are not proved; this is not a flawless quality pass.",
+      "Only three matched saved clips were evaluated; no new full Generate benchmark was run."
+    ]
+  },
+  "checks": {
+    "studioTests": 436,
+    "studioFiles": 39,
+    "pythonChecks": {
+      "eyeCalibration": 12,
+      "workerProtocol": 2,
+      "featureCleanup": 10,
+      "modelProfiles": 7,
+      "facePerformance": 4,
+      "sourceFacePerformance": 5
+    },
+    "buildAndTypes": "passed",
+    "localReload": {
+      "previousPID": 32057,
+      "currentPID": 42359,
+      "allExistingJobRowsUnchanged": true,
+      "savedVideoAndImageDraftsUnchanged": true,
+      "newCleanupDefault": true,
+      "newEyeCalibrationDefault": true,
+      "connectedState": "offline",
+      "gpuResumed": false,
+      "libraryJobs": 223
+    }
+  },
+  "session": {
+    "instanceId": 58291560,
+    "startedAt": "2026-10-30T03:07:59.059697+00:00",
+    "stopRequestedAt": "2026-10-30T03:30:03.684433+00:00",
+    "stopConfirmedAt": "2026-10-30T03:30:46.114053+00:00",
+    "actualStatus": "exited",
+    "intendedStatus": "stopped",
+    "originalIdlePause": true,
+    "computeHourly": 0.4666666666666666,
+    "quotedTotalHourly": 0.4844444444444444
+  },
+  "costEstimate": {
+    "billableIntervalSeconds": 1367.054356,
+    "computeUSD": 0.17721074985185184,
+    "computeAndRetainedDiskDuringIntervalUSD": 0.18396163556049383,
+    "newModelTransferBytes": 0,
+    "note": "Wall-clock estimate through independent stop confirmation, including setup, private archives and the deliberate recovery test. Network/media transfers and continuing retained storage are additional; not an invoice."
+  }
+}

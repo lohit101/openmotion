@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { defaults, settingsSchema, type Job } from '../shared/types';
 import { facialCleanupModelFiles, facialModelFiles, modelFilesForSettings } from '../shared/models';
@@ -37,7 +37,7 @@ async function fixture(profile: 'perform-onnx60' | 'regional-onnx60' = 'perform-
   const client = { json: vi.fn(() => { throw new Error('Paid/native submission must not be repeated'); }), upload: vi.fn(() => { throw new Error('Inputs must remain uploaded'); }) };
   const connection = { status: { state: 'online' }, client: () => client, disconnect: vi.fn() } as unknown as ConnectionManager;
   const runner = new Runner(store, connection, {}, repo, { prepare: vi.fn(), check: vi.fn(async () => ({ status: 'matched' as const, warnings: [], samples: [] })) });
-  const job: Job = { id: randomUUID(), title: 'Protocol-only face pipeline', status: 'queued', settings: { ...defaults, engine: 'viggle', referencePreparation: 'prepared', facialConsistency: profile, seconds: 5/24 },
+  const job: Job = { id: randomUUID(), title: 'Protocol-only face pipeline', status: 'queued', settings: { ...defaults, engine: 'viggle', referencePreparation: 'prepared', facialConsistency: profile, facialEyeCalibration: false, seconds: 5/24 },
     sourceId: 'source', referenceId: 'reference', createdAt: '', favorite: false, deleted: false, width: 128, height: 128,
     progress: { stage: 'Rendered prefix saved', node: null, value: null, max: null, unit: 'frames', segment: 1, segments: 1, completedFrames: 5, targetFrames: 5, updatedAt: 0 },
     segments: [{ file: 'segment_0000.mp4', frames: 5, seconds: .01, promptId: 'already-paid' }], context: '', pendingPrompt: null, uploads: { source: 'same.mp4', reference: 'same.png' },
@@ -60,7 +60,9 @@ const successfulFinish: FacialBackend['finish'] = async (job, files, _signal, pr
 describe('selected automatic facial finishing', () => {
   it('freezes scene finishing separately while retaining the exact original recipe on request', () => {
     const job = { settings: { ...defaults, engine: 'viggle' as const, facialConsistency: 'perform-onnx60' as const }, progress: { targetFrames: 120 } } as Job;
-    expect(newFacialRun(job, repo, 123)).toMatchObject({ version: 'source-face-v3', profileSHA256: facialFingerprint(repo, 'source-face-v3') });
+    expect(newFacialRun(job, repo, 123)).toMatchObject({ version: 'source-face-v4', anchorFrame: 0, profileSHA256: facialFingerprint(repo, 'source-face-v4') });
+    job.settings.facialEyeCalibration = false;
+    expect(newFacialRun(job, repo, 123)).toMatchObject({ version: 'source-face-v3', profileSHA256: '286cb1cb40cc0eab2bdbca50bb365fe0b02dedd21d260f24b5c156013ce663b6' });
     job.settings.facialFeatureCleanup = false;
     expect(newFacialRun(job, repo, 123)).toMatchObject({ version: 'source-face-v2', profileSHA256: '3952a4da82fcb2284788137279c7716102bba1e5755b2f6968502dc38dec3c08' });
     job.settings.facialSceneMatch = false;
@@ -79,7 +81,7 @@ describe('selected automatic facial finishing', () => {
     }
   });
   it('does not confuse legacy runtime readiness with the selected cleanup capability', () => {
-    const selected = { ...defaults, engine: 'viggle' as const, facialConsistency: 'perform-onnx60' as const };
+    const selected = { ...defaults, engine: 'viggle' as const, facialConsistency: 'perform-onnx60' as const, facialEyeCalibration: false };
     expect(facialRuntimeReadyForSettings(selected, { facialRuntimeReady: true })).toBe(false);
     expect(facialRuntimeReadyForSettings(selected, { facialRuntimeReady: true, facialCleanupRuntimeReady: true })).toBe(true);
     expect(facialRuntimeReadyForSettings({ ...selected, facialFeatureCleanup: false }, { facialRuntimeReady: true })).toBe(true);
@@ -88,6 +90,68 @@ describe('selected automatic facial finishing', () => {
   it('uses the same frozen cleanup fingerprint in TypeScript and the managed Python worker', async () => {
     const output = await command('python3', ['-c', 'import sys;sys.path.insert(0,sys.argv[1]);from facial_runtime import profile_hash;print(profile_hash("source-face-v3"))', path.join(repo, 'scripts')]);
     expect(output.trim()).toBe(facialFingerprint(repo, 'source-face-v3'));
+  });
+  it('freezes the matching chronological anchor without changing Regional or legacy recipes', async () => {
+    const { job } = await fixture();
+    Object.assign(job.settings, { facialEyeCalibration: true, referenceTime: 4.875, start: 3, seconds: 9 });
+    job.progress.targetFrames = 216;
+    const run = newFacialRun(job, repo, 123)!;
+    expect(run).toMatchObject({ version: 'source-face-v4', anchorFrame: 45 });
+    job.settings.referenceTime = 5;
+    expect(run.anchorFrame).toBe(45);
+    expect(newFacialRun({ ...job, settings: { ...job.settings, facialConsistency: 'regional-onnx60' } }, repo, 123)?.version).toBe('source-face-v3');
+    expect(facialFingerprint(repo, 'source-face-v3')).toBe('286cb1cb40cc0eab2bdbca50bb365fe0b02dedd21d260f24b5c156013ce663b6');
+    expect(() => newFacialRun({ ...job, settings: { ...job.settings, referenceTime: 1 } }, repo, 123)).toThrow(/matching source/);
+    const output = await command('python3', ['-c', 'import sys;sys.path.insert(0,sys.argv[1]);from facial_runtime import profile_hash;print(profile_hash("source-face-v4"))', path.join(repo, 'scripts')]);
+    expect(output.trim()).toBe(facialFingerprint(repo, 'source-face-v4'));
+  });
+  it('requires the calibrated worker capability without any additional model weights', () => {
+    const selected = { ...defaults, engine: 'viggle' as const, referencePreparation: 'prepared' as const, facialConsistency: 'perform-onnx60' as const, facialEyeCalibration: true };
+    expect(modelFilesForSettings(selected)).toEqual(modelFilesForSettings({ ...selected, facialEyeCalibration: false }));
+    expect(facialRuntimeReadyForSettings(selected, { facialRuntimeReady: true, facialCleanupRuntimeReady: true })).toBe(false);
+    expect(facialRuntimeReadyForSettings(selected, { facialCalibratedRuntimeReady: true })).toBe(true);
+    expect(facialRuntimeReadyForSettings({ ...selected, facialConsistency: 'regional-onnx60' }, { facialCleanupRuntimeReady: true })).toBe(true);
+  });
+  it.each(['valid', 'valid-skip', 'wrong-anchor', 'missing-state', 'changed-state', 'changed-source', 'mouth-changed', 'cpu-parser'] as const)('validates downloaded calibrated state offline: %s', async variant => {
+    const { store, job, folder } = await fixture();
+    job.settings.facialEyeCalibration = true;
+    job.facialConsistency = newFacialRun(job, repo, 123);
+    const run = job.facialConsistency!;
+    run.state = 'downloaded'; run.remoteActive = false;
+    const signature = { baseSHA256: faceHash(video), sourceSHA256: faceHash(video), referenceSHA256: faceHash(image) };
+    const destination = path.join(folder, 'facial-consistency'); await mkdir(destination);
+    await copyFile(video, path.join(destination, 'final.mp4'));
+    const offset = Array.from({ length: 49 }, () => [0, 0, 0]);
+    const correctionSHA256 = createHash('sha256').update(Buffer.alloc(147 * 4)).digest('hex');
+    const binding = { jobId: job.id, version: run.version, profileSHA256: run.profileSHA256, anchorFrame: run.anchorFrame, sourceSHA256: signature.sourceSHA256, referenceSHA256: signature.referenceSHA256 };
+    const skipped = variant === 'valid-skip';
+    const metadata = { state: skipped ? 'skipped' : 'active', reason: skipped ? 'anchor-face-uncertain' : null, anchorBGRSHA256: 'a'.repeat(64),
+      ...(!skipped ? { eyeGroups: [[27,28,29,30],[34,35,47,48]], eligibleEyes: [true,true], baselineEyeAreas: [600,600], correctionSHA256 } : {}) };
+    const saved = { binding, metadata, model: skipped ? null : { ...metadata, offset: [offset] } };
+    await writeFile(path.join(destination, 'calibration.json'), JSON.stringify(saved));
+    const receipt: any = { complete: true, profile: run.profile, blend: .6,
+      inputs: { ...signature, version: run.version, request: { jobId: job.id, profile: run.profile, profileSHA256: run.profileSHA256, anchorFrame: run.anchorFrame }, target: { frames: 5, fps: '24', width: 128, height: 128 }, source: { frames: 5, fps: '24', width: 128, height: 128 } },
+      calibration: { ...binding, ...metadata, fileSHA256: faceHash(path.join(destination, 'calibration.json')) },
+      outputSHA256: faceHash(path.join(destination, 'final.mp4')), elapsedSeconds: 1, refinedFrames: 4, skippedFrames: 1, gpu: 'Protocol fixture',
+      providers: Object.fromEntries(['appearance','motion','warp','decode','identity','parser'].map(k => [k, ['CUDAExecutionProvider']])),
+      records: Array.from({ length: 5 }, (_, frame) => ({ frame, action: frame < 4 ? 'refined' : 'preserved', protectedPixelsExact: true, sha256: 'b'.repeat(64),
+        ...(frame < 4 ? { cleanup: { sourceEyeGates: [1,1], eyeTexturePixels: 1, editablePixels: 2 }, ...(!skipped ? { calibration: { eyeCalibrationWeights: [1,1], sourceMouthLatentUnchanged: true, sourceJawLatentUnchanged: true } } : {}) } : {}) })) };
+    if (variant === 'wrong-anchor') receipt.calibration.anchorFrame = 1;
+    if (variant === 'changed-source') receipt.calibration.sourceSHA256 = 'c'.repeat(64);
+    if (variant === 'mouth-changed') receipt.records[0].calibration.sourceMouthLatentUnchanged = false;
+    if (variant === 'cpu-parser') receipt.providers.parser = ['CPUExecutionProvider'];
+    if (variant === 'changed-state') await writeFile(path.join(destination, 'calibration.json'), JSON.stringify({ ...saved, metadata: { ...metadata, state: 'skipped' } }));
+    if (variant === 'missing-state') await rm(path.join(destination, 'calibration.json'));
+    await writeFile(path.join(destination, 'receipt.json'), JSON.stringify(receipt));
+    await writeFile(path.join(destination, 'transport.json'), JSON.stringify({ jobId: job.id, instanceId: 123, receiptSHA256: faceHash(path.join(destination, 'receipt.json')) }));
+    const backend = new ManagedFacialConsistency(store, repo, { status: { state: 'offline' } } as ConnectionManager);
+    const pending = backend.finish(job, { reference: image, source: video, base: video, folder: destination }, new AbortController().signal, () => {});
+    if (variant === 'valid' || variant === 'valid-skip') {
+      await pending;
+      expect(run).toMatchObject({ state: 'complete', eyeCalibration: { state: skipped ? 'skipped' : 'active', anchorFrame: 0 } });
+    } else await expect(pending).rejects.toThrow(FacialConsistencyError);
+    expect(faceHash(video)).toBe(signature.baseSHA256);
+    expect(faceHash(image)).toBe(signature.referenceSHA256);
   });
   it.each(['valid', 'cpu-parser', 'missing-cleanup'] as const)('checks downloaded cleanup provenance offline: %s', async variant => {
     const { store, job, folder, connection } = await fixture();
@@ -184,5 +248,20 @@ describe('selected automatic facial finishing', () => {
     const download = vi.fn();
     const html = renderToStaticMarkup(<FacialConsistencyControls value="perform-onnx60" change={vi.fn()} downloads={{ state: emptyModels(), online: false, blocked: false, download, remove: vi.fn() }} />);
     expect(html).toContain('Standard + ONNX 60%'); expect(html).toContain('Regional + ONNX 60%'); expect(html).toContain('Facial consistency'); expect(download).not.toHaveBeenCalled();
+  });
+  it('shows calibration only for Standard and distinguishes a code update from missing weights', () => {
+    const download = vi.fn();
+    const state = emptyModels();
+    state.files = state.files.map(file => ({ ...file, status: 'installed' as const }));
+    state.facialRuntimeReady = true; state.facialCleanupRuntimeReady = true; state.facialCalibratedRuntimeReady = false;
+    const common = { change: vi.fn(), sceneMatch: true, changeSceneMatch: vi.fn(), cleanup: true, changeCleanup: vi.fn(), eyeCalibration: true, changeEyeCalibration: vi.fn(),
+      downloads: { state, online: false, blocked: false, download, remove: vi.fn() } };
+    const standard = renderToStaticMarkup(<FacialConsistencyControls {...common} value="perform-onnx60" />);
+    expect(standard).toContain('Calibrate eye appearance');
+    expect(standard).toContain('Prepare / update facial tools');
+    const regional = renderToStaticMarkup(<FacialConsistencyControls {...common} value="regional-onnx60" />);
+    expect(regional).not.toContain('Calibrate eye appearance');
+    expect(regional).not.toContain('Prepare / update facial tools');
+    expect(download).not.toHaveBeenCalled();
   });
 });
