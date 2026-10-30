@@ -14,6 +14,8 @@ The manifest is `{ "cases": [...] }`. Each case contains:
 - `id`, `title`, integer `frames`, `fps`, `width`, `height`.
 - Relative media paths `reference`, `source`, `raw`, `current`.
 - `variants`: `{ id, label, description, url }` entries, and a `preferred` ID.
+- Optional `secondary`: the initial fourth-panel variant, when comparing two
+  candidates. Unknown or missing choices fall back to the first verified variant.
 - `matrices` and `sourceMatrices`: one full-frame-to-512-face affine matrix per
   frame; an unavailable matrix is null. Source and target use separate maps.
 - Optional `events`: `{ label, short, frame }`, `initialFrame`, and `notes`.

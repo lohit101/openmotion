@@ -1,6 +1,6 @@
 {
   "date": "2026-10-30",
-  "status": "Private evaluation; goal active, product integration pending",
+  "status": "Versioned v3 edge fix integrated; broader eye/identity quality goal remains active",
   "reportedArtifacts": {
     "eyebrowFrame": 332,
     "doubleEyeFrame": 32,
@@ -144,13 +144,832 @@
   },
   "newViggleInference": false,
   "newImagenInference": false,
-  "productRecipeChanged": false,
+  "productRecipeChanged": true,
   "paidOriginalsChanged": false,
   "viewer": "tools/face-continuity-review.html",
   "remaining": [
-    "Validate exact foreground/semantic boundary protection on real clips",
-    "Compare aperture-only calibration without resting-gaze regression",
-    "Select and implement a versioned production route with legacy recovery unchanged",
-    "Managed-worker integration, quality/timing validation and user review"
-  ]
+    "Promote calibration only through a separately frozen version with exact source-anchor provenance and managed recovery/preflight checks",
+    "Improve remaining eye texture without restoring incorrect raw gaze or identity",
+    "Evaluate source mouth closure/pucker discrepancy while preserving the accepted source-performance route",
+    "No flawless identity/gaze or occlusion pass established across all similar clips",
+    "Keep all paid originals, user profiles and legacy recovery unchanged"
+  ],
+  "initialEvaluationProductRecipeChanged": false,
+  "versionedProductionFollowup": {
+    "version": "source-face-v3",
+    "commit": "f78ed8d",
+    "evidence": "docs/validation/facial-feature-cleanup-20261030.json",
+    "legacyPaidRecipesChanged": false
+  },
+  "calibrationEvaluation": {
+    "recipe": "Private horizontal-eye-preserving reference calibration",
+    "productionDefault": false,
+    "cases": [
+      {
+        "parentJobId": "f38f587d-47fc-431f-bb3a-6b632c147108",
+        "variant": "keep-eye-x",
+        "sha256": "982544166e1967655d7036166ee3b1e146e68b61a63963a1b44de34ecfff0ae2",
+        "frames": 355,
+        "seconds": 155.19625379200443,
+        "inputs": {
+          "recipe": "private-axis-calibration-v1",
+          "variant": "keep-eye-x",
+          "parentJobId": "f38f587d-47fc-431f-bb3a-6b632c147108",
+          "anchorFrame": 0,
+          "info": {
+            "width": 1248,
+            "height": 704,
+            "frames": 355,
+            "fps": "24"
+          },
+          "workerSHA256": "99704865daf1acf5f8ceb2d35734916fe6ff007671a2992dde77e969b70654c7",
+          "cleanupProfileSHA256": "286cb1cb40cc0eab2bdbca50bb365fe0b02dedd21d260f24b5c156013ce663b6",
+          "baseSHA256": "73e967def9d7615a195129d2d7f9e4e08e2598d330ae5cedfa55a7fde1971f27",
+          "sourceSHA256": "f97bd8fd5cbd67d656feb93a3490d0bee62a9955bde93fcb05a0257ff0418af1",
+          "referenceSHA256": "c9c17858b681768c083787e99862da57536889044346657c259faa0d00b1f8fe"
+        },
+        "refinedFrames": 355,
+        "preservedFrames": 0,
+        "allProtectedPixelChecksPassed": true,
+        "modelProviders": {
+          "appearance": [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider"
+          ],
+          "motion": [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider"
+          ],
+          "warp": [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider"
+          ],
+          "decode": [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider"
+          ],
+          "identity": [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider"
+          ]
+        },
+        "parserProviders": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "lossless": {
+          "frames": 355,
+          "sha256": "d46c69e23b5b931346c49b336c62557273b0635577c37b30e37b776c9eeabc6d",
+          "bytes": 180563986,
+          "allDecodedAndPNGHashesExact": true,
+          "onlyPrivatePNGsCompacted": true
+        }
+      },
+      {
+        "parentJobId": "f179f035-44e7-4c3a-8ad6-70002aedd60d",
+        "variant": "keep-eye-x",
+        "sha256": "d3abe290d97e2200f84826ec455bafc25ed3ff1eec84f03fecfbda4dae275d21",
+        "frames": 240,
+        "seconds": 96.50796054498642,
+        "inputs": {
+          "recipe": "private-axis-calibration-v1",
+          "variant": "keep-eye-x",
+          "parentJobId": "f179f035-44e7-4c3a-8ad6-70002aedd60d",
+          "anchorFrame": 0,
+          "info": {
+            "width": 480,
+            "height": 864,
+            "frames": 240,
+            "fps": "24"
+          },
+          "workerSHA256": "99704865daf1acf5f8ceb2d35734916fe6ff007671a2992dde77e969b70654c7",
+          "cleanupProfileSHA256": "286cb1cb40cc0eab2bdbca50bb365fe0b02dedd21d260f24b5c156013ce663b6",
+          "baseSHA256": "24432eaaeb19ea1b20354cd3181f2c5720dff309e8880caa2c1472f04b4bd6dc",
+          "sourceSHA256": "54a8c693e349dbd9ded69f7d513d8f309ccfb3f6d89513fe80ccca6892dc1a69",
+          "referenceSHA256": "61f2c4a59a3a2dd4973b435f43b13302b1083ad5d4674a7d5d07b449deeef945"
+        },
+        "refinedFrames": 230,
+        "preservedFrames": 10,
+        "allProtectedPixelChecksPassed": true,
+        "modelProviders": {
+          "appearance": [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider"
+          ],
+          "motion": [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider"
+          ],
+          "warp": [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider"
+          ],
+          "decode": [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider"
+          ],
+          "identity": [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider"
+          ]
+        },
+        "parserProviders": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "lossless": {
+          "frames": 240,
+          "sha256": "7bbe42def8de514fb19d25ad6b839bbb4753383f03d54b1b00780ad733c34a41",
+          "bytes": 83838688,
+          "allDecodedAndPNGHashesExact": true,
+          "onlyPrivatePNGsCompacted": true
+        }
+      },
+      {
+        "parentJobId": "196f011e-6487-4a44-a655-fb13fc4672ca",
+        "variant": "keep-eye-x",
+        "sha256": "11beeacd114cc8eb89ddbc4e2aefe06ebbd61dc0429aa0263c7506de7cf6cccb",
+        "frames": 216,
+        "seconds": 103.6239444410021,
+        "inputs": {
+          "recipe": "private-axis-calibration-v1",
+          "variant": "keep-eye-x",
+          "parentJobId": "196f011e-6487-4a44-a655-fb13fc4672ca",
+          "anchorFrame": 45,
+          "info": {
+            "width": 704,
+            "height": 1248,
+            "frames": 216,
+            "fps": "24"
+          },
+          "workerSHA256": "99704865daf1acf5f8ceb2d35734916fe6ff007671a2992dde77e969b70654c7",
+          "cleanupProfileSHA256": "286cb1cb40cc0eab2bdbca50bb365fe0b02dedd21d260f24b5c156013ce663b6",
+          "baseSHA256": "145467194d3bbc6f441a22b4c872f14ec262a9f0de38650cfecf81e5705b07a8",
+          "sourceSHA256": "453d43185501c28a79330cb84285cde786efed4bd14cef4b52c44f595081bbdb",
+          "referenceSHA256": "a38a715f96ccc7c2e5f340f0ad453a156eed4c6583e9b57a3e8a49e73cf86a5c"
+        },
+        "refinedFrames": 216,
+        "preservedFrames": 0,
+        "allProtectedPixelChecksPassed": true,
+        "modelProviders": {
+          "appearance": [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider"
+          ],
+          "motion": [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider"
+          ],
+          "warp": [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider"
+          ],
+          "decode": [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider"
+          ],
+          "identity": [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider"
+          ]
+        },
+        "parserProviders": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "lossless": {
+          "frames": 216,
+          "sha256": "f46998b13091da5a84ca47bc9699a6d77413533f9941574114f2872ad1881004",
+          "bytes": 159790798,
+          "allDecodedAndPNGHashesExact": true,
+          "onlyPrivatePNGsCompacted": true
+        }
+      }
+    ],
+    "mediaChecks": "Private builder verified decoded timing/dimensions/frame counts and all original audio packets",
+    "session": {
+      "instanceId": 58291560,
+      "startedAt": "2026-10-30T01:49:29.747015+00:00",
+      "originalIdlePause": true,
+      "scope": "Authorized private horizontal-eye-preserving calibration evaluation, existing A6000. Three finishing-only derivatives; no new video/image inference or model downloads.",
+      "stopRequestedAt": "2026-10-30T01:57:57.564862+00:00",
+      "stopConfirmedAt": "2026-10-30T01:58:07.586926+00:00",
+      "actualStatus": "exited",
+      "intendedStatus": "stopped",
+      "quotedTotalHourly": 0.4844444444444444,
+      "computeHourly": 0.4666666666666666,
+      "storageHourly": null,
+      "downloadPerGB": 0.0026041666666666665,
+      "uploadPerGB": 0.00390625,
+      "seconds": 517.839911,
+      "estimatedComputeUSD": 0.067127,
+      "estimatedStorageUSD": 0.002557,
+      "invoice": false,
+      "smallMediaTransfersItemized": false,
+      "idlePauseRestored": true
+    },
+    "findings": [
+      "Clearer inspected open-eye detail than Standard v3",
+      "Avoids inspected resting sideways-glance regression of full calibration",
+      "Mouth closes at source-speaking frame 45; not adopted as production",
+      "Mouth/jaw-excluding CPU refinement restores that speaking pose; full-motion evaluation pending"
+    ]
+  },
+  "identityModelStillEvaluation": {
+    "execution": "CPU only",
+    "variants": [
+      "1a",
+      "1b",
+      "1c"
+    ],
+    "weights": [
+      0.6,
+      1.0
+    ],
+    "sourceExpression": "Frozen Standard PerformRecast",
+    "compositor": "Frozen v3",
+    "records": [
+      {
+        "parentJobId": "f38f587d-47fc-431f-bb3a-6b632c147108",
+        "frame": 32,
+        "eyeTextureGates": [
+          0.0,
+          0.0
+        ],
+        "seconds": 11.80369370803237
+      },
+      {
+        "parentJobId": "f38f587d-47fc-431f-bb3a-6b632c147108",
+        "frame": 49,
+        "eyeTextureGates": [
+          1.0,
+          1.0
+        ],
+        "seconds": 20.931826499989256
+      },
+      {
+        "parentJobId": "f38f587d-47fc-431f-bb3a-6b632c147108",
+        "frame": 98,
+        "eyeTextureGates": [
+          1.0,
+          1.0
+        ],
+        "seconds": 30.86950016603805
+      },
+      {
+        "parentJobId": "f38f587d-47fc-431f-bb3a-6b632c147108",
+        "frame": 332,
+        "eyeTextureGates": [
+          1.0,
+          0.0
+        ],
+        "seconds": 39.45419075002428
+      },
+      {
+        "parentJobId": "f179f035-44e7-4c3a-8ad6-70002aedd60d",
+        "frame": 0,
+        "eyeTextureGates": [
+          1.0,
+          1.0
+        ],
+        "seconds": 48.12501058296766
+      },
+      {
+        "parentJobId": "f179f035-44e7-4c3a-8ad6-70002aedd60d",
+        "frame": 180,
+        "eyeTextureGates": [
+          1.0,
+          1.0
+        ],
+        "seconds": 57.231975749949925
+      },
+      {
+        "parentJobId": "196f011e-6487-4a44-a655-fb13fc4672ca",
+        "frame": 169,
+        "eyeTextureGates": [
+          1.0,
+          1.0
+        ],
+        "seconds": 67.15850320796017
+      },
+      {
+        "parentJobId": "196f011e-6487-4a44-a655-fb13fc4672ca",
+        "frame": 215,
+        "eyeTextureGates": [
+          0.0,
+          0.0
+        ],
+        "seconds": 77.0481672079768
+      }
+    ],
+    "seconds": 77.05584095802624,
+    "productChanges": false,
+    "gpuTransfers": false,
+    "finalStillOutputs": 48,
+    "manifest": {
+      "repo": "facefusion/models-3.3.0",
+      "revision": "6271ab1c4619ceb2e534d65e0ec973f22a9aec38",
+      "execution": "Private local CPU probes only; no GPU transfer or product option",
+      "files": [
+        {
+          "filename": "hyperswap_1b_256.onnx",
+          "bytes": 402742682,
+          "sha256": "5124031789c42f71b9558fb71954ef7aedb6da7ed9fac79293e23c61a792a73e",
+          "url": "https://huggingface.co/facefusion/models-3.3.0/resolve/6271ab1c4619ceb2e534d65e0ec973f22a9aec38/hyperswap_1b_256.onnx",
+          "reused": false
+        },
+        {
+          "filename": "hyperswap_1c_256.onnx",
+          "bytes": 402742682,
+          "sha256": "5528c2d76fe9986c99d829278987ef9f3a630cb606db7628d02b57b330f406a5",
+          "url": "https://huggingface.co/facefusion/models-3.3.0/resolve/6271ab1c4619ceb2e534d65e0ec973f22a9aec38/hyperswap_1c_256.onnx",
+          "reused": false
+        }
+      ]
+    },
+    "findings": [
+      "No clear soft-eye solution across these samples",
+      "Some facial shape and makeup differences",
+      "No model transferred to GPU, added to product, or selected as default"
+    ],
+    "universalRankingEstablished": false
+  },
+  "mouthExcludingCPU": {
+    "execution": "Explicit CPU only",
+    "variants": [
+      "keep-eye-x",
+      "keep-eye-x-mouth"
+    ],
+    "records": [
+      {
+        "parent": "f38f587d-47fc-431f-bb3a-6b632c147108",
+        "frame": 98,
+        "sourceOpenRatios": [
+          0.7617521286010742,
+          1.1967655420303345
+        ],
+        "seconds": 12.968088624998927
+      },
+      {
+        "parent": "f38f587d-47fc-431f-bb3a-6b632c147108",
+        "frame": 332,
+        "sourceOpenRatios": [
+          1.061965823173523,
+          0.0
+        ],
+        "seconds": 24.21353720803745
+      },
+      {
+        "parent": "f179f035-44e7-4c3a-8ad6-70002aedd60d",
+        "frame": 0,
+        "sourceOpenRatios": [
+          1.0,
+          1.0
+        ],
+        "seconds": 36.086825250065885
+      },
+      {
+        "parent": "f179f035-44e7-4c3a-8ad6-70002aedd60d",
+        "frame": 180,
+        "sourceOpenRatios": [
+          0.7890148162841797,
+          0.9284848570823669
+        ],
+        "seconds": 47.650845790980384
+      },
+      {
+        "parent": "196f011e-6487-4a44-a655-fb13fc4672ca",
+        "frame": 45,
+        "sourceOpenRatios": [
+          1.0,
+          1.0
+        ],
+        "seconds": 59.946248791064136
+      },
+      {
+        "parent": "196f011e-6487-4a44-a655-fb13fc4672ca",
+        "frame": 169,
+        "sourceOpenRatios": [
+          1.087591290473938,
+          1.1412944793701172
+        ],
+        "seconds": 72.40437620796729
+      },
+      {
+        "parent": "196f011e-6487-4a44-a655-fb13fc4672ca",
+        "frame": 215,
+        "sourceOpenRatios": [
+          0.0,
+          0.0
+        ],
+        "seconds": 84.56946395803243
+      }
+    ],
+    "seconds": 84.5701197499875,
+    "finalStillOutputs": 14,
+    "findings": [
+      "Excluding mouth and jaw calibration restores the source-speaking pose at frame 45",
+      "Inspected open-eye detail stays clearer",
+      "Not sufficient to establish temporal quality or identity fidelity"
+    ]
+  },
+  "eyeTextureCPU": {
+    "execution": "Explicit CPU only",
+    "variants": [
+      "keep-eye-x-mouth"
+    ],
+    "records": [
+      {
+        "parent": "f38f587d-47fc-431f-bb3a-6b632c147108",
+        "frame": 98,
+        "sourceOpenRatios": [
+          0.7617521286010742,
+          1.1967655420303345
+        ],
+        "seconds": 7.762122416985221
+      },
+      {
+        "parent": "f38f587d-47fc-431f-bb3a-6b632c147108",
+        "frame": 332,
+        "sourceOpenRatios": [
+          1.061965823173523,
+          0.0
+        ],
+        "seconds": 14.182578666950576
+      },
+      {
+        "parent": "f179f035-44e7-4c3a-8ad6-70002aedd60d",
+        "frame": 0,
+        "sourceOpenRatios": [
+          1.0,
+          1.0
+        ],
+        "seconds": 20.675652291974984
+      },
+      {
+        "parent": "f179f035-44e7-4c3a-8ad6-70002aedd60d",
+        "frame": 180,
+        "sourceOpenRatios": [
+          0.7890148162841797,
+          0.9284848570823669
+        ],
+        "seconds": 26.911845416994765
+      },
+      {
+        "parent": "196f011e-6487-4a44-a655-fb13fc4672ca",
+        "frame": 45,
+        "sourceOpenRatios": [
+          1.0,
+          1.0
+        ],
+        "seconds": 33.764179041958414
+      },
+      {
+        "parent": "196f011e-6487-4a44-a655-fb13fc4672ca",
+        "frame": 169,
+        "sourceOpenRatios": [
+          1.087591290473938,
+          1.1412944793701172
+        ],
+        "seconds": 40.55365666700527
+      },
+      {
+        "parent": "196f011e-6487-4a44-a655-fb13fc4672ca",
+        "frame": 215,
+        "sourceOpenRatios": [
+          0.0,
+          0.0
+        ],
+        "seconds": 47.41128875000868
+      }
+    ],
+    "seconds": 47.41197237500455,
+    "testedModes": [
+      "No texture",
+      "Registered RGB at 65 percent",
+      "Registered RGB at 100 percent",
+      "High-frequency residual only"
+    ],
+    "finalStillOutputs": 28,
+    "note": "Variant field in the private probe identifies its shared mouth-preserving calibration; testedModes identifies the actual texture ablations.",
+    "findings": [
+      "Stronger registered RGB can look sharper in sampled open eyes",
+      "No clear benefit from high-frequency-only residual",
+      "Temporal stability and gaze fidelity of stronger restoration remain unverified"
+    ],
+    "productChanges": false
+  },
+  "mouthPreservingVideoEvaluation": {
+    "recipe": "Private source-horizontal-eye preservation with mouth/jaw calibration excluded",
+    "productionDefault": false,
+    "cases": [
+      {
+        "parentJobId": "f38f587d-47fc-431f-bb3a-6b632c147108",
+        "variant": "keep-eye-x-mouth",
+        "sha256": "a26034c6dadaddc7ad6d50cf9588593e5205aeaa2edfc114ee3fe8eb069655c6",
+        "frames": 355,
+        "seconds": 156.00727566800197,
+        "inputs": {
+          "recipe": "private-axis-calibration-mouth-v1",
+          "variant": "keep-eye-x-mouth",
+          "parentJobId": "f38f587d-47fc-431f-bb3a-6b632c147108",
+          "anchorFrame": 0,
+          "info": {
+            "width": 1248,
+            "height": 704,
+            "frames": 355,
+            "fps": "24"
+          },
+          "workerSHA256": "a5df8bb1480893249511c7c08f5cd413a45514d4b9bdb1616c0e328dad318f56",
+          "cleanupProfileSHA256": "286cb1cb40cc0eab2bdbca50bb365fe0b02dedd21d260f24b5c156013ce663b6",
+          "baseSHA256": "73e967def9d7615a195129d2d7f9e4e08e2598d330ae5cedfa55a7fde1971f27",
+          "sourceSHA256": "f97bd8fd5cbd67d656feb93a3490d0bee62a9955bde93fcb05a0257ff0418af1",
+          "referenceSHA256": "c9c17858b681768c083787e99862da57536889044346657c259faa0d00b1f8fe"
+        },
+        "refinedFrames": 355,
+        "preservedFrames": 0,
+        "allProtectedPixelChecksPassed": true,
+        "modelProviders": {
+          "appearance": [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider"
+          ],
+          "motion": [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider"
+          ],
+          "warp": [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider"
+          ],
+          "decode": [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider"
+          ],
+          "identity": [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider"
+          ]
+        },
+        "parserProviders": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "lossless": {
+          "frames": 355,
+          "sha256": "1b49aced1a039a0960a2fd60a1d5d4c9855f81ada18ca88aa72805483844d219",
+          "bytes": 180578178,
+          "allDecodedAndPNGHashesExact": true,
+          "onlyPrivatePNGsCompacted": true
+        }
+      },
+      {
+        "parentJobId": "f179f035-44e7-4c3a-8ad6-70002aedd60d",
+        "variant": "keep-eye-x-mouth",
+        "sha256": "68e5384769c7d6fd7e9f040e58bf4e410cee912e43b4f7e918d37ffb87cc8702",
+        "frames": 240,
+        "seconds": 94.20172272998025,
+        "inputs": {
+          "recipe": "private-axis-calibration-mouth-v1",
+          "variant": "keep-eye-x-mouth",
+          "parentJobId": "f179f035-44e7-4c3a-8ad6-70002aedd60d",
+          "anchorFrame": 0,
+          "info": {
+            "width": 480,
+            "height": 864,
+            "frames": 240,
+            "fps": "24"
+          },
+          "workerSHA256": "a5df8bb1480893249511c7c08f5cd413a45514d4b9bdb1616c0e328dad318f56",
+          "cleanupProfileSHA256": "286cb1cb40cc0eab2bdbca50bb365fe0b02dedd21d260f24b5c156013ce663b6",
+          "baseSHA256": "24432eaaeb19ea1b20354cd3181f2c5720dff309e8880caa2c1472f04b4bd6dc",
+          "sourceSHA256": "54a8c693e349dbd9ded69f7d513d8f309ccfb3f6d89513fe80ccca6892dc1a69",
+          "referenceSHA256": "61f2c4a59a3a2dd4973b435f43b13302b1083ad5d4674a7d5d07b449deeef945"
+        },
+        "refinedFrames": 230,
+        "preservedFrames": 10,
+        "allProtectedPixelChecksPassed": true,
+        "modelProviders": {
+          "appearance": [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider"
+          ],
+          "motion": [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider"
+          ],
+          "warp": [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider"
+          ],
+          "decode": [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider"
+          ],
+          "identity": [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider"
+          ]
+        },
+        "parserProviders": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "lossless": {
+          "frames": 240,
+          "sha256": "a9e7dfa82dab2c62fa6f5ddba73d704594f939aa2de5c600f8a0c12b17fc422d",
+          "bytes": 83836608,
+          "allDecodedAndPNGHashesExact": true,
+          "onlyPrivatePNGsCompacted": true
+        }
+      },
+      {
+        "parentJobId": "196f011e-6487-4a44-a655-fb13fc4672ca",
+        "variant": "keep-eye-x-mouth",
+        "sha256": "22e31c0879b41690b3d5bd6dff08c39f4274c2fe6f93224600b174dfc91cbd4f",
+        "frames": 216,
+        "seconds": 104.86733023199486,
+        "inputs": {
+          "recipe": "private-axis-calibration-mouth-v1",
+          "variant": "keep-eye-x-mouth",
+          "parentJobId": "196f011e-6487-4a44-a655-fb13fc4672ca",
+          "anchorFrame": 45,
+          "info": {
+            "width": 704,
+            "height": 1248,
+            "frames": 216,
+            "fps": "24"
+          },
+          "workerSHA256": "a5df8bb1480893249511c7c08f5cd413a45514d4b9bdb1616c0e328dad318f56",
+          "cleanupProfileSHA256": "286cb1cb40cc0eab2bdbca50bb365fe0b02dedd21d260f24b5c156013ce663b6",
+          "baseSHA256": "145467194d3bbc6f441a22b4c872f14ec262a9f0de38650cfecf81e5705b07a8",
+          "sourceSHA256": "453d43185501c28a79330cb84285cde786efed4bd14cef4b52c44f595081bbdb",
+          "referenceSHA256": "a38a715f96ccc7c2e5f340f0ad453a156eed4c6583e9b57a3e8a49e73cf86a5c"
+        },
+        "refinedFrames": 216,
+        "preservedFrames": 0,
+        "allProtectedPixelChecksPassed": true,
+        "modelProviders": {
+          "appearance": [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider"
+          ],
+          "motion": [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider"
+          ],
+          "warp": [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider"
+          ],
+          "decode": [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider"
+          ],
+          "identity": [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider"
+          ]
+        },
+        "parserProviders": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "lossless": {
+          "frames": 216,
+          "sha256": "0c8ae1c8d18c955a41a5a4bd0cf2065828dd2b0cea19177a55cc7baea56791ce",
+          "bytes": 159809670,
+          "allDecodedAndPNGHashesExact": true,
+          "onlyPrivatePNGsCompacted": true
+        }
+      }
+    ],
+    "mediaChecks": "Private builder verified all decoded frame timing/dimensions/counts, fixed inputs, output hashes and original audio packets",
+    "recovery": {
+      "reason": "Private five-GiB working reserve",
+      "sameSavedFacialPrefixResumed": 117,
+      "newAnimationOrImageInference": false,
+      "privateLosslessBytesRelocated": 424193472,
+      "allRelocatedCopiesSHA256Verified": true,
+      "paidOriginalsAndWeightsRemoved": false
+    },
+    "session": {
+      "instanceId": 58291560,
+      "startedAt": "2026-10-30T02:04:24.197966+00:00",
+      "originalIdlePause": true,
+      "scope": "Authorized private mouth-preserving eye calibration evaluation, existing A6000. Three finishing-only derivatives; no new video/image inference or model downloads.",
+      "stopRequestedAt": "2026-10-30T02:20:25.928004+00:00",
+      "stopConfirmedAt": "2026-10-30T02:20:42.061049+00:00",
+      "actualStatus": "exited",
+      "intendedStatus": "stopped",
+      "quotedTotalHourly": 0.4844444444444444,
+      "computeHourly": 0.4666666666666666,
+      "storageHourly": null,
+      "downloadPerGB": 0.0026041666666666665,
+      "uploadPerGB": 0.00390625,
+      "seconds": 977.863083,
+      "estimatedComputeUSD": 0.12676,
+      "estimatedStorageUSD": 0.004829,
+      "estimatedArchiveEgressUSD": 0.001657,
+      "knownFinalMediaAndReceiptBytes": 27736629,
+      "invoice": false,
+      "otherSmallTransfersItemized": false,
+      "idlePauseRestored": true
+    },
+    "findings": [
+      "Stronger calibration candidate on inspected eye/speech/glance frames",
+      "Speech at frame 45 remains open, unlike broad calibration",
+      "Closed/pursed source mouth at frame 215 remains imperfect, as in v3",
+      "Fine texture, anatomy/identity and exact gaze are not a complete quality pass"
+    ]
+  },
+  "closureCPU": {
+    "execution": "Explicit CPU only",
+    "variants": [
+      "keep-eye-x-mouth",
+      "closed-mouth-y"
+    ],
+    "records": [
+      {
+        "parent": "f38f587d-47fc-431f-bb3a-6b632c147108",
+        "frame": 98,
+        "sourceOpenRatios": [
+          0.7617521286010742,
+          1.1967655420303345
+        ],
+        "sourceMouthWeight": 0.0,
+        "seconds": 12.360411667032167
+      },
+      {
+        "parent": "f38f587d-47fc-431f-bb3a-6b632c147108",
+        "frame": 332,
+        "sourceOpenRatios": [
+          1.061965823173523,
+          0.0
+        ],
+        "sourceMouthWeight": 0.0,
+        "seconds": 23.73073029203806
+      },
+      {
+        "parent": "f179f035-44e7-4c3a-8ad6-70002aedd60d",
+        "frame": 0,
+        "sourceOpenRatios": [
+          1.0,
+          1.0
+        ],
+        "sourceMouthWeight": 0.0,
+        "seconds": 35.51229899993632
+      },
+      {
+        "parent": "f179f035-44e7-4c3a-8ad6-70002aedd60d",
+        "frame": 180,
+        "sourceOpenRatios": [
+          0.7890148162841797,
+          0.9284848570823669
+        ],
+        "sourceMouthWeight": 0.0,
+        "seconds": 47.02597220800817
+      },
+      {
+        "parent": "196f011e-6487-4a44-a655-fb13fc4672ca",
+        "frame": 45,
+        "sourceOpenRatios": [
+          1.0,
+          1.0
+        ],
+        "sourceMouthWeight": 1.0,
+        "seconds": 59.05698529200163
+      },
+      {
+        "parent": "196f011e-6487-4a44-a655-fb13fc4672ca",
+        "frame": 169,
+        "sourceOpenRatios": [
+          1.087591290473938,
+          1.1412944793701172
+        ],
+        "sourceMouthWeight": 0.0,
+        "seconds": 70.9125749169616
+      },
+      {
+        "parent": "196f011e-6487-4a44-a655-fb13fc4672ca",
+        "frame": 215,
+        "sourceOpenRatios": [
+          0.0,
+          0.0
+        ],
+        "sourceMouthWeight": 0.0,
+        "seconds": 83.33085779193789
+      }
+    ],
+    "seconds": 83.33293808298185,
+    "finalStillOutputs": 14,
+    "activation": "Only if semantic source-anchor mouth area exceeds 200 and reference mouth area is less than half that opening",
+    "findings": [
+      "Open speech at frame 45 is retained in inspected still",
+      "Mouth gap at frame 215 narrows; source pucker is still imperfect"
+    ],
+    "productionChanges": false,
+    "fullMotionValidated": false
+  },
+  "nextIsolatedGeometryTest": "Per-eye mean horizontal calibration rather than individual-point offsets; preserve source within-eye horizontal motion. Local CPU probe only."
 }

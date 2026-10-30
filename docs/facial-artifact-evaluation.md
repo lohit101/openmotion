@@ -5,9 +5,10 @@ managed-backend-tested feature route is documented in
 [Complete facial feature ownership](facial-feature-cleanup.md).
 
 The user reported a detached eyebrow near 13–14 seconds, a doubled eyelid,
-milky eye detail and a face-side mark. The goal remains active. The current
-production recipe and all paid originals are unchanged; the following results
-are private comparisons, not a claim of flawless identity or gaze.
+milky eye detail and a face-side mark. The goal remains active. During this
+initial evaluation the production recipe stayed unchanged. The later v3 edge
+fix is separately documented above; all paid originals remain unchanged.
+Private comparisons are not a claim of flawless identity or gaze.
 
 The screenshots align to frames 332, 32, 98 and 49 respectively in the saved
 355-frame 704p clip. Intermediate crops isolate two real compositing defects:
@@ -22,10 +23,11 @@ The screenshots align to frames 332, 32, 98 and 49 respectively in the saved
 A target-aware semantic mask and one absolute feature plane remove the observed
 double eye and detached brow in the inspected frames. The private mask prototype
 also exposed a protection concern: expanding a semantic feature witness can edit
-a narrow strip of real foreground. The implementation being developed instead
-keeps that witness exact and protects target hair, glasses and non-face labels.
-Its inward boundary feathering and real-media occlusion behavior still need
-validation before release.
+a narrow strip of real foreground. The later v3 implementation keeps that
+witness exact and protects target hair, glasses and non-face labels. Its managed
+evaluation and retained uncertain hand-occlusion frames are recorded in the
+linked feature report; exact protection of classified pixels is not proof that
+every real occluder is correctly classified.
 
 ## Matched comparisons
 
@@ -78,6 +80,77 @@ remain intact. This recovered enough working space to complete the comparisons.
 - Full expression calibration may alter resting gaze. A narrower aperture-only
   calibration is being compared before any production selection.
 
+## Subsequent calibration and identity-model evaluation
+
+The aperture-only still tests retained soft eyes. Broader reference calibration
+made the eyes clearer but introduced an unwanted resting sideways glance on the
+portrait clip. A subsequent private variant disables horizontal calibration on
+the eight eye keypoints, while gating vertical eye calibration by visible source
+opening. It reuses the frozen v3 compositor, fixed donor and 60% identity blend.
+
+Three full-clip runs processed the same 355/216/240 saved animation frames in
+155.196/103.624/96.508 worker seconds respectively. Their complete frame counts,
+dimensions, 24 fps timing, original audio packets and output hashes passed local
+validation. The portrait again retained ten uncertain hand-occlusion frames.
+Lossless RGB archives reproduce every decoded-frame and PNG checksum. These are
+finishing-only timings and processing checks, not identity or gaze scores.
+
+Horizontal calibration exclusion avoids the inspected resting-glance regression,
+but broad calibration also closes the mouth at frame 45 of the nine-second clip
+while the source is speaking. It therefore remains private, not a production
+default. A seven-frame CPU comparison then excluded mouth and jaw calibration;
+the speaking mouth opens again while the inspected eye detail stays clearer.
+That refinement then completed all three full clips with the same fixed donor,
+60% identity blend and v3 masks. Its workers took 156.007/104.867/94.202 seconds
+for 355/216/240 frames. It preserves the ten uncertain portrait frames. The
+nine-second run resumed its existing 117-frame facial prefix after reaching the
+private working-space reserve; it did not regenerate paid animation frames.
+
+The mouth-excluding candidate retains clearer inspected eyes and the speaking
+pose at frame 45, making it the stronger calibration candidate. It still does
+not reproduce the source's nearly closed/pursed mouth at frame 215 perfectly;
+that discrepancy also exists in the prior v3 finish. Fine texture and exact gaze
+and identity fidelity remain unresolved. It stays private pending versioned
+managed integration and stronger temporal quality checks. It must not silently
+replace a user's saved Standard/Regional choice or any paid v1/v2/v3 recipe.
+
+Two official HyperSwap alternatives, 1b and 1c, were downloaded **only to this
+Mac** from the checksum-pinned FaceFusion repository. Eight matched CPU stills
+compare 1a/1b/1c at both 60% and 100% RGB identity blend, keeping Standard source
+performance and v3 compositing. The 48 outputs took 77.05 seconds. Neither new
+variant clearly fixes the reported soft-eye frame; some alter facial proportions
+and makeup. No alternative was added to the app, transferred to the GPU or
+selected as a default. These samples establish no universal ranking.
+
+The horizontal-preserving full-clip batch used the existing A6000, with no new
+Viggle/Imagen sampling or model transfer. Compute was independently confirmed
+exited/stopped at **01:58:07 UTC**, with five-minute idle pause restored. Its
+quoted-rate estimate is about **6.71¢ compute plus 0.26¢ storage**, excluding
+small media/code transfers. Later test-session receipts are tracked separately.
+
+The mouth-preserving batch was independently confirmed exited/stopped at
+**02:20:42 UTC**, with idle pause restored. Its roughly **12.68¢ compute** estimate
+includes the saved-frame recovery and archive relocation, not just inference.
+Three older private lossless archives (424,193,472 bytes) were checksum-verified
+on the Mac before their remote cache copies were released. Original paid media
+and weights were not removed. The sanitized report records rates, retained
+frames, archive proofs and the separate storage/transfer estimates.
+
+A seven-frame, 28-output CPU texture study also compared no restoration, the
+current 65% registered RGB, stronger registered RGB and high-frequency-only
+restoration. Stronger RGB is sharper in some inspected eyes but may restore raw
+animation errors; its temporal gaze/identity behavior has not been validated.
+The high-frequency-only route showed no clear benefit. Neither changes v3.
+
+A subsequent fourteen-still CPU closure probe activates only when the exact
+source anchor has an open mouth and the fixed reference is clearly closed. It
+applies vertical mouth calibration as source opening decreases, keeping open
+speech and horizontal/depth expression unchanged. The inspected final mouth is
+closer to closed, but its pucker still differs from the source. It is not adopted
+and has no full-motion validation. Mean-per-eye horizontal calibration is the
+next isolated CPU geometry test: shifting each eye group together may correct
+spacing without changing the source's within-eye horizontal motion.
+
 ## Review and compute
 
 The open **Face continuity · private comparisons** page is
@@ -105,6 +178,12 @@ Independent implementation and CPU checks continue offline.
   documents relative motion transfer. This is a method reference, not evidence
   that our particular relative-calibration candidate passed.
 
-The new 93.63 MB parser is already present locally and was copied to the private
-GPU experiment. It has not yet been added to the product's explicit download
-manifest or enabled by Generate. Existing model licence limitations still apply.
+The initial private 93.63 MB parser was subsequently added to the explicit v3
+download manifest and reused for the managed evaluation. Generate never starts
+its download implicitly. Existing model licence limitations still apply.
+
+The identity-model comparisons use the official
+[FaceFusion swapper definitions](https://github.com/facefusion/facefusion/blob/master/facefusion/processors/modules/face_swapper/core.py)
+and [model repository](https://huggingface.co/facefusion/models-3.3.0). The code
+identifies all three HyperSwap models as ResearchRAIL; this evaluation does not
+clear the complete stack for a future hosted service.
