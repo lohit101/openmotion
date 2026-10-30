@@ -1,0 +1,11 @@
+# Latest Imagen body-transfer diagnosis
+
+The user reported inadequate physique transfer in photo `f0d33289-1b34-4888-89b6-6d3306857016`. The saved request is the native `body-only-v8` route, 1 MP, eight accelerated Euler/simple steps, CFG 1 and seed 1583893113. There is no reused body result or independent head/body/outfit pass.
+
+The actual prepared body image is the selected three-quarter full-body reference, and the face reference is separately cropped from the same character. Both reach the native Qwen multi-reference node. The prepared edit mask permits the entire visible torso; it does not clip a wider generated physique back to the original silhouette. Inspection of the saved raw body edit and final photograph locates the inadequate transfer in the model output, before final compositing. The face/hair change is much more obvious than the change in physique, with much of the source torso/garment silhouette retained.
+
+The current native route uses Qwen and the official Turbo adapter. It requests body proportions through image conditioning and text, while also asking to retain the source clothes, pose, camera and accessories. It has no independent anatomical measurement, silhouette constraint or body-proportion correction stage. Those simultaneous preservation requirements are a plausible reason the edit conservatively retains the original clothed silhouette, but the exact cause has not been isolated by a same-input ablation. Occlusion by the foreground arm and the different selfie perspective also make direct comparison with a standing body sheet harder.
+
+The preceding head-layout update adds head-scale/pose instructions; it does not establish dependable body-proportion transfer. There is no same-input old/new body comparison establishing a regression from that update. Increasing steps, enabling an old BFS experiment or adding more mask feathering is not a verified fix.
+
+This investigation is read-only and uses the already-paid files. No new sampling, model download, setting reset or change to the accepted face was performed. A separate body-focused evaluation should preserve the accepted face, source garments and camera placement and compare against the untouched native output before any new default is selected.
