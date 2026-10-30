@@ -36,7 +36,9 @@
     "modelDiskPreserved": true,
     "newRentalCreated": false,
     "managedV6V7V8Recovery": "pending",
-    "independentPermissionReplay": "pending"
+    "independentPermissionReplay": "pending",
+    "paidWork": "held-user-will-confirm-credit-refill",
+    "automaticReconnectUpdate": "cancelled"
   },
   "priorComparison": {
     "clips": 8,
