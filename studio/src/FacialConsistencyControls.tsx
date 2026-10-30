@@ -8,16 +8,18 @@ import { FieldLabel } from './InfoTip';
 import { api, Toggle } from './components';
 import { DownloadSelect, type DownloadControls } from './ModelDownloads';
 
-export default function FacialConsistencyControls({ value, change, downloads, sceneMatch, changeSceneMatch, cleanup, changeCleanup, eyeCalibration, changeEyeCalibration, eyeFinish, changeEyeFinish }: {
+export default function FacialConsistencyControls({ value, change, downloads, sceneMatch, changeSceneMatch, cleanup, changeCleanup, eyeCalibration, changeEyeCalibration, eyeFinish, changeEyeFinish, boundaryBlend, changeBoundaryBlend }: {
   value: Settings['facialConsistency']; change: (value: FacialProfile) => void; downloads: DownloadControls;
   sceneMatch?: boolean; changeSceneMatch?: (value: boolean) => void;
   cleanup?: boolean; changeCleanup?: (value: boolean) => void;
   eyeCalibration?: boolean; changeEyeCalibration?: (value: boolean) => void;
   eyeFinish?: boolean; changeEyeFinish?: (value: boolean) => void;
+  boundaryBlend?: boolean; changeBoundaryBlend?: (value: boolean) => void;
 }) {
   const [preparing, setPreparing] = useState(false);
   const active = !!value && value !== 'off';
-  const settings = { engine: 'viggle', facialConsistency: value, facialSceneMatch: sceneMatch, facialFeatureCleanup: cleanup ?? true, facialEyeCalibration: eyeCalibration === true, facialEyeFinish: eyeFinish === true };
+  const boundaryUnavailable = value === 'perform-onnx60' && eyeCalibration === true && eyeFinish === true;
+  const settings = { engine: 'viggle', facialConsistency: value, facialSceneMatch: sceneMatch, facialFeatureCleanup: cleanup ?? true, facialEyeCalibration: eyeCalibration === true, facialEyeFinish: eyeFinish === true, facialBoundaryBlend: boundaryBlend === true };
   const files = facialFilesForSettings(settings);
   const installed = files.every(id => downloads.state.files.find(file => file.id === id)?.status === 'installed');
   const prepare = async () => {
@@ -39,6 +41,8 @@ export default function FacialConsistencyControls({ value, change, downloads, sc
       detail="Uses the matching source moment and your edited reference to improve eye appearance. Keeps source mouth and jaw performance. Requires the reference timestamp to match the video; unclear anchor faces or eyes skip calibration with a saved reason. Uses the installed models." />}
     {value === 'perform-onnx60' && sceneMatch !== false && cleanup !== false && eyeCalibration === true && changeEyeFinish && <Toggle label="Restore eye detail & match glances · beta" checked={eyeFinish === true} onChange={changeEyeFinish}
       detail="Adds restrained eye-only restoration and bounded source-driven eye-position correction after the existing finish. Uses the character’s own eye pixels, keeps current blink gates and preserves hair/body/scene. Requires a separate explicit 381 MB model download and optional runtime preparation. Source eye positions are estimated; likeness and gaze still need review." />}
+    {active && sceneMatch !== false && cleanup !== false && changeBoundaryBlend && <Toggle label="Soften face boundary · beta" checked={boundaryBlend === true} onChange={changeBoundaryBlend} disabled={boundaryUnavailable} detailVisible={boundaryUnavailable}
+      detail={boundaryUnavailable ? 'Boundary blending is inactive with beta eye restoration. Turn off Restore eye detail & match glances to try this comparison.' : 'Fades only the outer face boundary inward and matches peripheral lighting. Keeps the source-driven expression, full eyes/mouth and speaking-chin permission. Uses the installed models; explicit tool update is required. Evaluated on saved frames; full GPU quality and speed are not yet validated.'} />}
     {active && installed && !facialRuntimeReadyForSettings(settings, downloads.state) && <button type="button" className="secondary-button" disabled={preparing || !downloads.online || downloads.blocked || downloads.state.busy} onClick={() => void prepare()}><DownloadSimple size={15} />{preparing ? 'Preparing face tools…' : 'Prepare / update facial tools'}</button>}
   </div>;
 }

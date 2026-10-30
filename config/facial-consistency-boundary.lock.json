@@ -1,0 +1,13 @@
+{
+  "version": "face-boundary-v1",
+  "strength": 0.65,
+  "feather_scene_pixels": 7,
+  "feature_guard_scene_pixels": 2,
+  "maximum_lighting_bias": 16,
+  "working_size": 64,
+  "source_actor_rgb_transferred": false,
+  "outward_mask_growth": false,
+  "compatible_legacy_worker_sha256": [
+    "59786ce3870574c1bfe767b5928ecb179864c3bd5fcfcca524da9d64f7276125"
+  ]
+}

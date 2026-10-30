@@ -53,6 +53,8 @@ class FacialWorkerProtocolTests(unittest.TestCase):
                 patch.object(facial_runtime, 'prepare_eye_runtime') as optional:
             facial_runtime.prepare('source-face-v6')
             facial_runtime.prepare('source-face-v7')
+            facial_runtime.prepare('source-face-v9')
+            facial_runtime.prepare('source-face-v10')
             optional.assert_not_called()
             facial_runtime.prepare('source-face-v8')
             optional.assert_called_once_with()

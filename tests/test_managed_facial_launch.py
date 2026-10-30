@@ -57,6 +57,40 @@ class ManagedFacialLaunchTests(unittest.TestCase):
                 poll.assert_called_once_with({'remote_root': '/workspace/test'}, 'poll', 'saved-job')
                 self.assertEqual('RECAST_FACIAL_STOPPED' in output.getvalue(), not running)
 
+    def test_boundary_capability_does_not_reuse_a_legacy_ready_marker(self):
+        for version, base in [('source-face-v9', 'source-face-v6'), ('source-face-v10', 'source-face-v7')]:
+            value = {'ready': True, 'runtimeReady': True, 'missing': [],
+                     'profileSHA256': managed.fingerprint(),
+                     'cleanupProfileSHA256': managed.fingerprint('source-face-v3'),
+                     'cleanupWorkerSHA256': managed.digest(managed.ROOT / 'scripts/facial_worker.py'),
+                     'calibrationProfileSHA256': managed.fingerprint('source-face-v4'),
+                     'geometryProfiles': {base: managed.fingerprint(base)},
+                     'timingSHA256': managed.digest(managed.ROOT / 'scripts/video_timing.py')}
+            with patch.object(managed.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0)), \
+                    patch.object(managed, 'call', return_value=value), \
+                    patch.object(managed.vast, 'ssh_arguments', return_value=[]), \
+                    patch.object(managed.vast, 'destination', return_value='example'):
+                result = managed.status({'remote_root': '/workspace/test'}, version)
+            self.assertFalse(result['ready'])
+            self.assertIn('Updated face-boundary tools', result['missing'])
+
+    def test_exact_deployed_worker_keeps_legacy_jobs_ready_until_explicit_update(self):
+        from facial_runtime import compatible_worker_hashes
+        for worker, ready in [(compatible_worker_hashes()[1], True), ('0' * 64, False)]:
+            value = {'ready': True, 'runtimeReady': True, 'missing': [],
+                     'profileSHA256': managed.fingerprint(),
+                     'cleanupProfileSHA256': managed.fingerprint('source-face-v3'),
+                     'cleanupWorkerSHA256': worker,
+                     'calibrationProfileSHA256': managed.fingerprint('source-face-v4'),
+                     'geometryProfiles': {'source-face-v7': managed.fingerprint('source-face-v7')},
+                     'timingSHA256': managed.digest(managed.ROOT / 'scripts/video_timing.py')}
+            with patch.object(managed.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0)), \
+                    patch.object(managed, 'call', return_value=value), \
+                    patch.object(managed.vast, 'ssh_arguments', return_value=[]), \
+                    patch.object(managed.vast, 'destination', return_value='example'):
+                result = managed.status({'remote_root': '/workspace/test'}, 'source-face-v7')
+            self.assertEqual(result['ready'], ready)
+
 
 if __name__ == '__main__':
     unittest.main()

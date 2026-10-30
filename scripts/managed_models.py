@@ -79,15 +79,18 @@ def main():
                     'result["partials"] += [{"id":"face-refinement/"+Path(f["path"]).name,"size":min(f["size"],p.stat().st_size)} for f in json.loads(sys.argv[4]) if (p:=face/(f["path"]+".part")).is_file() and not p.is_symlink() and not p.parent.is_symlink()];'
                     'marker=root.parent/"facial-runtime/state/runtime-ready.json";'
                     'result["facialRuntimeReady"]=marker.is_file() and json.loads(marker.read_text()).get("sceneProfileSHA256")==sys.argv[5] and json.loads(marker.read_text()).get("timingSHA256")==sys.argv[6];'
-                    'result["facialCleanupRuntimeReady"]=result["facialRuntimeReady"] and json.loads(marker.read_text()).get("cleanupProfileSHA256")==sys.argv[7] and json.loads(marker.read_text()).get("cleanupWorkerSHA256")==sys.argv[8];'
+                    'result["facialCleanupRuntimeReady"]=result["facialRuntimeReady"] and json.loads(marker.read_text()).get("cleanupProfileSHA256")==sys.argv[7] and json.loads(marker.read_text()).get("cleanupWorkerSHA256") in json.loads(sys.argv[8]);'
                     'result["facialCalibratedRuntimeReady"]=result["facialCleanupRuntimeReady"] and json.loads(marker.read_text()).get("calibrationProfileSHA256")==sys.argv[9];'
                     'result["facialGeometryRuntimeReady"]=result["facialCleanupRuntimeReady"] and json.loads(marker.read_text()).get("geometryProfiles")==json.loads(sys.argv[11]);'
+                    'result["facialBoundaryRuntimeReady"]=result["facialGeometryRuntimeReady"] and json.loads(marker.read_text()).get("boundaryProfiles")==json.loads(sys.argv[12]) and json.loads(marker.read_text()).get("cleanupWorkerSHA256")==json.loads(sys.argv[8])[0];'
                     'eye_marker=root.parent/"facial-runtime/state/eye-runtime-ready.json";'
                     'result["facialEyeFinishRuntimeReady"]=result["facialCalibratedRuntimeReady"] and eye_marker.is_file() and json.loads(eye_marker.read_text()).get("profileSHA256")==sys.argv[10] and json.loads(eye_marker.read_text()).get("nativeBindingsVerified") is True;'
                     'print("RECAST_MODEL_STORAGE "+json.dumps(result))')
             facial = __import__('managed_facial_consistency')
             geometry = {f'source-face-v{n}': facial.fingerprint(f'source-face-v{n}') for n in [6, 7, 8]}
-            vast.remote(config, ['python3', '-c', code, str(root / 'scripts'), str(root / 'models'), json.dumps(selected_manifest()['files']),json.dumps(face_files), facial.fingerprint('source-face-v2'), facial.digest(facial.ROOT / 'scripts/video_timing.py'), facial.fingerprint('source-face-v3'), facial.digest(facial.ROOT / 'scripts/facial_worker.py'), facial.fingerprint('source-face-v4'), facial.fingerprint('source-face-v5'), json.dumps(geometry)])
+            boundary = {f'source-face-v{n}': facial.fingerprint(f'source-face-v{n}') for n in [9, 10]}
+            from facial_runtime import compatible_worker_hashes
+            vast.remote(config, ['python3', '-c', code, str(root / 'scripts'), str(root / 'models'), json.dumps(selected_manifest()['files']),json.dumps(face_files), facial.fingerprint('source-face-v2'), facial.digest(facial.ROOT / 'scripts/video_timing.py'), facial.fingerprint('source-face-v3'), json.dumps(compatible_worker_hashes()), facial.fingerprint('source-face-v4'), facial.fingerprint('source-face-v5'), json.dumps(geometry), json.dumps(boundary)])
             return
         command = ['python3', str(root / 'scripts/model_storage.py'), '--model-dir', str(root / 'models')]
         if args.action == 'delete':

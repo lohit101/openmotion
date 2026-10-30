@@ -6,7 +6,7 @@ import path from 'node:path';
 import type { Job } from '../shared/types';
 import { outputDimensions } from '../shared/types';
 import { frameFloor } from '../shared/clip';
-import { canFinishFacialLocally, facialVersionForSettings, usesFacialConsistency, isCalibratedFacialVersion, isCleanupFacialVersion, isEyeFinishedFacialVersion, isGeometryFacialVersion, type FacialConsistencyRun } from '../shared/facial-consistency';
+import { canFinishFacialLocally, facialVersionForSettings, usesFacialConsistency, isCalibratedFacialVersion, isCleanupFacialVersion, isEyeFinishedFacialVersion, isGeometryFacialVersion, isBoundaryFacialVersion, type FacialConsistencyRun } from '../shared/facial-consistency';
 import type { ConnectionManager } from './comfy';
 import type { Store } from './store';
 
@@ -15,6 +15,11 @@ export class FacialConsistencyError extends Error {
 }
 export const faceHash = (file: string) => createHash('sha256').update(readFileSync(file)).digest('hex');
 export const facialFingerprint = (repo: string, version: FacialConsistencyRun['version'] = 'source-face-v1') => {
+  if (isBoundaryFacialVersion(version)) {
+    const hash = createHash('sha256').update(Buffer.from(facialFingerprint(repo, version === 'source-face-v9' ? 'source-face-v6' : 'source-face-v7'), 'hex'));
+    for (const name of ['config/facial-consistency-boundary.lock.json', 'scripts/face_boundary_blend.py']) hash.update(readFileSync(path.join(repo, name)));
+    return hash.digest('hex');
+  }
   const bases = { 'source-face-v6': 'source-face-v3', 'source-face-v7': 'source-face-v4', 'source-face-v8': 'source-face-v5' } as const;
   if (version in bases) {
     const base = bases[version as keyof typeof bases];
@@ -192,6 +197,15 @@ export class ManagedFacialConsistency implements FacialBackend {
         nativeOutputSHA256: eye.nativeOutputSHA256, sourceRGBTransferred: false };
     }
     const [width, height] = outputDimensions(job);
+    if (isBoundaryFacialVersion(run.version)) {
+      const boundary = JSON.parse(readFileSync(path.join(this.repo, 'config/facial-consistency-boundary.lock.json'), 'utf8'));
+      if (!Array.isArray(receipt.records) || receipt.records.some((record: any) => {
+        if (record.action !== 'refined') return false;
+        const b = record.cleanup?.boundaryBlend;
+        return !b || b.version !== boundary.version || b.strength !== boundary.strength || b.outwardGrowth !== false || b.sourceRGBTransferred !== false ||
+          !Number.isInteger(b.boundaryPixels) || b.boundaryPixels < 0 || b.boundaryPixels > 512 * 512;
+      })) throw new FacialConsistencyError('The face-boundary receipt failed validation. Existing rendered video was preserved.');
+    }
     if (isGeometryFacialVersion(run.version)) {
       const geometry = JSON.parse(readFileSync(path.join(this.repo, 'config/facial-consistency-geometry.lock.json'), 'utf8'));
       const reasons = ['source-jaw-not-visible', 'source-jaw-outside-crop', 'jaw-geometry-uncertain', 'no-outward-jaw-motion'];

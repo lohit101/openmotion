@@ -21,6 +21,8 @@ GEOMETRY_BASES = {'source-face-v6': 'source-face-v3', 'source-face-v7': 'source-
                   'source-face-v8': 'source-face-v5'}
 GEOMETRY_FILES = ['config/facial-consistency-geometry.lock.json', 'scripts/face_jaw_geometry.py']
 GEOMETRY_EYE_FILES = ['scripts/face_geometry_eye_finish.py', 'scripts/face_geometry_eye_motion.py']
+BOUNDARY_BASES = {'source-face-v9': 'source-face-v6', 'source-face-v10': 'source-face-v7'}
+BOUNDARY_FILES = ['config/facial-consistency-boundary.lock.json', 'scripts/face_boundary_blend.py']
 
 
 def digest(file):
@@ -36,6 +38,9 @@ def profile():
 
 
 def profile_hash(version='source-face-v1'):
+    if version in BOUNDARY_BASES:
+        data = bytes.fromhex(profile_hash(BOUNDARY_BASES[version]))
+        return hashlib.sha256(data + b''.join((ROOT / name).read_bytes() for name in BOUNDARY_FILES)).hexdigest()
     if version in GEOMETRY_BASES:
         data = bytes.fromhex(profile_hash(GEOMETRY_BASES[version]))
         names = GEOMETRY_FILES + (GEOMETRY_EYE_FILES if version == 'source-face-v8' else [])
@@ -58,6 +63,16 @@ def profile_hash(version='source-face-v1'):
     elif version != 'source-face-v1':
         raise ValueError('Unsupported frozen facial recipe.')
     return hashlib.sha256(data).hexdigest()
+
+
+def compatible_worker_hashes():
+    """The exact deployed worker remains valid for frozen v1–v8 only.
+
+    Adding new opt-in branches must not force an update during a user's legacy
+    render. New boundary recipes require the current worker and their marker.
+    """
+    saved = json.loads((ROOT / BOUNDARY_FILES[0]).read_text())['compatible_legacy_worker_sha256']
+    return [digest(ROOT / 'scripts/facial_worker.py'), *saved]
 
 
 def paths():
@@ -85,7 +100,7 @@ def inspect(verify=False, model_root=None, version='source-face-v1'):
     if not ready:
         missing.append('Isolated facial-processing runtime')
     manifest = json.loads((ROOT / 'config/facial-consistency-models.lock.json').read_text())
-    if version in ['source-face-v3', 'source-face-v4', 'source-face-v5', *GEOMETRY_BASES]:
+    if version in ['source-face-v3', 'source-face-v4', 'source-face-v5', *GEOMETRY_BASES, *BOUNDARY_BASES]:
         extra = json.loads((ROOT / 'config/facial-consistency-cleanup-models.lock.json').read_text())
         manifest = {**manifest, 'files': [*manifest['files'], *extra['files']], 'total_bytes': manifest['total_bytes'] + extra['total_bytes']}
     if version in ['source-face-v5', 'source-face-v8']:
@@ -112,10 +127,10 @@ def inspect(verify=False, model_root=None, version='source-face-v1'):
     try:
         cleanup_hash = profile_hash('source-face-v3')
         cleanup_ready = (json.loads(marker.read_text()).get('cleanupProfileSHA256') == cleanup_hash and
-                         json.loads(marker.read_text()).get('cleanupWorkerSHA256') == digest(ROOT / 'scripts/facial_worker.py'))
+                         json.loads(marker.read_text()).get('cleanupWorkerSHA256') in compatible_worker_hashes())
     except (OSError, ValueError):
         cleanup_hash, cleanup_ready = None, False
-    if version in ['source-face-v3', 'source-face-v4', 'source-face-v5', *GEOMETRY_BASES] and not cleanup_ready:
+    if version in ['source-face-v3', 'source-face-v4', 'source-face-v5', *GEOMETRY_BASES, *BOUNDARY_BASES] and not cleanup_ready:
         ready = False
         missing.append('Updated facial feature-cleanup tools')
     try:
@@ -123,7 +138,7 @@ def inspect(verify=False, model_root=None, version='source-face-v1'):
         calibration_ready = cleanup_ready and json.loads(marker.read_text()).get('calibrationProfileSHA256') == calibration_hash
     except (OSError, ValueError):
         calibration_hash, calibration_ready = None, False
-    if version in ['source-face-v4', 'source-face-v5', 'source-face-v7', 'source-face-v8'] and not calibration_ready:
+    if version in ['source-face-v4', 'source-face-v5', 'source-face-v7', 'source-face-v8', 'source-face-v10'] and not calibration_ready:
         ready = False
         missing.append('Updated facial eye-calibration tools')
     try:
@@ -148,15 +163,25 @@ def inspect(verify=False, model_root=None, version='source-face-v1'):
         geometry_ready = cleanup_ready and json.loads(marker.read_text()).get('geometryProfiles') == geometry_hashes
     except (OSError, ValueError):
         geometry_ready = False
-    if version in GEOMETRY_BASES and not geometry_ready:
+    if version in [*GEOMETRY_BASES, *BOUNDARY_BASES] and not geometry_ready:
         ready = False
         missing.append('Updated jaw-geometry tools')
+    boundary_hashes = {name: profile_hash(name) for name in BOUNDARY_BASES}
+    try:
+        boundary_ready = (geometry_ready and json.loads(marker.read_text()).get('boundaryProfiles') == boundary_hashes and
+                          json.loads(marker.read_text()).get('cleanupWorkerSHA256') == digest(ROOT / 'scripts/facial_worker.py'))
+    except (OSError, ValueError):
+        boundary_ready = False
+    if version in BOUNDARY_BASES and not boundary_ready:
+        ready = False
+        missing.append('Updated face-boundary tools')
     return {'ready': not missing, 'runtimeReady': ready, 'missing': missing, 'profileSHA256': profile_hash(),
             'sceneProfileSHA256': scene_hash if scene_ready else None, 'cleanupProfileSHA256': cleanup_hash if cleanup_ready else None,
-            'cleanupWorkerSHA256': digest(ROOT / 'scripts/facial_worker.py') if cleanup_ready else None,
+            'cleanupWorkerSHA256': json.loads(marker.read_text()).get('cleanupWorkerSHA256') if cleanup_ready else None,
             'calibrationProfileSHA256': calibration_hash if calibration_ready else None,
             'eyeFinishProfileSHA256': eye_hash if eye_ready else None,
             'geometryProfiles': geometry_hashes if geometry_ready else None,
+            'boundaryProfiles': boundary_hashes if boundary_ready else None,
             'timingSHA256': timing_hash if timing_ready else None, 'bytes': manifest['total_bytes'] - ignored_bytes}
 
 
@@ -167,6 +192,7 @@ def write_ready_marker():
                                      'cleanupProfileSHA256': profile_hash('source-face-v3'),
                                      'calibrationProfileSHA256': profile_hash('source-face-v4'),
                                      'geometryProfiles': {name: profile_hash(name) for name in GEOMETRY_BASES},
+                                     'boundaryProfiles': {name: profile_hash(name) for name in BOUNDARY_BASES},
                                      'cleanupWorkerSHA256': digest(ROOT / 'scripts/facial_worker.py'),
                                      'timingSHA256': digest(ROOT / 'scripts/video_timing.py')}))
     temporary.replace(marker)

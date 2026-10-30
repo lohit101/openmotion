@@ -117,7 +117,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   });
   app.post('/api/facial-consistency/prepare', async (req, res) => {
     if (videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork() || cloud.state.busy || runner.busy || store.jobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status))) return void res.status(409).json({ error: 'Finish GPU work before preparing facial tools.' });
-    const value = z.object({ version: z.enum(['source-face-v1', 'source-face-v2', 'source-face-v3', 'source-face-v4', 'source-face-v5', 'source-face-v6', 'source-face-v7', 'source-face-v8']).default('source-face-v6') }).strict().parse(req.body);
+    const value = z.object({ version: z.enum(['source-face-v1', 'source-face-v2', 'source-face-v3', 'source-face-v4', 'source-face-v5', 'source-face-v6', 'source-face-v7', 'source-face-v8', 'source-face-v9', 'source-face-v10']).default('source-face-v6') }).strict().parse(req.body);
     res.json(await models.prepareFacialTools(value.version));
   });
   app.post('/api/models/cancel', async (_req, res) => res.json(await models.cancel()));

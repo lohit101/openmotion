@@ -29,7 +29,7 @@ export const pinnedModels = [...scailModels, ...viggle.files, ...repaint.files, 
 export const facialModelFiles = facialModels.files.map(file => file.destination).filter(id => !contentFilterWeight(id));
 export const facialCleanupModelFiles = facialCleanupModels.files.map(file => file.destination);
 export const facialEyeFinishModelFiles = facialEyeFinishModels.files.map(file => file.destination);
-export const facialFilesForSettings = (settings: { facialSceneMatch?: boolean; facialFeatureCleanup?: boolean; facialConsistency?: Settings['facialConsistency']; facialEyeCalibration?: boolean; facialEyeFinish?: boolean }) =>
+export const facialFilesForSettings = (settings: { facialSceneMatch?: boolean; facialFeatureCleanup?: boolean; facialConsistency?: Settings['facialConsistency']; facialEyeCalibration?: boolean; facialEyeFinish?: boolean; facialBoundaryBlend?: boolean }) =>
   [...facialModelFiles, ...(isCleanupFacialVersion(facialVersionForSettings(settings)) ? facialCleanupModelFiles : []),
     ...(isEyeFinishedFacialVersion(facialVersionForSettings(settings)) ? facialEyeFinishModelFiles : [])];
 export const modelWorkingReserve = (files: string[]) => 5 * 1024 ** 3 + (files.some(file => file.startsWith('face_consistency/')) ? 512 * 1024 ** 2 : 0);
@@ -123,7 +123,7 @@ export interface ModelFileState { id: string; status: ModelStatus; percent: numb
 export interface InstalledLora { name: string; size: number; partialSize?: number; included: boolean; }
 export interface ModelInventoryFile { id: string; size: number; partialSize: number; measured: boolean; }
 export interface ModelInventory { key: string; instanceId: number | null; endpoint: string; gpu: string | null; checkedAt: string; files: ModelInventoryFile[]; freeBytes?: number; }
-export interface ModelsState { files: ModelFileState[]; busy: boolean; refreshing: boolean; error: string | null; checkedAt: string | null; installedLoras: InstalledLora[]; deleting: string | null; diskFreeBytes?: number; inventories?: ModelInventory[]; facialRuntimeReady?: boolean; facialCleanupRuntimeReady?: boolean; facialCalibratedRuntimeReady?: boolean; facialEyeFinishRuntimeReady?: boolean; facialGeometryRuntimeReady?: boolean; }
+export interface ModelsState { files: ModelFileState[]; busy: boolean; refreshing: boolean; error: string | null; checkedAt: string | null; installedLoras: InstalledLora[]; deleting: string | null; diskFreeBytes?: number; inventories?: ModelInventory[]; facialRuntimeReady?: boolean; facialCleanupRuntimeReady?: boolean; facialCalibratedRuntimeReady?: boolean; facialEyeFinishRuntimeReady?: boolean; facialGeometryRuntimeReady?: boolean; facialBoundaryRuntimeReady?: boolean; }
 export const emptyModels = (): ModelsState => ({ files: modelDefinitions.map(file => ({ id: file.id, status: 'unknown', percent: null, message: '', error: null })), busy: false, refreshing: false, error: null, checkedAt: null, installedLoras: [], deleting: null });
 
 export function modelBytes(files: string[]): number {

@@ -1,0 +1,111 @@
+{
+  "date": "2026-10-30",
+  "friendRepository": "https://github.com/abhijayrajvansh/face-swap",
+  "friendRevision": "d3460e57ef3d9fd0761765e9bc814bb5ba0d37b2",
+  "mode": "local CPU comparisons on paid inputs",
+  "paidInferenceSubmitted": false,
+  "gpuResumed": false,
+  "gpuTransfers": false,
+  "friendTriage": {
+    "clips": 3,
+    "stills": 18,
+    "sameCropper": "YuNet + 2DFAN for every candidate; friend many-detector not evaluated",
+    "warmSamplesPerVariant": 17,
+    "warmMedianSeconds": {
+      "hyperswap-native": 0.7652773750014603,
+      "hyperswap-strong": 0.732095459010452,
+      "friend-inswapper": 5.38340245897416
+    },
+    "protectedPixelsExact": true
+  },
+  "inwardBoundaryStudy": {
+    "stills": 15,
+    "strengths": [
+      0.35,
+      0.65,
+      1.0
+    ],
+    "exportFrames": 267,
+    "videoCases": [
+      {
+        "parent": "196f011e-6487-4a44-a655-fb13fc4672ca",
+        "frames": 216,
+        "seconds": 9.0,
+        "compositorSeconds": 32.33241812954657,
+        "outputs": {
+          "control": "8fe3620c3c7883d2c53686582e17f52c82e867bbc14988bf6bae237d477dec1f",
+          "boundary": "064ea266d3288fdbcb94875746466803066adead71ee1f4a7688e84833ea6e74"
+        }
+      },
+      {
+        "parent": "307e0451-b94f-4750-a54c-cccf298a5ea5",
+        "frames": 51,
+        "seconds": 2.125,
+        "compositorSeconds": 5.423211247427389,
+        "outputs": {
+          "control": "9526833e87a6ce2b5a45f450927faba25b37b3ee85bf7ac049d63c0a4336a4f7",
+          "boundary": "a4450e5e2ecb3f7608ca3eb07fb3110931c2e8d825587ab10e0b3b4cab923819"
+        }
+      }
+    ],
+    "actions": {
+      "refined": 264,
+      "preserved": 3
+    },
+    "protectedPixelsExact": true,
+    "timingAndAudioChecked": true,
+    "cpuMasksAreExactCudaReplay": false,
+    "mainComparisonPlayedInQuickTime": true,
+    "secondComparisonMotionReviewComplete": false,
+    "managedGpuValidationComplete": false,
+    "visualFinding": "Subtle boundary change; underlying facial softness/likeness limitations remain. Default stays off."
+  },
+  "implementation": {
+    "versions": [
+      "source-face-v9",
+      "source-face-v10"
+    ],
+    "default": false,
+    "weightsAdded": 0,
+    "legacyVersionsUnchanged": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "profileHashes": {
+      "source-face-v1": "ef8f273a320b6d34c5efccf690610ad92f1aac0fdb9c4d60c4906557ade5b419",
+      "source-face-v2": "3952a4da82fcb2284788137279c7716102bba1e5755b2f6968502dc38dec3c08",
+      "source-face-v3": "286cb1cb40cc0eab2bdbca50bb365fe0b02dedd21d260f24b5c156013ce663b6",
+      "source-face-v4": "4520b9613ed3e9d9b5e105baa85cc3332064d3564a0e759fa2af91426ac65239",
+      "source-face-v5": "665bac84437c6e61a91db8a25d193abd1989e1c7ddabb3815a38d8a267e02dfe",
+      "source-face-v6": "6ce5188c6f39a7aebc38d38eeb2a7d37fada236fce1c0908246e179773fa84d8",
+      "source-face-v7": "dc4776f15dd9829b995c46972de52baf9f74af32a1ecc08ffc261b9a1aec4294",
+      "source-face-v8": "2653e3d2c8d27223f2861f69efb461456493666bca4131c3995e3a38d3d3765f",
+      "source-face-v9": "acb3da4a0d3a500b34bd8b3951762a671602217382342b0cd25948eee145f413",
+      "source-face-v10": "8fac005e7ff5af989a819570abe31ab28c9b4e4ce5c8410ce4b745274bb18927"
+    },
+    "optionalEyeFinishUsesOwnFrozenRecipe": true
+  },
+  "validation": {
+    "studioTests": 474,
+    "pythonFocusedChecks": 44,
+    "build": "passed; final 50 focused Studio checks passed after UI/capability refinements"
+  },
+  "deployment": {
+    "deployedAt": "2026-10-30T17:06:36.479482+00:00",
+    "savedJobsUnchanged": 260,
+    "draftsUnchanged": true,
+    "accountSetupRouteAvailable": true,
+    "gpuResumed": false,
+    "connectionState": "offline",
+    "gpuToolsUpdated": false,
+    "boundaryDefault": false,
+    "legacyToolsStillReady": null,
+    "localAppReloaded": true
+  }
+}

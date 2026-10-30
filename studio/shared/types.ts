@@ -21,6 +21,7 @@ export const settingsSchema = z.object({
   facialFeatureCleanup: z.boolean().default(true),
   facialEyeCalibration: z.boolean().default(true),
   facialEyeFinish: z.boolean().default(false),
+  facialBoundaryBlend: z.boolean().default(false),
   imagenRepaint: imagenRepaintProfileSchema.nullable().default(null),
   imagenRepaintEnabled: z.boolean().default(false),
   mode: z.enum(['swap', 'motion']).default('swap'),
