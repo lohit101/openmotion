@@ -971,5 +971,84 @@
     "productionChanges": false,
     "fullMotionValidated": false
   },
-  "nextIsolatedGeometryTest": "Per-eye mean horizontal calibration rather than individual-point offsets; preserve source within-eye horizontal motion. Local CPU probe only."
+  "eyeCenterCPU": {
+    "execution": "Explicit CPU only",
+    "variants": [
+      "keep-eye-x-mouth",
+      "mean-eye-x-mouth"
+    ],
+    "records": [
+      {
+        "parent": "f38f587d-47fc-431f-bb3a-6b632c147108",
+        "frame": 98,
+        "sourceOpenRatios": [
+          0.7617521286010742,
+          1.1967655420303345
+        ],
+        "seconds": 12.63462574989535
+      },
+      {
+        "parent": "f38f587d-47fc-431f-bb3a-6b632c147108",
+        "frame": 332,
+        "sourceOpenRatios": [
+          1.061965823173523,
+          0.0
+        ],
+        "seconds": 23.56450824998319
+      },
+      {
+        "parent": "f179f035-44e7-4c3a-8ad6-70002aedd60d",
+        "frame": 0,
+        "sourceOpenRatios": [
+          1.0,
+          1.0
+        ],
+        "seconds": 34.94586199999321
+      },
+      {
+        "parent": "f179f035-44e7-4c3a-8ad6-70002aedd60d",
+        "frame": 180,
+        "sourceOpenRatios": [
+          0.7890148162841797,
+          0.9284848570823669
+        ],
+        "seconds": 46.66593891591765
+      },
+      {
+        "parent": "196f011e-6487-4a44-a655-fb13fc4672ca",
+        "frame": 45,
+        "sourceOpenRatios": [
+          1.0,
+          1.0
+        ],
+        "seconds": 59.01350754091982
+      },
+      {
+        "parent": "196f011e-6487-4a44-a655-fb13fc4672ca",
+        "frame": 169,
+        "sourceOpenRatios": [
+          1.087591290473938,
+          1.1412944793701172
+        ],
+        "seconds": 71.46355754090473
+      },
+      {
+        "parent": "196f011e-6487-4a44-a655-fb13fc4672ca",
+        "frame": 215,
+        "sourceOpenRatios": [
+          0.0,
+          0.0
+        ],
+        "seconds": 84.10032654099632
+      }
+    ],
+    "seconds": 84.10281591594685,
+    "finalStillOutputs": 14,
+    "findings": [
+      "Mean-per-eye horizontal offset shows little visible advantage in sampled frames",
+      "No gaze or identity-spacing fix established"
+    ],
+    "productionChanges": false,
+    "fullMotionValidated": false
+  }
 }

@@ -147,9 +147,11 @@ source anchor has an open mouth and the fixed reference is clearly closed. It
 applies vertical mouth calibration as source opening decreases, keeping open
 speech and horizontal/depth expression unchanged. The inspected final mouth is
 closer to closed, but its pucker still differs from the source. It is not adopted
-and has no full-motion validation. Mean-per-eye horizontal calibration is the
-next isolated CPU geometry test: shifting each eye group together may correct
-spacing without changing the source's within-eye horizontal motion.
+and has no full-motion validation. A further fourteen-still, 84.104-second CPU
+test shifted each eye group by its mean horizontal calibration rather than
+changing individual points. It showed little visible advantage over leaving
+horizontal calibration off; it does not establish a spacing or gaze fix and is
+not selected for paid full-motion testing.
 
 ## Review and compute
 
