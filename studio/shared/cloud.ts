@@ -135,4 +135,7 @@ export interface GpuIdleState {
   status: 'inactive' | 'busy' | 'watching' | 'checking' | 'pausing' | 'paused' | 'error'; message: string;
   lastPause?: { id: string; instanceId: number; requestedAt: string; confirmedAt?: string; error?: string };
 }
-export interface CloudState { configured: boolean; instances: CloudInstance[]; launches: CloudLaunch[]; favourites?: GpuFavourite[]; refreshedAt: string | null; error: string | null; busy: boolean; idle?: GpuIdleState; }
+export interface CloudState { configured: boolean; instances: CloudInstance[]; launches: CloudLaunch[]; favourites?: GpuFavourite[]; refreshedAt: string | null; error: string | null; busy: boolean; idle?: GpuIdleState; revision?:number; selectedInstanceId?:number|null; }
+export function newestCloudState(current:CloudState,incoming:CloudState):CloudState{
+  return (incoming.revision??0)<(current.revision??0)?current:incoming;
+}

@@ -7,6 +7,9 @@ import { defaults, geometry, settingsSchema } from '../shared/types';
 import { defaultPrompt, migrateDemoPrompt, promptAfterModeChange } from '../shared/prompts';
 import { api, AssetDrop, SmallSelect, Toggle, VideoPlayer } from './components';
 import type { CloudState } from '../shared/cloud';
+import {newestCloudState} from '../shared/cloud';
+import {gpuPowerTarget} from '../shared/gpu-power';
+import CloudStatusSync from './CloudStatusSync';
 import { setupNotice } from '../shared/cloud-status';
 import { framingNotice, FramingWarningTracker } from '../shared/framing-status';
 import { samplingNote, samplingOptions } from '../shared/sampling-display';
@@ -132,7 +135,7 @@ export default function App() {
   const initialized = useRef(false), saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null), requestId = useRef<string | null>(null), promptRef = useRef<HTMLTextAreaElement>(null);
   useEffect(() => { document.documentElement.dataset.theme = theme; localStorage.setItem('recast-theme', theme); }, [theme]);
   const receiveBootstrap = useCallback((value: Bootstrap) => {
-    setData(value);
+    setData(old=>old?{...value,cloud:newestCloudState(old.cloud,value.cloud)}:value);
     if (!initialized.current) { initialized.current = true; const settings = { ...defaults, ...value.draft.settings, prompt: migrateDemoPrompt(value.draft.settings.prompt, value.draft.settings.mode) }; const source = value.assets.find(asset => asset.id === value.draft.sourceId); const clip = source ? clampClipEnd(settings, source.duration, settings.fps) : null; setDraft({ ...value.draft, settings: { ...settings, ...clip } }); setImageDraft(value.imageDraft || emptyImageDraft()); }
   }, []);
   useEffect(() => {
@@ -146,7 +149,7 @@ export default function App() {
       else if (e.type === 'asset') setData(old => old ? { ...old, assets: [e.data, ...old.assets.filter(a => a.id !== e.data.id)] } : old);
       else if (e.type === 'character') setData(old => old ? { ...old, characters: [e.data, ...(old.characters || []).filter(c => c.id !== e.data.id)] } : old);
       else if (e.type === 'connection') setData(old => old ? { ...old, connection: e.data } : old);
-      else if (e.type === 'cloud') setData(old => old ? { ...old, cloud: e.data } : old);
+      else if (e.type === 'cloud') setData(old => old ? { ...old, cloud: newestCloudState(old.cloud,e.data) } : old);
       else if (e.type === 'models') setData(old => old ? { ...old, models: e.data } : old);
       else if (e.type === 'lora-removed') { setDraft(old => ({ ...old, settings: { ...old.settings, ...(old.settings.loraA === e.data.name ? { loraA: 'None' } : {}), ...(old.settings.loraB === e.data.name ? { loraB: 'None' } : {}) } })); if (e.data.name === IMAGE_IDENTITY) setImageDraft(old => ({ ...old, settings: { ...old.settings, identityRefine: false } })); }
     };
@@ -260,12 +263,15 @@ export default function App() {
 
   const closePreview = () => { setSelectedId(null); setCompare(false); setInfo(false); };
   const handleJobAction = async (action: 'cancel' | 'resume') => { if (!selected) return; try { await api(`/jobs/${selected.id}/${action}`, action === 'resume' ? { retryMissing: !!selected.retryRequired } : {}); } catch (e) { setMessage((e as Error).message); } };
-  const setCloud = useCallback((cloud: CloudState) => setData(old => old ? { ...old, cloud } : old), []);
+  const setCloud = useCallback((cloud: CloudState) => setData(old => old ? { ...old, cloud:newestCloudState(old.cloud,cloud) } : old), []);
   if (!data) return <div className="app-loading"><Aperture size={40} weight="light" /><h1>Recast</h1><span className="activity-line" /><p>{message || 'Opening your local workspace'}</p>{message && <button className="secondary-button" onClick={() => location.reload()}>Retry</button>}</div>;
+  const power=gpuPowerTarget(data.cloud),gpuPreparing=power?.view.preparing||power?.view.ending;
+  const gpuLabel=data.cloud.error?'GPU status unavailable':power?.view.ending?'Pausing GPU':power?.view.stopped?'GPU paused':gpuPreparing?'Preparing GPU':online?connection!.gpu||'GPU connected':power?.instance.state==='running'?'GPU running · reconnect':connection!.state==='connecting'?'Connecting':'GPU offline';
   return <div className={`app-shell ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+    <CloudStatusSync cloud={data.cloud} setCloud={setCloud}/>
     <header className="topbar">
       <button className="brand-mark" onClick={() => setView('create')} aria-label="Recast home"><Aperture weight="bold" size={28} /><span className="wordmark">recast<span>studio</span></span></button>
-      <div className="topbar-controls"><button className={`connection-button ${data.cloud.busy ? 'connecting' : connection!.state}`} onClick={() => setView('gpu')} title={data.cloud.busy ? 'Preparing GPU' : online ? connection!.gpu || 'GPU connected' : connection!.state === 'connecting' ? 'Connecting' : 'GPU offline'}><span className="status-dot" />{data.cloud.busy ? 'Preparing GPU' : online ? connection!.gpu || 'GPU connected' : connection!.state === 'connecting' ? 'Connecting' : 'GPU offline'}<CaretDown size={12} /></button>
+      <div className="topbar-controls"><button className={`connection-button ${gpuPreparing?'connecting':power?.view.stopped||data.cloud.error?'offline':connection!.state}`} onClick={() => setView('gpu')} title={power?`${gpuLabel} · ${power.instance.gpu} #${power.instance.id}`:gpuLabel}><span className="status-dot" />{gpuLabel}<CaretDown size={12} /></button>
         <GpuPowerControl cloud={data.cloud} setCloud={setCloud} activeWork={modelState.busy || jobs.some(job => activeStates.includes(job.status) && job.faceRefinement?.execution !== 'local CPU')} browse={() => setView('gpu')} />
         <button className="theme-button" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}>{theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}</button>
       </div>

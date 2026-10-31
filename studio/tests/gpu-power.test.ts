@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CloudInstance, CloudLaunch, CloudState } from '../shared/cloud';
 import { gpuPowerTarget } from '../shared/gpu-power';
+import {newestCloudState} from '../shared/cloud';
 
 const instance = { id: 1, managed: true, connected: true, state: 'running', intendedState: 'running', computeStopped: false } as CloudInstance;
 const launch = { instanceId: 1, phase: 'ready', offer: { totalHourly: .3 } } as CloudLaunch;
@@ -24,6 +25,19 @@ describe('header GPU power target', () => {
   });
   it('prefers the connected rental over other retained disks', () => {
     expect(gpuPowerTarget({ ...cloud, instances: [{ ...instance, id: 2, connected: false, computeStopped: true }, instance] })?.instance.id).toBe(1);
+  });
+  it('keeps the explicitly selected rental after pause when other disks exist',()=>{
+    const paused={...instance,connected:false,state:'exited',intendedState:'stopped',computeStopped:true};
+    const value={...cloud,selectedInstanceId:1,instances:[{...paused,id:2},paused]};
+    expect(gpuPowerTarget(value)).toMatchObject({instance:{id:1},action:'start'});
+    expect(gpuPowerTarget({...value,selectedInstanceId:999})).toBeNull();
+    expect(gpuPowerTarget({...cloud,selectedInstanceId:1,instances:[instance,{...instance,id:2}]})).toBeNull();
+  });
+  it('rejects stale HTTP snapshots after a newer live pause update',()=>{
+    const running={...cloud,revision:100},paused={...cloud,revision:101,instances:[{...instance,connected:false,state:'stopped',computeStopped:true}]};
+    expect(newestCloudState(paused,running)).toBe(paused);
+    expect(newestCloudState(running,paused)).toBe(paused);
+    expect(gpuPowerTarget(newestCloudState(paused,running))?.action).toBe('start');
   });
   it('blocks duplicate stopping and resume during provisioning', () => {
     expect(gpuPowerTarget({ ...cloud, launches: [{ ...launch, phase: 'stopping' }] })?.blocked).toBe(true);

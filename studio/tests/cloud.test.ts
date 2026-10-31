@@ -69,6 +69,8 @@ describe('Vast marketplace, billing and lifecycle', () => {
     const empty = vi.fn(async () => { expect(cloud.state.busy).toBe(true); return true; });
     expect(await cloud.pauseIdle(777, () => true, empty)).toBe('confirmed');
     expect(launch.phase).toBe('stopped'); expect(empty).toHaveBeenCalledOnce();
+    expect(cloud.state.selectedInstanceId).toBe(777);
+    expect(cloud.state.revision).toBeGreaterThan(0);
     expect(fixture.calls.filter(call => call.method === 'DELETE')).toHaveLength(0);
     expect(fixture.calls.filter(call => call.method === 'PUT' && call.body?.state === 'stopped')).toHaveLength(1);
   });

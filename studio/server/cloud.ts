@@ -212,7 +212,7 @@ export class CloudManager {
       launch.message = 'This earlier attempt stopped before renting. The availability check has been corrected. Choose a fresh marketplace offer to try again.';
     }
     const favourites = store.value<GpuFavourite[]>('cloud-favourites', []).map(favourite => ({ ...favourite, status: 'unchecked' as const, checkedAt: null, offer: null, message: undefined }));
-    this.state = { configured: !!this.readKey(), instances: [], launches, favourites, refreshedAt: null, error: null, busy: false };
+    this.state = { configured: !!this.readKey(), instances: [], launches, favourites, refreshedAt: null, error: null, busy: false, revision:Date.now(),selectedInstanceId:store.value<number|null>('cloud-selected-instance',store.value<number|null>('cloud-connected-instance',null)) };
     this.monitorSafety();
   }
   private options: CloudOptions;
@@ -272,6 +272,7 @@ export class CloudManager {
     } finally { this.state.busy = false; this.emit(); }
   }
   emit() {
+    this.state.revision=Math.max(Date.now(),(this.state.revision||0)+1);
     this.store.set('cloud-launches', this.state.launches);
     this.store.set('cloud-favourites', (this.state.favourites || []).map(({ offer: _offer, status: _status, checkedAt: _checked, message: _message, ...saved }) => saved));
     this.store.emit('event', { type: 'cloud', data: this.state }); this.monitorSafety();
@@ -702,7 +703,7 @@ export class CloudManager {
     check();
     this.change(launch, 'connecting', 'Checking the actual CUDA ComfyUI server');
     await this.connection.connect('http://127.0.0.1:8188', false); check(); if (this.connection.status.state !== 'online') throw new Error(this.connection.status.message);
-    launch.setupDeadline = null; launch.setupWarningAt = null; launch.setupSlow = false; launch.warning = null; launch.safetyStatus = 'disarmed'; this.store.set('cloud-connected-instance', launch.instanceId); this.change(launch, 'ready', 'ComfyUI engine connected. Download the files needed by your selected settings before rendering.');
+    launch.setupDeadline = null; launch.setupWarningAt = null; launch.setupSlow = false; launch.warning = null; launch.safetyStatus = 'disarmed'; this.store.set('cloud-connected-instance', launch.instanceId);this.state.selectedInstanceId=launch.instanceId;this.store.set('cloud-selected-instance',launch.instanceId); this.change(launch, 'ready', 'ComfyUI engine connected. Download the files needed by your selected settings before rendering.');
   }
   private async probeGpu(instance: any, identity: string) {
     if (this.options.probe) return this.options.probe(instance, identity);
@@ -750,6 +751,7 @@ export class CloudManager {
     const launch = this.state.launches.find(l => l.instanceId === id); if (!launch) throw new Error('This instance was created outside Recast. Manage it in Vast; Recast controls only its own rentals.');
     if (!this.state.error && !this.rawInstances.some(i => i.id === id)) throw new Error('This instance no longer exists.');
     if (action === 'destroy' && confirmation !== String(id)) throw new Error('Enter the instance ID to confirm permanent deletion of its remote disk.');
+    if(action!=='destroy'){this.state.selectedInstanceId=id;this.store.set('cloud-selected-instance',id);this.emit();}
     if (action === 'start' || action === 'connect') return this.continue(launch);
     this.stopped.add(launch.id); if (this.activeLaunch === launch.id) { this.activeAbort?.abort(new Error('Instance action requested.')); this.stopProvision(); }
     this.interruptLocalRender(id, action === 'destroy' ? 'The GPU instance is being destroyed. Local completed segments are kept; reuse settings for a new rental.' : 'GPU compute is being stopped. Reconnect before checking the unfinished render.');

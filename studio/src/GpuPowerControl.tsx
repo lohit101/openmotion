@@ -14,8 +14,9 @@ export default function GpuPowerControl({ cloud, setCloud, activeWork, browse }:
   const [confirmation, setConfirmation] = useState<number | null>(null);
   const locked = useRef(false);
   const resume = target?.action === 'start';
+  const transition=target?.view.ending;
   const disabled = !target?.action || target.blocked || !!pending || !!cloud.error;
-  const label = pending === 'checking' ? 'Checking GPU status…' : pending === 'stop' ? 'Pausing GPU…' : pending === 'start' ? 'Resuming GPU…' : resume ? 'Resume GPU' : 'Pause GPU';
+  const label = pending === 'checking' ? 'Checking GPU status…' : pending === 'stop'||transition ? 'Pausing GPU…' : pending === 'start' ? 'Resuming GPU…' : !target?.action?'GPU power unavailable':resume ? 'Resume GPU' : 'Pause GPU';
   const title = cloud.error ? 'GPU status unavailable. Open GPU cloud to refresh.' : !target ? 'Select an instance in GPU cloud' : !target.action ? 'Check instance status in GPU cloud' : target.blocked ? 'Instance action in progress' : `${label} · ${target.instance.gpu} #${target.instance.id}${resume ? ' · resumes paid compute' : ' · retains disk; storage stays billed'}`;
   const execute = async (id: number, action: 'start' | 'stop') => {
     if (locked.current) return;
@@ -50,7 +51,7 @@ export default function GpuPowerControl({ cloud, setCloud, activeWork, browse }:
       if (!target?.action || disabled) return;
       if (target.action === 'stop' && activeWork) setConfirmation(target.instance.id);
       else void execute(target.instance.id, target.action);
-    }}>{pending ? <CircleNotch size={18} className="gpu-power-spin" /> : resume ? <Play size={17} weight="fill" /> : <Pause size={18} weight="fill" />}</button></span>
+    }}>{pending||transition ? <CircleNotch size={18} className="gpu-power-spin" /> : resume ? <Play size={17} weight="fill" /> : <Pause size={18} weight="fill" />}</button></span>
     <Modal open={confirmation !== null} onOpenChange={open => { if (!open) setConfirmation(null); }} title="Pause GPU and interrupt active work?" description="A generation or model download is active. Pausing stops compute and interrupts it. Completed local outputs and the remote disk are kept; storage remains billed.">
       <div className="modal-actions"><button className="secondary-button" onClick={() => setConfirmation(null)}>Keep running</button><button className="danger-button" onClick={() => { if (confirmation !== null) void execute(confirmation, 'stop'); }}><Pause size={15} />Pause GPU</button><button className="secondary-button" onClick={() => { setConfirmation(null); browse(); }}>View activity</button></div>
     </Modal>

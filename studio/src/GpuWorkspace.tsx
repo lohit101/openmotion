@@ -53,7 +53,7 @@ export default function GpuWorkspace({ cloud, setCloud, notify, onCreate }: { cl
   const [pending, setPending] = useState<InstanceAction>(null), [refreshing, setRefreshing] = useState(false);
   const rentalKey = useRef<{ quote: string; key: string } | null>(null), searchSerial = useRef(0), cloudRef = useRef(cloud); cloudRef.current = cloud;
   const refresh = useCallback(async () => { try { const value = await api<CloudState>('/cloud/refresh', {}); setCloud(value); } catch (e) { notify((e as Error).message); } }, [setCloud, notify]);
-  useEffect(() => { if (!cloud.configured) return; void refresh(); const timer = setInterval(() => void refresh(), 15000); return () => clearInterval(timer); }, [cloud.configured, refresh]);
+  useEffect(() => { if (cloud.configured) void refresh(); }, [cloud.configured, refresh]);
   const search = useCallback(async (value: OfferFilters) => {
     const serial = ++searchSerial.current; setSearching(true); setSearchError(''); setOffers([]); setSelected(null);
     try { const result = await api<{ offers: GpuOffer[]; searchedAt: string }>('/cloud/offers', value); if (serial === searchSerial.current) { const matching = result.offers.filter(offer => offer.downloadMbps >= value.minDownload && withinDownloadBudget(offer.downloadPerGB)); setOffers(matching); setSelected(matching[0]?.quote || null); setSearchedAt(result.searchedAt); setSearched(true); } }
