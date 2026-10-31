@@ -17,6 +17,7 @@
     "nativeLimit": "Additional numeric-filter and narrow-width gestures were not completed because the user changed browser windows. Filter behavior has automated and live API coverage."
   },
   "deployment": {"deployedAt": "2026-10-31T19:25:43.465036+00:00", "savedJobsUnchanged": 300, "draftsUnchanged": true, "connectionBefore": "offline", "connectionAfter": "offline", "providerComputeStopped": true},
+  "laterUserActivity": {"jobsAtFinalCheck": 302, "runningGeneration": true, "connection": "online", "providerComputeState": "running", "leftUndisturbed": true, "note": "The paused state above describes validation and deployment, before this separate user generation."},
   "gpuActions": 0,
   "paidTests": 0,
   "remoteInstalls": 0,
