@@ -12,5 +12,5 @@
   "gpuActions": 0,
   "generationSubmitted": false,
   "historicalJobsChanged": false,
-  "deployment": "Pending combined trim-control repair; no paid retry submitted."
+  "deployment": {"deployedAt": "2026-10-31T12:50:15.054094+00:00", "savedJobsUnchanged": 293, "draftsUnchanged": true, "connectionState": "offline", "paidRetrySubmitted": false}
 }

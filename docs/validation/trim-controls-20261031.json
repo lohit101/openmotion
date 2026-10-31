@@ -1,0 +1,30 @@
+{
+  "date": "2026-10-31",
+  "scope": "Uploaded-video trim preview and local video-tail admission",
+  "cause": "Clamping pointer coordinates before subtracting the outer handle's grab offset made timeline endpoints unreachable.",
+  "changes": [
+    "Preserve raw pointer delta and grab offset across each gesture.",
+    "Bind gestures to their pointer and handle capture loss/cancellation.",
+    "Use complete output-frame intervals for ruler and handles.",
+    "Reject unavailable video tails before remote admission checks."
+  ],
+  "validation": {
+    "studioTestsPassed": 508,
+    "finalFocusedTestsPassed": 11,
+    "typecheck": "passed",
+    "frontendBuild": "passed",
+    "serverBuild": "passed",
+    "nativeChrome": "Isolated local fixture: start 0 -> 2.166667 -> exactly 0 seconds, end held at 5 seconds.",
+    "unitCases": ["both exact endpoints", "whole-selection movement", "fractional durations", "frame alignment", "minimum and maximum clip lengths"],
+    "browserLimit": "Further native gestures were interrupted by concurrent user navigation; full endpoint coverage is from automated checks."
+  },
+  "deployment": {
+    "deployedAt": "2026-10-31T12:50:15.054094+00:00",
+    "savedJobsUnchanged": 293,
+    "draftsUnchanged": true,
+    "connectionState": "offline"
+  },
+  "gpuActions": 0,
+  "inferenceSubmitted": false,
+  "historicalJobsChanged": false
+}

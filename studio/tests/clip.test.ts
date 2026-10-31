@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clipFrameCount, clipTime, frameFloor, normalizeClip, clampClipEnd, trimClip } from '../shared/clip';
+import { clipFrameCount, clipTime, frameFloor, normalizeClip, clampClipEnd, trimClip, dragClip } from '../shared/clip';
 
 describe('thirty-second segmented clip selection', () => {
   it('shortens an unavailable audio-only tail without moving the selected starting frame',()=>{
@@ -22,6 +22,17 @@ describe('thirty-second segmented clip selection', () => {
     const shorter = trimClip(clip, 'start', 4, 60, 24);
     expect(shorter).toEqual({ start: 4, seconds: 29 });
     expect(trimClip(shorter, 'end', 99, 60, 24)).toEqual({ start: 4, seconds: 30 });
+  });
+  it('returns outer trim handles to both exact endpoints after moving them inward',()=>{
+    const left=100,width=800,duration=8,fps=24,selection={start:2,seconds:3};
+    const startGrab=left+selection.start/duration*width-10;
+    const beginning=dragClip(selection,'start',startGrab,left-20,width,duration,fps);
+    expect(beginning).toEqual({start:0,seconds:5});
+    const endGrab=left+5/duration*width+10;
+    expect(dragClip(selection,'end',endGrab,left+width+20,width,duration,fps)).toEqual({start:2,seconds:6});
+    expect(dragClip(selection,'move',left+350,left-50,width,duration,fps)).toEqual({start:0,seconds:3});
+    expect(dragClip(selection,'move',left+350,left+width+200,width,duration,fps)).toEqual({start:5,seconds:3});
+    expect(dragClip(selection,'start',startGrab,startGrab,0,duration,fps)).toEqual(selection);
   });
   it('preserves exact frame boundaries through repeated edits and frame-rate changes', () => {
     for (const fps of [16, 24, 30]) for (const duration of [.5, 3.17, 10, 200]) {

@@ -221,6 +221,9 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     if (isViggle(value.settings) && value.saveDiagnosticLatent) return void res.status(400).json({ error: 'Viggle exports its conditioning frame and video; SCAIL latent diagnostics are not available.' });
     const key = req.get('Idempotency-Key'); if (!key || key.length > 120) return void res.status(400).json({ error: 'A request ID is required.' });
     const existing = store.byKey(key); if (existing) return void res.json(publicJob(existing));
+    const selectedSource = store.asset(value.sourceId), reference = store.asset(value.referenceId); if (!selectedSource || !reference) throw new Error('Upload both inputs before generating.');
+    const source=await refreshVideoDuration(store,selectedSource);
+    validateSelection(source, reference, value.settings.start, value.settings.seconds, value.settings.fps);
     await runner.reconcileFaceCancellations();
     if (runner.hasUnconfirmedFaceWork()) return void res.status(409).json({ error: 'A previous video’s facial pass still needs checking. Open it in My library and choose Check & resume. Existing media is kept; nothing new was queued.' });
     const repaint = resolveRepaintProfile(store, value.settings, value.referenceId, value.sourceId);
@@ -238,9 +241,6 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
       : 'Use Download Remotion to prepare the files for these settings before generating. Nothing was queued.', missingModels: missing });
     if (!facialRuntimeReadyForSettings(value.settings, models.state)) return void res.status(409).json({ error: 'Use Download Remotion to prepare the selected facial tools before generating. Nothing was queued.' });
     for (const name of [value.settings.loraA, value.settings.loraB]) if (name !== 'None' && !connection.status.loras.includes(name)) return void res.status(409).json({ error: 'Upload the selected custom LoRA before generating: ' + name });
-    const selectedSource = store.asset(value.sourceId), reference = store.asset(value.referenceId); if (!selectedSource || !reference) throw new Error('Upload both inputs before generating.');
-    const source=await refreshVideoDuration(store,selectedSource);
-    validateSelection(source, reference, value.settings.start, value.settings.seconds, value.settings.fps);
     if (isViggle(value.settings) && value.settings.referencePreparation === 'prepared' && Math.abs((reference.width / reference.height) / (source.width / source.height) - 1) > 0.05) return void res.status(400).json({ error: 'An already edited source frame must keep the source video’s aspect ratio. Use automatic reference preparation for a standalone character photo.' });
     const settings = { ...value.settings, prompt: migrateDemoPrompt(value.settings.prompt, value.settings.mode) }; if (settings.randomSeed) settings.seed = randomInt(0, 0xffffffff);
     const [width, height] = renderGeometry(settings, source), [outputWidth, outputHeight] = geometry(settings, source), target = clipFrameCount(settings.seconds, settings.fps);

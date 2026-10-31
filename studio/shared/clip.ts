@@ -39,6 +39,14 @@ export function trimClip(selection: ClipSelection, action: TrimAction, seconds: 
   return { start: clamp(point, 0, total - length) / fps, seconds: length / fps };
 }
 
+export function dragClip(selection:ClipSelection,action:TrimAction,fromX:number,toX:number,width:number,duration:number,fps:number):ClipSelection{
+  if(![fromX,toX,width,duration].every(Number.isFinite)||width<=0)return selection;
+  const anchor=action==='end'?selection.start+selection.seconds:selection.start;
+  // Keep pointer travel outside the strip. Clamping it before subtracting the
+  // grab offset makes the outer handles unable to reach either endpoint.
+  return trimClip(selection,action,anchor+(toX-fromX)/width*duration,duration,fps);
+}
+
 export function clipTime(seconds: number) {
   if (!Number.isFinite(seconds)) return '0:00.00';
   const hundredths = Math.max(0, Math.round(seconds * 100));
