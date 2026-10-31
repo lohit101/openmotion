@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { clipFrameCount, clipTime, frameFloor, normalizeClip, trimClip } from '../shared/clip';
+import { clipFrameCount, clipTime, frameFloor, normalizeClip, clampClipEnd, trimClip } from '../shared/clip';
 
 describe('thirty-second segmented clip selection', () => {
+  it('shortens an unavailable audio-only tail without moving the selected starting frame',()=>{
+    expect(clampClipEnd({start:6.5,seconds:191/24},433/30,24)).toEqual({start:6.5,seconds:190/24});
+    expect(clampClipEnd({start:2,seconds:5},8,24)).toEqual({start:2,seconds:5});
+    expect(clampClipEnd({start:0,seconds:5},.1,24)).toBeNull();
+  });
   it('bounds imported drafts and short videos without creating invalid source ranges', () => {
     expect(normalizeClip({ start: 49, seconds: 90 }, 50, 24)).toEqual({ start: 20, seconds: 30 });
     expect(normalizeClip({ start: 19, seconds: 30 }, 20, 24)).toEqual({ start: 0, seconds: 20 });

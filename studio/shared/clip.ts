@@ -17,6 +17,17 @@ export function normalizeClip(selection: ClipSelection, duration: number, fps: n
   return { start: start / fps, seconds: length / fps };
 }
 
+// Restore a draft after a corrected source duration without moving its chosen
+// starting frame. Only the unavailable tail is shortened.
+export function clampClipEnd(selection:ClipSelection,duration:number,fps:number):ClipSelection|null{
+  if(![duration,fps,selection.start,selection.seconds].every(Number.isFinite)||duration<=0||fps<=0)return null;
+  const total=frameFloor(duration,fps),minimum=minimumClipFrames(fps);
+  if(total<minimum)return null;
+  const start=clamp(Math.round(selection.start*fps),0,total-minimum);
+  const length=clamp(Math.round(selection.seconds*fps),minimum,Math.min(total-start,Math.floor(MAX_CLIP_SECONDS*fps)));
+  return {start:start/fps,seconds:length/fps};
+}
+
 export function trimClip(selection: ClipSelection, action: TrimAction, seconds: number, duration: number, fps: number): ClipSelection {
   const current = normalizeClip(selection, duration, fps);
   if (!current) return selection;

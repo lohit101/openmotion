@@ -3,11 +3,11 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { Check, Pause, Play, Scissors, SpeakerHigh, SpeakerSlash, X } from '@phosphor-icons/react';
 import type { Asset } from '../shared/types';
 import {VideoPlayback} from './VideoPlayer';
-import { clipTime, DEFAULT_CLIP_SECONDS, MAX_CLIP_SECONDS, minimumClipFrames, normalizeClip, trimClip, type ClipSelection, type TrimAction } from '../shared/clip';
+import { clipTime, DEFAULT_CLIP_SECONDS, MAX_CLIP_SECONDS, minimumClipFrames, clampClipEnd, trimClip, type ClipSelection, type TrimAction } from '../shared/clip';
 import './media-preview.css';
 
 function VideoTrimmer({ asset, initial, fps, apply }: { asset: Asset; initial?: ClipSelection; fps: number; apply?: (selection: ClipSelection) => void }) {
-  const normalized = normalizeClip(initial || { start: 0, seconds: DEFAULT_CLIP_SECONDS }, asset.duration, fps);
+  const normalized = clampClipEnd(initial || { start: 0, seconds: DEFAULT_CLIP_SECONDS }, asset.duration, fps);
   const [selection, setSelection] = useState<ClipSelection>(normalized || { start: 0, seconds: asset.duration });
   const [playing, setPlaying] = useState(false), [muted, setMuted] = useState(true), [time, setTime] = useState(selection.start), [error, setError] = useState('');
   const [strip, setStrip] = useState<'loading' | 'ready' | 'failed'>('loading');

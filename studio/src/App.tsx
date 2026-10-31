@@ -20,7 +20,7 @@ import DownloadsWorkspace from './DownloadsWorkspace';
 import Sidebar, { initialSidebarCollapsed, type WorkspaceView } from './Sidebar';
 import SettingsWorkspace, { type SettingsTab } from './SettingsWorkspace';
 import { Toaster, toast } from 'sonner';
-import { clipFrameCount, normalizeClip, DEFAULT_CLIP_SECONDS, MAX_CLIP_SECONDS } from '../shared/clip';
+import { clipFrameCount, normalizeClip, clampClipEnd, DEFAULT_CLIP_SECONDS, MAX_CLIP_SECONDS } from '../shared/clip';
 import { viggleWindows } from '../shared/viggle-segments';
 import { emptyImageDraft, isImageJob, type ImageDraft } from '../shared/image-replacement';
 import { useCharacterDraft, type Character } from '../shared/characters';
@@ -133,7 +133,7 @@ export default function App() {
   useEffect(() => { document.documentElement.dataset.theme = theme; localStorage.setItem('recast-theme', theme); }, [theme]);
   const receiveBootstrap = useCallback((value: Bootstrap) => {
     setData(value);
-    if (!initialized.current) { initialized.current = true; const settings = { ...defaults, ...value.draft.settings, prompt: migrateDemoPrompt(value.draft.settings.prompt, value.draft.settings.mode) }; const source = value.assets.find(asset => asset.id === value.draft.sourceId); const clip = source ? normalizeClip(settings, source.duration, settings.fps) : null; setDraft({ ...value.draft, settings: { ...settings, ...clip } }); setImageDraft(value.imageDraft || emptyImageDraft()); }
+    if (!initialized.current) { initialized.current = true; const settings = { ...defaults, ...value.draft.settings, prompt: migrateDemoPrompt(value.draft.settings.prompt, value.draft.settings.mode) }; const source = value.assets.find(asset => asset.id === value.draft.sourceId); const clip = source ? clampClipEnd(settings, source.duration, settings.fps) : null; setDraft({ ...value.draft, settings: { ...settings, ...clip } }); setImageDraft(value.imageDraft || emptyImageDraft()); }
   }, []);
   useEffect(() => {
     let disposed = false;
@@ -205,6 +205,10 @@ export default function App() {
   const [width, height] = geometry(draft.settings, source || { width: 480, height: 832 });
   const repaintProfile = draft.settings.imagenRepaint;
   const startingPhoto = repaintProfile?.sourceImageJobId ? jobs.find(j => j.id === repaintProfile.sourceImageJobId) : null;
+  useEffect(()=>{
+    const input=assets.find(asset=>asset.id===draft.sourceId);if(!input)return;
+    setDraft(old=>{if(old.sourceId!==input.id)return old;const clip=clampClipEnd(old.settings,input.duration,old.settings.fps);return clip&&(clip.start!==old.settings.start||clip.seconds!==old.settings.seconds)?{...old,settings:{...old.settings,...clip}}:old;});
+  },[assets,draft.sourceId,draft.settings.fps]);
   const startingFrame = assets.find(a => a.id === startingPhoto?.sourceId)?.sourceFrame;
   const selectedRepaintCharacter = repaintProfile && !repaintProfile.sourceImageJobId ? data?.characters?.find(c => c.id === repaintProfile.characterId) : null;
   const repaintProfileIssue = draft.settings.imagenRepaintEnabled && repaintProfile && !repaintProfile.sourceImageJobId && (!selectedRepaintCharacter || selectedRepaintCharacter.archived || selectedRepaintCharacter.revision !== repaintProfile.revision) ? 'Reload the saved character before generating.' : null;
@@ -243,7 +247,7 @@ export default function App() {
   };
   const patch = async (job: Job, changes: Partial<Job>) => { try { const updated = await api<Job>('/jobs/' + job.id, changes, 'PATCH'); setData(old => old ? { ...old, jobs: old.jobs.map(item => item.id === updated.id ? updated : item) } : old); } catch (e) { setMessage((e as Error).message); } };
   const editVideo = (job: Job) => { setEditorIntent({ id: crypto.randomUUID(), ...(job.edit ? { receipt: job.edit, title: job.title } : { jobId: job.id }) }); setView('editor'); };
-  const reuse = (job: Job) => { if (job.upscale) { try { localStorage.setItem('recast-clarity-draft', JSON.stringify({ source: job.upscale.source, settings: job.upscale.settings })); } catch { /* Preview remains available without storage. */ } setSelectedId(job.id); setView('clarity'); toast.success('Upscale inputs and settings loaded.'); return; } if (job.edit) { editVideo(job); return; } if (isImageJob(job) && job.image) { setImageDraft({ referenceMode: 'images', characterId: null, characterRevision: null, sourceId: job.sourceId, referenceId: job.referenceId, maskId: job.image.maskId, faceId: job.image.faceId, settings: { ...job.image.settings, randomSeed: false } }); setSelectedId(job.id); setView('image'); toast.success('Image inputs and settings loaded.'); return; } const original = assets.find(asset => asset.id === job.sourceId); const clip = original ? normalizeClip(job.settings, original.duration, job.settings.fps) : null; setDraft({ sourceId: job.sourceId, referenceId: job.referenceId, settings: { ...defaults, ...job.settings, ...clip, viggleReferenceMode: referenceModeForRun(job), prompt: migrateDemoPrompt(job.settings.prompt, job.settings.mode), randomSeed: false } }); setView('create'); setSelectedId(job.id); toast.success('Inputs and settings loaded.'); };
+  const reuse = (job: Job) => { if (job.upscale) { try { localStorage.setItem('recast-clarity-draft', JSON.stringify({ source: job.upscale.source, settings: job.upscale.settings })); } catch { /* Preview remains available without storage. */ } setSelectedId(job.id); setView('clarity'); toast.success('Upscale inputs and settings loaded.'); return; } if (job.edit) { editVideo(job); return; } if (isImageJob(job) && job.image) { setImageDraft({ referenceMode: 'images', characterId: null, characterRevision: null, sourceId: job.sourceId, referenceId: job.referenceId, maskId: job.image.maskId, faceId: job.image.faceId, settings: { ...job.image.settings, randomSeed: false } }); setSelectedId(job.id); setView('image'); toast.success('Image inputs and settings loaded.'); return; } const original = assets.find(asset => asset.id === job.sourceId); const clip = original ? clampClipEnd(job.settings, original.duration, job.settings.fps) : null; setDraft({ sourceId: job.sourceId, referenceId: job.referenceId, settings: { ...defaults, ...job.settings, ...clip, viggleReferenceMode: referenceModeForRun(job), prompt: migrateDemoPrompt(job.settings.prompt, job.settings.mode), randomSeed: false } }); setView('create'); setSelectedId(job.id); toast.success('Inputs and settings loaded.'); };
   const generate = useCallback(async () => {
     if (creating || !online || !valid || !modelsReady || modelState.busy) return;
     setCreating(true); setMessage(''); requestId.current ||= crypto.randomUUID();

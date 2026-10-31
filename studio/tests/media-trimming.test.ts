@@ -2,8 +2,11 @@ import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, expect, it } from 'vitest';
-import { command, filmstrip, prepareVideo, probe, videoFrameInfo } from '../server/media';
+import { command, filmstrip, prepareVideo, probe, videoFrameInfo,refreshVideoDuration } from '../server/media';
 import { defaults, type Asset, type Job } from '../shared/types';
+import {Store} from '../server/store';
+import {clampClipEnd} from '../shared/clip';
+import {validateSelection} from '../server/workflow';
 
 let root: string, source: Asset;
 beforeAll(async () => {
@@ -45,4 +48,28 @@ it('prepares an exact zero-based 24 fps window from a fractional seek in 30 fps 
 it('rejects an actually short source before upload or sampling', async () => {
   const job = { settings: { ...defaults, start: 4, seconds: 2, fps: 24 }, width: 64, height: 64, progress: { targetFrames: 48 } } as Job;
   await expect(prepareVideo(job, source, root, new AbortController().signal)).rejects.toThrow('Nothing was uploaded or sampled');
+});
+it('uses the video ending rather than a longer audio track and repairs cached upload metadata',async()=>{
+  const file=path.join(root,'longer-audio.mp4');
+  await command('ffmpeg',['-v','error','-y','-f','lavfi','-i','testsrc2=s=64x96:r=30:d=14.433333333333','-f','lavfi','-i','anullsrc=r=48000:cl=mono','-t','14.534286','-c:v','libx264','-c:a','aac',file]);
+  const original=await readFile(file),meta=await probe(file);expect(meta.duration).toBeCloseTo(433/30,8);
+  const store=new Store(path.join(root,'metadata-store'));
+  try{
+    const legacy={...source,...meta,id:'audio-tail',path:file,duration:14.534286};store.addAsset(legacy);
+    const draft=JSON.stringify(store.draft()),updated=await refreshVideoDuration(store,legacy);
+    expect(updated.duration).toBeCloseTo(433/30,8);expect(store.asset(legacy.id)?.duration).toBe(updated.duration);
+    expect(JSON.stringify(store.draft())).toBe(draft);
+    const invalid={settings:{...defaults,start:6.5,seconds:191/24,fps:24},width:64,height:96,progress:{targetFrames:191}}as Job;
+    expect(()=>validateSelection(updated,{kind:'image'}as Asset,6.5,191/24,24)).toThrow('last video frame');
+    await expect(prepareVideo(invalid,legacy,root,new AbortController().signal)).rejects.toThrow('Nothing was uploaded or sampled');
+    const clip=clampClipEnd(invalid.settings,updated.duration,24)!;expect(clip.start).toBe(6.5);
+    const prepared=await prepareVideo({...invalid,settings:{...invalid.settings,...clip},progress:{...invalid.progress,targetFrames:190}},updated,root,new AbortController().signal);
+    expect(await videoFrameInfo(prepared)).toMatchObject({frames:190,start:0});expect((await probe(prepared)).duration).toBeCloseTo(190/24,6);
+    expect(await readFile(file)).toEqual(original);
+  }finally{store.close();}
+});
+it('reads video packet timing when a container omits the stream duration',async()=>{
+  const file=path.join(root,'audio-tail.mkv');
+  await command('ffmpeg',['-v','error','-y','-f','lavfi','-i','testsrc2=s=64x96:r=10:d=1','-f','lavfi','-i','anullsrc=r=48000:cl=mono','-t','1.5','-c:v','libx264','-c:a','aac',file]);
+  const meta=await probe(file);expect(meta.duration).toBeGreaterThanOrEqual(1);expect(meta.duration).toBeLessThan(1.1);
 });

@@ -7,6 +7,7 @@ import { isViggle } from '../shared/engines';
 import { compileViggleWorkflow } from './viggle-workflow';
 import { compileImageWorkflow } from './image-workflow';
 import { isImageJob } from '../shared/image-replacement';
+import {frameFloor,clipFrameCount} from '../shared/clip';
 export { RELIGHT, NATURAL_SPEED, I2V_SPEED };
 
 export function compileWorkflow(template: Graph, job: Job): Graph {
@@ -87,5 +88,5 @@ export function validateGraph(graph: Graph, catalog: Catalog) {
 export function validateSelection(source: Asset, reference: Asset, start: number, seconds: number, fps: number) {
   if (source.kind !== 'video' || reference.kind !== 'image') throw new Error('Choose one source video and one character image.');
   if (seconds * fps < 5) throw new Error('Choose a clip of at least five frames.');
-  if (start >= source.duration || start + seconds > source.duration + 1 / fps) throw new Error(`The selected range exceeds the ${source.duration.toFixed(2)} second source video.`);
+  if (frameFloor(start,fps)+clipFrameCount(seconds,fps)>frameFloor(source.duration,fps)) throw new Error(`The selected range exceeds the last video frame (${source.duration.toFixed(3)}s). Adjust the trim before generating; audio may continue longer.`);
 }

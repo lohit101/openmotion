@@ -1,0 +1,16 @@
+{
+  "date": "2026-10-31",
+  "cause": "Container/audio duration exceeded available video pictures, admitting an unavailable final frame.",
+  "userFault": false,
+  "cachedDurationSeconds": 14.534286,
+  "videoDurationSeconds": 14.433333333333334,
+  "startSecondsPreserved": 6.5,
+  "originalRequestedFrames": 191,
+  "availableSelectedFrames": 190,
+  "localReplay": {"frames": 190, "start": 0, "duration": 7.916667, "sourceBytesUnchanged": true},
+  "validation": {"focusedTestsPassed": 10, "typecheck": "passed", "syntheticLongerAudio": "passed", "missingStreamDurationPacketFallback": "passed"},
+  "gpuActions": 0,
+  "generationSubmitted": false,
+  "historicalJobsChanged": false,
+  "deployment": "Pending combined trim-control repair; no paid retry submitted."
+}

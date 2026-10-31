@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { Store, publicJob } from './store';
 import { ConnectionManager, localEndpoint } from './comfy';
 import { Runner } from './runner';
-import { filmstrip, ingest } from './media';
+import { filmstrip, ingest, refreshVideoDuration } from './media';
 import { seedExamples } from './seed';
 import { validateSelection } from './workflow';
 import { CloudManager, type CloudOptions } from './cloud';
@@ -52,6 +52,8 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   const models = new ModelManager(store, connection, repo);
   runner.facial = new ManagedFacialConsistency(store, repo, connection);
   if (options.seed !== false) await seedExamples(store, repo);
+  const draftSource=store.asset(store.draft().sourceId||'');
+  if(draftSource?.kind==='video')try{await refreshVideoDuration(store,draftSource);}catch{/* Missing originals must not prevent opening the library. Submission validates them. */}
   for (const job of store.jobs()) {
     if (job.origin === 'render' && ['queued', 'running', 'reconnecting'].includes(job.status)) { job.status = 'interrupted'; job.error = 'The local app restarted. Reconnect to check the existing GPU job before resuming.'; store.saveJob(job); }
   }
@@ -173,10 +175,11 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     }
     res.json(await cloud.action(id, action, value.confirmation));
   });
-  app.post('/api/draft', (req, res) => {
+  app.post('/api/draft', async(req, res) => {
     const value = z.object({ sourceId: z.string().nullable(), referenceId: z.string().nullable(), settings: settingsSchema }).parse(req.body);
     value.settings.prompt = migrateDemoPrompt(value.settings.prompt, value.settings.mode);
     for (const id of [value.sourceId, value.referenceId]) if (id && !store.asset(id)) throw new Error('This input no longer exists. Upload it again.');
+    if(value.sourceId)try{await refreshVideoDuration(store,store.asset(value.sourceId)!);}catch{/* Drafts stay editable offline; generation requires a readable source. */}
     store.set('draft', value); res.json(value);
   });
   registerImageRoutes(app, store, connection, runner, cloud, models, repo);
@@ -235,7 +238,8 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
       : 'Use Download Remotion to prepare the files for these settings before generating. Nothing was queued.', missingModels: missing });
     if (!facialRuntimeReadyForSettings(value.settings, models.state)) return void res.status(409).json({ error: 'Use Download Remotion to prepare the selected facial tools before generating. Nothing was queued.' });
     for (const name of [value.settings.loraA, value.settings.loraB]) if (name !== 'None' && !connection.status.loras.includes(name)) return void res.status(409).json({ error: 'Upload the selected custom LoRA before generating: ' + name });
-    const source = store.asset(value.sourceId), reference = store.asset(value.referenceId); if (!source || !reference) throw new Error('Upload both inputs before generating.');
+    const selectedSource = store.asset(value.sourceId), reference = store.asset(value.referenceId); if (!selectedSource || !reference) throw new Error('Upload both inputs before generating.');
+    const source=await refreshVideoDuration(store,selectedSource);
     validateSelection(source, reference, value.settings.start, value.settings.seconds, value.settings.fps);
     if (isViggle(value.settings) && value.settings.referencePreparation === 'prepared' && Math.abs((reference.width / reference.height) / (source.width / source.height) - 1) > 0.05) return void res.status(400).json({ error: 'An already edited source frame must keep the source video’s aspect ratio. Use automatic reference preparation for a standalone character photo.' });
     const settings = { ...value.settings, prompt: migrateDemoPrompt(value.settings.prompt, value.settings.mode) }; if (settings.randomSeed) settings.seed = randomInt(0, 0xffffffff);
