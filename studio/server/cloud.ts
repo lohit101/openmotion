@@ -206,6 +206,7 @@ export class CloudManager {
         launch.phase = 'failed'; launch.creationAttempted = false; launch.safetyStatus = 'disarmed';
         launch.message = 'The app closed before a rental request was sent. You can retry.';
       }
+  private statusEpoch=0;
     }
     for (const launch of launches) if (!launch.instanceId && launch.creationAttempted !== true && /^This offer was rented by someone else\./.test(launch.message)) {
       launch.creationAttempted = false; launch.failureCode = 'offer-unavailable'; launch.lastFailure ||= launch.message;
@@ -345,11 +346,12 @@ export class CloudManager {
             launch.message = (launch.lastFailure ? launch.lastFailure + ' ' : '') + 'Compute is confirmed stopped. Retained storage is still billed.';
           }
         }
-      } catch (error) { this.state.error = (error as Error).message; }
+      } catch (error) { if(epoch!==this.statusEpoch)return this.state;this.state.error = (error as Error).message; }
       this.emit(); return this.state;
     })().finally(() => { this.refreshPromise = null; }); return this.refreshPromise;
   }
   normalizeInstance(raw: any): CloudInstance {
+    const epoch=this.statusEpoch;
     const storageHourly = amount(raw.instance?.diskHour, raw.search?.diskHour, raw.storage_total_cost), disk = Number(raw.disk_space || 0);
     const memory = number(raw.gpu_ram);
     return { id: Number(raw.id), label: String(raw.label || 'Untitled instance'), gpu: String(raw.gpu_name || 'GPU'), count: Number(raw.num_gpus || 1), vram: memory && memory > 0 ? memory / 1024 : isDgxSpark(String(raw.gpu_name || '')) ? Number(raw.cpu_ram || 0) / 1000 : 0,
@@ -358,6 +360,15 @@ export class CloudManager {
       storageMonthly: amount(raw.storage_cost) === null ? null : Number(raw.storage_cost) * disk,
       managed: this.state.launches.some(l => l.instanceId === raw.id || l.label === raw.label), connected: this.store.value<number | null>('cloud-connected-instance', null) === raw.id && this.connection.status.state === 'online', computeStopped: computeIsStopped(raw),
       createdAt: raw.start_date ? new Date(Number(raw.start_date) * 1000).toISOString() : null };
+        // The list can lag an exact stop/start response. Resolve contradictory
+        // states through a newer exact-instance read before changing controls.
+        for(const launch of this.state.launches){
+          const index=rows.findIndex(row=>row.id===launch.instanceId);if(index<0)continue;
+          if(launch.phase==='stopped'&&!computeIsStopped(rows[index])||launch.phase==='ready'&&computeIsStopped(rows[index])){
+            const current=await this.client.instance(rows[index].id);if(current)rows[index]=current;else rows.splice(index,1);
+          }
+        }
+        if(epoch!==this.statusEpoch)return this.state;
   }
   async offers(filters: OfferFilters) {
     const modelFiles = modelFilesForSettings(this.store.draft().settings);
@@ -521,7 +532,7 @@ export class CloudManager {
     }
     if (!launch.instanceId || launch.phase === 'destroyed') throw new Error('No existing rental was found for this request. Check the Vast console before starting a new request if creation was unconfirmed.');
     if (this.stopChecks.has(launch.id)) throw new Error('Wait for stop confirmation before restarting this rental.');
-    this.stopped.delete(launch.id); launch.safetyStatus = 'disarmed'; launch.setupDeadline = null; launch.lastFailure = undefined; this.state.busy = true; this.activeLaunch = launch.id; this.change(launch, 'checking', 'Checking local prerequisites before resuming this existing rental.');
+    this.statusEpoch++;this.stopped.delete(launch.id); launch.safetyStatus = 'disarmed'; launch.setupDeadline = null; launch.lastFailure = undefined; this.state.busy = true; this.activeLaunch = launch.id; this.change(launch, 'checking', 'Checking local prerequisites before resuming this existing rental.');
     this.activeTask = (async () => { try {
       const identity = await this.ensureSshKey(launch); await this.localPreflight(identity);
       if (this.closing || this.stopped.has(launch.id)) return;
@@ -669,6 +680,7 @@ export class CloudManager {
         if (hostSilenceExpired(launch.hostWatch, Date.now(), this.options.hostSilenceMs)) {
           if (await this.sshServiceReachable(instance)) launch.hostWatch = undefined;
           else {
+    this.statusEpoch++;
             const confirmed = await this.client.instance(launch.instanceId!); check();
             if (confirmed && hasNoContainerSignals(confirmed) && !await this.sshServiceReachable(confirmed)) throw new EmptyHostError('Host provisioning stalled: repeated checks found no container status, no assigned direct ports and unreachable SSH for five minutes.');
             launch.hostWatch = undefined;
@@ -680,6 +692,11 @@ export class CloudManager {
         launch.logs.push(`[${new Date().toISOString()}] Vast: ${status}`.slice(0, 800)); launch.logs = launch.logs.slice(-120);
         launch.lastLogAt = new Date().toISOString();
       }
+          this.statusEpoch++;
+          this.rawInstances=this.rawInstances.filter(raw=>raw.id!==launch.instanceId);
+          if(instance)this.rawInstances.push(instance);
+          this.state.refreshedAt=new Date().toISOString();this.state.error=null;
+          this.state.instances=this.rawInstances.map(raw=>this.normalizeInstance(raw));
       this.change(launch, 'waiting', status); await pause(this.options.pollMs ?? 5000);
     }
     launch.emptyRental = false; launch.hostWatch = undefined; launch.engineSetupStartedAt ||= new Date().toISOString();

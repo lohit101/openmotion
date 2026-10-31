@@ -12,5 +12,6 @@ export function gpuPowerTarget(cloud: CloudState) {
   if (!launch || launch.phase === 'destroyed') return null;
   const view = instancePresentation(instance, launch);
   const action: 'start' | 'stop' | null = view.stopped ? 'start' : ['running', 'loading', 'creating', 'created', 'starting'].includes(instance.state) ? 'stop' : null;
-  return { instance, action,view, blocked: view.ending || (action === 'start' && cloud.busy) };
+  const starting=action==='start'&&cloud.busy&&['checking','requesting','waiting','installing','connecting'].includes(launch.phase)&&!launch.needsReconnect;
+  return { instance, action,view,starting, blocked: view.ending || (action === 'start' && cloud.busy) };
 }

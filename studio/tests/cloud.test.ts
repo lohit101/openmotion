@@ -5,6 +5,7 @@ import os from 'node:os';
 import { Store } from '../server/store';
 import { CloudManager, computeIsStopped, fatalContainerStatus, hasRegisteredSshKey, matchesGpuProbe, normalizeOffer, RENTAL_IMAGE, SSH_ONSTART, VastClient, VastError } from '../server/cloud';
 import { DOWNLOAD_PRICE_CEILING, GPU_COMPUTE_CEILING, offerFiltersSchema, withinComputeBudget, withinDownloadBudget } from '../shared/cloud';
+import {gpuPowerTarget} from '../shared/gpu-power';
 import type { ConnectionManager } from '../server/comfy';
 import type { Runner } from '../server/runner';
 import { pinnedModels, setupModelFiles, SOCIAL_STYLE } from '../shared/models';
@@ -83,6 +84,25 @@ describe('Vast marketplace, billing and lifecycle', () => {
     expect(await cloud.pauseIdle(777, () => idle, async () => { throw new Error('Queue offline'); })).toBe('aborted');
     expect(fixture.calls.filter(call => call.method === 'PUT' && call.body?.state === 'stopped')).toHaveLength(0);
     expect(cloud.state.busy).toBe(false);
+  });
+  it('does not let a delayed running-status list overwrite an exactly confirmed stop',async()=>{
+    const {cloud,fixture}=await manager();const {offers}=await cloud.offers(filters);
+    const launch=cloud.launch(offers[0].quote,.23,'delayed-list-stop');await until(()=>!cloud.state.busy);
+    const original=fixture.fetcher.getMockImplementation()!;
+    let held=false,release!:()=>void;
+    const gate=new Promise<void>(resolve=>{release=resolve;});
+    fixture.fetcher.mockImplementation(async(input,init)=>{
+      const response=await original(input,init);
+      if(!held&&new URL(String(input)).pathname==='/api/v1/instances/'){held=true;await gate;}
+      return response;
+    });
+    const stale=cloud.refresh();await until(()=>held);
+    try{
+      await cloud.cancel(launch);
+      expect(gpuPowerTarget(cloud.state)?.action).toBe('start');
+    }finally{release();await stale;}
+    expect(cloud.state.instances[0].computeStopped).toBe(true);
+    expect(gpuPowerTarget(cloud.state)?.action).toBe('start');
   });
   it('clears a cancelled definitive rejection after checking the exact label, allowing a fresh rental', async () => {
     const { cloud, fixture } = await manager(); fixture.rejectCreateRequest();

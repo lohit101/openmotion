@@ -1,0 +1,16 @@
+{
+  "date": "2026-11-01",
+  "cause": ["Provider refresh previously depended on the GPU workspace being mounted", "Delayed snapshots could overwrite newer state", "The selected rental was lost among multiple retained disks after pause"],
+  "fix": ["App-wide read-only polling and focus/wake reconciliation", "Monotonic client snapshot revisions", "Persistent explicit managed-rental selection", "Authoritative exact stop results update instance cards before notification", "Provider status epochs discard pre-action reads and contradictory list states receive an exact read"],
+  "validation": {
+    "finalStudioTestsPassed": 523,
+    "typecheck": "passed",
+    "productionBuilds": "passed",
+    "nativeChrome": "Isolated local fixture with two retained instances: Pause -> Resume -> Pause kept the same selected instance.",
+    "raceRegression": "A held running-status response cannot overwrite the later exactly confirmed stop."
+  },
+  "deployment": {"deployedAt": "2026-10-31T19:13:35.791577+00:00", "savedJobsUnchanged": 300, "draftsUnchanged": true, "connectionBefore": "offline", "connectionAfter": "offline"},
+  "paidGpuActions": 0,
+  "remoteInstalls": 0,
+  "modelDownloads": 0
+}

@@ -14,9 +14,9 @@ export default function GpuPowerControl({ cloud, setCloud, activeWork, browse }:
   const [confirmation, setConfirmation] = useState<number | null>(null);
   const locked = useRef(false);
   const resume = target?.action === 'start';
-  const transition=target?.view.ending;
+  const transition=target?.view.ending||target?.starting;
   const disabled = !target?.action || target.blocked || !!pending || !!cloud.error;
-  const label = pending === 'checking' ? 'Checking GPU status…' : pending === 'stop'||transition ? 'Pausing GPU…' : pending === 'start' ? 'Resuming GPU…' : !target?.action?'GPU power unavailable':resume ? 'Resume GPU' : 'Pause GPU';
+  const label = pending === 'checking' ? 'Checking GPU status…' : target?.view.label==='Deleting instance'?'Deleting GPU…':pending === 'stop'||target?.view.ending ? 'Pausing GPU…' : pending === 'start'||target?.starting ? 'Resuming GPU…' : !target?.action?'GPU power unavailable':resume ? 'Resume GPU' : 'Pause GPU';
   const title = cloud.error ? 'GPU status unavailable. Open GPU cloud to refresh.' : !target ? 'Select an instance in GPU cloud' : !target.action ? 'Check instance status in GPU cloud' : target.blocked ? 'Instance action in progress' : `${label} · ${target.instance.gpu} #${target.instance.id}${resume ? ' · resumes paid compute' : ' · retains disk; storage stays billed'}`;
   const execute = async (id: number, action: 'start' | 'stop') => {
     if (locked.current) return;
@@ -47,7 +47,7 @@ export default function GpuPowerControl({ cloud, setCloud, activeWork, browse }:
     }
   };
   return <>
-    <span className="gpu-power-wrap" title={title}><button type="button" className={`gpu-power-button${resume ? ' is-paused' : ''}`} disabled={disabled} aria-label={label} aria-busy={!!pending} onClick={() => {
+    <span className="gpu-power-wrap" title={title}><button type="button" className={`gpu-power-button${resume ? ' is-paused' : ''}`} disabled={disabled} aria-label={label} aria-busy={!!pending||!!transition} onClick={() => {
       if (!target?.action || disabled) return;
       if (target.action === 'stop' && activeWork) setConfirmation(target.instance.id);
       else void execute(target.instance.id, target.action);

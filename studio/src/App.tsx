@@ -265,8 +265,8 @@ export default function App() {
   const handleJobAction = async (action: 'cancel' | 'resume') => { if (!selected) return; try { await api(`/jobs/${selected.id}/${action}`, action === 'resume' ? { retryMissing: !!selected.retryRequired } : {}); } catch (e) { setMessage((e as Error).message); } };
   const setCloud = useCallback((cloud: CloudState) => setData(old => old ? { ...old, cloud:newestCloudState(old.cloud,cloud) } : old), []);
   if (!data) return <div className="app-loading"><Aperture size={40} weight="light" /><h1>Recast</h1><span className="activity-line" /><p>{message || 'Opening your local workspace'}</p>{message && <button className="secondary-button" onClick={() => location.reload()}>Retry</button>}</div>;
-  const power=gpuPowerTarget(data.cloud),gpuPreparing=power?.view.preparing||power?.view.ending;
-  const gpuLabel=data.cloud.error?'GPU status unavailable':power?.view.ending?'Pausing GPU':power?.view.stopped?'GPU paused':gpuPreparing?'Preparing GPU':online?connection!.gpu||'GPU connected':power?.instance.state==='running'?'GPU running · reconnect':connection!.state==='connecting'?'Connecting':'GPU offline';
+  const power=gpuPowerTarget(data.cloud),gpuPreparing=power?.view.preparing||power?.view.ending||power?.starting;
+  const gpuLabel=data.cloud.error?'GPU status unavailable':power?.view.ending?power.view.label:power?.starting?'Resuming GPU':power?.view.stopped?'GPU paused':gpuPreparing?'Preparing GPU':online?connection!.gpu||'GPU connected':power?.instance.state==='running'?'GPU running · reconnect':connection!.state==='connecting'?'Connecting':'GPU offline';
   return <div className={`app-shell ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
     <CloudStatusSync cloud={data.cloud} setCloud={setCloud}/>
     <header className="topbar">
