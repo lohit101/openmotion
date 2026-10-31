@@ -176,7 +176,7 @@ describe('Vast marketplace, billing and lifecycle', () => {
     for (const value of [null, NaN, Infinity, -.1, .7001, 1]) expect(withinComputeBudget(value)).toBe(false);
     expect(withinComputeBudget(.7)).toBe(true);
     const raw = rawOffer(); raw.search = { gpuCostPerHour: .7, diskHour: .1, totalHour: .8 };
-    expect(normalizeOffer(raw, filters).compatible).toBe(true);
+    expect(normalizeOffer(raw, {...filters,maxHourly:1}).compatible).toBe(true);
     raw.search.gpuCostPerHour = .701;
     expect(normalizeOffer(raw, filters).compatible).toBe(false);
     expect(normalizeOffer(raw, filters).reasons.join()).toContain('$0.70/hour');
@@ -241,10 +241,10 @@ describe('Vast marketplace, billing and lifecycle', () => {
     const fixture = provider(), client = new VastClient(async () => 'fixture-secret', fixture.fetcher); await client.offers({ ...filters, disk: 128, ram: 64 });
     const call = fixture.calls[0]; expect(call.auth).toBe('Bearer fixture-secret'); expect(call.url.toString()).not.toContain('fixture-secret');
     expect(call.body).toMatchObject({ allocated_storage: 128, cpu_ram: { gte: 64000 }, driver_version: { gte: 580065006 }, inet_down_cost: { lte: .005 }, type: 'on-demand' });
-    expect(call.body.gpu_ram).toBeUndefined();
-    expect(call.body.gpu_name.in).toContain('RTX 5090');
-    expect(call.body.gpu_name.in).toContain('A100 PCIE');
-    expect(call.body.gpu_name.in).toContain('GB10');
+    expect(call.body.gpu_ram).toEqual({gte:24000});
+    expect(call.body.gpu_name).toBeUndefined();
+    expect(call.body).toMatchObject({gpu_arch:{eq:'nvidia'},compute_cap:{gte:800},dph_total:{lte:.7},inet_down:{gte:250}});
+    expect(fixture.calls.some(call=>call.body.gpu_name?.eq==='GB10')).toBe(true);
   });
   it('searches DGX Spark by GB10 and validates the shared pool without assuming dedicated VRAM', async () => {
     const fixture = provider(), client = new VastClient(async () => 'fixture-secret', fixture.fetcher);

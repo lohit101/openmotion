@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowClockwise, ArrowRight, CaretDown, ClockCounterClockwise, ShieldCheck, Star } from '@phosphor-icons/react';
 import type { CloudState, GpuOffer, OfferFilters } from '../shared/cloud';
-import { gpuDisplayName } from '../shared/cloud';
+import { gpuDisplayName,offerFiltersSchema,offerMatchesFilters } from '../shared/cloud';
 import { api } from './components';
+import {GpuHardwareSummary} from './GpuHardwareDetails';
 
 export type ToggleGpuFavourite = (machineId: number, gpu: string, source: { launchId?: string; quote?: string }) => Promise<void>;
 const rate = (value: number | null) => value === null ? 'No previous quote' : `$${value.toFixed(3)} / hr`;
@@ -19,6 +20,7 @@ export default function GpuFavourites({ cloud, filters, setCloud, notify, select
   const callbacks = useRef({ setCloud, notify }); callbacks.current = { setCloud, notify };
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; serial.current++; }; }, []);
   const check = useCallback(async () => {
+    if(!offerFiltersSchema.safeParse(JSON.parse(filterKey)).success)return;
     const request = ++serial.current; setChecking(true);
     try {
       const value = await api<CloudState>('/cloud/favourites/check', { filters: JSON.parse(filterKey) });
@@ -44,7 +46,8 @@ export default function GpuFavourites({ cloud, filters, setCloud, notify, select
       <div className="favourite-host-heading"><div><h3>{gpuDisplayName(item.gpu)}{item.offer?.verified && <ShieldCheck size={13} />}</h3><p>Machine #{item.machineId}<span>·</span>{item.location || 'Location unavailable'}</p></div><button className="icon-button favourite-control saved" disabled={saving} aria-label={`Remove ${item.gpu} machine ${item.machineId} from favourites`} aria-pressed="true" onClick={() => void toggle(item.machineId, item.gpu, {})}><Star size={17} weight="fill" /></button></div>
       <div className="favourite-host-summary"><span className={`favourite-availability ${item.status}`} role="status"><i />{labels[item.status]}</span><strong>{item.status === 'available' && item.offer ? rate(item.offer.totalHourly) : <small>Last quote · {rate(item.lastHourly)}</small>}</strong></div>
       {item.message && <p className="favourite-host-message">{item.message}</p>}
-      <footer><small>{item.checkedAt ? `Checked ${new Date(item.checkedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Check for a fresh offer before renting'}</small>{item.status === 'available' && item.offer && <button className="secondary-button" onClick={() => select(item.offer!)}>Review offer <ArrowRight size={13} /></button>}</footer>
+      {item.status==='available'&&item.offer&&<GpuHardwareSummary hardware={item.offer}/>}
+      <footer><small>{item.checkedAt ? `Checked ${new Date(item.checkedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Check for a fresh offer before renting'}</small>{item.status === 'available' && item.offer && <button className="secondary-button" disabled={checking||!offerMatchesFilters(item.offer,filters)} onClick={() => select(item.offer!)}>Review offer <ArrowRight size={13} /></button>}</footer>
     </article>)}</div>
     {!!history.length && <details className="favourite-history" open={!favourites.length}><summary><ClockCounterClockwise size={15} />Previously rented hosts<span>{history.length}</span><CaretDown className="history-chevron" size={13} /></summary><p>Save the machines you liked. Rental history alone does not establish performance.</p>{history.map(launch => <div className="favourite-history-row" key={launch.id}><div><strong>{gpuDisplayName(launch.offer.gpu)}</strong><small>Machine #{launch.offer.machineId} · {launch.offer.location}</small></div><button className="secondary-button" disabled={saving} aria-label={`Favourite ${launch.offer.gpu} machine ${launch.offer.machineId}`} onClick={() => void toggle(launch.offer.machineId, launch.offer.gpu, { launchId: launch.id })}><Star size={14} />Save host</button></div>)}</details>}
     <p className="favourites-footnote">Saved by machine and GPU model. Prices and availability can change; the physical card within a multi-GPU host may vary. Checks use the settings above and never start a rental.</p>

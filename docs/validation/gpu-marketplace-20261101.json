@@ -1,0 +1,26 @@
+{
+  "date": "2026-11-01",
+  "feature": "Capability-based Vast discovery, scored recommendations and retained rental hardware",
+  "defaults": {"vramClassGB": 24, "systemRamGB": 48, "diskGB": 80, "minDownloadMbps": 250, "maxTotalHourlyUSD": 0.7, "maxDownloadUSDPerGB": 0.005, "minReliability": 0.95, "verified": true},
+  "scoreWeights": {"compute": 35, "hourlyPrice": 25, "setupThroughput": 20, "vram": 10, "transferPrice": 5, "reliability": 5},
+  "validation": {
+    "studioTestsPassed": 524,
+    "testFilesPassed": 44,
+    "typecheck": "passed",
+    "frontendBuild": "passed",
+    "backendBuild": "passed",
+    "liveReadOnlySearch": {"checkedAt": "2026-10-31T19:17:25.947523+00:00", "eligibleOffers": 66, "recommendations": 3, "distinctRecommendedMachines": true, "allSelectedLimitsVerified": true, "strictSearchOffers": 0, "strictFilters": {"minDownloadMbps": 1000, "minVramClassGB": 40, "maxTotalHourlyUSD": 0.35}, "searchComplete": true},
+    "additionalModelBeyondOldList": "RTX 4500Ada",
+    "liveProviderCursorProbe": {"firstCount": 2, "secondCount": 2, "cursorAdvanced": true, "truncatedFlagWasFalseAtLimit": true},
+    "automatedCoverage": ["provider pagination and overlap deduplication", "non-advancing cursor refusal", "shared-memory discovery", "inclusive hourly and transfer caps", "VRAM/network/RAM/reliability/architecture validation", "three distinct rated hosts", "missing rating behavior", "immutable input offers and generation drafts", "workflow disk floors", "retained hardware fallback", "tighter filters invalidate previous quotes", "delayed provider and client-state races"],
+    "nativeChrome": ["primary hardware/network/price filters and recommendation layout", "rented-instance performance summaries and expanded full hardware details", "Pause -> Resume -> Pause on the same local fixture instance with another retained disk"],
+    "nativeLimit": "Additional numeric-filter and narrow-width gestures were not completed because the user changed browser windows. Filter behavior has automated and live API coverage."
+  },
+  "deployment": {"deployedAt": "2026-10-31T19:25:43.465036+00:00", "savedJobsUnchanged": 300, "draftsUnchanged": true, "connectionBefore": "offline", "connectionAfter": "offline", "providerComputeStopped": true},
+  "gpuActions": 0,
+  "paidTests": 0,
+  "remoteInstalls": 0,
+  "modelDownloads": 0,
+  "workflowRecipesChanged": false,
+  "limitation": "Scores use provider ratings and explicit heuristics. No model-specific latency, output-quality or cold-start guarantee was measured."
+}

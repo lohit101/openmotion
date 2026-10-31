@@ -12,7 +12,6 @@ export function withinComputeBudget(hourly: number | null): boolean {
 
 // Provider model names, checked against Vast's /gpu_names/unique/ catalog.
 export const aSeriesGpuNames = ['A10', 'A30', 'A40', 'A100 PCIE', 'A100 SXM4', 'A800 PCIE', 'RTX A5000', 'RTX A5500', 'RTX A6000'];
-const rtxGpuNames = ['RTX 3090', 'RTX 3090 Ti', 'RTX 4090', 'RTX 5090'];
 const cmpGpuNames = ['CMP 170HX'] as const;
 export const dgxGpuNames = ['GB10', 'GB200', 'GB300', 'B200', 'B300', 'B300 PC', 'H100 NVL', 'H100 PCIE', 'H100 SXM', 'H200', 'H200 NVL', 'A100 PCIE', 'A100 SXM4', 'A800 PCIE'] as const;
 export const datacenterGpuNames = [
@@ -36,33 +35,31 @@ export function gpuMemorySummary(device: { gpu: string; vram: number; ram: numbe
 export const offerFiltersSchema = z.object({
   gpu: z.enum(['all', 'RTX 3090', 'RTX 4090', 'RTX 5090', ...cmpGpuNames, 'datacenter', 'a-series', 'dgx', ...datacenterGpuNames, ...legacyGpuNames]).default('all'),
   disk: z.number().int().min(64).max(2048).default(80),
-  ram: z.union([z.literal(48), z.literal(64), z.literal(96)]).default(48),
+  ram: z.number().int().min(48).max(2048).default(48),
   verified: z.boolean().default(true),
-  minDownload: z.number().int().min(0).max(100000).default(0),
-  sort: z.enum(['price', 'compute', 'setup']).default('price'),
+  minDownload: z.number().int().min(250).max(100000).default(250),
+  minVram:z.number().int().min(24).max(1024).default(24),
+  maxHourly:z.number().min(.01).max(10).default(GPU_COMPUTE_CEILING),
+  maxDownloadPrice:z.number().min(0).max(DOWNLOAD_PRICE_CEILING).default(DOWNLOAD_PRICE_CEILING),
+  minReliability:z.number().min(.9).max(1).default(.95),
+  workflow:z.enum(['remotion','imagen','clarity','all']).default('remotion'),
+  sort: z.enum(['recommended','price', 'compute', 'setup','speed']).default('recommended'),
 });
 export type OfferFilters = z.infer<typeof offerFiltersSchema>;
-export const gpuFilterOptions: { value: OfferFilters['gpu']; label: string }[] = [
-  { value: 'all', label: 'All GPUs' },
-  { value: 'RTX 3090', label: '3090' },
-  { value: 'RTX 4090', label: '4090' },
-  { value: 'RTX 5090', label: '5090' },
-  { value: 'CMP 170HX', label: '170HX' },
-  { value: 'datacenter', label: 'Datacenter' },
-];
+// Retained only for old frozen rental filters; the marketplace always uses all.
 export function offerGpuFilter(gpu: OfferFilters['gpu']) {
   if (gpu === 'a-series') return { in: [...aSeriesGpuNames] };
   if (gpu === 'dgx') return { in: [...dgxGpuNames] };
   if (gpu === 'datacenter') return { in: [...datacenterGpuNames] };
-  if (gpu === 'all') return { in: [...new Set([...rtxGpuNames, ...cmpGpuNames, ...datacenterGpuNames, ...legacyGpuNames])] };
+  if (gpu === 'all') return undefined;
   return { eq: gpu };
 }
-export function supportedGpuName(name: string) { return /RTX/i.test(name) || isDatacenterGpu(name) || isCmp170Hx(name); }
+export function supportedGpuName(name: string) { return !/\bMIG\b/i.test(name)&&(/RTX/i.test(name) || /^(?:NVIDIA\s+)?(?:Tesla\s+)?(?:A\d+|H\d+|B\d+|GB\d+|L\d+S?)\b/i.test(name) || isCmp170Hx(name)); }
 
 export function sameGpuModel(expected: string, reported: string) {
   const compact = (value: string) => value.toUpperCase().replace(/NVIDIA|GEFORCE|TESLA|QUADRO|GENERATION/g, '').replace(/[^A-Z0-9]/g, '');
   const wanted = compact(expected), actual = compact(reported);
-  if (!supportedGpuName(expected) || /\bMIG\b/i.test(reported)) return false;
+  if (!expected.trim() || /\bMIG\b/i.test(expected+' '+reported) || !supportedGpuName(expected)&&!/^NVIDIA\s+/i.test(reported)) return false;
   if (isDgxSpark(expected)) return isDgxSpark(reported);
   if (isGraceBlackwell(expected)) return wanted === actual;
   if (isCmp170Hx(expected)) return isCmp170Hx(reported);
@@ -96,11 +93,29 @@ export interface GpuOffer {
   downloadMbps: number; uploadMbps: number; downloadPerGB: number | null; uploadPerGB: number | null; pcie: number;
   computeHourly: number | null; storageHourly: number | null; totalHourly: number | null; storageMonthly: number | null;
   modelDownloadCost: number | null; modelDownloadGB?: number; disk: number; expiresAt: string; quote: string; compatible: boolean; reasons: string[];
+  dlperf?:number|null; tflops?:number|null; memoryBandwidth?:number|null; computeCapability?:number|null;
+  recommendation?:GpuRecommendation;
+  cpuArch?:string;
 }
+export function offerMatchesFilters(offer:GpuOffer,filters:OfferFilters):boolean{
+  const shared=isDgxSpark(offer.gpu),minimumMemory=shared?Math.max(64,filters.minVram,filters.ram):filters.minVram;
+  return offer.compatible&&offer.totalHourly!==null&&offer.totalHourly<=filters.maxHourly+1e-9&&withinComputeBudget(offer.computeHourly)&&withinDownloadBudget(offer.downloadPerGB)&&
+    offer.downloadPerGB!==null&&offer.downloadPerGB<=filters.maxDownloadPrice+1e-9&&offer.downloadMbps>=filters.minDownload&&offer.ram>=filters.ram&&offer.disk>=filters.disk&&
+    (shared?offer.vram>=minimumMemory:offer.vram*1024>=minimumMemory*1000)&&offer.reliability>=filters.minReliability&&(!filters.verified||offer.verified)&&
+    (!['clarity','all'].includes(filters.workflow)||['amd64','x86_64'].includes(offer.cpuArch||''));
+}
+export interface GpuRecommendation {
+  score:number;rank:number|null;confidence:'rated'|'limited';
+  components:{compute:number;value:number;setup:number;memory:number;transfer:number;reliability:number};
+  transferSeconds:number|null;transferComputeCost:number|null;firstHourCost:number|null;
+}
+export interface MarketRequirements { workflow:OfferFilters['workflow'];minVram:number;minRam:number;minDisk:number;recommendedDisk:number;modelGB:number;architectures:string[]; }
+export type GpuHardware=Pick<GpuOffer,'gpu'|'vram'|'ram'|'cpus'|'cpu'|'driver'|'cuda'|'diskBandwidth'|'downloadMbps'|'uploadMbps'|'downloadPerGB'|'uploadPerGB'|'pcie'|'verified'|'reliability'|'dlperf'|'tflops'|'memoryBandwidth'|'computeCapability'|'cpuArch'>;
 export interface CloudInstance {
   id: number; label: string; gpu: string; count: number; vram: number; ram: number; state: string; intendedState: string; message: string;
   disk: number; diskUsed: number | null; location: string; totalHourly: number | null; storageHourly: number | null; storageMonthly: number | null;
   managed: boolean; connected: boolean; createdAt: string | null; computeStopped?: boolean;
+  hardware?:GpuHardware;hardwareSource?:'provider and saved offer'|'saved offer';hardwareCheckedAt?:string|null;
 }
 export interface GpuFavourite {
   id: string; machineId: number; gpu: string; location: string; savedAt: string;
