@@ -26,6 +26,15 @@ export function trimTimelineClip(clip: TimelineClip, edge: 'in' | 'out', frame: 
   const value = Number.isFinite(frame) ? Math.round(frame) : edge === 'in' ? clip.inFrame : clip.outFrame;
   return edge === 'in' ? { ...clip, inFrame: Math.max(0, Math.min(clip.outFrame - 1, value)) } : { ...clip, outFrame: Math.min(source.frames, Math.max(clip.inFrame + 1, value)) };
 }
+// Continue an intentional edge drag when the pointer runs out of visible room.
+// A fresh press or a pointer in the middle of the viewport must not change time.
+export function trimEdgeTravel(fromX:number,toX:number,left:number,right:number,seconds:number):number {
+  if(![fromX,toX,left,right,seconds].every(Number.isFinite)||right<=left||seconds<=0)return 0;
+  const direction=toX<fromX-4&&toX<left+20?-1:toX>fromX+4&&toX>right-20?1:0;
+  if(!direction)return 0;
+  const distance=direction<0?left+20-toX:toX-right+20;
+  return direction*Math.min(240,80+distance*4)*Math.min(seconds,.05);
+}
 export function locateTimeline(clips: TimelineClip[], sources: Record<string, EditorSource>, time: number) {
   const rows = timelineLayout(clips, sources), row = rows.find(item => time < item.end - 1e-6) || rows.at(-1);
   return row ? { ...row, sourceTime: row.clip.inFrame / row.source.fps + Math.min(Math.max(0, time - row.start), Math.max(0, row.duration - 1 / row.source.fps)) } : null;

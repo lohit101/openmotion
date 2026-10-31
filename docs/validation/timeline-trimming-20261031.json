@@ -1,0 +1,32 @@
+{
+  "date": "2026-10-31",
+  "scope": "Clip editor timeline trimming",
+  "cause": "After trimming the beginning, the clip reflows toward the viewport origin, leaving too little pointer travel to recover all hidden source frames.",
+  "changes": [
+    "Holding an intentionally dragged trim handle near the viewport edge continues extending or shortening the source range.",
+    "No extension begins from a stationary press or an interior pointer.",
+    "Continuation is frame bounded and discards overshoot at source limits.",
+    "Pointer release applies its final position; cancel, blur, hidden tab and capture loss stop continuation.",
+    "Focus preserves scroll position and gestures are bound to the initiating pointer.",
+    "Timeline help explains edge holds and Home/End source-boundary shortcuts."
+  ],
+  "validation": {
+    "studioTestsPassed": 510,
+    "testFilesPassed": 43,
+    "typecheck": "passed",
+    "frontendBuild": "passed",
+    "automatedCoverage": ["recover hidden leading and trailing source frames", "stationary and interior pointer safety", "bounded scheduling delay", "source immutability", "existing exact-cut and export coverage"],
+    "nativeInteractionReview": "Uploaded-video start handle was verified at zero in Chrome; additional Clip editor edge-hold behavior was checked by automated tests and code review."
+  },
+  "deployment": {
+    "deployedAt": "2026-10-31T12:58:51.239335+00:00",
+    "method": "Static frontend assets; existing hashed assets retained",
+    "backendRestarted": false,
+    "savedJobsUnchanged": 293,
+    "draftsUnchanged": true
+  },
+  "gpuActions": 0,
+  "inferenceSubmitted": false,
+  "sourceMediaChanged": false,
+  "exportBehaviorChanged": false
+}
