@@ -119,13 +119,16 @@ export const modelDefinitions = pinnedModels.map(file => {
     trigger: filename(file.destination) === SOCIAL_STYLE ? 'instag00n' : '',
     source: filename(file.destination) === SOCIAL_STYLE ? extras.files[0].source : '' };
 });
-export type ModelStatus = 'unknown' | 'missing' | 'queued' | 'downloading' | 'installed' | 'failed';
-export interface ModelTransfer { downloaded: number; total: number; bytesPerSecond?: number; }
-export interface ModelFileState { id: string; status: ModelStatus; percent: number | null; message: string; error: string | null; downloaded?: number; total?: number; bytesPerSecond?: number; }
+export type ModelStatus = 'unknown' | 'missing' | 'queued' | 'downloading' | 'reconnecting' | 'installed' | 'failed';
+export interface ModelTransfer { downloaded: number; total: number; bytesPerSecond?: number; phase?: string; remoteActive?: boolean; }
+export interface ModelFileState { id: string; status: ModelStatus; percent: number | null; message: string; error: string | null; downloaded?: number; total?: number; bytesPerSecond?: number; remoteActive?: boolean; }
+export type DownloadModule = 'remotion' | 'imagen' | 'clarity';
+export interface ModuleDownloadPlan { module:DownloadModule; key:string; files:string[]; runtimes:string[]; }
+export interface ModuleDownloadState extends ModuleDownloadPlan { instanceId:number; endpoint:string; transferFiles:string[]; status:'downloading'|'preparing'|'reconnecting'|'complete'|'failed'|'cancelled'; message:string; error:string|null; updatedAt:number; runtimePercent?:number; activeRuntime?:string; }
 export interface InstalledLora { name: string; size: number; partialSize?: number; included: boolean; }
 export interface ModelInventoryFile { id: string; size: number; partialSize: number; measured: boolean; }
 export interface ModelInventory { key: string; instanceId: number | null; endpoint: string; gpu: string | null; checkedAt: string; files: ModelInventoryFile[]; freeBytes?: number; }
-export interface ModelsState { files: ModelFileState[]; busy: boolean; refreshing: boolean; error: string | null; checkedAt: string | null; installedLoras: InstalledLora[]; deleting: string | null; diskFreeBytes?: number; inventories?: ModelInventory[]; facialRuntimeReady?: boolean; facialCleanupRuntimeReady?: boolean; facialCalibratedRuntimeReady?: boolean; facialEyeFinishRuntimeReady?: boolean; facialGeometryRuntimeReady?: boolean; facialBoundaryRuntimeReady?: boolean; }
+export interface ModelsState { files: ModelFileState[]; busy: boolean; refreshing: boolean; error: string | null; checkedAt: string | null; installedLoras: InstalledLora[]; deleting: string | null; diskFreeBytes?: number; inventories?: ModelInventory[]; facialRuntimeReady?: boolean; facialCleanupRuntimeReady?: boolean; facialCalibratedRuntimeReady?: boolean; facialEyeFinishRuntimeReady?: boolean; facialGeometryRuntimeReady?: boolean; facialBoundaryRuntimeReady?: boolean; facialPreparing?:boolean; moduleSetup?:ModuleDownloadState; transferInstanceId?:number; transferEndpoint?:string; transferStartedAt?:number; transferFiles?:string[]; localIdentityReady?:boolean; localPoseReady?:boolean; }
 export const emptyModels = (): ModelsState => ({ files: modelDefinitions.map(file => ({ id: file.id, status: 'unknown', percent: null, message: '', error: null })), busy: false, refreshing: false, error: null, checkedAt: null, installedLoras: [], deleting: null });
 
 export function modelBytes(files: string[]): number {

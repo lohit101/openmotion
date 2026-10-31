@@ -107,7 +107,7 @@ export function registerImageRoutes(app: Express, store: Store, connection: Conn
     if (models.state.busy || cloud.state.busy || runner.externalGpuBusy() || connection.status.state !== 'online') return void res.status(409).json({ error: 'GPU readiness changed during the check. Nothing was queued.' });
     if (models.state.error) return void res.status(503).json({ error: models.state.error });
     const missing = imageFilesForSettings(value.settings).filter(id => models.state.files.find(file => file.id === id)?.status !== 'installed');
-    if (missing.length) return void res.status(409).json({ error: 'Download the selected image files first. No video models are needed.', missingModels: missing });
+    if (missing.length) return void res.status(409).json({ error: 'Use Download Imagen to prepare the selected image files first.', missingModels: missing });
     const settings = { ...value.settings }; if (settings.randomSeed) settings.seed = randomInt(0, 0xffffffff);
     const title = source.sourceFrame ? `Frame ${source.sourceFrame.time.toFixed(2)}s / Imagen` : source.name.replace(/\.[^.]+$/, '').slice(0, 80) + ' / Imagen';
     const job: Job = { id: randomUUID(), title, status: 'queued', mediaType: 'image',

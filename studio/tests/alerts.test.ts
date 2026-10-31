@@ -95,6 +95,13 @@ describe('activity alert transitions', () => {
     tracker.collect(snapshot([], models([file('c', 'downloading'), file('d', 'queued')], true)));
     expect(tracker.collect(snapshot([], models([file('c', 'installed'), file('d', 'missing')])))[0].title).toBe('Downloads stopped');
   });
+  it('holds download completion alerts through reconnects and required runtime preparation',()=>{
+    const tracker=new ActivityAlertTracker(now);tracker.collect(snapshot());
+    tracker.collect(snapshot([],models([file('a','downloading')],true)));
+    expect(tracker.collect(snapshot([],models([file('a','reconnecting')],true)))).toEqual([]);
+    expect(tracker.collect(snapshot([],models([file('a','installed')],true)))).toEqual([]);
+    expect(tracker.collect(snapshot([],models([file('a','installed')]))).map(row=>row.title)).toEqual(['Models downloaded']);
+  });
   it('alerts on local export outcomes even if the editor is no longer mounted, without a duplicate render alert', () => {
     const tracker = new ActivityAlertTracker(now); tracker.collect(snapshot()); tracker.collectExports([]);
     tracker.collectExports([exported('exporting')], true);

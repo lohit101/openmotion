@@ -134,9 +134,12 @@ finally:shutil.rmtree(stage)
         vast.remote(config, ['python3', '-c', code, str(root)], stdin=stream)
 
 
-def prepare_runtime(config, version='source-face-v1'):
+def prepare_runtime(config, version='source-face-v1',tracked=False,cancelled=lambda:False):
     upload_runtime(config)
-    call(config, 'prepare', capture=False, version=version)
+    if tracked:
+        from managed_model_setup import prepare
+        prepare(config,version,fingerprint(version),cancelled)
+    else:call(config, 'prepare', capture=False, version=version)
 
 
 def status(config, version='source-face-v1'):
@@ -219,6 +222,7 @@ def main():
     parser.add_argument('--frames', type=int)
     parser.add_argument('--width', type=int)
     parser.add_argument('--height', type=int)
+    parser.add_argument('--tracked-setup',action='store_true')
     args = parser.parse_args()
     config = vast.load()
     check_connection(config, args.instance_id)
@@ -233,7 +237,7 @@ def main():
         print('RECAST_FACIAL ' + json.dumps(status(config, args.version)), flush=True)
         return
     if args.action == 'prepare':
-        prepare_runtime(config, args.version)
+        prepare_runtime(config, args.version,args.tracked_setup,lambda:cancelled)
         return
     job = str(uuid.UUID(args.job))
     folder = remote_root(config) / 'jobs' / job

@@ -1,0 +1,57 @@
+{
+  "date": "2026-10-31",
+  "feature": "Unified module download actions and persistent transfer recovery",
+  "studio": {
+    "fullSuite": {"filesPassed": 42, "testsPassed": 503},
+    "finalFocused": {"moduleAndModelTestsPassed": 53, "downloadInventoryTestsPassed": 6},
+    "typecheck": "passed",
+    "frontendBuild": "passed",
+    "serverBuild": "passed"
+  },
+  "python": {
+    "newLocalRecoveryTestsPassed": 15,
+    "existingModelProfileTestsPassed": 8,
+    "existingManagedPathTestsPassed": 2,
+    "existingFaceRuntimePackageTestsPassed": 2,
+    "compile": "passed",
+    "networkFixtures": "loopback HTTP only; mocked SSH",
+    "cases": [
+      "mid-transfer network disconnect and exact HTTP Range retry",
+      "SHA256 verification and receipt identity",
+      "duplicate start attaches without a second worker",
+      "status recovery never implicitly restarts a terminal transfer",
+      "verified process group cancellation and unknown-stop protection",
+      "same-rental persisted queue recovery",
+      "lost runtime-start response only polls the same attempt",
+      "real file descriptor for immutable helper upload archive",
+      "resumable optional local setup without legacy model changes"
+    ]
+  },
+  "uiReview": {
+    "surface": "real staged frontend on isolated loopback fixture",
+    "userDatabaseAttached": false,
+    "providerConnectorAttached": false,
+    "reviewed": ["Remotion", "Imagen", "Clarity", "byte progress on button", "expandable file list", "reconnecting", "retry", "runtime preparation", "return to generation", "Settings download all models"]
+  },
+  "deployment": {
+    "localAppReloaded": true,
+    "savedJobRowsUnchanged": 281,
+    "bothDraftsUnchanged": true,
+    "connectionRemainedOffline": true
+  },
+  "gpuResumes": 0,
+  "gpuTests": 0,
+  "gpuSshCalls": 0,
+  "providerApiCalls": 0,
+  "modelHostDownloads": 0,
+  "remoteInstalls": 0,
+  "paidInference": 0,
+  "modelManifestsChanged": false,
+  "paidOutputsChanged": false,
+  "limits": [
+    "Real Linux GPU transfer/setup and recovery validation remains pending.",
+    "Runtime package installation is indeterminate when its byte total is unavailable.",
+    "Download all models includes all catalog weights; module runtime tools are prepared on request.",
+    "Automatic UI recovery and alerts require the local server and an awake computer."
+  ]
+}

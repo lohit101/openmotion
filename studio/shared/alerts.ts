@@ -21,7 +21,7 @@ export interface ActivityAlert {
   detail?: string; target: AlertTarget; toast?: boolean;
 }
 type Snapshot = Pick<Bootstrap, 'connection' | 'jobs' | 'models' | 'cloud'>;
-const pending = (status: string) => ['queued', 'downloading'].includes(status);
+const pending = (status: string) => ['queued', 'downloading','reconnecting'].includes(status);
 const label = (id: string) => modelDefinitions.find(file => file.id === id)?.label || 'Model file';
 
 /** Observes transitions, not inventory presence. Startup history is a baseline. */

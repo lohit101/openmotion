@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 
 import vast
-from model_manifest import is_content_filter_weight, selected_manifest, write_remote_manifest
+from model_manifest import is_content_filter_weight, selected_manifest
 
 
 MODEL_PATCH_PATHS = '''
@@ -59,6 +59,8 @@ def main():
     parser.add_argument('--model-files')
     parser.add_argument('--action', choices=['download', 'inventory', 'delete'], default='download')
     parser.add_argument('--lora')
+    parser.add_argument('--recover',action='store_true')
+    parser.add_argument('--cancel-transfer',action='store_true')
     args = parser.parse_args()
     config = vast.load()
     check_connection(config, args.instance_id)
@@ -85,6 +87,11 @@ def main():
                     'result["facialBoundaryRuntimeReady"]=result["facialGeometryRuntimeReady"] and json.loads(marker.read_text()).get("boundaryProfiles")==json.loads(sys.argv[12]) and json.loads(marker.read_text()).get("cleanupWorkerSHA256")==json.loads(sys.argv[8])[0];'
                     'eye_marker=root.parent/"facial-runtime/state/eye-runtime-ready.json";'
                     'result["facialEyeFinishRuntimeReady"]=result["facialCalibratedRuntimeReady"] and eye_marker.is_file() and json.loads(eye_marker.read_text()).get("profileSHA256")==sys.argv[10] and json.loads(eye_marker.read_text()).get("nativeBindingsVerified") is True;'
+                    '\nfor proc in Path("/proc").glob("[0-9]*"):\n'
+                    ' try:\n'
+                    '  args=(proc/"cmdline").read_bytes().split(bytes([0]))\n'
+                    ' except FileNotFoundError:continue\n'
+                    ' if (str(root.parent/"facial-runtime/scripts/facial_worker.py").encode() in args and b"prepare" in args) or (str(root.parent).encode() in args and b"worker" in args and any(a.endswith(b"/model_setup_worker.py") for a in args)):result["facialPreparing"]=True;break\n'
                     'print("RECAST_MODEL_STORAGE "+json.dumps(result))')
             facial = __import__('managed_facial_consistency')
             geometry = {f'source-face-v{n}': facial.fingerprint(f'source-face-v{n}') for n in [6, 7, 8]}
@@ -102,13 +109,9 @@ def main():
     if not args.model_files:
         raise ValueError('Choose model files to download.')
     manifest = selected_manifest(json.loads(args.model_files))
-    if any(item['destination'].startswith('face_consistency/') for item in manifest['files']):
-        from managed_facial_consistency import prepare_runtime
-        prepare_runtime(config, 'source-face-v8' if any(item['destination'].startswith('face_consistency/eye_finish/') for item in manifest['files']) else 'source-face-v6')
-    target = write_remote_manifest(config, manifest)
-    downloader = root / ('facial-runtime/scripts/download_models.py' if any(item['destination'].startswith('face_consistency/') for item in manifest['files']) else 'scripts/download_models.py')
-    vast.remote(config, [str(root / '.venv/bin/python'), str(downloader),
-                         '--manifest', target, '--model-dir', str(root / 'models')])
+    from managed_model_download import transfer
+    for item in manifest['files']:
+        if not transfer(config,selected_manifest([item['destination']]),args.recover,args.cancel_transfer):return
     register_download_paths(config, manifest['files'])
 
 

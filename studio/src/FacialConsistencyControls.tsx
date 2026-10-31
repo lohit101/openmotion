@@ -1,11 +1,8 @@
-import { useState } from 'react';
-import { DownloadSimple } from '@phosphor-icons/react';
-import { toast } from 'sonner';
 import type { Settings } from '../shared/types';
 import { facialFilesForSettings } from '../shared/models';
-import { facialProfileLabels, facialRuntimeReadyForSettings, facialVersionForSettings, type FacialProfile } from '../shared/facial-consistency';
+import { facialProfileLabels, type FacialProfile } from '../shared/facial-consistency';
 import { FieldLabel } from './InfoTip';
-import { api, Toggle } from './components';
+import { Toggle } from './components';
 import { DownloadSelect, type DownloadControls } from './ModelDownloads';
 
 export default function FacialConsistencyControls({ value, change, downloads, sceneMatch, changeSceneMatch, cleanup, changeCleanup, eyeCalibration, changeEyeCalibration, eyeFinish, changeEyeFinish, boundaryBlend, changeBoundaryBlend }: {
@@ -16,19 +13,9 @@ export default function FacialConsistencyControls({ value, change, downloads, sc
   eyeFinish?: boolean; changeEyeFinish?: (value: boolean) => void;
   boundaryBlend?: boolean; changeBoundaryBlend?: (value: boolean) => void;
 }) {
-  const [preparing, setPreparing] = useState(false);
   const active = !!value && value !== 'off';
   const boundaryUnavailable = value === 'perform-onnx60' && eyeCalibration === true && eyeFinish === true;
   const settings = { engine: 'viggle', facialConsistency: value, facialSceneMatch: sceneMatch, facialFeatureCleanup: cleanup ?? true, facialEyeCalibration: eyeCalibration === true, facialEyeFinish: eyeFinish === true, facialBoundaryBlend: boundaryBlend === true };
-  const files = facialFilesForSettings(settings);
-  const installed = files.every(id => downloads.state.files.find(file => file.id === id)?.status === 'installed');
-  const prepare = async () => {
-    setPreparing(true);
-    const id = toast.loading('Preparing facial tools', { description: 'Updating the isolated GPU runtime. Installed weights are reused.' });
-    try { await api('/facial-consistency/prepare', { version: facialVersionForSettings(settings) }); toast.success('Facial tools ready', { id }); }
-    catch (error) { toast.error('Facial tools need attention', { id, description: (error as Error).message }); }
-    finally { setPreparing(false); }
-  };
   return <div className="full-label">
     <FieldLabel label="Facial consistency" help="Runs automatically after Viggle, before the video appears in Library. Standard uses the accepted PerformRecast source expressions; Regional reduces cheek/jaw/depth changes. Both blend a fixed-reference Hyperswap identity pass at 60%. Feature cleanup owns complete eyes and eyebrows and restores gated native eye detail. Covered, uncertain or mismatched faces are preserved and reported. This does not guarantee exact gaze or identity. Uses an x86_64 CUDA GPU; downloads are explicit." />
     <DownloadSelect label="Facial consistency" value={value || 'off'} onChange={v => change(v as FacialProfile)} controls={downloads}
@@ -43,6 +30,5 @@ export default function FacialConsistencyControls({ value, change, downloads, sc
       detail="Adds restrained eye-only restoration and bounded source-driven eye-position correction after the existing finish. Uses the character’s own eye pixels, keeps current blink gates and preserves hair/body/scene. Requires a separate explicit 381 MB model download and optional runtime preparation. Source eye positions are estimated; likeness and gaze still need review." />}
     {active && sceneMatch !== false && cleanup !== false && changeBoundaryBlend && <Toggle label="Soften face boundary · beta" checked={boundaryBlend === true} onChange={changeBoundaryBlend} disabled={boundaryUnavailable} detailVisible={boundaryUnavailable}
       detail={boundaryUnavailable ? 'Boundary blending is inactive with beta eye restoration. Turn off Restore eye detail & match glances to try this comparison.' : 'Fades only the outer face boundary inward and matches peripheral lighting. Keeps the source-driven expression, full eyes/mouth and speaking-chin permission. Uses the installed models; explicit tool update is required. Evaluated on saved frames; full GPU quality and speed are not yet validated.'} />}
-    {active && installed && !facialRuntimeReadyForSettings(settings, downloads.state) && <button type="button" className="secondary-button" disabled={preparing || !downloads.online || downloads.blocked || downloads.state.busy} onClick={() => void prepare()}><DownloadSimple size={15} />{preparing ? 'Preparing face tools…' : 'Prepare / update facial tools'}</button>}
   </div>;
 }

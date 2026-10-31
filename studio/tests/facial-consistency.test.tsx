@@ -265,7 +265,7 @@ describe('selected automatic facial finishing', () => {
     const html = renderToStaticMarkup(<FacialConsistencyControls value="perform-onnx60" change={vi.fn()} downloads={{ state: emptyModels(), online: false, blocked: false, download, remove: vi.fn() }} />);
     expect(html).toContain('Standard + ONNX 60%'); expect(html).toContain('Regional + ONNX 60%'); expect(html).toContain('Facial consistency'); expect(download).not.toHaveBeenCalled();
   });
-  it('shows calibration only for Standard and distinguishes a code update from missing weights', () => {
+  it('shows calibration only for Standard and leaves tool setup to the shared footer', () => {
     const download = vi.fn();
     const state = emptyModels();
     state.files = state.files.map(file => ({ ...file, status: 'installed' as const }));
@@ -274,7 +274,7 @@ describe('selected automatic facial finishing', () => {
       downloads: { state, online: false, blocked: false, download, remove: vi.fn() } };
     const standard = renderToStaticMarkup(<FacialConsistencyControls {...common} value="perform-onnx60" />);
     expect(standard).toContain('Calibrate eye appearance');
-    expect(standard).toContain('Prepare / update facial tools');
+    expect(standard).not.toContain('Prepare / update facial tools');
     const regional = renderToStaticMarkup(<FacialConsistencyControls {...common} value="regional-onnx60" />);
     expect(regional).not.toContain('Calibrate eye appearance');
     expect(regional).not.toContain('Prepare / update facial tools');

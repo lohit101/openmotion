@@ -271,7 +271,7 @@ export class Runner {
           this.stage(job, 'Checking workflow'); const graph = compileWorkflow(this.template, job);
           const liveCatalog = await client.json('/object_info', undefined, signal);
           const missing = missingPinnedAdapters(graph, liveCatalog);
-          if (missing.length) throw new Error('Download the selected adapters in Models before generating: ' + missing.join(', '));
+          if (missing.length) throw new Error('Download the selected adapters from Settings → Downloads before generating: ' + missing.join(', '));
           const issues = validateGraph(graph, liveCatalog);
           if (issues.length) throw new Error(issues.slice(0, 4).join(' '));
           job.workflow = graph; await writeFile(path.join(folder, `workflow_${job.segments.length}.json`), JSON.stringify(graph, null, 2));

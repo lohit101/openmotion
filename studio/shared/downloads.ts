@@ -40,7 +40,7 @@ export function downloadRows(state: ModelsState, inventory?: ModelInventory, liv
     const installed = bytes > 0;
     const partial = current?.status === 'downloading' ? current.downloaded || 0 : saved?.partialSize || lora?.partialSize || (!installed ? current?.downloaded : 0) || 0;
     return { ...file, usage: modelUsage(file.id), installed, bytes, partial, onDisk: bytes + partial,
-      status: current?.status === 'failed' ? 'failed' : current?.status === 'downloading' || current?.status === 'queued' ? current.status : installed ? current?.status === 'missing' ? 'unavailable' : 'installed' : partial ? 'partial' : 'missing',
+      status: current?.status === 'failed' ? 'failed' : current?.status === 'downloading' || current?.status === 'queued' || current?.status === 'reconnecting' ? current.status : installed ? current?.status === 'missing' ? 'unavailable' : 'installed' : partial ? 'partial' : 'missing',
       progress: current, measured: !!saved?.measured || !!lora,
     };
   });

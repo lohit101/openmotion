@@ -151,7 +151,7 @@ describe('Clarity video upscaling',()=>{
   it('renders the independent empty workspace and manual model/runtime controls',()=>{
     const models=emptyModels(),data={jobs:[source],assets:[],connection:{state:'offline'},cloud:{refreshedAt:null},models}as unknown as Bootstrap;
     const html=renderToStaticMarkup(<ClarityWorkspace data={data} downloads={{state:models,online:false,blocked:false,settingUp:false,download:()=>{},remove:()=>{}}} selectedId={null} select={()=>{}} added={()=>{}} assetAdded={()=>{}} openGPU={()=>{}} openDownloads={()=>{}} library={()=>{}}/>);
-    expect(html).toContain('Clarity');expect(html).toContain('Prepare Clarity runtime');expect(html).toContain('Empty video workspace');expect(html).toContain('Upscale resolution');expect(html).not.toContain('Character reference');
+    expect(html).toContain('Clarity');expect(html).toContain('Downloads');expect(html).toContain('Connect GPU');expect(html).toContain('Empty video workspace');expect(html).toContain('Upscale resolution');expect(html).not.toContain('Character reference');
     expect(readFileSync(path.join(repo,'config/upscale-runtime.lock.json'),'utf8')).toContain('pending managed GPU comparison');
   });
 });

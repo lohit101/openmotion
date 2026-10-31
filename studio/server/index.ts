@@ -16,6 +16,7 @@ import { CloudManager, type CloudOptions } from './cloud';
 import { cloudAccountSchema } from '../shared/cloud-account';
 import { ModelManager } from './models';
 import { imageModelFiles, modelDefinitions, modelFilesForSettings } from '../shared/models';
+import { moduleDownloadRequestSchema, planFromRequest } from '../shared/module-downloads';
 import { offerFiltersSchema } from '../shared/cloud';
 import { defaults, geometry, renderGeometry, segmentCount, settingsSchema } from '../shared/types';
 import type { Asset, Catalog, Graph, Job } from '../shared/types';
@@ -68,7 +69,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   // Request activity is GPU work, not browsing or inventory refreshes. This also
   // invalidates idle probes when async request preflight has not queued work yet.
   app.use((req, res, next) => {
-    const work = req.method === 'POST' && (/^\/api\/upscale\/(?:prepare|jobs(?:\/[^/]+\/recover)?)$/.test(req.path) || /^\/api\/(?:jobs(?:\/[^/]+\/(?:resume|refine-face))?|images\/jobs|models\/(?:download|delete)|video-identity\/gpu\/setup|facial-consistency\/prepare|connection\/connect)$/.test(req.path) ||
+    const work = req.method === 'POST' && (/^\/api\/upscale\/(?:prepare|jobs(?:\/[^/]+\/recover)?)$/.test(req.path) || /^\/api\/(?:jobs(?:\/[^/]+\/(?:resume|refine-face))?|images\/jobs|models\/(?:download|module|recover|delete)|video-identity\/gpu\/setup|facial-consistency\/prepare|connection\/connect)$/.test(req.path) ||
       /^\/api\/cloud\/(?:launch|launches\/[^/]+\/continue|instances\/[^/]+\/(?:start|connect))$/.test(req.path));
     if (work) {
       if (idle.state.status === 'pausing') return void res.status(409).json({ error: 'GPU idle pause is in progress. Wait for its confirmed status, then start & connect before generating.' });
@@ -82,10 +83,11 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     if(upscale?.busy || runner.busy || models.state.busy || cloud.state.busy || store.jobs().some(job=>job.origin==='render' && ['queued','running','reconnecting'].includes(job.status)))throw new Error('Finish current GPU setup, downloads or rendering before GPU face refinement.');
   }));
   upscale = new UpscaleManager(store, repo, connection, clipEditor, () => {
-    if (runner.busy || runner.active || models.state.busy || cloud.state.busy || videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork() || store.jobs().some(job => ['queued','running','reconnecting'].includes(job.status))) throw new Error('Finish current GPU setup or generation before Clarity.');
+    if (runner.busy || runner.active || models.state.busy&&!models.preparingClarity || cloud.state.busy || videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork() || store.jobs().some(job => ['queued','running','reconnecting'].includes(job.status))) throw new Error('Finish current GPU setup or generation before Clarity.');
   });
+  models.prepareClarity=()=>upscale.prepare();models.checkClarity=()=>upscale.status();
   registerUpscaleRoutes(app, upscale, store);
-  const observeClarityStops = () => { for(const launch of cloud.state.launches)if(launch.instanceId&&((launch.phase==='stopped'&&launch.safetyStatus==='stopped')||(launch.phase==='destroyed'&&launch.safetyStatus==='disarmed')))upscale.observeProviderStop(launch.instanceId,Date.parse(launch.updatedAt)); };
+  const observeClarityStops = () => { for(const launch of cloud.state.launches)if(launch.instanceId&&((launch.phase==='stopped'&&launch.safetyStatus==='stopped')||(launch.phase==='destroyed'&&launch.safetyStatus==='disarmed'))){upscale.observeProviderStop(launch.instanceId,Date.parse(launch.updatedAt));models.observeProviderStop(launch.instanceId,Date.parse(launch.updatedAt));} };
   observeClarityStops();store.on('event',event=>{if(event.type==='cloud')observeClarityStops();});
   runner.externalGpuBusy=()=>upscale.busy || videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork();
   idle = new GpuIdleManager(store, cloud, connection, () => upscale.busy || runner.busy || !!runner.active || models.state.busy || videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork() ||
@@ -123,6 +125,13 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     const value = z.object({ files: z.array(z.string().max(300)).min(1).max(modelDefinitions.length) }).parse(req.body);
     res.status(202).json(await models.start(value.files));
   });
+  app.post('/api/models/module',async(req,res)=>{
+    if(upscale.busy||videoIdentity.gpuBusy||runner.hasUnconfirmedFaceWork()||cloud.state.busy||runner.busy||store.jobs().some(job=>['queued','running','reconnecting'].includes(job.status)))return void res.status(409).json({error:'Finish the current setup or render before preparing a module.'});
+    const value=moduleDownloadRequestSchema.parse(req.body);
+    if(value.module==='remotion'&&value.settings.engine!=='viggle')return void res.status(409).json({error:'Select Viggle before preparing new Remotion work. Existing legacy models and runs are retained.'});
+    res.status(202).json(await models.prepareModule(planFromRequest(value)));
+  });
+  app.post('/api/models/recover',async(_req,res)=>{await models.recoverPending();res.json(models.state);});
   app.post('/api/facial-consistency/prepare', async (req, res) => {
     if (upscale.busy || videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork() || cloud.state.busy || runner.busy || store.jobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status))) return void res.status(409).json({ error: 'Finish GPU work before preparing facial tools.' });
     const value = z.object({ version: z.enum(['source-face-v1', 'source-face-v2', 'source-face-v3', 'source-face-v4', 'source-face-v5', 'source-face-v6', 'source-face-v7', 'source-face-v8', 'source-face-v9', 'source-face-v10']).default('source-face-v6') }).strict().parse(req.body);
@@ -190,9 +199,9 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     res.sendFile(req.params.type === 'poster' ? asset.poster : asset.path);
   });
   app.post('/api/connection/connect', async (req, res) => {
-    if (cloud.state.busy || models.state.busy) return void res.status(409).json({ error: 'GPU setup or model download is in progress. Wait for it to finish connecting the selected rental.' });
     const value = z.object({ endpoint: z.string().max(200), useSSH: z.boolean().default(true) }).parse(req.body);
     localEndpoint(value.endpoint);
+    if (cloud.state.busy || models.state.busy&&!models.canReconnect(value.endpoint)) return void res.status(409).json({ error: 'GPU setup or model download is in progress. Reconnect only the same rental to recover its transfers.' });
     if (runner.active || (connection.status.state === 'online' && store.jobs().some(j => j.status === 'queued'))) return void res.status(409).json({ error: 'Finish or cancel the active queue before changing the connection.' });
     res.status(202).json({ accepted: true });
     void connection.connect(value.endpoint, options.allowSSH === false ? false : value.useSSH).then(() => runner.kick());
@@ -222,9 +231,9 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     if (models.state.error) return void res.status(503).json({ error: models.state.error });
     const missing = modelFilesForSettings(value.settings).filter(id => models.state.files.find(file => file.id === id)?.status !== 'installed');
     if (missing.length) return void res.status(409).json({ error: isViggle(value.settings) && value.settings.referencePreparation !== 'prepared' && missing.some(id => imageModelFiles.includes(id))
-      ? 'Automatic frame preparation requires Klein. Download it beside Reference preparation, or create a frame in Imagen and select Use an already edited source frame. Nothing was queued.'
-      : 'Download the required files in Models before generating. Nothing was queued.', missingModels: missing });
-    if (!facialRuntimeReadyForSettings(value.settings, models.state)) return void res.status(409).json({ error: 'Prepare or update the selected facial tools beside Advanced settings before generating. Nothing was queued.' });
+      ? 'Automatic frame preparation requires Klein. Use Download Remotion below, or create a frame in Imagen and select Use an already edited source frame. Nothing was queued.'
+      : 'Use Download Remotion to prepare the files for these settings before generating. Nothing was queued.', missingModels: missing });
+    if (!facialRuntimeReadyForSettings(value.settings, models.state)) return void res.status(409).json({ error: 'Use Download Remotion to prepare the selected facial tools before generating. Nothing was queued.' });
     for (const name of [value.settings.loraA, value.settings.loraB]) if (name !== 'None' && !connection.status.loras.includes(name)) return void res.status(409).json({ error: 'Upload the selected custom LoRA before generating: ' + name });
     const source = store.asset(value.sourceId), reference = store.asset(value.referenceId); if (!source || !reference) throw new Error('Upload both inputs before generating.');
     validateSelection(source, reference, value.settings.start, value.settings.seconds, value.settings.fps);
@@ -337,12 +346,12 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
 async function main() {
   const port = Number(process.env.PORT || 3000);
   const { server, store, cloud, models, clipEditor, videoIdentity, upscale, idle } = await startLocalServer(() => createApplication(), port);
-  idle.start();
+  idle.start();models.startRecoveryMonitor();
   console.log(`Recast: http://127.0.0.1:${port} (GPU disconnected until you connect)`);
   server.on('error', error => { console.error(error.message); idle.dispose(); cloud.dispose(); store.close(); process.exitCode = 1; });
   let closing = false;
   const shutdown = async () => {
-    if (closing) return; closing = true; idle.dispose(); server.closeAllConnections(); server.close();
+    if (closing) return; closing = true; idle.dispose();models.dispose(); server.closeAllConnections(); server.close();
     const deadline = setTimeout(() => { console.error('Shutdown could not confirm all setup stops. Check your instances in Vast.'); process.exit(1); }, 60000);
     try { await upscale.shutdown(); await videoIdentity.shutdown(); await clipEditor.shutdown(); await models.cancel(); await cloud.shutdown(); clearTimeout(deadline); cloud.dispose(); store.close(); process.exit(0); }
     catch (error) { console.error((error as Error).message); clearTimeout(deadline); cloud.dispose(); store.close(); process.exit(1); }

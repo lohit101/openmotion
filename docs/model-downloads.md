@@ -2,9 +2,9 @@
 
 Studio starts a ComfyUI engine without downloading model weights, unused adapters or example media. This is the user's updated preference of 2026-10-25 and replaces automatic Natural-bundle installation. Engine connected and render ready are separate states. Render submission remains blocked until every file needed by the current settings is installed.
 
-In Remotion, **Files for these settings** lists the exact core files and active adapters. Click its download button to prepare the current recipe, or expand **View individual files** to download a single file. Changing presets, relighting, detail or LoRA selection starts no transfer. Quality 12/16/20 does not request a speed adapter; disabled relighting requests no relighting adapter. Existing verified files are reused.
+Remotion, Imagen and Clarity now share a fixed download area at the bottom of the settings panel. Their main generation action becomes **Download [module]** when selected files or tools are missing, shows byte progress on the button, and returns to generation after preparation. Expand **Downloads** immediately above it for individual file status and errors. Changing presets, relighting, detail or LoRA selection starts no transfer. Existing verified files are reused. Individual file controls and **Download all models** live in Settings → Downloads. See [unified module downloads](unified-module-downloads.md) for recovery and runtime behavior.
 
-All adapters are opt-in under Settings → Extras, including Natural and Fast acceleration, DPO detail, relighting and style/identity LoRAs. Core checkpoints and encoders appear in the per-recipe file list, not in Extras. File downloads use up to four concurrent workers, resumable partial files, per-file locks and pinned SHA256 checks. Progress counters normally update about once a second while data is flowing; SHA256 verification is shown separately. A network stall can still delay new bytes. No artificial progress or healthy-transfer time cutoff is used.
+All adapters are opt-in under Settings → Extras, including Natural and Fast acceleration, DPO detail, relighting and style/identity LoRAs. Core checkpoints and encoders appear in the per-recipe file list, not in Extras. File downloads use up to four concurrent detached workers, resumable partial files, per-file locks and pinned SHA256 checks. Remote journals retain progress across SSH outages; the observer polls about every two seconds while reachable. SHA256 verification is shown separately. A network stall can still delay new bytes. No artificial progress or healthy-transfer time cutoff is used.
 
 `config/setup-models.json` now describes the optional full Natural recipe: eight pinned files totaling **29,738,555,883 bytes / 29.74 GB**. It is not a startup download plan. The five shared core files alone total **26.65 GB**. Removing an inactive adapter reduces that recipe's download, but cannot remove its backbone or encoders.
 
@@ -12,7 +12,7 @@ A cached healthy engine skips apt/pip installation and verifies only the runtime
 
 ## Settings → Extras
 
-The Extras tab contains all optional adapters and custom uploaded LoRAs. Download buttons remain beside the corresponding quality, lighting and detail options in Remotion.
+The Extras tab contains optional adapters and custom uploaded LoRAs. The module’s shared download action prepares only its selected options; per-option download buttons have been removed from module inputs.
 
 | Extra | Download size | Purpose |
 |---|---:|---|

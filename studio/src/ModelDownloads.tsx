@@ -2,24 +2,25 @@ import { useEffect, useRef } from 'react';
 import { ArrowClockwise, ArrowSquareOut, CaretDown, Check, CheckCircle, DownloadSimple, HardDrives, Pause, Trash, WarningCircle } from '@phosphor-icons/react';
 import { modelDefinitions, modelWorkingReserve, type ModelsState } from '../shared/models';
 import './models.css';
-import { InfoTip } from './InfoTip';
+import type { ModuleDownloadRequest } from '../shared/module-downloads';
 
-export interface DownloadControls { state: ModelsState; online: boolean; blocked: boolean; settingUp?: boolean; download: (files: string[]) => void; remove: (name: string) => void; }
+export interface DownloadControls { state: ModelsState; online: boolean; blocked: boolean; settingUp?: boolean; download: (files: string[]) => void; remove: (name: string) => void; prepareModule?:(request:ModuleDownloadRequest)=>Promise<void>;cancel?:()=>void;refresh?:()=>void;recover?:()=>void; }
 export const modelSize = (bytes: number) => bytes >= 1e9 ? `${(bytes / 1e9).toFixed(2)} GB` : bytes >= 1e6 ? `${Math.round(bytes / 1e6)} MB` : bytes >= 1e3 ? `${Math.round(bytes / 1e3)} KB` : `${bytes} B`;
 const missingBytes = (files: string[], state: ModelsState) => modelDefinitions.filter(file => files.includes(file.id) && state.files.find(item => item.id === file.id)?.status !== 'installed').reduce((sum, file) => sum + file.size - Math.min(file.size, Math.max(0, state.files.find(item => item.id === file.id)?.downloaded || 0)), 0);
 export function DownloadButton({ files, controls, label, size = false }: { files: string[]; controls: DownloadControls; label: string; size?: boolean }) {
   if (!files.length) return null;
   const needed = files.filter(id => controls.state.files.find(file => file.id === id)?.status !== 'installed');
   const states = needed.map(id => controls.state.files.find(file => file.id === id));
-  const active = states.some(file => ['downloading', 'queued'].includes(file?.status || ''));
+  const active = states.some(file => ['downloading', 'queued', 'reconnecting'].includes(file?.status || ''));
   const failed = states.some(file => file?.status === 'failed');
   const percent = states.find(file => file?.status === 'downloading')?.percent;
   const bytes = missingBytes(needed, controls.state);
   const storageShort = !active && bytes > 0 && controls.state.diskFreeBytes !== undefined && bytes + modelWorkingReserve(files) > controls.state.diskFreeBytes;
   const ready = !needed.length;
-  const title = ready ? files.length ? `${label}: installed` : `${label}: no extra file needed` : controls.settingUp ? `Finish GPU setup before downloading ${label}` : !controls.online ? `Connect GPU to download ${label}` : active ? `${label}: download in progress` : storageShort ? `Need ${modelSize(bytes + modelWorkingReserve(files))} free including working space; ${modelSize(controls.state.diskFreeBytes!)} available` : `${failed ? 'Retry' : 'Download'} ${label} · ${modelSize(bytes)}`;
+  const moduleBusy=!!controls.state.moduleSetup&&(['downloading','preparing','reconnecting'].includes(controls.state.moduleSetup.status)||!!controls.state.moduleSetup.activeRuntime);
+  const title = ready ? files.length ? `${label}: installed` : `${label}: no extra file needed` : controls.settingUp ? `Finish GPU setup before downloading ${label}` : !controls.online ? `Connect GPU to download ${label}` : active ? `${label}: download in progress` : moduleBusy ? 'Finish the current module setup first' : storageShort ? `Need ${modelSize(bytes + modelWorkingReserve(files))} free including working space; ${modelSize(controls.state.diskFreeBytes!)} available` : `${failed ? 'Retry' : 'Download'} ${label} · ${modelSize(bytes)}`;
   return <button type="button" className={`model-download ${ready ? 'installed' : active ? 'transferring' : failed ? 'failed' : ''}`}
-    disabled={ready || active || storageShort || !controls.online || controls.blocked || controls.state.refreshing || !!controls.state.deleting} title={title} aria-label={title}
+    disabled={ready || active || moduleBusy || storageShort || !controls.online || controls.blocked || controls.state.refreshing || !!controls.state.deleting} title={title} aria-label={title}
     onClick={event => { event.stopPropagation(); controls.download(needed); }}>
     {ready ? <CheckCircle size={15} /> : failed ? <ArrowClockwise size={15} /> : <DownloadSimple size={15} className={active ? 'downloading-icon' : ''} />}
     {size && <span>{ready ? 'Installed' : active ? percent !== null && percent !== undefined ? `${percent}%` : 'Queued' : modelSize(bytes)}</span>}
@@ -28,31 +29,13 @@ export function DownloadButton({ files, controls, label, size = false }: { files
 
 export function DownloadSelect({ value, options, onChange, label, controls }: { value: string; options: { value: string; label: string; files: string[]; disabled?: boolean; disabledReason?: string }[];
   onChange: (value: string) => void; label: string; controls: DownloadControls }) {
-  const details = useRef<HTMLDetailsElement>(null);
-  const selected = options.find(option => option.value === value);
-  useEffect(() => {
-    const outside = (event: PointerEvent) => { if (!details.current?.parentElement?.contains(event.target as Node) && details.current) details.current.open = false; };
-    document.addEventListener('pointerdown', outside); return () => document.removeEventListener('pointerdown', outside);
-  }, []);
-  return <div className="download-select"><details ref={details} onKeyDown={event => { if (event.key === 'Escape' && details.current) { details.current.open = false; details.current.querySelector('summary')?.focus(); } }}>
-    <summary aria-label={label}><span>{selected?.label || value}</span><CaretDown size={12} /></summary>
-    <div className="download-options" aria-label={`${label} options`}>{options.map(option => <div className="download-option" key={option.value}>
-      <button type="button" aria-pressed={value === option.value} disabled={option.disabled} title={option.disabledReason} className="download-option-choice" onClick={() => { if (option.disabled) return; onChange(option.value); if (details.current) { details.current.open = false; details.current.querySelector('summary')?.focus(); } }}>
-        <span>{option.label}</span>{value === option.value && <Check size={12} />}
-      </button><DownloadButton files={option.files} controls={controls} label={option.label} size />
-    </div>)}</div></details>{selected ? <DownloadButton files={selected.files} controls={controls} label={selected.label} /> : <span className="model-download failed" title="Upload this custom LoRA to the connected GPU, or choose None" aria-label="Custom LoRA is missing"><WarningCircle size={15} /></span>}
-  </div>;
-}
-
-export function RequiredFiles({ files, controls, manage, setup, manageLabel = 'Manage extras' }: { files: string[]; controls: DownloadControls; manage?: () => void; setup: () => void; manageLabel?: string }) {
-  const ready = files.filter(id => controls.state.files.find(file => file.id === id)?.status === 'installed').length;
-  const bytes = missingBytes(files, controls.state);
-  const shortage = bytes > 0 && controls.state.diskFreeBytes !== undefined && bytes + modelWorkingReserve(files) > controls.state.diskFreeBytes;
-  return <div className="required-models"><details className="required-file-details"><summary><HardDrives size={16} /><span className="required-models-title">Model files</span><span className={`required-models-status ${ready === files.length && controls.online ? 'ready' : ''}`}>{ready === files.length && controls.online && <CheckCircle size={13} />}{controls.online ? `${ready} / ${files.length} ready` : 'GPU offline'}</span><CaretDown className="required-models-caret" size={14} /></summary><div className="required-file-list">{modelDefinitions.filter(file => files.includes(file.id)).map(file => <div className="required-file-row" key={file.id}><span>{file.label}<small>{modelSize(file.size)}</small></span><DownloadButton files={[file.id]} controls={controls} label={file.label} /></div>)}<div className="required-file-footer"><InfoTip label="Required files">Download only the files for your selected settings. Changing an option starts no downloads. Installed files are reused. Use the individual buttons to download one file at a time.</InfoTip><span>Only selected settings</span>{manage && <button type="button" onClick={manage}>{manageLabel}</button>}</div></div></details>
-    {ready < files.length && <div className="required-models-action"><span>{controls.online ? `${files.length - ready} ${files.length - ready === 1 ? 'file' : 'files'} needed` : 'Connect to check files'}</span><DownloadButton files={files} controls={controls} label="Files for current settings" size /></div>}
-    {(controls.settingUp || !controls.online) && <p>{controls.settingUp ? 'Starting the blank engine. Weights stay on demand.' : 'Connect the engine, then download only what you need.'} <button onClick={setup}>View GPU</button></p>}
-    {shortage && <p className="model-file-slow" role="status">Needs {modelSize(bytes + modelWorkingReserve(files))} free including working space; {modelSize(controls.state.diskFreeBytes!)} is available. Use a larger instance disk or remove unused extras before downloading this set.</p>}
-  </div>;
+  const details=useRef<HTMLDetailsElement>(null);
+  const selected=options.find(option=>option.value===value);
+  useEffect(()=>{const outside=(event:PointerEvent)=>{if(!details.current?.parentElement?.contains(event.target as Node)&&details.current)details.current.open=false;};document.addEventListener('pointerdown',outside);return()=>document.removeEventListener('pointerdown',outside);},[]);
+  return <div className="download-select"><details ref={details} onKeyDown={event=>{if(event.key==='Escape'&&details.current){details.current.open=false;details.current.querySelector('summary')?.focus();}}}>
+    <summary aria-label={label}><span>{selected?.label||value}</span><CaretDown size={12}/></summary>
+    <div className="download-options" aria-label={label+' options'}>{options.map(option=><div className="download-option" key={option.value}><button type="button" aria-pressed={value===option.value} disabled={option.disabled} title={option.disabledReason} className="download-option-choice" onClick={()=>{if(option.disabled)return;onChange(option.value);if(details.current){details.current.open=false;details.current.querySelector('summary')?.focus();}}}><span>{option.label}</span>{value===option.value&&<Check size={12}/>}</button></div>)}</div>
+  </details></div>;
 }
 
 export default function ModelsWorkspace({ controls, required, refresh, cancel, setup, useLora, missingCustom = [] }: { controls: DownloadControls; required: string[]; refresh: () => void; cancel: () => void; setup: () => void; useLora: (name: string) => void; missingCustom?: string[] }) {
