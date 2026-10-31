@@ -1,0 +1,32 @@
+{
+  "date": "2026-10-31",
+  "issue": "Clarity's video max-height still applied in fullscreen; source previews used inconsistent controls and preview-only uploads used the trim interval.",
+  "changes": [
+    "Share playback controls between generated videos, Clarity library sources and preview-only uploads.",
+    "Retain explicit trimming behavior and use whole-video playback when no trim action is supplied.",
+    "Limit Clarity frame sizing only outside fullscreen and clear fullscreen media limits.",
+    "Preserve aspect ratio and reserve fullscreen space for controls."
+  ],
+  "validation": {
+    "focusedTestsPassed": 22,
+    "typecheck": "passed",
+    "frontendBuild": "passed",
+    "browser": "Native Chrome UI; isolated local component fixture with an eight-second synthetic MP4",
+    "landscapeFullscreen": "visually checked",
+    "portraitFullscreen": "visually checked",
+    "fullscreenExitButton": "passed",
+    "fullscreenEscape": "passed",
+    "uploadedPreviewControls": "passed",
+    "uploadedSeekObservedSeconds": 6.46,
+    "uploadedPlaybackEndObservedSeconds": 8,
+    "explicitTrimImplementationChanged": false
+  },
+  "deployment": {
+    "frontendOnly": true,
+    "backendRestarted": false,
+    "savedJobRowsUnchanged": 284,
+    "bothServerDraftsUnchanged": true,
+    "gpuActions": 0,
+    "inferenceSubmitted": 0
+  }
+}

@@ -7,6 +7,8 @@
 .asset-photo-stage { padding: 14px; background: var(--bg); }
 .asset-photo-stage img { display: block; max-width: min(86vw, 1200px); max-height: calc(100dvh - 145px); object-fit: contain; margin: 0 auto; }
 .asset-video-stage { height: clamp(190px, 35dvh, 360px); position: relative; display: grid; place-items: center; background: var(--bg); }
+.asset-playback-stage { height: clamp(240px, 65dvh, 720px); padding: 12px 16px; background: var(--bg); }
+.asset-playback-stage>.player:not(:fullscreen) .player-frame { flex: 1; width: 100%; height: auto; }
 .asset-video-stage video { position: absolute; inset: 0; width: 100%; height: 100%; min-width: 0; min-height: 0; display: block; object-fit: contain; }
 .clip-playback { display: flex; align-items: center; gap: 14px; padding: 8px 19px; border-bottom: 1px solid var(--line-soft); }
 .clip-playback > span { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; width: 62px; }
