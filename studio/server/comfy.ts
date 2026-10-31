@@ -42,7 +42,7 @@ export class ComfyClient {
     const read = body === undefined, attempts = read ? READ_ATTEMPTS : 1;
     let recoveryTried = false;
     const restore = async () => {
-      if (!read || recoveryTried || !this.recover || !/^\/(history|queue)(\/|\?|$)/.test(route)) return false;
+      if (!read || recoveryTried || !this.recover || !/^\/(history|queue|object_info)(\/|\?|$)/.test(route)) return false;
       recoveryTried = true; signal?.throwIfAborted();
       try { return await this.recover(signal); } catch (error) { if (signal?.aborted) throw signal.reason || error; return false; }
     };

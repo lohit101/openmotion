@@ -7,6 +7,17 @@ const json = (value: unknown, status = 200) => new Response(JSON.stringify(value
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe('safe ComfyUI metadata retries', () => {
+  it('repairs a lost model-inventory tunnel before a module download without submitting work', async () => {
+    vi.useFakeTimers();
+    const recover = vi.fn().mockResolvedValue(true), fetcher = vi.fn();
+    for (let i = 0; i < 3; i++) fetcher.mockRejectedValueOnce(new TypeError('Tunnel closed'));
+    fetcher.mockResolvedValueOnce(json({ Loader: { input: { required: {} }, output: [] } })); vi.stubGlobal('fetch', fetcher);
+    const pending = new ComfyClient(client.endpoint, recover).json('/object_info');
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(await pending).toHaveProperty('Loader'); expect(recover).toHaveBeenCalledOnce();
+    expect(fetcher.mock.calls.every(([url, options]) => url.endsWith('/object_info') && options.method === 'GET' && options.body === undefined)).toBe(true);
+  });
+
   it('restores a lost tunnel once and checks the same prompt without any mutation', async () => {
     vi.useFakeTimers();
     const recover = vi.fn().mockResolvedValue(true), fetcher = vi.fn();

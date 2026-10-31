@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-31",
+  "cause": "Model inventory failed while connection status remained online, because local port 8188 had no SSH listener.",
+  "fix": "Allow one bounded forwarding recovery for read-only object_info requests, reusing the exact saved rental.",
+  "validation": {
+    "focusedStudioTestsPassed": 77,
+    "typecheck": "passed",
+    "serverBuild": "passed",
+    "guardedBackendReload": true,
+    "savedJobRowsUnchanged": 281,
+    "bothDraftsUnchanged": true,
+    "remoteInferenceQueuesEmptyBeforeReload": true,
+    "sameRunningRentalReconnected": true,
+    "originalSelectedRemotionFilesRetried": 20,
+    "verifiedFilesObserved": 1,
+    "actualBytesObservedOnLargeTransfers": true
+  },
+  "gpuResumed": false,
+  "newRentalCreated": false,
+  "generationSubmitted": false,
+  "idlePreferenceChanged": false,
+  "completeModuleReadinessClaimed": false,
+  "handoff": "Leave the user's selected download and required setup running. Complete runtime preparation remains in progress."
+}
