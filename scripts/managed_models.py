@@ -59,6 +59,7 @@ def main():
     parser.add_argument('--model-files')
     parser.add_argument('--action', choices=['download', 'inventory', 'delete'], default='download')
     parser.add_argument('--lora')
+    parser.add_argument('--file')
     parser.add_argument('--recover',action='store_true')
     parser.add_argument('--cancel-transfer',action='store_true')
     args = parser.parse_args()
@@ -99,11 +100,27 @@ def main():
             from facial_runtime import compatible_worker_hashes
             vast.remote(config, ['python3', '-c', code, str(root / 'scripts'), str(root / 'models'), json.dumps(selected_manifest()['files']),json.dumps(face_files), facial.fingerprint('source-face-v2'), facial.digest(facial.ROOT / 'scripts/video_timing.py'), facial.fingerprint('source-face-v3'), json.dumps(compatible_worker_hashes()), facial.fingerprint('source-face-v4'), facial.fingerprint('source-face-v5'), json.dumps(geometry), json.dumps(boundary)])
             return
-        command = ['python3', str(root / 'scripts/model_storage.py'), '--model-dir', str(root / 'models')]
+        # Execute the current small storage helper without reinstalling the
+        # engine or relying on an older helper on a retained rental.
+        command = ['python3', '-c', Path(__file__).with_name('model_storage.py').read_text(), '--model-dir', str(root / 'models')]
         if args.action == 'delete':
-            from model_storage import lora_parts
-            lora_parts(args.lora)
-            command.extend(['--delete-lora', args.lora])
+            from model_storage import lora_parts, relative_parts
+            if args.file is not None:
+                relative_parts(args.file)
+                allowed = [item['destination'] for item in selected_manifest()['files']]
+                face_files = {}
+                for manifest in ['local-identity.lock.json', 'local-video-identity.lock.json']:
+                    for item in json.loads((Path(__file__).resolve().parents[1] / 'config' / manifest).read_text())['files']:
+                        if not is_content_filter_weight(item['path']):
+                            face_files['face-refinement/' + Path(item['path']).name] = item['path']
+                if args.file not in allowed and args.file not in face_files:
+                    if not args.file.startswith('loras/'):
+                        raise ValueError('Only catalog models and custom LoRAs can be deleted.')
+                    lora_parts(args.file[6:])
+                command.extend(['--delete-file', args.file, '--allowed-files', json.dumps(allowed), '--face-dir', str(root / 'face-refinement-runtime/.local/facefusion-eval'), '--face-files', json.dumps(face_files)])
+            else:
+                lora_parts(args.lora)
+                command.extend(['--delete-lora', args.lora])
         vast.remote(config, command)
         return
     if not args.model_files:

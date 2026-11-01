@@ -15,11 +15,21 @@ describe('Downloads inventory view', () => {
     expect(html).toContain('2.12 GB'); // Shared Klein file once, plus complete/partial custom LoRA.
     expect(html).toContain('Saved inventory'); expect(html).toContain('not a live disk check');
     expect(html).toContain('Klein images'); expect(html).toContain('Automatic source-frame preparation only');
-    expect(html.match(/<button[^>]*aria-label="Remove custom.safetensors from GPU"[^>]*>/)?.[0]).toContain('disabled');
+    expect(html.match(/<button[^>]*aria-label="Delete custom.safetensors from GPU"[^>]*>/)?.[0]).toContain('disabled');
   });
   it('starts an unrecorded offline inventory empty without claiming all models are downloaded', () => {
     const html = renderToStaticMarkup(<DownloadsWorkspace controls={{ state: emptyModels(), online: false, blocked: false, download: () => undefined, remove: () => undefined }} required={[]}
       refresh={() => undefined} cancel={() => undefined} setup={() => undefined} />);
     expect(html).toContain('No downloaded files recorded'); expect(html).toContain('0 B'); expect(html).toContain('Browse all files');
+  });
+  it('offers deletion for core weights and partial files on the connected GPU, but blocks writes during work', () => {
+    const state = emptyModels(); state.inventories = [snapshot]; state.checkedAt = snapshot.checkedAt;
+    const render = (blocked: boolean) => renderToStaticMarkup(<DownloadsWorkspace controls={{ state, online: true, blocked, download: () => undefined, remove: () => undefined }} required={[]}
+      refresh={() => undefined} cancel={() => undefined} setup={() => undefined} />);
+    for (const label of ['FLUX.2 Klein 4B', 'custom.safetensors']) {
+      const button = (html: string) => html.match(new RegExp(`<button[^>]*aria-label="Delete ${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} from GPU"[^>]*>`))?.[0];
+      expect(button(render(false))).toBeTruthy(); expect(button(render(false))).not.toContain('disabled'); expect(button(render(true))).toContain('disabled');
+    }
+    expect(render(false)).toContain('Your saved photos and videos are kept');
   });
 });

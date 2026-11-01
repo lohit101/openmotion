@@ -1,4 +1,10 @@
-import { DPO, IMAGE_IDENTITY, I2V_SPEED, NATURAL_SPEED, QWEN_HEAD, QWEN_STRUCTURE, RELIGHT, SOCIAL_STYLE, modelDefinitions, type ModelInventory, type ModelsState } from './models';
+import { DPO, IMAGE_IDENTITY, I2V_SPEED, NATURAL_SPEED, QWEN_HEAD, QWEN_STRUCTURE, RELIGHT, SOCIAL_STYLE, modelDefinitions, qwenImageModelFiles, type ModelInventory, type ModelsState } from './models';
+import localFace from '../../config/local-identity.lock.json';
+import videoFace from '../../config/local-video-identity.lock.json';
+
+export const faceStorageFiles = [...localFace.files, ...videoFace.files].filter(file => !/(?:^|\/)nsfw_\d+\./.test(file.path)).map(file => 'face-refinement/' + file.path.split('/').at(-1));
+export const deletableModelFile = (id: string) => !/[\\\x00-\x1f\x7f]/.test(id) && id.split('/').every(part => part && part !== '.' && part !== '..') &&
+  (modelDefinitions.some(file => file.id === id) || faceStorageFiles.includes(id) || id.startsWith('loras/') && id.endsWith('.safetensors'));
 
 export function modelUsage(id: string): { workflow: string; detail: string }[] {
   if(id.startsWith('face-refinement/'))return [{workflow:'GPU face refinement',detail:'Separate CUDA Hyperswap pass after video generation; also includes detection and occlusion.'}];
@@ -14,7 +20,7 @@ export function modelUsage(id: string): { workflow: string; detail: string }[] {
   ];
   if (id === QWEN_STRUCTURE) return [{ workflow: 'Qwen images', detail: 'Source geometry strength above zero' }];
   if (file.filename === QWEN_HEAD) return [{ workflow: 'Qwen images', detail: 'Optional separate head identity pass' }];
-  if (file.engine === 'repaint') return [{ workflow: 'Qwen images', detail: file.filename.includes('turbo') ? 'Fast 8-step edits and legacy whole-person swap' : file.filename.includes('body_swap') ? 'Character and complete outfit transfer' : 'Shared by Qwen image replacement recipes' }];
+  if (file.engine === 'repaint') return [{ workflow: 'Qwen images', detail: file.filename.includes('turbo') ? 'Fast 8-step edits and legacy whole-person swap' : file.filename.includes('body_swap') ? 'Character and complete outfit transfer' : 'Shared by Qwen image replacement recipes' }, ...(qwenImageModelFiles.includes(id) ? [{ workflow: 'Viggle video', detail: 'Remotion · automatic Imagen segment repaints when enabled' }] : [])];
   const detail = file.filename === NATURAL_SPEED ? 'Accelerated character-swap presets'
     : file.filename === I2V_SPEED ? 'Fast presets and accelerated motion transfer'
     : file.filename === DPO ? 'Detail adapter strength above zero'

@@ -139,9 +139,10 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   });
   app.post('/api/models/cancel', async (_req, res) => res.json(await models.cancel()));
   app.post('/api/models/delete', async (req, res) => {
-    if (upscale.busy || videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork() || cloud.state.busy || runner.busy || store.jobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status))) return void res.status(409).json({ error: 'Finish setup or rendering before removing a LoRA.' });
+    const assertIdle = () => { if (upscale.busy || videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork() || cloud.state.busy || runner.busy || store.unsettledJobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status) || job.facialConsistency?.remoteActive && job.facialConsistency.instanceId === store.value('cloud-connected-instance', null) || job.faceRefinement?.execution === 'remote CUDA' && job.status === 'interrupted' && job.cancellationConfirmed !== true)) throw new Error('Finish setup or rendering before deleting model files.'); };
+    try { assertIdle(); } catch (error) { return void res.status(409).json({ error: (error as Error).message }); }
     const value = z.object({ name: z.string().min(1).max(300) }).parse(req.body);
-    res.json(await models.remove(value.name));
+    res.json(await models.remove(value.name, assertIdle));
   });
   app.post('/api/cloud/refresh', async (_req, res) => res.json(await cloud.refresh()));
   app.post('/api/cloud/offers', async (req, res) => res.json(await cloud.offers(offerFiltersSchema.parse(req.body))));

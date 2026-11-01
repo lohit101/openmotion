@@ -9,7 +9,7 @@ import path from 'node:path';
 import { defaults, type Catalog, type Graph, type Job } from '../shared/types';
 import { I2V_SPEED, modelBytes, modelDefinitions, modelFilesForSettings, NATURAL_SPEED, pinnedModels, RELIGHT, setupModelFiles, SOCIAL_STYLE } from '../shared/models';
 import { compileWorkflow } from '../server/workflow';
-import { downloadPinnedModels, installedModelIds, missingPinnedAdapters, ModelManager } from '../server/models';
+import { downloadPinnedModels, installedModelIds, missingPinnedAdapters, ModelManager, releaseModelCache } from '../server/models';
 import { Store } from '../server/store';
 import type { ConnectionManager } from '../server/comfy';
 
@@ -27,6 +27,16 @@ const withLoras = (names: string[]) => {
 };
 
 afterEach(() => vi.clearAllMocks());
+it('releases idle cached models using the empty-response API and rejects a failed acknowledgement', async () => {
+  const fetcher = vi.fn(async () => new Response(null, { status: 200 }));
+  vi.stubGlobal('fetch', fetcher);
+  try {
+    await releaseModelCache('http://127.0.0.1:8188');
+    expect(fetcher.mock.calls[0]).toMatchObject(['http://127.0.0.1:8188/free', { method: 'POST', body: JSON.stringify({ unload_models: true, free_memory: true }) }]);
+    fetcher.mockResolvedValueOnce(new Response(null, { status: 500 }));
+    await expect(releaseModelCache('http://127.0.0.1:8188')).rejects.toThrow('No file was deleted');
+  } finally { vi.unstubAllGlobals(); }
+});
 describe('selected-recipe model provisioning', () => {
   for (const preset of ['fast', 'natural', 'quality12', 'quality16', 'quality'] as const) for (const mode of ['swap', 'motion'] as const)
     for (const relight of [false, true]) it(`covers every active adapter for ${preset}/${mode}/relight=${relight}`, () => {
@@ -148,7 +158,7 @@ describe('manual model queue', () => {
   async function fixture() {
     root = await mkdtemp(path.join(os.tmpdir(), 'recast-manual-models-')); store = new Store(root); store.set('cloud-connected-instance', 123);
     const choices: string[] = [], live: Catalog = { LoraLoaderModelOnly: { input: { required: { lora_name: [choices] } }, output: ['MODEL'] } };
-    const connection = { status: { state: 'online', endpoint: 'http://127.0.0.1:8188', loras: [] }, client: () => ({ json: vi.fn(async () => live) }), emit: vi.fn() };
+    const connection = { status: { state: 'online', endpoint: 'http://127.0.0.1:8188', loras: [] }, client: () => ({ json: vi.fn(async (route: string) => route === '/queue' ? { queue_running: [], queue_pending: [] } : live) }), emit: vi.fn() };
     const controls = new Map<string, { resolve: () => void; reject: (error: Error) => void }>();
     const worker = vi.fn<typeof downloadPinnedModels>(async (_repo, _id, _endpoint, files, signal, progress) => {
       expect(files).toHaveLength(1); const file = files[0]; progress('Downloading ' + file, 23);
@@ -158,9 +168,10 @@ describe('manual model queue', () => {
       if (action === 'delete') { const index = choices.indexOf(name!); if (index >= 0) choices.splice(index, 1); return { name, freedBytes: 123, removed: true }; }
       return { loras: choices.map(name => ({ name, size: 123, included: setupModelFiles.includes('loras/' + name) })) };
     });
-    manager = new ModelManager(store, connection as unknown as ConnectionManager, repo, worker, storage);
+    const releaseCache = vi.fn(async () => {});
+    manager = new ModelManager(store, connection as unknown as ConnectionManager, repo, worker, storage, releaseCache);
     const untilIdle = async () => { for (let i = 0; i < 100 && manager!.state.busy; i++) await new Promise(resolve => setTimeout(resolve, 5)); expect(manager!.state.busy).toBe(false); };
-    return { manager, worker, storage, controls, connection, choices, untilIdle };
+    return { manager, worker, storage, controls, connection, choices, untilIdle, releaseCache };
   }
   it('refreshes availability without downloading and installs only an explicitly clicked file', async () => {
     const { manager, worker, controls, untilIdle } = await fixture(), file = 'loras/' + NATURAL_SPEED;
@@ -214,7 +225,7 @@ describe('manual model queue', () => {
     expect(installed.has('text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors')).toBe(true);
     expect(installedModelIds({}).size).toBe(0);
   });
-  it('removes only optional LoRAs, refreshes choices, and clears the current draft selection', async () => {
+  it('removes LoRAs, refreshes choices, and clears the current draft selection', async () => {
     const { manager, storage, choices, connection, worker } = await fixture();
     choices.push(SOCIAL_STYLE); const draft = store!.draft(); draft.settings.loraA = SOCIAL_STYLE; store!.set('draft', draft);
     const result = await manager.remove(SOCIAL_STYLE);
@@ -224,6 +235,42 @@ describe('manual model queue', () => {
     choices.push(NATURAL_SPEED); await manager.remove(NATURAL_SPEED);
     await expect(manager.remove('../outside.safetensors')).rejects.toThrow('valid');
     expect(storage.mock.calls.filter(c => c[2] === 'delete')).toHaveLength(2);
+  });
+  it('deletes core weights and partials, refreshes free space, and rejects stale catalog readiness', async () => {
+    const { manager, storage, choices, worker, releaseCache } = await fixture();
+    const id = 'diffusion_models/qwen_image_2.1_int8_convrot.safetensors';
+    choices.push(id.split('/').at(-1)!); // A cached ComfyUI list can outlive an unlink.
+    let present = true;
+    storage.mockImplementation(async (_repo, _instance, action, name) => {
+      if (action === 'delete') { present = false; return { name, freedBytes: 1234, freeBytes: 9000, removed: true }; }
+      return { loras: [], files: present ? [{ id, size: 1234, verified: true }] : [], partials: [], freeBytes: present ? 5000 : 9000 };
+    });
+    await manager.refresh(); expect(manager.state.files.find(f => f.id === id)?.status).toBe('installed');
+    const draft = JSON.stringify(store!.draft()), image = JSON.stringify(store!.imageDraft());
+    const result = await manager.remove(id);
+    expect(releaseCache).toHaveBeenCalledWith('http://127.0.0.1:8188');
+    expect(result.freedBytes).toBe(1234); expect(result.models.diskFreeBytes).toBe(9000);
+    expect(result.models.files.find(f => f.id === id)?.status).toBe('missing');
+    expect(result.models.inventories?.find(i => i.instanceId === 123)?.files.some(f => f.id === id)).toBe(false);
+    expect(JSON.stringify(store!.draft())).toBe(draft); expect(JSON.stringify(store!.imageDraft())).toBe(image);
+    await manager.refresh(); expect(manager.state.files.find(f => f.id === id)?.status).toBe('missing');
+    expect(worker).not.toHaveBeenCalled();
+  });
+  it('refuses deletion for a busy/unknown remote queue and rechecks local activity and instance after probing', async () => {
+    const { manager, storage, connection, releaseCache } = await fixture();
+    const id = 'vae/qwen_image_2.1_vae_bf16.safetensors';
+    const probe = vi.fn(async (_route: string): Promise<any> => ({ queue_running: [[1]], queue_pending: [] }));
+    vi.spyOn(connection, 'client').mockReturnValue({ json: probe });
+    await expect(manager.remove(id)).rejects.toThrow('render queue');
+    probe.mockResolvedValueOnce({}); await expect(manager.remove(id)).rejects.toThrow('could not be verified');
+    probe.mockResolvedValueOnce({ queue_running: [], queue_pending: [] }).mockResolvedValueOnce({ queue_running: [[1]], queue_pending: [] });
+    await expect(manager.remove(id)).rejects.toThrow('render queue'); expect(releaseCache).toHaveBeenCalledOnce();
+    probe.mockResolvedValueOnce({ queue_running: [], queue_pending: [] });
+    let checks = 0;
+    await expect(manager.remove(id, () => { if (++checks === 2) throw new Error('New work started'); })).rejects.toThrow('New work started');
+    probe.mockImplementationOnce(async () => { store!.set('cloud-connected-instance', 456); return { queue_running: [], queue_pending: [] }; });
+    await expect(manager.remove(id)).rejects.toThrow('GPU changed');
+    expect(storage.mock.calls.some(call => call[2] === 'delete')).toBe(false); expect(manager.state.busy).toBe(false);
   });
   it('blocks deletion during a transfer and new downloads while deletion is pending', async () => {
     const { manager, choices, storage } = await fixture();

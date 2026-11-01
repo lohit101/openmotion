@@ -20,6 +20,7 @@ import ModuleAction from './ModuleAction';
 import { moduleNames, type ModuleDownloadRequest } from '../shared/module-downloads';
 import FramingNotice from './FramingNotice';
 import DownloadsWorkspace from './DownloadsWorkspace';
+import { downloadRows, modelUsage } from '../shared/downloads';
 import Sidebar, { initialSidebarCollapsed, type WorkspaceView } from './Sidebar';
 import SettingsWorkspace, { type SettingsTab } from './SettingsWorkspace';
 import { Toaster, toast } from 'sonner';
@@ -183,13 +184,18 @@ export default function App() {
   },[]);
   const recoverDownloads=useCallback(()=>{void api<ModelsState>('/models/recover',{}).then(models=>setData(old=>old?{...old,models}:old)).catch(error=>setMessage(error.message));},[setMessage]);
   const cancelDownloads = useCallback(() => { void api<ModelsState>('/models/cancel', {}).then(models => { setData(old => old ? { ...old, models } : old); toast.message(models.busy?'Cancellation requested. Waiting for confirmation.':'Downloads cancelled. Partial files are kept.'); }).catch(error => setMessage(error.message)); }, [setMessage]);
-  const removeLora = useCallback((name: string) => {
+  const removeModel = useCallback((name: string) => {
+    const state = data?.models;
+    const file = state ? downloadRows(state, state.inventories?.find(item => item.checkedAt === state.checkedAt), true).find(file => file.id === name) : undefined;
+    const label = file?.label || name.split('/').at(-1);
+    if (!window.confirm(`Delete ${label} from this GPU?\n\n${file ? modelSize(file.onDisk) + ' on disk.\n' : ''}Used by: ${modelUsage(name).map(usage => usage.workflow).join(', ')}.\nThese workflows will need this file downloaded again. Saved photos and videos are kept.`)) return;
     void api<{ freedBytes: number; models: ModelsState }>('/models/delete', { name }).then(result => {
       setData(old => old ? { ...old, models: result.models } : old);
-      setDraft(old => ({ ...old, settings: { ...old.settings, ...(old.settings.loraA === name ? { loraA: 'None' } : {}), ...(old.settings.loraB === name ? { loraB: 'None' } : {}) } }));
-      toast.success('LoRA removed', { description: `${modelSize(result.freedBytes)} freed on your GPU. You can download it again.` });
+      const lora = name.startsWith('loras/') ? name.slice(6) : name;
+      setDraft(old => ({ ...old, settings: { ...old.settings, ...(old.settings.loraA === lora ? { loraA: 'None' } : {}), ...(old.settings.loraB === lora ? { loraB: 'None' } : {}) } }));
+      toast.success('File deleted', { description: `${modelSize(result.freedBytes)} removed from your GPU. Available disk space has been refreshed.` });
     }).catch(error => setMessage(error.message));
-  }, [setMessage]);
+  }, [data?.models, setMessage]);
   const assets = data?.assets || [], jobs = data?.jobs || [], connection = data?.connection;
   const source = assets.find(a => a.id === draft.sourceId), reference = assets.find(a => a.id === draft.referenceId);
   const selected = jobs.find(j => j.id === selectedId && !j.deleted && !isImageJob(j));
@@ -204,7 +210,7 @@ export default function App() {
   const facialToolsMissing = !facialRuntimeReadyForSettings(draft.settings, modelState);
   const modelsReady = modelFilesReady &&
     (isViggle(draft.settings)||[draft.settings.loraA, draft.settings.loraB].every(name => name === 'None' || connection?.loras.includes(name))) && facialRuntimeReadyForSettings(draft.settings, modelState);
-  const downloads: DownloadControls = { state: modelState, online, blocked: !!data?.cloud.busy || jobs.some(job => activeStates.includes(job.status)), settingUp: !!data?.cloud.busy, download: downloadModels, remove: removeLora,prepareModule,cancel:cancelDownloads,refresh:refreshModels,recover:recoverDownloads };
+  const downloads: DownloadControls = { state: modelState, online, blocked: !!data?.cloud.busy || jobs.some(job => activeStates.includes(job.status)), settingUp: !!data?.cloud.busy, download: downloadModels, remove: removeModel,prepareModule,cancel:cancelDownloads,refresh:refreshModels,recover:recoverDownloads };
   const [width, height] = geometry(draft.settings, source || { width: 480, height: 832 });
   const repaintProfile = draft.settings.imagenRepaint;
   const startingPhoto = repaintProfile?.sourceImageJobId ? jobs.find(j => j.id === repaintProfile.sourceImageJobId) : null;

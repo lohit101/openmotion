@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { downloadRows, modelUsage } from '../shared/downloads';
+import { deletableModelFile, downloadRows, modelUsage } from '../shared/downloads';
 import { emptyModels, modelDefinitions, QWEN_STRUCTURE, type ModelInventory } from '../shared/models';
 
 describe('download inventory presentation', () => {
@@ -17,6 +17,13 @@ describe('download inventory presentation', () => {
     expect(modelUsage('diffusion_models/flux-2-klein-4b-fp8.safetensors').map(usage => usage.workflow)).toEqual(['Klein images', 'Viggle video']);
     expect(modelUsage(QWEN_STRUCTURE)[0].detail).toContain('above zero');
     expect(modelUsage('loras/user.safetensors')[0].workflow).toBe('Custom LoRA');
+    expect(modelUsage('diffusion_models/qwen_image_2.1_int8_convrot.safetensors').map(usage => usage.workflow)).toEqual(['Qwen images', 'Viggle video']);
+  });
+  it('permits catalog weights and runtime dependencies while rejecting arbitrary paths', () => {
+    for (const file of modelDefinitions) expect(deletableModelFile(file.id)).toBe(true);
+    expect(deletableModelFile('face-refinement/hyperswap_1a_256.onnx')).toBe(true);
+    expect(deletableModelFile('loras/styles/custom.safetensors')).toBe(true);
+    for (const id of ['../foo.safetensors', 'loras/../foo.safetensors', '/loras/foo.safetensors', 'loras//foo.safetensors', 'config/server.json', 'face-refinement/unknown.onnx', 'vae/unknown.safetensors']) expect(deletableModelFile(id)).toBe(false);
   });
   it('counts shared files and partial bytes once and keeps offline records separate from readiness', () => {
     const state = emptyModels(), id = modelDefinitions[0].id;

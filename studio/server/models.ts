@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import path from 'node:path';
 import type { Catalog, Graph } from '../shared/types';
 import { emptyModels, IMAGE_IDENTITY, modelDefinitions, modelWorkingReserve, pinnedModels, type InstalledLora, type ModelInventory, type ModelsState, type ModelTransfer, type ModelFileState, type ModuleDownloadPlan, type ModuleDownloadState } from '../shared/models';
-import { inventoryKey } from '../shared/downloads';
+import { deletableModelFile, inventoryKey } from '../shared/downloads';
 import type { Store } from './store';
 import { lorasFrom, type ConnectionManager } from './comfy';
 import { command } from './media';
@@ -14,7 +14,7 @@ export class ModelDownloadError extends Error { remoteActive=false; }
 
 export async function manageModelStorage(repo: string, instanceId: number, action: 'inventory' | 'delete', name?: string): Promise<{ loras?: InstalledLora[]; files?: { id: string; size: number; verified?: boolean }[]; name?: string; freedBytes?: number; freeBytes?: number; partials?: { id: string; size: number }[]; removed?: boolean; facialRuntimeReady?: boolean; facialCleanupRuntimeReady?: boolean; facialCalibratedRuntimeReady?: boolean; facialEyeFinishRuntimeReady?: boolean; facialGeometryRuntimeReady?: boolean; facialBoundaryRuntimeReady?: boolean;facialPreparing?:boolean }> {
   const args = ['-u', path.join(repo, 'scripts/managed_models.py'), '--instance-id', String(instanceId), '--action', action];
-  if (action === 'delete') args.push('--lora', name!);
+  if (action === 'delete') args.push(deletableModelFile(name!) ? '--file' : '--lora', name!);
   const output = await command('python3', args, undefined, 45000);
   const line = output.split(/\r?\n/).find(line => line.startsWith('RECAST_MODEL_STORAGE '));
   if (!line) throw new Error('The GPU did not return a model storage result.');
@@ -83,6 +83,13 @@ export function installedModelIds(catalog: Catalog): Set<string> {
 }
 
 type DownloadWorker = typeof downloadPinnedModels;
+export async function releaseModelCache(endpoint: string) {
+  const response = await fetch(endpoint + '/free', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ unload_models: true, free_memory: true }), signal: AbortSignal.timeout(5000), redirect: 'error' });
+  if (!response.ok) throw new Error('Cached models could not be released. No file was deleted.');
+  // /free returns an empty acknowledgement. The idle prompt worker releases
+  // cached tensors/file mappings; it does not delete history or model files.
+  await new Promise(resolve => setTimeout(resolve, 500));
+}
 export class ModelManager {
   state: ModelsState = emptyModels();
   private queue = new Set<string>(); private controller: AbortController | null = null;
@@ -95,7 +102,7 @@ export class ModelManager {
   prepareClarity?:()=>Promise<{ready:boolean;preparing:boolean;missing:string[]}>;
   checkClarity?:()=>Promise<{ready:boolean;preparing:boolean;missing:string[]}>;
   private connectionEvent=(event:{type:string})=>{if(event.type==='connection'&&this.connection.status.state==='online')void this.recoverPending();};
-  constructor(public store: Store, public connection: ConnectionManager, public repo: string, private download: DownloadWorker = downloadPinnedModels, private storage: typeof manageModelStorage = manageModelStorage) {
+  constructor(public store: Store, public connection: ConnectionManager, public repo: string, private download: DownloadWorker = downloadPinnedModels, private storage: typeof manageModelStorage = manageModelStorage, private releaseCache = releaseModelCache) {
     this.state.inventories = store.value<ModelInventory[]>('model-inventories', []);
     const saved=store.value<{instanceId?:number;endpoint?:string;startedAt?:number;transferFiles?:string[];files?:ModelFileState[];moduleSetup?:ModuleDownloadState;cancelled?:boolean}>('model-download-state-v1',{});
     this.state.transferFiles=saved.transferFiles;this.state.transferStartedAt=saved.startedAt;this.state.transferInstanceId=saved.instanceId;this.state.transferEndpoint=saved.endpoint;this.cancelled=saved.cancelled===true;
@@ -261,6 +268,13 @@ export class ModelManager {
           this.state.facialEyeFinishRuntimeReady = !!result.facialEyeFinishRuntimeReady;
           this.state.facialGeometryRuntimeReady = !!result.facialGeometryRuntimeReady;
           this.state.facialBoundaryRuntimeReady = !!result.facialBoundaryRuntimeReady;
+          if (result.files) {
+            const present = new Set([...result.files.map(file => file.id), ...(result.loras || []).filter(file => file.size > 0).map(file => 'loras/' + file.name)]);
+            for (const file of this.state.files) if (!transferring(file) && !present.has(file.id)) {
+              installed.delete(file.id);
+              Object.assign(file, { status: 'missing', percent: null, downloaded: 0, message: '' });
+            }
+          }
           for (const file of this.state.files.filter(item => (item.id.startsWith('face_consistency/') || item.id.startsWith('upscale/')))) {
             if (transferring(file)) continue;
             const present = result.files?.find(item => item.id === file.id);
@@ -380,24 +394,51 @@ export class ModelManager {
     } finally { this.runtimeController=null;this.preparing--; this.syncBusy();this.emit(); }
   }
   async settle(){await this.work;}
-  async remove(name: string) {
-    if (this.state.busy) throw new Error('Finish or cancel active transfers before removing a LoRA.');
-    if (!name || name.length > 300 || /[\x00-\x1f\x7f]/.test(name) || name.startsWith('/') || name.includes('\\') || name.split('/').some(p => !p || p === '.' || p === '..') || !name.endsWith('.safetensors')) throw new Error('Choose a valid LoRA filename.');
+  async remove(name: string, assertIdle = () => {}) {
+    if (this.state.busy) throw new Error('Finish or cancel active transfers before deleting model files.');
+    const id = deletableModelFile(name) ? name : 'loras/' + name;
+    if (!name || name.length > 300 || !deletableModelFile(id)) throw new Error('Choose a valid catalog model or LoRA filename.');
     const instanceId = this.store.value<number | null>('cloud-connected-instance', null);
-    if (!instanceId || this.connection.status.state !== 'online' || this.connection.status.endpoint !== 'http://127.0.0.1:8188') throw new Error('Connect the managed GPU before removing LoRAs.');
+    const endpoint = this.connection.status.endpoint;
+    if (!instanceId || this.connection.status.state !== 'online' || endpoint !== 'http://127.0.0.1:8188') throw new Error('Connect the managed GPU before removing files.');
+    const sameConnection = () => this.connection.status.state === 'online' && this.connection.status.endpoint === endpoint && this.store.value('cloud-connected-instance', null) === instanceId;
+    assertIdle();
     this.state.busy = true; this.state.deleting = name; this.emit();
     try {
-      const result = await this.storage(this.repo, instanceId, 'delete', name);
-      if (result.name !== name || !Number.isFinite(result.freedBytes) || result.freedBytes! < 0) throw new Error('The GPU did not confirm this LoRA removal. Refresh its storage before retrying.');
-      const draft = this.store.draft();
-      if (draft.settings.loraA === name) draft.settings.loraA = 'None';
-      if (draft.settings.loraB === name) draft.settings.loraB = 'None';
-      this.store.set('draft', draft);
-      if (name === IMAGE_IDENTITY) { const imageDraft = this.store.imageDraft(); imageDraft.settings.identityRefine = false; this.store.set('image-draft', imageDraft); }
-      const file = this.state.files.find(file => file.id === 'loras/' + name);
-      if (file) Object.assign(file, { status: 'missing', percent: null, message: '', error: null });
-      this.store.emit('event', { type: 'lora-removed', data: result });
       if (this.refreshing) await this.refreshing;
+      const verifyQueue = async () => {
+        const queue = await this.connection.client().json('/queue', undefined, AbortSignal.timeout(5000));
+        if (!queue || !Array.isArray(queue.queue_running) || !Array.isArray(queue.queue_pending)) throw new Error('GPU activity could not be verified. No file was deleted.');
+        if (queue.queue_running.length || queue.queue_pending.length) throw new Error('Finish the GPU render queue before deleting model files.');
+      };
+      await verifyQueue();
+      assertIdle();
+      if (!sameConnection()) throw new Error('The GPU changed before deletion. No file was deleted.');
+      if (!/^(?:face_consistency|face-refinement|upscale)\//.test(id)) {
+        await this.releaseCache(endpoint);
+        await verifyQueue();
+        assertIdle();
+        if (!sameConnection()) throw new Error('The GPU changed before deletion. No file was deleted.');
+      }
+      const result = await this.storage(this.repo, instanceId, 'delete', name);
+      if (result.name !== name || !Number.isFinite(result.freedBytes) || result.freedBytes! < 0) throw new Error('The GPU did not confirm this file removal. Refresh its storage before retrying.');
+      if (this.refreshing) await this.refreshing;
+      if (!sameConnection()) throw new Error(`The GPU changed after deletion on instance #${instanceId}. Sync that rental to check its storage.`);
+      const lora = id.startsWith('loras/') ? id.slice(6) : null;
+      const draft = this.store.draft();
+      if (lora) {
+        if (draft.settings.loraA === lora) draft.settings.loraA = 'None';
+        if (draft.settings.loraB === lora) draft.settings.loraB = 'None';
+        this.store.set('draft', draft);
+        if (lora === IMAGE_IDENTITY) { const imageDraft = this.store.imageDraft(); imageDraft.settings.identityRefine = false; this.store.set('image-draft', imageDraft); }
+        this.store.emit('event', { type: 'lora-removed', data: { ...result, name: lora } });
+      }
+      const file = this.state.files.find(file => file.id === id);
+      if (file) Object.assign(file, { status: 'missing', percent: null, message: '', error: null, downloaded: 0, remoteActive: false });
+      this.state.installedLoras = this.state.installedLoras.filter(file => file.name !== lora);
+      if (Number.isFinite(result.freeBytes)) this.state.diskFreeBytes = result.freeBytes;
+      this.state.inventories = (this.state.inventories || []).map(inventory => inventory.key === inventoryKey(instanceId, endpoint) ? { ...inventory, checkedAt: new Date().toISOString(), freeBytes: result.freeBytes ?? inventory.freeBytes, files: inventory.files.filter(file => file.id !== id) } : inventory);
+      this.store.set('model-inventories', this.state.inventories); this.emit();
       await this.refresh(); return { ...result, models: this.state };
     } finally { this.state.busy = false; this.state.deleting = null; this.emit(); }
   }

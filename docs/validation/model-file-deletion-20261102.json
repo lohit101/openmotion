@@ -1,0 +1,41 @@
+{
+  "date": "2026-11-02",
+  "feature": "Explicit deletion of downloaded model weights and partials",
+  "studioTests": {
+    "fullSuitePassed": 538,
+    "files": 45,
+    "finalFocusedPassed": 53,
+    "typecheck": true,
+    "productionBuild": true
+  },
+  "pythonChecks": {
+    "storageTestsPassed": 8,
+    "managedModelPathTestsPassed": 2,
+    "downloadRecoveryTestsPassed": 15,
+    "syntax": true
+  },
+  "nativeUi": {
+    "screen": "Settings \u2192 Downloads \u2192 On disk",
+    "coreEncoderVaeAdapterFaceDeleteButtonsVisible": true,
+    "usageAndSizesVisible": true,
+    "qwenSharedRemotionUsageVisible": true,
+    "pausedRentalActionsDisabled": true,
+    "realUserFilesDeleted": 0
+  },
+  "deployment": {
+    "deployedAt": "2026-11-01T20:14:32.933136+00:00",
+    "savedJobsUnchanged": 344,
+    "draftsUnchanged": true,
+    "connectionBefore": "offline",
+    "connectionAfter": "offline",
+    "gpuResumed": false
+  },
+  "remoteMutationTests": 0,
+  "newModelDownloads": 0,
+  "paidInferenceTests": 0,
+  "limitations": [
+    "Deletion tested on temporary local weights and isolated protocol fixtures; no retained GPU weight was removed for testing.",
+    "The rental must be connected to delete its files.",
+    "The free-space figure is measured separately from logical removed file bytes."
+  ]
+}

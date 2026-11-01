@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ArrowClockwise, CheckCircle, Clock, DownloadSimple, HardDrives, MagnifyingGlass, Pause, Trash, WarningCircle } from '@phosphor-icons/react';
-import { downloadRows } from '../shared/downloads';
+import { deletableModelFile, downloadRows } from '../shared/downloads';
 import { modelDefinitions, modelWorkingReserve } from '../shared/models';
 import { moduleDownloadProgress } from '../shared/module-downloads';
 import { SmallSelect } from './components';
@@ -49,7 +49,7 @@ export default function DownloadsWorkspace({ controls, required, refresh, cancel
     </div>
     {!live && <p className="downloads-offline">{inventory ? 'This is the last recorded inventory, not a live disk check. Files are kept on that rental; destroying its disk removes them.' : 'Your GPU can stay offline while you browse available files.'} <button onClick={setup}>Open GPU cloud</button></p>}
     {controls.state.error && <p className="model-page-error" role="alert"><WarningCircle size={16} />{controls.state.error}</p>}
-    {controls.state.busy && <div className="model-download-notice" role="status"><span>{controls.state.deleting ? 'Removing the selected LoRA…' : moduleActive ? controls.state.moduleSetup?.message : 'Downloading your selected files. Progress comes from the transfer.'}</span>{!controls.state.deleting&&!controls.state.moduleSetup?.activeRuntime && <button className="secondary-button" onClick={cancel}><Pause size={13} />Cancel downloads</button>}</div>}
+    {controls.state.busy && <div className="model-download-notice" role="status"><span>{controls.state.deleting ? 'Deleting the selected file…' : moduleActive ? controls.state.moduleSetup?.message : 'Downloading your selected files. Progress comes from the transfer.'}</span>{!controls.state.deleting&&!controls.state.moduleSetup?.activeRuntime && <button className="secondary-button" onClick={cancel}><Pause size={13} />Cancel downloads</button>}</div>}
     <div className="downloads-tools"><div className="downloads-filters" role="group" aria-label="Download status">
       {[['downloaded', 'On disk', stored.length], ['active', 'Transfers', active.length], ['all', 'All files', rows.length]].map(([id, label, count]) => <button key={id} aria-pressed={filter === id} onClick={() => setFilter(String(id))}>{label}<span>{count}</span></button>)}
     </div><label className="downloads-search"><MagnifyingGlass size={15} /><input aria-label="Search downloads" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search files or features" /></label></div>
@@ -62,9 +62,9 @@ export default function DownloadsWorkspace({ controls, required, refresh, cancel
       <td className="download-storage-cell"><strong>{modelSize(file.onDisk || file.size)}</strong><span>{file.partial > 0 ? `${modelSize(file.partial)} partial` : file.onDisk > 0 ? 'on disk' : 'download size'}</span></td>
       <td><span className={`download-file-status ${file.status}`}>{states[file.status]}</span>{file.status === 'downloading' && <div className="download-transfer"><progress aria-label={`${file.label} download progress`} max={100} value={file.progress?.percent ?? undefined} /><span>{file.progress?.percent == null ? 'Connecting / verifying' : `${file.progress.percent}%`}{file.progress?.bytesPerSecond ? ` · ${modelSize(file.progress.bytesPerSecond)}/s` : ''}</span></div>}{file.progress?.error && <p className="model-file-error" role="alert">{file.progress.error}</p>}</td>
       <td><div className="download-row-actions">{modelDefinitions.some(item => item.id === file.id) && <DownloadButton files={[file.id]} controls={fileControls} label={file.label} />}
-        {file.id.startsWith('loras/') && file.onDisk > 0 && <button className="model-delete" disabled={!live || controls.blocked || controls.state.busy} aria-label={`Remove ${file.label} from GPU`} title={live ? `Remove ${file.label}` : 'Connect this GPU to remove its LoRA'} onClick={() => controls.remove(file.filename)}><Trash size={16} /></button>}
+        {deletableModelFile(file.id) && file.onDisk > 0 && <button className="model-delete" disabled={!live || controls.blocked || controls.state.busy || controls.state.refreshing} aria-label={`Delete ${file.label} from GPU`} title={!live ? 'Connect this GPU to delete its files' : controls.blocked || controls.state.busy ? 'Finish setup, downloads or rendering before deleting files' : `Delete ${file.label} · ${modelSize(file.onDisk)}`} onClick={() => controls.remove(file.id)}><Trash size={16} /></button>}
       </div></td>
     </tr>)}</tbody></table></div> : <div className="downloads-empty"><DownloadSimple size={30} weight="light" /><h3>{query || workflow !== 'all' ? 'No matching files' : filter === 'active' ? 'No transfers to show' : 'No downloaded files recorded'}</h3><p>{query || workflow !== 'all' ? 'Try another search or workflow.' : filter === 'active' ? 'Active downloads and failures appear here.' : 'Browse the available models, or connect your GPU and sync its inventory.'}</p>{filter !== 'all' && <button className="secondary-button" onClick={() => { setFilter('all'); setWorkflow('all'); setQuery(''); }}>Browse all files</button>}</div>}
-    <p className="downloads-footnote">Totals include tracked models, LoRAs and partial files. Other disk files also use storage. Shared model files are counted once. Downloads only start when you click a download button.</p>
+    <p className="downloads-footnote">Delete model files or partial downloads to free space on the connected GPU. The Used by column shows which workflows will need those files downloaded again. Your saved photos and videos are kept. Shared files are counted once.</p>
   </section>;
 }

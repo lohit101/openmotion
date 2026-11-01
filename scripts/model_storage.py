@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Inventory LoRAs and remove optional files from the managed model directory."""
+"""Inventory LoRAs and explicitly remove tracked model weights and partials."""
 import argparse
 import fcntl
 import json
 import os
 from pathlib import Path, PurePosixPath
 import stat
+import shutil
 
 
 
@@ -41,17 +42,37 @@ def inventory(model_dir):
     return {'loras': sorted(files.values(), key=lambda f: f['name'])}
 
 
+def relative_parts(name):
+    if not isinstance(name, str) or not name or len(name) > 500 or '\\' in name or any(ord(c) < 32 or ord(c) == 127 for c in name):
+        raise ValueError('Invalid model filename.')
+    parts = name.split('/')
+    if PurePosixPath(name).is_absolute() or any(p in ('', '.', '..') for p in parts):
+        raise ValueError('Choose a relative model filename.')
+    return parts
+
+
 def remove_lora(model_dir, name):
-    parts = lora_parts(name)
+    return _remove(model_dir, ['loras', *lora_parts(name)], name)
+
+
+def remove_model(model_dir, name, allowed):
+    parts = relative_parts(name)
+    if parts[0] == 'loras':
+        lora_parts('/'.join(parts[1:]))
+    elif name not in allowed:
+        raise ValueError('Only catalog model files and custom LoRAs can be deleted.')
+    return _remove(model_dir, parts, name)
+
+
+def _remove(model_dir, parts, name):
     flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
-    base = os.open(Path(model_dir), flags)
-    try:
-        directory = os.open('loras', flags, dir_fd=base)
-    finally:
-        os.close(base)
+    directory = os.open(Path(model_dir), flags)
     try:
         for part in parts[:-1]:
-            child = os.open(part, flags, dir_fd=directory)
+            try:
+                child = os.open(part, flags, dir_fd=directory)
+            except FileNotFoundError:
+                return {'name': name, 'freedBytes': 0, 'removed': False}
             os.close(directory)
             directory = child
         lock = os.open(parts[-1] + '.lock', os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600, dir_fd=directory)
@@ -61,7 +82,7 @@ def remove_lora(model_dir, name):
             try:
                 fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError:
-                raise ValueError('This LoRA is downloading. Finish or cancel that transfer before removing it.')
+                raise ValueError('This file is downloading. Finish or cancel that transfer before removing it.')
             targets = []
             for suffix in ('', '.part', '.verified.json'):
                 filename = parts[-1] + suffix
@@ -85,8 +106,25 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--model-dir', required=True, type=Path)
     parser.add_argument('--delete-lora')
+    parser.add_argument('--delete-file')
+    parser.add_argument('--allowed-files', default='[]')
+    parser.add_argument('--face-dir', type=Path)
+    parser.add_argument('--face-files', default='{}')
     args = parser.parse_args()
-    result = remove_lora(args.model_dir, args.delete_lora) if args.delete_lora is not None else inventory(args.model_dir)
+    if args.delete_file is not None:
+        face_files = json.loads(args.face_files)
+        if args.delete_file.startswith('face-refinement/'):
+            relative_parts(args.delete_file)
+            if not args.face_dir or args.delete_file not in face_files:
+                raise ValueError('Unknown face-refinement model file.')
+            name = face_files[args.delete_file]
+            result = remove_model(args.face_dir, name, [name])
+            result['name'] = args.delete_file
+        else:
+            result = remove_model(args.model_dir, args.delete_file, json.loads(args.allowed_files))
+    else:
+        result = remove_lora(args.model_dir, args.delete_lora) if args.delete_lora is not None else inventory(args.model_dir)
+    result['freeBytes'] = shutil.disk_usage(args.model_dir).free
     print('RECAST_MODEL_STORAGE ' + json.dumps(result), flush=True)
 
 
