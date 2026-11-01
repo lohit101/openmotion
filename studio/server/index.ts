@@ -35,6 +35,7 @@ import { startLocalServer } from './local-server';
 import { registerVideoIdentityRoutes } from './video-identity';
 import { createGpuFaceBackend } from './gpu-video-identity';
 import { GpuIdleManager } from './gpu-idle';
+import { openEventStream } from './event-stream';
 import { ManagedFacialConsistency, newFacialRun } from './facial-consistency';
 import { canFinishFacialLocally, facialRuntimeReadyForSettings } from '../shared/facial-consistency';
 import { anchoredRun, canFinishAnchoredLocally, videoDirectionFrames } from '../shared/anchored-video';
@@ -93,18 +94,15 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   observeClarityStops();store.on('event',event=>{if(event.type==='cloud')observeClarityStops();});
   runner.externalGpuBusy=()=>upscale.busy || videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork();
   idle = new GpuIdleManager(store, cloud, connection, () => upscale.busy || runner.busy || !!runner.active || models.state.busy || videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork() ||
-    store.jobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status) ||
+    store.unsettledJobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status) ||
       (job.faceRefinement?.execution === 'remote CUDA' && job.faceRefinement.instanceId === store.value('cloud-connected-instance', null) &&
         job.status === 'interrupted' && job.cancellationConfirmed !== true)));
   registerCharacterRoutes(app, store);
   const bootstrap = () => ({ assets: store.assets().map(publicAsset), characters: store.characters(), capabilities: { imagenSegmentRepaint: true }, jobs: store.jobs().map(publicJob), draft: store.draft(), imageDraft: store.imageDraft(), connection: connection.status, cloud: cloud.state, models: models.state });
   app.get('/api/bootstrap', (_req, res) => res.json(bootstrap()));
-  app.get('/api/events', (req, res) => {
+  app.get('/api/events', (_req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
-    const send = (event: unknown) => res.write('data: ' + JSON.stringify(event) + '\n\n');
-    send({ type: 'bootstrap', data: bootstrap() }); store.on('event', send);
-    const heartbeat = setInterval(() => res.write(': heartbeat\n\n'), 15000);
-    req.on('close', () => { clearInterval(heartbeat); store.off('event', send); });
+    openEventStream(store, res, bootstrap());
   });
   app.get('/api/cloud', (_req, res) => res.json(cloud.state));
   const accountWorkActive = () => upscale.busy || models.state.busy || videoIdentity.gpuBusy || runner.busy || runner.hasUnconfirmedFaceWork() ||

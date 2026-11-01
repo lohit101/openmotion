@@ -205,6 +205,7 @@ export class CloudManager {
   private rawInstances: any[] = []; private provision: ChildProcess | null = null; private activeLaunch: string | null = null; private refreshPromise: Promise<CloudState> | null = null; private stopped = new Set<string>();
   private activeAbort: AbortController | null = null; private safetyTimer: ReturnType<typeof setInterval> | null = null; private safetyBusy = false;
   private activeTask: Promise<void> | null = null;
+  private logUpdate: ReturnType<typeof setTimeout> | null = null;
   private closing = false;
   private statusEpoch=0;
   private stopChecks = new Map<string, Promise<boolean>>();
@@ -307,12 +308,18 @@ export class CloudManager {
     } finally { this.state.busy = false; this.emit(); }
   }
   emit() {
+    if (this.logUpdate) clearTimeout(this.logUpdate); this.logUpdate = null;
     this.state.revision=Math.max(Date.now(),(this.state.revision||0)+1);
     this.store.set('cloud-launches', this.state.launches);
     this.store.set('cloud-favourites', (this.state.favourites || []).map(({ offer: _offer, status: _status, checkedAt: _checked, message: _message, ...saved }) => saved));
     this.store.emit('event', { type: 'cloud', data: this.state }); this.monitorSafety();
   }
-  dispose() { if (this.safetyTimer) clearInterval(this.safetyTimer); this.safetyTimer = null; }
+  dispose() { if (this.safetyTimer) clearInterval(this.safetyTimer); this.safetyTimer = null; if (this.logUpdate) clearTimeout(this.logUpdate); this.logUpdate = null; }
+  private emitLogUpdate() {
+    if (this.logUpdate) return;
+    this.logUpdate = setTimeout(() => { this.logUpdate = null; this.emit(); }, 250);
+    this.logUpdate.unref();
+  }
   async shutdown() {
     this.closing = true; this.dispose();
     this.activeAbort?.abort(new Error('The local app is shutting down.')); this.stopProvision();
@@ -758,7 +765,7 @@ export class CloudManager {
       if (line.startsWith('RECAST_WARNING ')) launch.warning = line.slice(15, 500);
       if (line.startsWith('RECAST_STAGE ')) launch.stageDetail = line.slice(13, 500);
       if (/Downloading|Verified:|CUDA test|Setup complete|RECAST_STAGE/.test(line)) launch.message = line.replace('RECAST_STAGE ', '').slice(0, 250);
-      launch.lastLogAt = launch.updatedAt = new Date().toISOString(); this.emit();
+      launch.lastLogAt = launch.updatedAt = new Date().toISOString(); this.emitLogUpdate();
     };
     if (this.options.provision) await this.options.provision(instance, log, signal);
     else await this.runProvision(instance, identity, log, signal);
@@ -780,7 +787,7 @@ export class CloudManager {
       if (signal.aborted) return reject(signal.reason);
       const child = spawn('python3', ['-u', path.join(this.repo, 'scripts/managed_instance.py'), '--host', String(instance.ssh_host), '--port', String(instance.ssh_port), '--identity', identity, '--instance-id', String(instance.id)], { stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32' });
       this.provision = child; let buffer = '', tail = ''; const abort = () => { if (this.provision === child) this.stopProvision(); }; signal.addEventListener('abort', abort, { once: true });
-      const receive = (chunk: Buffer) => { buffer += chunk.toString(); const lines = buffer.split(/\r?\n/); buffer = lines.pop() || ''; for (const line of lines) if (line.trim()) { log(line); tail = line; } };
+      const receive = (chunk: Buffer) => { buffer += chunk.toString(); const lines = buffer.split(/[\r\n]+/); buffer = (lines.pop() || '').slice(-8192); for (const line of lines) if (line.trim()) { log(line); tail = line.slice(-8192); } };
       child.stdout!.on('data', receive); child.stderr!.on('data', receive);
       child.once('error', error => { signal.removeEventListener('abort', abort); if (this.provision === child) this.provision = null; reject(error); });
       child.once('close', code => { signal.removeEventListener('abort', abort); if (this.provision === child) this.provision = null; if (buffer.trim()) log(buffer); code === 0 && !signal.aborted ? resolve() : reject(signal.reason || new Error(tail || `Setup exited (${code}).`)); });

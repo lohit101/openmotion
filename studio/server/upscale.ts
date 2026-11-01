@@ -44,12 +44,12 @@ export class UpscaleManager {
     this.remotePending=store.value<number|null>('clarity-remote-pending',null);
     for(const job of store.jobs())if(job.upscale&&active.includes(job.status)){job.status='interrupted';job.error='Clarity was interrupted. Recover checks its saved output without restarting inference.';store.saveJob(job);}
   }
-  get busy(){return this.starting||!!this.task||!!this.setupPending||!!this.remotePending||this.store.jobs().some(j=>j.upscale&&(active.includes(j.status)||j.upscale.remoteActive&&j.upscale.instanceId===this.store.value('cloud-connected-instance',null)));}
+  get busy(){return this.starting||!!this.task||!!this.setupPending||!!this.remotePending||this.store.unsettledJobs().some(j=>j.upscale&&(active.includes(j.status)||j.upscale.remoteActive&&j.upscale.instanceId===this.store.value('cloud-connected-instance',null)));}
   observeProviderStop(id:number,confirmedAt:number){
     if(!Number.isFinite(confirmedAt))return;
     if(this.setupPending===id&&confirmedAt>=this.store.value<number>('clarity-setup-started',Infinity)){this.setupPending=null;this.store.set('clarity-setup-pending',null);}
     if(this.remotePending===id&&confirmedAt>=this.store.value<number>('clarity-remote-started',Infinity)){this.remotePending=null;this.store.set('clarity-remote-pending',null);}
-    for(const job of this.store.jobs())if(job.upscale?.instanceId===id&&job.upscale.remoteActive&&confirmedAt>=Date.parse(job.startedAt||job.createdAt)){
+    for(const job of this.store.unsettledJobs())if(job.upscale?.instanceId===id&&job.upscale.remoteActive&&confirmedAt>=Date.parse(job.startedAt||job.createdAt)){
       if(this.activeId===job.id)this.controller?.abort();
       job.upscale.remoteActive=false;job.upscale.cancellationConfirmed=true;
       if(active.includes(job.status)){job.status='interrupted';job.error='The provider confirmed compute stopped. Saved inputs and outputs are kept; check the original attempt before retrying.';}

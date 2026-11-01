@@ -581,6 +581,26 @@ describe('Vast marketplace, billing and lifecycle', () => {
     expect(launch.setupDownloads?.some(file => file.id.includes('Instagoon'))).toBe(false);
     release(); await until(() => !cloud.state.busy); expect(launch.phase).toBe('ready');
   });
+  it('batches a noisy setup burst while keeping live logs and flushing the final connection state', async () => {
+    const { cloud, provision } = await manager();
+    let release!: () => void; const wait = new Promise<void>(resolve => { release = resolve; });
+    const snapshots: { phase: string; tail: string }[] = [];
+    store!.on('event', event => { if (event.type === 'cloud' && cloud.state.launches[0]) { const l = cloud.state.launches[0]; snapshots.push({ phase: l.phase, tail: l.logs.at(-1) || '' }); } });
+    provision.mockImplementationOnce(async (_instance, log) => {
+      const before = snapshots.length;
+      for (let i = 0; i < 5000; i++) log('Runtime package ' + i);
+      expect(snapshots.length).toBe(before);
+      await wait; log('RECAST_STAGE Setup complete');
+    });
+    const { offers } = await cloud.offers(filters); const launch = cloud.launch(offers[0].quote, .23, 'noisy-setup');
+    await until(() => snapshots.some(s => s.tail === 'Runtime package 4999'));
+    expect(launch.phase).toBe('installing'); expect(launch.logs).toHaveLength(120);
+    expect(snapshots.filter(s => s.tail === 'Runtime package 4999')).toHaveLength(1);
+    release(); await until(() => !cloud.state.busy);
+    expect(launch.phase).toBe('ready');
+    expect(snapshots.at(-1)!.phase).toBe('ready');
+    expect(store!.value<any[]>('cloud-launches', [])[0].logs.at(-1)).toBe('RECAST_STAGE Setup complete');
+  });
   it('requires actual stopped state even if the stop API acknowledges success', async () => {
     const { cloud, fixture } = await manager(); const { offers } = await cloud.offers(filters); const launch = cloud.launch(offers[0].quote, .23, 'ack-only'); await until(() => !cloud.state.busy);
     fixture.acknowledgeStopOnly(); await expect(cloud.action(777, 'stop')).rejects.toThrow('NOT confirmed');

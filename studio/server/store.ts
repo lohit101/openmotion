@@ -8,6 +8,15 @@ import { migrateDemoPrompt } from '../shared/prompts';
 import { defaultImagePrompt, emptyImageDraft, imageDraftSchema, legacyImagePrompt } from '../shared/image-replacement';
 import type { Character } from '../shared/characters';
 
+// Keep safety checks independent of completed Library size. Use the same
+// predicate in the partial index and query so SQLite reads only unsettled jobs.
+const unsettled = `json_extract(data, '$.status') IN ('queued','running','reconnecting')
+  OR json_extract(data, '$.facialConsistency.remoteActive') = 1
+  OR json_extract(data, '$.upscale.remoteActive') = 1
+  OR (json_extract(data, '$.status') = 'interrupted'
+    AND json_extract(data, '$.faceRefinement.execution') = 'remote CUDA'
+    AND json_extract(data, '$.cancellationConfirmed') IS NOT 1)`;
+
 export class Store extends EventEmitter {
   db: DatabaseSync;
   constructor(public root: string) {
@@ -19,6 +28,7 @@ export class Store extends EventEmitter {
       CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, idem TEXT UNIQUE, data TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS characters (id TEXT PRIMARY KEY, data TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, data TEXT NOT NULL);`);
+    this.db.exec(`CREATE INDEX IF NOT EXISTS jobs_unsettled_v1 ON jobs(id) WHERE ${unsettled}`);
   }
   value<T>(key: string, fallback: T): T { const row = this.db.prepare('SELECT data FROM settings WHERE key=?').get(key) as { data: string } | undefined; return row ? JSON.parse(row.data) : fallback; }
   set(key: string, value: unknown) { this.db.prepare('INSERT INTO settings VALUES (?,?) ON CONFLICT(key) DO UPDATE SET data=excluded.data').run(key, JSON.stringify(value)); }
@@ -29,6 +39,7 @@ export class Store extends EventEmitter {
   character(id: string): Character | null { const row = this.db.prepare('SELECT data FROM characters WHERE id=?').get(id) as { data: string } | undefined; return row ? JSON.parse(row.data) : null; }
   saveCharacter(character: Character) { this.db.prepare('INSERT INTO characters VALUES (?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data').run(character.id, JSON.stringify(character)); this.emit('event', { type: 'character', data: character }); }
   jobs(): Job[] { return (this.db.prepare('SELECT data FROM jobs').all() as { data: string }[]).map(r => JSON.parse(r.data)).sort((a: Job, b: Job) => b.createdAt.localeCompare(a.createdAt)); }
+  unsettledJobs(): Job[] { return (this.db.prepare(`SELECT data FROM jobs WHERE ${unsettled}`).all() as { data: string }[]).map(r => JSON.parse(r.data)); }
   job(id: string): Job | null { const row = this.db.prepare('SELECT data FROM jobs WHERE id=?').get(id) as { data: string } | undefined; return row ? JSON.parse(row.data) : null; }
   byKey(key: string): Job | null { const row = this.db.prepare('SELECT data FROM jobs WHERE idem=?').get(key) as { data: string } | undefined; return row ? JSON.parse(row.data) : null; }
   addJob(job: Job, key?: string) { this.db.prepare('INSERT INTO jobs VALUES (?,?,?)').run(job.id, key || null, JSON.stringify(job)); this.emit('event', { type: 'job', data: publicJob(job) }); }

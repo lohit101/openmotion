@@ -1,0 +1,97 @@
+{
+  "date": "2026-11-02",
+  "scope": "Local GPU connection/setup responsiveness; no new GPU inference",
+  "observed": {
+    "serverCpuPercent": 102.6,
+    "physicalFootprintGB": 2.0,
+    "statusRequestTimeoutSeconds": 3,
+    "historicalConfirmedRentals": 53
+  },
+  "isolatedReplay": {
+    "jobCount": 342,
+    "confirmedHistoricalStops": 53,
+    "cloudEvents": 3,
+    "legacyJobsDecoded": 54378,
+    "meanBeforeMs": 424.86270833333333,
+    "meanAfterMs": 0.29715299999998024,
+    "before": [
+      {
+        "milliseconds": 447.5212079999999,
+        "eventLoopDelayMs": 447.72408300000006,
+        "cpuMs": 446.294
+      },
+      {
+        "milliseconds": 415.2961250000001,
+        "eventLoopDelayMs": 415.674667,
+        "cpuMs": 434.196
+      },
+      {
+        "milliseconds": 411.77079200000003,
+        "eventLoopDelayMs": 411.9960000000001,
+        "cpuMs": 420.404
+      }
+    ],
+    "after": [
+      {
+        "milliseconds": 0.2923749999999927,
+        "eventLoopDelayMs": 1.4114170000000286,
+        "cpuMs": 2.917
+      },
+      {
+        "milliseconds": 0.2857089999999971,
+        "eventLoopDelayMs": 0.4471250000001419,
+        "cpuMs": 0.547
+      },
+      {
+        "milliseconds": 0.3133749999999509,
+        "eventLoopDelayMs": 0.6847499999998945,
+        "cpuMs": 0.609
+      }
+    ],
+    "limitation": "This isolates historical-stop reconciliation on a read-only-derived local database copy. It is not end-to-end GPU startup or a hardware thermal measurement."
+  },
+  "regression": {
+    "setupLogBurstLines": 5000,
+    "slowClientProgressEvents": 20000,
+    "focusedTestsPassed": 110,
+    "typecheckPassed": true,
+    "productionBuildPassed": true,
+    "fullSuite": {
+      "files": 45,
+      "testsPassed": 533
+    }
+  },
+  "deployment": {
+    "state": "live",
+    "deployedAt": "2026-11-01T19:46:23.446186+00:00",
+    "savedJobsUnchanged": 342,
+    "draftsUnchanged": true,
+    "connectionBefore": "online",
+    "connectionAfter": "online",
+    "backgroundRestartWatcher": false,
+    "liveUserWorkInterrupted": false
+  },
+  "paidTests": 0,
+  "gpuStarts": 0,
+  "remoteInstalls": 0,
+  "modelDownloadsStartedByAgent": 0,
+  "liveCheck": {
+    "statusRequestMs": [
+      45.91,
+      32.314375,
+      27.265500000000003,
+      26.304125,
+      26.276166000000018
+    ],
+    "meanStatusMs": 31.6140332,
+    "bootstrapJobs": 343,
+    "streamBootstrap": true,
+    "streamLatestCloud": true,
+    "readOnlyProviderRefresh": true,
+    "online": true,
+    "modelSetupBusy": false,
+    "serverCpuPercentAt37Seconds": 1.2,
+    "serverRssKBAt37Seconds": 197072,
+    "limitation": "Live readings are after setup completed. Burst-load regression is local; no new paid GPU startup was run."
+  }
+}

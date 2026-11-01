@@ -31,7 +31,7 @@ export class Runner {
   public imageProcessor = processImage;
   public repaintTargetPreparer?: RepaintTargetPreparer;
   public facial?: FacialBackend;
-  hasUnconfirmedFaceWork() { return this.store.jobs().some(job => job.status === 'interrupted' && job.facialConsistency?.remoteActive && job.facialConsistency.instanceId === this.store.value('cloud-connected-instance', null) && !job.facialConsistency.cancellationConfirmed); }
+  hasUnconfirmedFaceWork() { return this.store.unsettledJobs().some(job => job.status === 'interrupted' && job.facialConsistency?.remoteActive && job.facialConsistency.instanceId === this.store.value('cloud-connected-instance', null) && !job.facialConsistency.cancellationConfirmed); }
   async reconcileFaceCancellations() {
     if (this.cancellationRecheck) return this.cancellationRecheck;
     if (this.busy || this.active || !this.facial || this.connection.status.state !== 'online') return;

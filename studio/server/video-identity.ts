@@ -42,7 +42,7 @@ export class VideoIdentity {
     }
   }
   get busy() { return !!this.active; }
-  get gpuBusy() { return this.gpuPreparing || this.store.jobs().some(job=>job.faceRefinement?.execution==='remote CUDA' && ['queued','running','reconnecting'].includes(job.status)); }
+  get gpuBusy() { return this.gpuPreparing || this.store.unsettledJobs().some(job=>job.faceRefinement?.execution==='remote CUDA' && ['queued','running','reconnecting'].includes(job.status)); }
   async status() { return this.inspect(); }
   async gpuStatus() { return {...await this.gpu?.status(),preparing:this.gpuPreparing}; }
   async setupGpu() {
