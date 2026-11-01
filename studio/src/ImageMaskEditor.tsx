@@ -3,7 +3,7 @@ import { ArrowCounterClockwise, Check, Eraser, PaintBrush, Trash } from '@phosph
 import type { Asset } from '../shared/types';
 import { Modal } from './components';
 
-export default function ImageMaskEditor({ source, mask, open, close, save, error }: { source: Asset; mask?: Asset; open: boolean; close: () => void; save: (mask: Asset) => void; error: (message: string) => void }) {
+export default function ImageMaskEditor({ source, mask, open, close, save, error, clothingOnly = false }: { clothingOnly?: boolean; source: Asset; mask?: Asset; open: boolean; close: () => void; save: (mask: Asset) => void; error: (message: string) => void }) {
   const canvas = useRef<HTMLCanvasElement>(null), last = useRef<{ x: number; y: number } | null>(null), undo = useRef<ImageData[]>([]);
   const [brush, setBrush] = useState(36), [erase, setErase] = useState(false), [saving, setSaving] = useState(false), [changes, setChanges] = useState(0);
   const scale = Math.min(1, 2048 / Math.max(source.width, source.height)), width = Math.round(source.width * scale), height = Math.round(source.height * scale);
@@ -42,7 +42,7 @@ export default function ImageMaskEditor({ source, mask, open, close, save, error
   const saveArea = async () => {
     const ctx = canvas.current?.getContext('2d'); if (!ctx || saving) return;
     const input = ctx.getImageData(0, 0, width, height);
-    if (!input.data.some((value, index) => index % 4 === 3 && value > 8)) { error('Paint over the person you want to replace first.'); return; }
+    if (!input.data.some((value, index) => index % 4 === 3 && value > 8)) { error(clothingOnly ? 'Paint the garments you want to change first.' : 'Paint over the person you want to replace first.'); return; }
     setSaving(true);
     try {
       const output = document.createElement('canvas'); output.width = width; output.height = height;
@@ -56,9 +56,9 @@ export default function ImageMaskEditor({ source, mask, open, close, save, error
       save(value); close();
     } catch (e) { error((e as Error).message); } finally { setSaving(false); }
   };
-  return <Modal open={open} onOpenChange={value => { if (!value && !saving) close(); }} title="Choose the replacement area" description="Paint over the original person, including hair, clothes and contact shadows. Keep foreground objects you want to preserve unpainted." wide>
+  return <Modal open={open} onOpenChange={value => { if (!value && !saving) close(); }} title={clothingOnly ? "Choose the clothing area" : "Choose the replacement area"} description={clothingOnly ? "Paint the current garments and space needed for the new outfit. Leave the face, hair, hands, jewelry and foreground objects unpainted to preserve them." : "Paint over the original person, including hair, clothes and contact shadows. Keep foreground objects you want to preserve unpainted."} wide>
     <div className="mask-tools"><div className="preview-tabs"><button className={!erase ? 'active' : ''} onClick={() => setErase(false)}><PaintBrush size={15} />Paint</button><button className={erase ? 'active' : ''} onClick={() => setErase(true)}><Eraser size={15} />Erase</button></div><label>Brush<input aria-label="Replacement brush size" type="range" min={4} max={140} value={brush} onChange={e => setBrush(Number(e.target.value))} /></label><button className="icon-button" disabled={!undo.current.length || saving} onClick={() => { const previous = undo.current.pop(); if (previous) canvas.current?.getContext('2d')?.putImageData(previous, 0, 0); setChanges(changes + 1); }} aria-label="Undo brush stroke"><ArrowCounterClockwise size={17} /></button><button className="icon-button" onClick={() => { const ctx = canvas.current?.getContext('2d'); if (ctx) { undo.current.push(ctx.getImageData(0, 0, width, height)); ctx.clearRect(0, 0, width, height); setChanges(changes + 1); } }} aria-label="Clear replacement area"><Trash size={17} /></button></div>
-    <div className="mask-stage"><div style={{ aspectRatio: `${source.width}/${source.height}`, width: `min(100%, ${56 * source.width / source.height}dvh)` }}><img src={`/api/assets/${source.id}/original`} alt="Target photograph for selecting the replacement area" draggable={false} /><canvas ref={canvas} width={width} height={height} aria-label="Paint the person to replace" onPointerDown={event => draw(event, true)} onPointerMove={event => draw(event)} onPointerUp={() => { last.current = null; setChanges(changes + 1); }} onPointerCancel={() => { last.current = null; }} /></div></div>
+    <div className="mask-stage"><div style={{ aspectRatio: `${source.width}/${source.height}`, width: `min(100%, ${56 * source.width / source.height}dvh)` }}><img src={`/api/assets/${source.id}/original`} alt="Target photograph for selecting the replacement area" draggable={false} /><canvas ref={canvas} width={width} height={height} aria-label={clothingOnly ? "Paint the clothes to change" : "Paint the person to replace"} onPointerDown={event => draw(event, true)} onPointerMove={event => draw(event)} onPointerUp={() => { last.current = null; setChanges(changes + 1); }} onPointerCancel={() => { last.current = null; }} /></div></div>
     <div className="mask-footer"><p>Green areas can change. Everything outside stays from the original photo.</p><button className="primary-button compact" disabled={saving} onClick={() => void saveArea()}><Check size={15} />{saving ? 'Saving area…' : 'Use this area'}</button></div>
   </Modal>;
 }

@@ -15,6 +15,13 @@ Priority: facial identity from IMAGE 2; placement, pose, distance and framing fr
 
 export const defaultImagePrompt = `Replace the entire person in IMAGE 1 with the person from IMAGE 2, including their recognizable face, hair, body appearance, complete outfit and accessories. Dress them entirely in IMAGE 2's garments, preserving the neckline, sleeves, fabric, colors and garment length, fitted naturally to the target pose. Replace every original garment and accessory rather than combining the two outfits. Match IMAGE 1's exact pose, head size, screen position, camera distance, expression and framing. Preserve its room, objects and occlusions. Illuminate the replacement with the target scene's light direction, exposure, color temperature, reflected light and contact shadows. Match the photograph's focus, grain and natural skin texture.`;
 
+export const clothingOnlyPrompt = `Edit only the clothing of the person in <image1>, using the outfit in <image2> as the garment reference. Transfer the reference garments' design, layers, neckline, sleeves, hem length, colors, fabric, patterns and fastenings. Fit the clothes naturally to the existing person in <image1>, preserving their own face, facial geometry, hair, skin tone, physique and body proportions. Do not transfer the reference wearer's identity, body, hair, pose or background. Keep <image1>'s pose, hands, expression, head direction, camera distance, framing and surroundings. Retain the target's jewelry and non-clothing accessories. Match the target scene's lighting, shadows, fabric folds, contact points, occlusions, focus and photographic texture. Change only garments inside the painted area. Keep unpainted skin, hair, hands, foreground objects and background unchanged. Return one natural photograph, not a collage or reference sheet.`;
+
+export function clothingConditioningPrompt(prompt: string): string {
+  const extra = prompt.trim();
+  return clothingOnlyPrompt + (extra && ![clothingOnlyPrompt, defaultImagePrompt, legacyImagePrompt, bodyOnlyPrompt, bodyOnlyPromptV1, conciseBodyOnlyPrompt, sourceHeadBodyOnlyPrompt].includes(extra) ? '\nAdditional clothing requirements: ' + extra : '');
+}
+
 // Frozen for the first paid A–E comparisons. Preserve their original instructions.
 export const bodyOnlyPromptV1 = `Edit <image1>, the original scene photograph. <image2> shows the replacement person's physique and body proportions. <image3> shows that same person's facial identity and hair. Reference sheets show multiple views of ONE person; do not render the sheet, extra people, labels or separate panels.
 
@@ -77,7 +84,7 @@ export function referenceViewIssue(view: ImageReferenceView | null | undefined, 
 
 export const imageSettingsSchema = z.object({
   model: z.enum(['klein4b', 'qwen21']).default(sourceFramePreset.model),
-  qwenRecipe: z.enum(['whole-person', 'source-anchored', 'native-masked', 'native-scene', 'identity-first', 'body-identity', 'body-only']).default(sourceFramePreset.qwenRecipe),
+  qwenRecipe: z.enum(['whole-person', 'source-anchored', 'native-masked', 'native-scene', 'identity-first', 'body-identity', 'body-only', 'clothing-only']).default(sourceFramePreset.qwenRecipe),
   qwenQuality: z.enum(['fast', 'quality']).default('fast'),
   bodyOnlyStrategy: z.enum(['native', 'staged', 'detail']).default('native'),
   bodyOnlyReuseId: z.string().uuid().nullable().default(null),
@@ -106,11 +113,15 @@ export const imageSettingsSchema = z.object({
   identityRefine: z.boolean().default(false),
   seed: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).default(sourceFramePreset.seed),
   randomSeed: z.boolean().default(false),
-}).transform(settings => ({ ...settings, prompt: settings.model === 'qwen21' && settings.qwenRecipe === 'body-only' && [bodyOnlyPrompt, bodyOnlyPromptV1].includes(settings.prompt) ? conciseBodyOnlyPrompt : (settings.model !== 'qwen21' || settings.qwenRecipe !== 'body-only') && [bodyOnlyPrompt, conciseBodyOnlyPrompt, sourceHeadBodyOnlyPrompt].includes(settings.prompt) ? defaultImagePrompt : settings.prompt }));
+}).transform(settings => ({ ...settings, prompt: settings.qwenRecipe === 'clothing-only' && [defaultImagePrompt, legacyImagePrompt, bodyOnlyPrompt, bodyOnlyPromptV1, conciseBodyOnlyPrompt, sourceHeadBodyOnlyPrompt].includes(settings.prompt) ? clothingOnlyPrompt : settings.model === 'qwen21' && settings.qwenRecipe === 'body-only' && [bodyOnlyPrompt, bodyOnlyPromptV1].includes(settings.prompt) ? conciseBodyOnlyPrompt : (settings.model !== 'qwen21' || settings.qwenRecipe !== 'body-only') && [bodyOnlyPrompt, conciseBodyOnlyPrompt, sourceHeadBodyOnlyPrompt].includes(settings.prompt) ? defaultImagePrompt : settings.prompt }));
 export type ImageSettings = z.infer<typeof imageSettingsSchema>;
 export const imageDefaults = imageSettingsSchema.parse({});
 export function sourceFrameImageSettings(current?: ImageSettings): ImageSettings {
   return imageSettingsSchema.parse({ ...sourceFramePreset, bodyReferenceView: current?.bodyReferenceView || null, faceReferenceView: current?.faceReferenceView || null });
+}
+export function clothingImageSettings(current?: ImageSettings): ImageSettings {
+  return imageSettingsSchema.parse({ ...sourceFramePreset, megapixels: current?.megapixels ?? 1, qwenQuality: current?.qwenQuality ?? 'fast', seed: current?.seed ?? sourceFramePreset.seed, randomSeed: current?.randomSeed ?? false,
+    qwenRecipe: 'clothing-only', prompt: clothingOnlyPrompt, maskExpand: 0, maskFillHoles: false, feather: 6, bodyReferenceView: null, faceReferenceView: null });
 }
 export const imageDraftSchema = z.object({
   referenceMode: z.enum(['images', 'character']).default('images'), characterId: z.string().nullable().default(null), characterRevision: z.number().int().positive().nullable().default(null),
@@ -120,6 +131,10 @@ export const imageDraftSchema = z.object({
 });
 export type ImageDraft = z.infer<typeof imageDraftSchema>;
 export const emptyImageDraft = (): ImageDraft => imageDraftSchema.parse({});
+export function clothingImageDraft(draft: ImageDraft): ImageDraft {
+  return { ...draft, referenceMode: 'images', characterId: null, characterRevision: null, referenceId: draft.referenceMode === 'character' ? null : draft.referenceId,
+    faceId: null, maskId: null, settings: clothingImageSettings(draft.settings) };
+}
 export interface ImageGeometry { width: number; height: number; contentWidth: number; contentHeight: number; x: number; y: number; outputWidth: number; outputHeight: number; }
 export interface ImageReview { status: 'review' | 'warning'; warnings: string[]; backgroundProtected: boolean; outsideMaskMaxDifference: number | null; sourceFace: boolean; referenceFace: boolean; outputFace: boolean; outsideHeadMaxDifference?: number; headLayout?: { status: 'available' | 'unavailable'; faceSizeRatio?: number; faceHeightRatio?: number; centerOffsetDiagonal?: number; rollDifferenceDegrees?: number; noseOffsetDifference?: number }; }
 export const localFramingSchema = z.object({
@@ -132,7 +147,7 @@ export const localFramingSchema = z.object({
   geometry: z.object({ headSizeRatio: z.number().finite().positive(), faceCenterOffsetPixels: z.array(z.number().finite()).length(2) }).nullable(),
 });
 export interface ImageRun {
-  version?: 'masked-latent-v2' | 'masked-latent-v3' | 'masked-latent-v4' | 'scene-anchor-v1' | 'scene-anchor-v2' | 'scene-anchor-v3' | 'scene-anchor-v4' | 'scene-anchor-v5' | 'scene-anchor-v6' | 'scene-anchor-v7' | 'scene-anchor-v8' | 'native-mask-v1' | 'native-scene-v1' | 'identity-first-v1' | 'identity-first-v2' | 'body-identity-v1' | 'body-identity-v2' | 'body-only-v1' | 'body-only-v2' | 'body-only-v3' | 'body-only-v4' | 'body-only-v5' | 'body-only-v6' | 'body-only-v7' | 'body-only-v8' | 'body-only-single-v1' | 'body-only-single-v2' | 'body-only-single-v3';
+  version?: 'clothing-only-v1' | 'masked-latent-v2' | 'masked-latent-v3' | 'masked-latent-v4' | 'scene-anchor-v1' | 'scene-anchor-v2' | 'scene-anchor-v3' | 'scene-anchor-v4' | 'scene-anchor-v5' | 'scene-anchor-v6' | 'scene-anchor-v7' | 'scene-anchor-v8' | 'native-mask-v1' | 'native-scene-v1' | 'identity-first-v1' | 'identity-first-v2' | 'body-identity-v1' | 'body-identity-v2' | 'body-only-v1' | 'body-only-v2' | 'body-only-v3' | 'body-only-v4' | 'body-only-v5' | 'body-only-v6' | 'body-only-v7' | 'body-only-v8' | 'body-only-single-v1' | 'body-only-single-v2' | 'body-only-single-v3';
   character?: CharacterSnapshot;
   scopeMaskId?: string;
   segmentRepaint?: { videoJobId: string; segment: number; frame: number };

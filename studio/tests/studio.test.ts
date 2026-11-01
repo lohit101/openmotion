@@ -314,6 +314,10 @@ describe('local app with the captured ComfyUI protocol', () => {
       if (action === 'prepare') {
         await copyFile(store.asset(job.sourceId)!.path, path.join(folder, 'target.png')); await copyFile(store.asset(job.sourceId)!.path, path.join(folder, 'original.png'));
         await copyFile(store.asset(job.referenceId)!.path, path.join(folder, 'identity.png'));
+        if (job.image!.settings.protectBackground) {
+          await copyFile(store.asset(job.image!.maskId!)!.path, path.join(folder, 'edit-mask.png'));
+          await copyFile(store.asset(job.image!.maskId!)!.path, path.join(folder, 'working-mask.png'));
+        }
         return { hasFace: false, warnings: [] };
       }
       await copyFile(path.join(folder, 'gpu-result.png'), path.join(folder, 'final.png'));
@@ -340,6 +344,37 @@ describe('local app with the captured ComfyUI protocol', () => {
     await connect(agent);
     const result = await agent.post('/api/images/jobs').set('Idempotency-Key', 'body-only-single-missing').send(request).expect(409);
     expect(result.body.missingModels).toHaveLength(4); expect(mock!.submissions).toHaveLength(0);
+  });
+  it('validates clothing-only inputs before GPU work and requires only the existing native Qwen files', async () => {
+    const agent = await setup(), values = await imageInputs(agent);
+    const settings = { ...imageDefaults, qwenRecipe: 'clothing-only', prompt: '' };
+    const bad = await agent.post('/api/images/jobs').set('Idempotency-Key', 'clothing-unprotected').send({ ...values, settings: { ...settings, protectBackground: false } }).expect(400);
+    expect(bad.body.error).toContain('Paint the garments'); expect(mock!.calls).toEqual([]);
+    const mask = await agent.post(`/api/images/mask/${values.sourceId}`).attach('file', image).expect(201);
+    const payload = { ...values, maskId: mask.body.id, settings };
+    await agent.post('/api/images/jobs').set('Idempotency-Key', 'clothing-klein').send({ ...payload, settings: { ...settings, model: 'klein4b' } }).expect(400);
+    await agent.post('/api/images/jobs').set('Idempotency-Key', 'clothing-offline').send(payload).expect(503);
+    await connect(agent);
+    const missing = await agent.post('/api/images/jobs').set('Idempotency-Key', 'clothing-missing').send(payload).expect(409);
+    expect(missing.body.missingModels).toHaveLength(4); expect(mock!.submissions).toHaveLength(0);
+    expect(mock!.calls.some(call => /download|\/prompt/.test(call))).toBe(false);
+  });
+  it('freezes a two-image costume edit and sends its exact source-frame timestamp to Remotion', async () => {
+    const agent = await setup(true), motion = await inputs(agent), values = await imageInputs(agent); await connect(agent);
+    const frame = (await agent.post('/api/images/source-frame').send({ sourceId: motion.sourceId, time: .5 }).expect(201)).body;
+    const mask = await agent.post(`/api/images/mask/${frame.id}`).attach('file', image).expect(201);
+    const response = await agent.post('/api/images/jobs').set('Idempotency-Key', 'clothing-once').send({ ...values, sourceId: frame.id, maskId: mask.body.id, faceId: values.referenceId,
+      settings: { ...imageDefaults, qwenRecipe: 'clothing-only', prompt: 'Use the red coat.', localIdentity: true, qwenHeadRefine: true, maskExpand: 64, maskFillHoles: true } }).expect(201);
+    const job = await until(() => local!.store.job(response.body.id)!, j => ['completed', 'failed', 'interrupted'].includes(j.status));
+    expect(job.status).toBe('completed'); expect(job.image).toMatchObject({ version: 'clothing-only-v1', faceId: null, settings: { maskExpand: 0, maskFillHoles: false, localIdentity: false, qwenHeadRefine: false } });
+    expect(job.image!.conditioningPrompt).toContain('Use the red coat.'); expect(job.image!.conditioningPrompt).toContain('preserving their own face');
+    expect(job.title).toContain('Clothing');
+    const graph = (await agent.get(`/api/jobs/${job.id}/workflow`).expect(200)).body;
+    expect(graph['108'].inputs['images.image_3']).toBeUndefined(); expect(graph['108'].inputs.prompt).toBe(job.image!.conditioningPrompt);
+    expect(mock!.submissions).toHaveLength(1);
+    const use = (await agent.post(`/api/images/jobs/${job.id}/use`).send({}).expect(200)).body;
+    expect(use.draft.sourceId).toBe(motion.sourceId); expect(use.draft.settings).toMatchObject({ referencePreparation: 'prepared', referenceTime: .5, imagenRepaint: null, imagenRepaintEnabled: false });
+    expect(use.draft.referenceId).toBe(use.asset.id);
   });
   it('rejects reference crops from another image before downloads or paid submissions', async () => {
     const agent = await setup(), values = await imageInputs(agent);

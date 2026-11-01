@@ -14,6 +14,39 @@ import image_replacement as editor
 
 @unittest.skipUnless(importlib.util.find_spec("cv2"), "Run in .local/geometry-venv for CPU image checks")
 class ImageReplacementTests(unittest.TestCase):
+    def test_clothing_mask_keeps_holes_and_target_identity_pixels_without_using_donor_face(self):
+        import cv2
+        import numpy as np
+        with tempfile.TemporaryDirectory() as temp, patch.object(editor, 'detect', return_value=[]):
+            source, _, request, work = self.fixture(Path(temp))
+            request['version'] = 'clothing-only-v1'
+            request['settings'].update(model='qwen21', faceDetail=False, maskExpand=0, maskFillHoles=False)
+            painted = np.zeros(source.shape[:2], np.uint8); painted[35:85, 15:70] = 255
+            painted[50:60, 30:40] = 0  # A hand/jewelry area deliberately left unpainted.
+            cv2.imwrite(request['mask'], painted)
+            editor.prepare(request, work, None)
+            self.assertTrue((work / 'working-mask.png').is_file())
+            effective = cv2.imread(str(work / 'edit-mask.png'), 0)
+            self.assertFalse(effective[painted == 0].any())
+            self.assertFalse((work / 'face.png').exists())
+            cv2.imwrite(str(work / 'gpu-result.png'), np.full_like(source, 99))
+            reviewed = []
+            def detect(image, _model):
+                reviewed.append(image.copy()); return []
+            with patch.object(editor, 'detect', side_effect=detect):
+                result = editor.finish(request, work, None)
+            np.testing.assert_array_equal(reviewed[1], source)  # Identity comparison uses target, not costume donor.
+            np.testing.assert_array_equal(cv2.imread(str(work / 'final.png'))[painted == 0], source[painted == 0])
+            self.assertEqual(result['outsideMaskMaxDifference'], 0)
+
+    def test_clothing_preparation_declines_identity_passes_and_expanded_masks(self):
+        with tempfile.TemporaryDirectory() as temp:
+            _, _, request, work = self.fixture(Path(temp))
+            request['version'] = 'clothing-only-v1'
+            request['settings'].update(model='qwen21', faceDetail=False, maskExpand=64)
+            with self.assertRaisesRegex(ValueError, 'garment-only mask'):
+                editor.prepare(request, work, None)
+
     def test_segment_face_scope_caps_mask_growth_and_preserves_existing_body_pixels(self):
         import cv2
         import numpy as np

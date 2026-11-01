@@ -11,6 +11,7 @@ import { bodyOnlyStagedPrompts } from '../server/qwen-body-only-staged-workflow'
 import { bodyOnlyHeadPrompt } from '../server/qwen-head-detail-workflow';
 import { sourceHeadBodyOnlyPrompt, sourceHeadBodyConditioningPrompt } from '../shared/image-replacement';
 import { sourceHeadLayoutPrompt } from '../shared/imagen-head-layout';
+import { clothingConditioningPrompt, clothingOnlyPrompt, clothingImageDraft, clothingImageSettings } from '../shared/image-replacement';
 
 const legacyImageDefaults = { ...imageDefaults, model: 'klein4b' as const, qwenRecipe: 'whole-person' as const, prompt: defaultImagePrompt, faceDetail: true, structureStrength: .8, feather: 4, maskExpand: 0, maskFillHoles: false, seed: 20261027 };
 const repo = path.resolve(import.meta.dirname, '../..');
@@ -30,6 +31,35 @@ function fixture(): Job {
     uploads: { source: 'target.png', reference: 'identity.png', face: 'face.png', original: 'original.png', mask: 'mask.png', noiseMask: 'mask.png' }, segments: [], context: '', pendingPrompt: null, error: null, output: null, poster: null, cancelRequested: false, elapsedSeconds: null, origin: 'render', workflow: null };
 }
 describe('source-preserving Klein image replacement', () => {
+  it('creates a garment-only draft without inheriting character, face or full-person mask bindings', () => {
+    const draft = { ...emptyImageDraft(), referenceMode: 'character' as const, characterId: 'saved-person', characterRevision: 3, sourceId: 'target', referenceId: 'body-sheet', faceId: 'head-sheet', maskId: 'person-mask' };
+    const next = clothingImageDraft(draft);
+    expect(next).toMatchObject({ sourceId: 'target', referenceMode: 'images', referenceId: null, faceId: null, maskId: null, characterId: null, characterRevision: null,
+      settings: { model: 'qwen21', qwenRecipe: 'clothing-only', maskExpand: 0, maskFillHoles: false, faceDetail: false, localIdentity: false, protectBackground: true, prompt: clothingOnlyPrompt } });
+    expect(draft.faceId).toBe('head-sheet');
+    expect(clothingImageDraft({ ...draft, referenceMode: 'images', referenceId: 'outfit-photo' }).referenceId).toBe('outfit-photo');
+    expect(clothingConditioningPrompt(sourceHeadBodyOnlyPrompt)).toBe(clothingOnlyPrompt);
+    expect(clothingConditioningPrompt('Keep the coat open.')).toContain('Additional clothing requirements: Keep the coat open.');
+    expect(imageSettingsSchema.parse({ qwenRecipe: 'clothing-only' }).prompt).toBe(clothingOnlyPrompt);
+  });
+  it('compiles clothing transfer with two ordered references and preserves the garment mask without identity passes', () => {
+    const job = fixture(); job.image = { ...job.image!, version: 'clothing-only-v1', settings: clothingImageSettings(), faceId: null, conditioningPrompt: clothingConditioningPrompt('Use the full dress.') };
+    const graph = compileWorkflow({}, job);
+    expect(validateGraph(graph, catalog)).toEqual([]);
+    expect(graph['108'].inputs).toMatchObject({ 'images.image_1': ['1', 0], 'images.image_2': ['4', 0], prompt: job.image.conditioningPrompt });
+    expect(graph['108'].inputs['images.image_3']).toBeUndefined();
+    expect(graph['118'].inputs).toMatchObject({ steps: 8, cfg: 1 });
+    expect(Object.values(graph).filter(n => n.class_type === 'KSampler')).toHaveLength(1);
+    expect(Object.values(graph).filter(n => n.class_type === 'LoraLoaderModelOnly').map(n => n.inputs.lora_name)).toEqual(['qwen_image_2.1_turbo_lora_avg_rank_178_bf16.safetensors']);
+    expect(graph['131'].inputs).toMatchObject({ destination: ['128', 0], source: ['127', 0], mask: ['130', 0] });
+    expect(imageFilesForSettings(job.image.settings)).toHaveLength(4);
+    job.image.settings.qwenQuality = 'quality';
+    const native = compileWorkflow({}, job);
+    expect(native['118'].inputs.steps).toBe(40); expect(native['105']).toBeUndefined();
+    expect(imageFilesForSettings(job.image.settings)).toHaveLength(3);
+    delete job.image.conditioningPrompt;
+    expect(() => compileWorkflow({}, job)).toThrow('frozen clothing instructions');
+  });
   it('freezes source scale and pose instructions only for the new native recipe', () => {
     const job = fixture(); job.image!.settings = { ...imageDefaults };
     const layout = { version: 'source-head-layout-v1' as const, status: 'available' as const, rollDegrees: -12, noseOffset: .3 };

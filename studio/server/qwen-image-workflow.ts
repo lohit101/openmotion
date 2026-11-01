@@ -5,10 +5,12 @@ import { compileQwenSceneWorkflow } from './qwen-scene-workflow';
 import { compileQwenNativeWorkflow } from './qwen-native-workflow';
 import { compileQwenIdentityWorkflow } from './qwen-identity-workflow';
 import { compileQwenBodyOnlyWorkflow } from './qwen-body-only-workflow';
+import { compileQwenClothingWorkflow } from './qwen-clothing-workflow';
 
 /** Trained whole-person adapter, using its scene-first/person-second contract. */
 export function compileQwenImageWorkflow(job: Job): Graph {
   if (!job.image || !job.uploads) throw new Error('Qwen image inputs have not been prepared.');
+  if (job.image.version === 'clothing-only-v1') return compileQwenClothingWorkflow(job);
   if (job.image.version?.startsWith('body-only-')) return compileQwenBodyOnlyWorkflow(job);
   if (['body-identity-v1', 'body-identity-v2'].includes(job.image.version || '')) return compileQwenBodyWorkflow(job);
   if (['identity-first-v1', 'identity-first-v2'].includes(job.image.version || '')) return compileQwenIdentityWorkflow(job);

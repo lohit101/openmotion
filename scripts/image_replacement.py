@@ -186,6 +186,10 @@ def prepare(request, folder, model):
         return {"hasFace": previous["hasFace"], "warnings": previous["warnings"], **{key: previous[key] for key in ('headEdit', 'headLayout') if key in previous}}
     source, reference = read_image(request["source"]), read_image(request["reference"])
     g, s = request["geometry"], request["settings"]
+    clothing_only = request.get('version') == 'clothing-only-v1'
+    if clothing_only and (not s.get('protectBackground') or s.get('maskExpand', 0) or s.get('maskFillHoles', False)
+                          or any(s.get(key, False) for key in ('faceDetail', 'identityRefine', 'qwenHeadRefine', 'localIdentity', 'qwenRelight', 'qwenSceneIntegration', 'qwenBodyPose', 'qwenNormalizeReference'))):
+        raise ValueError('Clothing replacement requires a garment-only mask without identity passes, mask growth or hole filling.')
     if (source.shape[1], source.shape[0]) != (g["outputWidth"], g["outputHeight"]):
         raise ValueError("The target's decoded orientation differs from its saved dimensions. Export an upright PNG and upload it again.")
     local_identity = s.get('localIdentity', False)
@@ -317,7 +321,7 @@ def prepare(request, folder, model):
             mask = np.minimum(mask, cv2.GaussianBlur(mask, (0, 0), max(.1, s["feather"] / 2)))
         atomic_png(folder / "edit-mask.png", mask)
         outputs.append("edit-mask.png")
-        if scene or body_identity or body_only or request.get("version") in ["masked-latent-v2", "masked-latent-v3", "masked-latent-v4", "native-mask-v1", "native-scene-v1", "identity-first-v1", "identity-first-v2"]:
+        if clothing_only or scene or body_identity or body_only or request.get("version") in ["masked-latent-v2", "masked-latent-v3", "masked-latent-v4", "native-mask-v1", "native-scene-v1", "identity-first-v1", "identity-first-v2"]:
             small_mask = cv2.resize(mask, (g["contentWidth"], g["contentHeight"]), interpolation=cv2.INTER_AREA)
             working_mask = cv2.copyMakeBorder(small_mask, g["y"], g["height"] - g["contentHeight"] - g["y"], g["x"], g["width"] - g["contentWidth"] - g["x"], cv2.BORDER_CONSTANT, value=0)
             atomic_png(folder / "working-mask.png", working_mask)
@@ -543,6 +547,10 @@ def finish(request, folder, model):
     settings = request["settings"]
     face_used = (settings.get("model") != "qwen21" and (settings["faceDetail"] or settings.get("identityRefine", False))) or (request.get("version") in ("scene-anchor-v1", "scene-anchor-v2", "scene-anchor-v3", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7", "scene-anchor-v8", "native-mask-v1", "native-scene-v1", "identity-first-v1", "identity-first-v2", "body-identity-v1", "body-identity-v2") and settings.get("qwenHeadRefine", False))
     reference_file = (str(folder / 'face.png') if request.get('version') in ('body-only-v2', 'body-only-v3', 'body-only-v4', 'body-only-v5', 'body-only-v6', 'body-only-v7', 'body-only-v8') else request.get("face") if face_used or request.get('version') == 'body-only-v1' else None) or request["reference"]
+    if request.get('version') == 'clothing-only-v1':
+        # The outfit donor is never an identity reference; review the original
+        # target face against the edited target even for headless garment photos.
+        reference_file = str(folder / 'original.png')
     if request.get('version') in ('body-only-single-v1', 'body-only-single-v2', 'body-only-single-v3'):
         reference_file = str(folder / 'identity.png')
     if request.get("version") in ("native-mask-v1", "native-scene-v1", "identity-first-v1", "identity-first-v2", "scene-anchor-v4", "scene-anchor-v5", "scene-anchor-v6", "scene-anchor-v7", "scene-anchor-v8", "body-identity-v1", "body-identity-v2") and face_used:

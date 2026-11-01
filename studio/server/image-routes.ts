@@ -11,7 +11,7 @@ import type { Runner } from './runner';
 import type { CloudManager } from './cloud';
 import type { ModelManager } from './models';
 import { command, ingest, probe } from './media';
-import { bodyOnlyConditioningPrompt, sourceHeadBodyConditioningPrompt, imageDraftSchema, imageGeometry, isImageJob, referenceViewIssue } from '../shared/image-replacement';
+import { bodyOnlyConditioningPrompt, sourceHeadBodyConditioningPrompt, clothingConditioningPrompt, imageDraftSchema, imageGeometry, isImageJob, referenceViewIssue } from '../shared/image-replacement';
 import { imageFilesForSettings } from '../shared/models';
 import { defaults, type Asset, type Job } from '../shared/types';
 import { characterForImage } from './characters';
@@ -56,7 +56,18 @@ export function registerImageRoutes(app: Express, store: Store, connection: Conn
     const value = imageDraftSchema.parse(req.body), key = req.get('Idempotency-Key');
     if (!key || key.length > 120) return void res.status(400).json({ error: 'An image request ID is required.' });
     const previous = store.byKey(key); if (previous) return void res.status(isImageJob(previous) ? 200 : 409).json(isImageJob(previous) ? publicJob(previous) : { error: 'This request ID was used for another workflow.' });
-    if (!value.sourceId || !value.referenceId) throw new Error('Add a target image and an identity reference.');
+    const clothingOnly = value.settings.qwenRecipe === 'clothing-only';
+    if (!value.sourceId || !value.referenceId) throw new Error(clothingOnly ? 'Add a target photo and a clothing reference.' : 'Add a target image and an identity reference.');
+    if (clothingOnly) {
+      if (value.settings.model !== 'qwen21') throw new Error('Clothing replacement requires Qwen 2.1.');
+      if (value.referenceMode !== 'images') throw new Error('Use a clothing reference image for clothing replacement.');
+      if (!value.settings.protectBackground) throw new Error('Paint the garments to change and keep background protection on.');
+      value.faceId = null; value.characterId = null; value.characterRevision = null;
+      Object.assign(value.settings, { bodyOnlyStrategy: 'native', bodyOnlyReuseId: null, bodyOnlyPose: false, bodyReferenceView: null, faceReferenceView: null,
+        qwenHeadRefine: false, structureStrength: 0, repairMaskGaps: false, localIdentity: false, qwenIdentityGuide: false, qwenBodyPose: false,
+        qwenNormalizeReference: false, qwenRelight: false, qwenSceneIntegration: false, qwenLayoutOnly: false, qwenEdgeOnly: false,
+        faceDetail: false, identityRefine: false, maskExpand: 0, maskFillHoles: false });
+    }
     const bodyOnly = value.settings.model === 'qwen21' && value.settings.qwenRecipe === 'body-only';
     const character = characterForImage(store, value);
     if (character && (!bodyOnly || value.settings.bodyOnlyStrategy !== 'native')) throw new Error('Saved characters currently use the native source-clothing recipe.');
@@ -109,10 +120,10 @@ export function registerImageRoutes(app: Express, store: Store, connection: Conn
     const missing = imageFilesForSettings(value.settings).filter(id => models.state.files.find(file => file.id === id)?.status !== 'installed');
     if (missing.length) return void res.status(409).json({ error: 'Use Download Imagen to prepare the selected image files first.', missingModels: missing });
     const settings = { ...value.settings }; if (settings.randomSeed) settings.seed = randomInt(0, 0xffffffff);
-    const title = source.sourceFrame ? `Frame ${source.sourceFrame.time.toFixed(2)}s / Imagen` : source.name.replace(/\.[^.]+$/, '').slice(0, 80) + ' / Imagen';
+    const title = (source.sourceFrame ? `Frame ${source.sourceFrame.time.toFixed(2)}s / Imagen` : source.name.replace(/\.[^.]+$/, '').slice(0, 80) + ' / Imagen') + (clothingOnly ? ' · Clothing' : '');
     const job: Job = { id: randomUUID(), title, status: 'queued', mediaType: 'image',
       sourceId: value.sourceId, referenceId: value.referenceId, settings: { ...defaults, prompt: settings.prompt, seed: settings.seed, randomSeed: settings.randomSeed },
-      image: { version: bodyOnly ? settings.bodyOnlyStrategy === 'detail' ? 'body-only-v6' : settings.bodyOnlyStrategy === 'staged' ? 'body-only-v4' : !value.faceId ? 'body-only-single-v3' : 'body-only-v8' : settings.model === 'qwen21' && settings.qwenRecipe === 'body-identity' ? (settings.qwenBodyPose ? 'body-identity-v2' : 'body-identity-v1') : native ? (settings.qwenRecipe === 'identity-first' ? (settings.localIdentity ? 'identity-first-v2' : 'identity-first-v1') : settings.qwenRecipe === 'native-scene' ? 'native-scene-v1' : 'native-mask-v1') : scene ? (settings.qwenIdentityGuide ? 'scene-anchor-v8' : settings.qwenLayoutOnly || settings.localIdentity ? 'scene-anchor-v7' : settings.qwenEdgeOnly ? 'scene-anchor-v6' : settings.qwenRelight ? 'scene-anchor-v5' : settings.qwenNormalizeReference ? 'scene-anchor-v4' : 'scene-anchor-v3') : 'masked-latent-v4', ...(bodyOnly ? { ...(character ? { character } : {}), conditioningPrompt: !value.faceId ? sourceHeadBodyConditioningPrompt(settings.prompt, true) : settings.bodyOnlyStrategy === 'detail' ? bodyOnlyDetailBodyPrompt(settings.prompt) : settings.bodyOnlyStrategy === 'native' ? sourceHeadBodyConditioningPrompt(settings.prompt) : bodyOnlyConditioningPrompt(settings.prompt), ...(settings.bodyOnlyStrategy === 'staged' ? { stagedPrompts: bodyOnlyStagedPrompts(settings.prompt) } : {}), ...(settings.bodyOnlyStrategy === 'detail' ? { headPrompt: bodyOnlyHeadPrompt, ...(reusedBody ? { reusedBody } : {}) } : {}) } : {}), settings, faceId: value.faceId, maskId: value.maskId, geometry }, width: geometry.width, height: geometry.height, outputSize: { width: source.width, height: source.height },
+      image: { version: clothingOnly ? 'clothing-only-v1' : bodyOnly ? settings.bodyOnlyStrategy === 'detail' ? 'body-only-v6' : settings.bodyOnlyStrategy === 'staged' ? 'body-only-v4' : !value.faceId ? 'body-only-single-v3' : 'body-only-v8' : settings.model === 'qwen21' && settings.qwenRecipe === 'body-identity' ? (settings.qwenBodyPose ? 'body-identity-v2' : 'body-identity-v1') : native ? (settings.qwenRecipe === 'identity-first' ? (settings.localIdentity ? 'identity-first-v2' : 'identity-first-v1') : settings.qwenRecipe === 'native-scene' ? 'native-scene-v1' : 'native-mask-v1') : scene ? (settings.qwenIdentityGuide ? 'scene-anchor-v8' : settings.qwenLayoutOnly || settings.localIdentity ? 'scene-anchor-v7' : settings.qwenEdgeOnly ? 'scene-anchor-v6' : settings.qwenRelight ? 'scene-anchor-v5' : settings.qwenNormalizeReference ? 'scene-anchor-v4' : 'scene-anchor-v3') : 'masked-latent-v4', ...(clothingOnly ? { conditioningPrompt: clothingConditioningPrompt(settings.prompt) } : {}), ...(bodyOnly ? { ...(character ? { character } : {}), conditioningPrompt: !value.faceId ? sourceHeadBodyConditioningPrompt(settings.prompt, true) : settings.bodyOnlyStrategy === 'detail' ? bodyOnlyDetailBodyPrompt(settings.prompt) : settings.bodyOnlyStrategy === 'native' ? sourceHeadBodyConditioningPrompt(settings.prompt) : bodyOnlyConditioningPrompt(settings.prompt), ...(settings.bodyOnlyStrategy === 'staged' ? { stagedPrompts: bodyOnlyStagedPrompts(settings.prompt) } : {}), ...(settings.bodyOnlyStrategy === 'detail' ? { headPrompt: bodyOnlyHeadPrompt, ...(reusedBody ? { reusedBody } : {}) } : {}) } : {}), settings, faceId: value.faceId, maskId: value.maskId, geometry }, width: geometry.width, height: geometry.height, outputSize: { width: source.width, height: source.height },
       createdAt: new Date().toISOString(), favorite: false, deleted: false, progress: { stage: 'Queued for Imagen', node: null, value: null, max: null, unit: 'steps', segment: 1, segments: 1, completedFrames: 0, targetFrames: 1, updatedAt: Date.now() },
       segments: [], context: '', pendingPrompt: null, uploads: null, error: null, output: null, poster: null, cancelRequested: false, elapsedSeconds: null, origin: 'render', workflow: null };
     store.addJob(job, key); res.status(201).json(publicJob(job)); void runner.kick();

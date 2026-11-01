@@ -1,0 +1,56 @@
+{
+  "feature": "Imagen clothing-only replacement",
+  "recipe": "clothing-only-v1",
+  "date": "2026-11-01",
+  "referenceContract": {
+    "image1": "Target identity, hair, physique, pose, framing and scene",
+    "image2": "Garments only; worn outfits and headless garment references accepted",
+    "faceReviewReference": "Original target, not the outfit donor"
+  },
+  "implementation": {
+    "model": "Existing Qwen Image 2.1 INT8",
+    "steps": { "fast": 8, "native": 40 },
+    "requiredFiles": { "fast": 4, "native": 3 },
+    "newWeights": 0,
+    "identityPasses": 0,
+    "maskExpansion": 0,
+    "fillProtectedHoles": false,
+    "unpaintedPixels": "Restored exactly from the original target before PNG output",
+    "remotion": "Explicit Use in Remotion retains source video/frame time and prepared-frame provenance; no costume-donor identity refresh is enabled"
+  },
+  "checks": {
+    "studio": { "files": 44, "passed": 528 },
+    "cpuImageChecks": { "passed": 29 },
+    "typescript": "passed",
+    "frontendAndBackendBuild": "passed",
+    "diffWhitespace": "passed",
+    "coverage": [
+      "Image reference ordering, frozen instructions and missing-prompt refusal",
+      "Minimal model requirements and no identity adapter in the clothing graph",
+      "Offline/missing-model admission without downloads or paid submissions",
+      "Server normalization of stale identity/mask-growth flags",
+      "Mocked complete job, workflow export and exact-time Remotion handoff",
+      "CPU mask-hole protection and exact original pixels outside the garment mask",
+      "Target-face review with a headless costume donor"
+    ],
+    "nativeUI": "Updated app opened; Clothing-mode interactions were not completed because the user took control of Chrome during their active video. No user draft was changed for UI testing.",
+    "gpuVisualQuality": "Not tested; user requested immediate UI access for their own test"
+  },
+  "deployment": {
+    "deployedAt": "2026-11-01T16:23:21.726195+00:00",
+    "savedJobsUnchanged": 337,
+    "draftsUnchanged": true,
+    "engineReconnected": true,
+    "gpuResumed": false,
+    "paidAgentTests": 0,
+    "remoteInstalls": 0,
+    "modelDownloads": 0,
+    "subsequentUserRender": "caf96d44-d198-415b-b486-fce18ec3dee5",
+    "furtherBackendReloads": 0
+  },
+  "limitations": [
+    "The generative garment fit, fabric/logo fidelity, occlusions and pose still require visual review.",
+    "Protection applies to unpainted pixels; painted skin or face is not semantically locked.",
+    "No claim of perfect costume transfer or measured new inference speed."
+  ]
+}
