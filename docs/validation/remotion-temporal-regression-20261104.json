@@ -1,0 +1,174 @@
+{
+  "date": "2026-11-04",
+  "instanceId": 58966215,
+  "gpu": "A100-SXM4-40GB",
+  "status": "rejected-regression",
+  "userRejected": [
+    "face cutout flicker",
+    "apparent scale changes",
+    "eyes/lips over foreground hand"
+  ],
+  "productionIdentityChanges": false,
+  "newRentals": 0,
+  "newModelDownloads": 0,
+  "probes": [
+    {
+      "version": "fixed-avatar-geometry-probe-v1",
+      "workerSeconds": 33.96854837499268,
+      "samples": 11,
+      "productionChanges": false
+    },
+    {
+      "version": "fixed-avatar-geometry-probe-v2",
+      "workerSeconds": 21.75361920199066,
+      "samples": 11,
+      "productionChanges": false
+    },
+    {
+      "version": "fixed-avatar-geometry-probe-v3",
+      "workerSeconds": 16.545344525002292,
+      "samples": 11,
+      "productionChanges": false
+    },
+    {
+      "version": "fixed-avatar-geometry-probe-v4",
+      "workerSeconds": 16.73040687700268,
+      "samples": 11,
+      "productionChanges": false
+    },
+    {
+      "version": "fixed-avatar-geometry-probe-v5-native-driver",
+      "workerSeconds": 12.285340492002433,
+      "samples": 11,
+      "productionChanges": false
+    }
+  ],
+  "temporal": {
+    "workerSeconds": 194.19717452200712,
+    "frameRecords": 313,
+    "uncertainHandFramesPreserved": 8,
+    "cases": [
+      {
+        "name": "hand",
+        "frames": 73,
+        "fps": 24,
+        "nativeSourceSHA256": "755ab865a8e04357d1544c4912de60f168894ea1d9903f0e00b7740312212c38",
+        "nativeAnchorDecoding": {
+          "maximumDelta": 2,
+          "medianDelta": 1.0,
+          "pixelExact": false,
+          "note": "Mac/server FFmpeg decode differs by at most two RGB levels; same timestamp and all-pixel comparison checked."
+        },
+        "outputs": {
+          "fixed-finish": {
+            "masterSHA256": "3bca94ca98805dd88598a8fbe8c8bec954cd1ca3e9d30a37015a79aad5a3aa67",
+            "previewSHA256": "ebd38f1386e6d1f6c19c2d7b7effb9e5a0ea3c48be93e12a2595e5d6ca437d6a",
+            "info": {
+              "width": 480,
+              "height": 864,
+              "avg_frame_rate": "24/1",
+              "nb_read_frames": "73"
+            }
+          },
+          "preconditioned-source": {
+            "masterSHA256": "2ffc7f4fb2ce78b24c96b4f1a904ae2554c34ff3ead372d041e73298e262084a",
+            "previewSHA256": "2cf91455eb6d6349131d446c94f04396e9c4b66042fa09a0885fc3f8f824115f",
+            "info": {
+              "width": 480,
+              "height": 864,
+              "avg_frame_rate": "24/1",
+              "nb_read_frames": "73"
+            }
+          }
+        }
+      },
+      {
+        "name": "turn",
+        "frames": 240,
+        "fps": 24,
+        "nativeSourceSHA256": "1ddfe28593ba3604c08c4fd988f29702c925622a8e5ac3603eb7f6b499da993c",
+        "nativeAnchorDecoding": {
+          "maximumDelta": 2,
+          "medianDelta": 1.0,
+          "pixelExact": false,
+          "note": "Mac/server FFmpeg decode differs by at most two RGB levels; same timestamp and all-pixel comparison checked."
+        },
+        "outputs": {
+          "fixed-finish": {
+            "masterSHA256": "3df7238ad3dd5ab0813a5aba1d1ee6f0dab6daf57dc61c59fe7a1e6b08fe78de",
+            "previewSHA256": "bfad24361f2c131b500cfb1e25d6141db20a2441548642e0171ba2de20d52bc5",
+            "info": {
+              "width": 480,
+              "height": 864,
+              "avg_frame_rate": "24/1",
+              "nb_read_frames": "240"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "preSwappedDrivingComparison": {
+    "status": "completed",
+    "promptId": "9b87b8a5-77fb-46bc-bcbf-769e428612bc",
+    "outputSHA256": "ebaa44af68d4f41d50e19b82a6fcdf56cf3945432efdb33a823f16ca32f0c35a",
+    "info": {
+      "width": 480,
+      "height": 864,
+      "r_frame_rate": "24/1",
+      "nb_read_frames": "73"
+    },
+    "observedSeconds": 85.66714811325073,
+    "referenceSHA256": "470508324aaf1576cf3b353e246a1eed1e19231effa8320fe6fb51e5535166ad",
+    "source": {
+      "filename": "bank-source-2ffc7f4fb2ce78b2.mkv",
+      "sha256": "071a58822c7b26a30f64219b3761cbc02e90474f950889ad0d95ddbf730ec975"
+    }
+  },
+  "geometryDiagnostic": {
+    "values": {
+      "current": {
+        "validPairs": 73,
+        "medianEyeSpacingRatioToRaw": 1.0035992440011519,
+        "medianAbsoluteSecondDifference": 0.04143640101692814,
+        "maximumAbsoluteSecondDifference": 0.36146694712500516
+      },
+      "fixed": {
+        "validPairs": 73,
+        "medianEyeSpacingRatioToRaw": 1.009413456645115,
+        "medianAbsoluteSecondDifference": 0.0634142084823448,
+        "maximumAbsoluteSecondDifference": 0.38422021225476066
+      },
+      "pre-Viggle": {
+        "validPairs": 73,
+        "medianEyeSpacingRatioToRaw": 1.0083829077570459,
+        "medianAbsoluteSecondDifference": 0.044033733010772735,
+        "maximumAbsoluteSecondDifference": 0.2997436249201959
+      }
+    },
+    "limitation": "YuNet image-space proxy only; not identity or perceptual accuracy."
+  },
+  "privateSafetyChecks": {
+    "passed": 8,
+    "productionEnabled": false,
+    "realWorldQualityValidated": false
+  },
+  "localOcclusionDiagnostic": {
+    "frames": 73,
+    "seconds": 10.986584207974374,
+    "productionEnabled": false,
+    "qualityPass": false
+  },
+  "confirmedStop": {
+    "confirmedAt": 1793735767.431608,
+    "instance": {
+      "id": 58966215,
+      "state": "exited",
+      "intendedState": "stopped",
+      "computeStopped": true
+    },
+    "idleEnabled": true
+  },
+  "nativePlaybackReviewSucceeded": false,
+  "goalComplete": false
+}
