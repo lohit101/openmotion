@@ -44,7 +44,9 @@ export const QWEN_BODY = 'bfs_body_swap_v1.0_qwen_2.1.safetensors';
 export const QWEN_HEAD = 'bfs_head_v1.1_qwen_2.1.safetensors';
 export const QWEN_OUTFIT = 'qwen-image-2.1-outfit-swap.safetensors';
 export const QWEN_CONSISTENCY = 'qwen-image-2.1-consistency.safetensors';
-export const imageFilesForSettings = (settings: ImageSettings): string[] => settings.model === 'qwen21'
+export const imageFilesForSettings = (settings: ImageSettings): string[] => settings.workflow
+  ? qwenImageModelFiles.filter(file => !file.startsWith('loras/') || settings.qwenQuality === 'fast' && file.includes('turbo_lora'))
+  : settings.model === 'qwen21'
   ? settings.qwenRecipe === 'clothing-only'
     ? qwenImageModelFiles.filter(file => !file.startsWith('loras/') || settings.qwenQuality === 'fast' && file.includes('turbo_lora'))
     : settings.qwenRecipe === 'body-only'

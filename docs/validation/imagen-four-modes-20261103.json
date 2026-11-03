@@ -1,0 +1,59 @@
+{
+  "date": "2026-11-03",
+  "recipe": "imagen-v1",
+  "scope": "New standalone Imagen runs",
+  "modes": ["text-to-image", "body-only", "character-outfit", "clothing-only"],
+  "default": {
+    "model": "Qwen Image 2.1 INT8",
+    "quality": "native base without Turbo LoRA",
+    "steps": 40,
+    "cfg": 1,
+    "sampler": "euler",
+    "scheduler": "simple",
+    "longEdgePixels": 2048,
+    "instructionLanguage": "en",
+    "editableArea": "full image",
+    "protectedScenePixels": false
+  },
+  "fastOption": { "steps": 8, "adapter": "existing Qwen Image 2.1 Turbo LoRA" },
+  "inputCounts": { "text-to-image": 0, "body-only": [2, 3], "character-outfit": [2, 3, 4], "clothing-only": 2 },
+  "validation": {
+    "studioTestsPassed": 553,
+    "studioTestFilesPassed": 46,
+    "pythonImageChecksPassed": 7,
+    "typecheckPassed": true,
+    "productionBuildPassed": true,
+    "historicalImageGraphsCompared": 126,
+    "historicalImageGraphsUnchanged": 126,
+    "nativeUiReview": "Isolated Chrome fixture: four-mode/body layout; complete all-mode interaction review not performed",
+    "automatedModeInputVisibilityPassed": true,
+    "mockIntegrationIsQualityEvidence": false
+  },
+  "deployment": {
+    "deployedAt": "2026-11-03T14:54:14.235029+00:00",
+    "savedJobsUnchanged": 351,
+    "bothDraftsUnchanged": true,
+    "connectionBefore": "offline",
+    "connectionAfter": "offline",
+    "newKleinRequestStatus": 409,
+    "emptyPromptRequestStatus": 400,
+    "invalidRequestsQueuedJobs": 0,
+    "temporaryFixtureStopped": true
+  },
+  "gpuTestsRun": 0,
+  "gpuResumes": 0,
+  "newRentals": 0,
+  "modelDownloads": 0,
+  "remoteInstalls": 0,
+  "newWeightsRequired": 0,
+  "remotionSavedSegmentRecipesChanged": false,
+  "paidOutputsChanged": false,
+  "qualityComparisonStatus": "Pending separate user approval; no new recipe visual quality claim",
+  "limitations": [
+    "Whole-image editing can change scene pixels; prompt preservation is not an exact pixel lock.",
+    "Native 40-step sampling and 2048-pixel output require more work than the eight-step preview.",
+    "No new GPU memory or latency benchmark was performed.",
+    "Chinese has not been demonstrated universally better, faster or smaller in tokens.",
+    "No ChatGPT parity, exact identity fidelity or flawless clothing transfer claim is established."
+  ]
+}

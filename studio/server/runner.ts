@@ -212,7 +212,9 @@ export class Runner {
         this.stage(job, 'Preparing target and identity references');
         const prepared = await this.imageProcessor('prepare', job, this.store, this.repo, folder, signal) as { hasFace: boolean; warnings: string[] };
         job.image!.prepared = prepared; this.save(job); this.checkCancelled(job);
-        const files = [['source', 'target.png'], ['reference', 'identity.png'], ...(prepared.hasFace ? [['face', 'face.png']] : []), ...(job.image!.settings.protectBackground ? [['original', 'original.png'], ['mask', 'edit-mask.png']] : [])];
+        const files = job.image!.version === 'imagen-v1'
+          ? job.image!.settings.workflow === 'text-to-image' ? [] : [['source', 'target.png'], ['reference', 'identity.png'], ...(job.image!.faceId ? [['face', 'face.png']] : []), ...(job.image!.clothingId ? [['clothing', 'clothing.png']] : [])]
+          : [['source', 'target.png'], ['reference', 'identity.png'], ...(prepared.hasFace ? [['face', 'face.png']] : []), ...(job.image!.settings.protectBackground ? [['original', 'original.png'], ['mask', 'edit-mask.png']] : [])];
         const g = job.image!.geometry, nativeMask = g.width === g.outputWidth && g.height === g.outputHeight && g.x === 0 && g.y === 0;
         if (job.image!.version && job.image!.settings.protectBackground && !nativeMask) files.push(['noiseMask', 'working-mask.png']);
         if (['masked-latent-v3', 'masked-latent-v4'].includes(job.image!.version || '') && job.image!.settings.identityRefine) files.push(['faceMask', 'face-refine-mask.png']);
@@ -385,7 +387,7 @@ export class Runner {
       }
       this.checkCancelled(job);
       if (isImageJob(job)) {
-        this.stage(job, 'Preserving scene pixels and preparing face review');
+        this.stage(job, job.image?.version === 'imagen-v1' ? 'Saving the native-resolution photograph' : 'Preserving scene pixels and preparing face review');
         job.image!.review = await this.imageProcessor('finish', job, this.store, this.repo, folder, signal) as ImageReview;
         job.output = path.join(folder, 'final.png'); job.poster = path.join(folder, 'poster.jpg'); await poster(job.output, job.poster);
         job.status = 'completed'; job.finishedAt = new Date().toISOString(); job.elapsedSeconds = (Date.parse(job.finishedAt) - Date.parse(job.startedAt!)) / 1000;

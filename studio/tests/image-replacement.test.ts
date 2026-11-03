@@ -117,8 +117,8 @@ describe('source-preserving Klein image replacement', () => {
     expect(conciseBodyConditioningPrompt('Keep the blue buttons.')).toContain('Keep the blue buttons.');
     expect(imageSettingsSchema.parse({ prompt: bodyOnlyPrompt }).prompt).toBe(conciseBodyOnlyPrompt);
   });
-  it('uses the accepted native preset for new photos and newly prepared source frames', () => {
-    expect(emptyImageDraft().settings).toMatchObject(sourceFramePreset);
+  it('keeps historical source-frame profiles while new standalone photos use the whole-image recipe', () => {
+    expect(emptyImageDraft().settings).toMatchObject({ workflow: 'body-only', qwenQuality: 'quality', megapixels: 2, protectBackground: false });
     expect(imageDefaults).toMatchObject({ model: 'qwen21', qwenRecipe: 'body-only', bodyOnlyStrategy: 'native', qwenQuality: 'fast', megapixels: 1, maskExpand: 64, feather: 12, maskFillHoles: true, seed: 1583893113, randomSeed: false });
     const old = { ...legacyImageDefaults, qwenHeadRefine: true, localIdentity: true, bodyOnlyStrategy: 'detail' as const, bodyOnlyReuseId: 'a'.repeat(36), bodyReferenceView: { assetId: 'body', x: 16, y: 2, width: 285, height: 770 }, faceReferenceView: { assetId: 'face', x: 9, y: 4, width: 275, height: 395 } };
     const frame = sourceFrameImageSettings(old);
@@ -268,8 +268,8 @@ describe('source-preserving Klein image replacement', () => {
     expect(imageFilesForSettings(job.image!.settings)).toContain(QWEN_STRUCTURE);
   });
   it('uses a separate draft and only the existing three image models', () => {
-    expect(emptyImageDraft().settings.prompt).toBe(sourceHeadBodyOnlyPrompt);
-    expect(emptyImageDraft().settings.protectBackground).toBe(true);
+    expect(emptyImageDraft().settings.prompt).toBe('');
+    expect(emptyImageDraft().settings.protectBackground).toBe(false);
     expect(imageModelFiles).toHaveLength(3); expect(modelBytes(imageModelFiles)).toBe(12_451_817_860);
     expect(imageModelFiles.some(name => /viggle|SCAIL|lora/i.test(name))).toBe(false);
     expect(isImageJob({ mediaType: undefined })).toBe(false);

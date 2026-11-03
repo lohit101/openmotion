@@ -17,6 +17,7 @@ import { defaults, type Asset, type Job } from '../shared/types';
 import { characterForImage } from './characters';
 import { bodyOnlyStagedPrompts } from './qwen-body-only-staged-workflow';
 import { bodyOnlyDetailBodyPrompt, bodyOnlyHeadPrompt } from './qwen-head-detail-workflow';
+import { createImagenJob, ImagenRequestError } from './imagen-jobs';
 
 const publicAsset = (asset: Asset) => ({ ...asset, path: '', poster: 'ready' });
 export function registerImageRoutes(app: Express, store: Store, connection: ConnectionManager, runner: Runner, cloud: CloudManager, models: ModelManager, repo: string) {
@@ -24,7 +25,7 @@ export function registerImageRoutes(app: Express, store: Store, connection: Conn
   app.get('/api/images/local-identity', async (_req, res) => { res.json(await identityStatus()); });
   const inputs = (ids: (string | null)[]) => { for (const id of ids) if (id && store.asset(id)?.kind !== 'image') throw new Error('Choose readable image inputs for image replacement.'); };
   app.post('/api/images/draft', (req, res) => {
-    const value = imageDraftSchema.parse(req.body); inputs([value.sourceId, value.referenceId, value.faceId, value.maskId]);
+    const value = imageDraftSchema.parse(req.body); inputs([value.sourceId, value.referenceId, value.faceId, value.maskId, value.clothingId || null]);
     if (value.maskId && store.asset(value.maskId)?.maskFor !== value.sourceId) throw new Error('The edit mask belongs to another target. Paint the replacement area again.');
     store.set('image-draft', value); res.json(value);
   });
@@ -56,6 +57,11 @@ export function registerImageRoutes(app: Express, store: Store, connection: Conn
     const value = imageDraftSchema.parse(req.body), key = req.get('Idempotency-Key');
     if (!key || key.length > 120) return void res.status(400).json({ error: 'An image request ID is required.' });
     const previous = store.byKey(key); if (previous) return void res.status(isImageJob(previous) ? 200 : 409).json(isImageJob(previous) ? publicJob(previous) : { error: 'This request ID was used for another workflow.' });
+    if (value.settings.model === 'klein4b') return void res.status(409).json({ error: 'Klein is disabled for new Imagen runs. Choose Qwen Image 2.1.' });
+    if (value.settings.workflow) {
+      try { return void res.status(201).json(publicJob(await createImagenJob(store, connection, runner, cloud, models, value, key))); }
+      catch (error) { if (error instanceof ImagenRequestError) return void res.status(error.status).json({ error: error.message, ...(error.missingModels ? { missingModels: error.missingModels } : {}) }); throw error; }
+    }
     const clothingOnly = value.settings.qwenRecipe === 'clothing-only';
     if (!value.sourceId || !value.referenceId) throw new Error(clothingOnly ? 'Add a target photo and a clothing reference.' : 'Add a target image and an identity reference.');
     if (clothingOnly) {

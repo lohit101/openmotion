@@ -17,7 +17,7 @@ export function moduleDownloadPlan(module:'clarity'):ModuleDownloadPlan;
 export function moduleDownloadPlan(module:DownloadModule,settings?:Settings|ImageSettings):ModuleDownloadPlan{
   const files=[...new Set(module==='remotion'?modelFilesForSettings(settings as Settings):module==='imagen'?imageFilesForSettings(settings as ImageSettings):upscaleModelFiles)];
   const image=settings as ImageSettings;
-  const runtimes=module==='remotion'&&usesFacialConsistency(settings as Settings)?['facial:'+facialVersionForSettings(settings as Settings)]:module==='clarity'?['clarity']:module==='imagen'&&image.qwenRecipe!=='clothing-only'?[...(image.localIdentity?['localIdentity']:[]),...(image.qwenRecipe==='body-identity'&&image.qwenBodyPose||image.qwenRecipe==='body-only'&&image.bodyOnlyStrategy==='staged'&&image.bodyOnlyPose?['localPose']:[])]:[];
+  const runtimes=module==='remotion'&&usesFacialConsistency(settings as Settings)?['facial:'+facialVersionForSettings(settings as Settings)]:module==='clarity'?['clarity']:module==='imagen'&&!image.workflow&&image.qwenRecipe!=='clothing-only'?[...(image.localIdentity?['localIdentity']:[]),...(image.qwenRecipe==='body-identity'&&image.qwenBodyPose||image.qwenRecipe==='body-only'&&image.bodyOnlyStrategy==='staged'&&image.bodyOnlyPose?['localPose']:[])]:[];
   return {module,files,runtimes,key:JSON.stringify({module,files:[...files].sort(),runtimes})};
 }
 export function planFromRequest(request:ModuleDownloadRequest){

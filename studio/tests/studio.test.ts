@@ -19,7 +19,7 @@ import { compilePrompt, PROMPT_VERSION } from '../shared/prompts';
 import type { ReferenceGeometry } from '../server/framing';
 import prompts from '../../config/prompts.json';
 import type { Asset, Catalog, Graph, Job, Settings } from '../shared/types';
-import { imageDefaults } from '../shared/image-replacement';
+import { emptyImageDraft, imageDefaults } from '../shared/image-replacement';
 import { fileSHA256 } from '../server/segment-repaint';
 import { ImageFinalizationError } from '../server/image-processing';
 
@@ -79,8 +79,14 @@ async function mockComfy(viggle = false) {
       if (failPhotos) { failPhotos--; history[id] = { prompt: entry, status: { status_str: 'error', messages: [['execution_error', { exception_message: 'Fixture native photo failure' }]] }, outputs: {} }; pending.delete(id); emit(entry[3].client_id, 'executing', { prompt_id: id, node: null }); return; }
       // Protocol only: return the uploaded source, never synthetic model quality.
       const graph = entry[2] as Graph, filename = id + '.png';
-      const source = uploads.get(String((graph['128'] || graph['1']).inputs.image))!;
-      const file = path.join(fixtures, filename); await copyFile(source, file); files.set(filename, file);
+      const file = path.join(fixtures, filename);
+      if (!graph['1'] && graph['109']?.class_type === 'EmptyLatentImage') {
+        await command('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', `color=c=gray:size=${graph['109'].inputs.width}x${graph['109'].inputs.height}`, '-frames:v', '1', file]);
+      } else {
+        const source = uploads.get(String((graph['128'] || graph['1']).inputs.image))!;
+        await copyFile(source, file);
+      }
+      files.set(filename, file);
       history[id] = { prompt: entry, status: { status_str: 'success', completed: true, messages: [] }, outputs: { '46': { images: [{ filename, subfolder: 'recast', type: 'output' }] } } };
       pending.delete(id); emit(entry[3].client_id, 'executing', { prompt_id: id, node: null }); return;
     }
@@ -323,7 +329,7 @@ describe('local app with the captured ComfyUI protocol', () => {
       await copyFile(path.join(folder, 'gpu-result.png'), path.join(folder, 'final.png'));
       return { status: 'review', warnings: [], backgroundProtected: false, outsideMaskMaxDifference: null, sourceFace: false, referenceFace: false, outputFace: false };
     };
-    return { sourceId: source.body.id, referenceId: reference.body.id, faceId: null, maskId: null, settings: { ...imageDefaults, model: 'klein4b' as const, qwenRecipe: 'whole-person' as const, prompt: '', protectBackground: false, faceDetail: false } };
+    return { sourceId: source.body.id, referenceId: reference.body.id, faceId: null, maskId: null, settings: { ...imageDefaults, model: 'qwen21' as const, qwenRecipe: 'whole-person' as const, prompt: '', protectBackground: false, faceDetail: false } };
   }
   it('saves independent image settings offline and never downloads or submits a missing-model request', async () => {
     const agent = await setup(), values = await imageInputs(agent), before = local!.store.draft();
@@ -333,8 +339,31 @@ describe('local app with the captured ComfyUI protocol', () => {
     await agent.post('/api/images/jobs').set('Idempotency-Key', 'image-offline').send(values).expect(503);
     await connect(agent);
     const missing = await agent.post('/api/images/jobs').set('Idempotency-Key', 'image-missing').send(values).expect(409);
-    expect(missing.body.missingModels).toHaveLength(3); expect(mock!.submissions).toHaveLength(0);
+    expect(missing.body.missingModels).toHaveLength(5); expect(mock!.submissions).toHaveLength(0);
     expect(mock!.calls.some(call => /download|\/prompt/.test(call))).toBe(false);
+  });
+  it('runs text-to-image without hidden image uploads and recovers its saved output offline', async () => {
+    const agent = await setup(true); await connect(agent);
+    let fail = true;
+    local!.runner.imageProcessor = async (action, _job, _store, _repo, folder) => {
+      if (action === 'prepare') return { hasFace: false, warnings: [] };
+      if (fail) { fail = false; throw new ImageFinalizationError('Synthetic local export interruption.'); }
+      await copyFile(path.join(folder, 'gpu-result.png'), path.join(folder, 'final.png'));
+      return { status: 'review', warnings: [], backgroundProtected: false, outsideMaskMaxDifference: null, sourceFace: false, referenceFace: false, outputFace: false };
+    };
+    const value = { ...emptyImageDraft(), settings: { ...emptyImageDraft().settings, workflow: 'text-to-image', megapixels: 1, outputAspect: '16:9', prompt: 'A natural landscape photograph.' } };
+    const response = await agent.post('/api/images/jobs').set('Idempotency-Key', 'text-only-once').send(value).expect(201);
+    const saved = await until(() => local!.store.job(response.body.id)!, job => job.status === 'interrupted');
+    expect(saved.progress.completedFrames).toBe(1); await until(() => local!.runner.busy, busy => !busy);
+    expect(mock!.calls.some(call => call === 'POST /upload/image')).toBe(false); expect(mock!.submissions).toHaveLength(1);
+    expect(mock!.submissions[0].prompt['1']).toBeUndefined();
+    local!.connection.disconnect();
+    await agent.post(`/api/jobs/${saved.id}/resume`).send({}).expect(200);
+    const finished = await until(() => local!.store.job(saved.id)!, job => ['completed', 'failed'].includes(job.status));
+    expect(finished.status).toBe('completed'); expect(mock!.submissions).toHaveLength(1);
+    await agent.post('/api/images/jobs').set('Idempotency-Key', 'text-only-once').send(value).expect(200);
+    const use = await agent.post(`/api/images/jobs/${saved.id}/use`).send({}).expect(200);
+    expect(use.body.draft.settings.referencePreparation).toBe('auto');
   });
   it('allows a single native character image but still requires a painted target and GPU readiness', async () => {
     const agent = await setup(), values = await imageInputs(agent);
@@ -352,7 +381,8 @@ describe('local app with the captured ComfyUI protocol', () => {
     expect(bad.body.error).toContain('Paint the garments'); expect(mock!.calls).toEqual([]);
     const mask = await agent.post(`/api/images/mask/${values.sourceId}`).attach('file', image).expect(201);
     const payload = { ...values, maskId: mask.body.id, settings };
-    await agent.post('/api/images/jobs').set('Idempotency-Key', 'clothing-klein').send({ ...payload, settings: { ...settings, model: 'klein4b' } }).expect(400);
+    const disabled = await agent.post('/api/images/jobs').set('Idempotency-Key', 'clothing-klein').send({ ...payload, settings: { ...settings, model: 'klein4b' } }).expect(409);
+    expect(disabled.body.error).toContain('Klein is disabled');
     await agent.post('/api/images/jobs').set('Idempotency-Key', 'clothing-offline').send(payload).expect(503);
     await connect(agent);
     const missing = await agent.post('/api/images/jobs').set('Idempotency-Key', 'clothing-missing').send(payload).expect(409);
