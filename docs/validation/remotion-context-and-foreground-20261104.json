@@ -1,0 +1,52 @@
+{
+  "date": "2026-11-04",
+  "qualityAccepted": false,
+  "productionRecipeChanged": false,
+  "newRental": false,
+  "budget": {
+    "capUSD": 2,
+    "conservativeAllocatedUSD": 1.992392182303748,
+    "notInvoice": true,
+    "includesTransferReserveUSD": 0.05,
+    "includesOvernightStorageReserveUSD": 0.08,
+    "noFurtherPaidTesting": true
+  },
+  "compute": {
+    "confirmedStopped": true,
+    "state": "exited",
+    "intendedState": "stopped",
+    "idleEnabled": true
+  },
+  "checks": {
+    "mask": {
+      "complete": true,
+      "frames": 73,
+      "seconds": 10.882525685010478,
+      "receiptSHA256": "b4872b69569b7abecc73b56cc7cb96b3da810f291ee2966ec6e43863f851d5dc"
+    },
+    "face": {
+      "complete": true,
+      "frames": 73,
+      "seconds": 64.99253875399882,
+      "receiptSHA256": "e3bceeed6fa8cefb39daf3b7fb83c82884b26a464ddd1d198bb5626f7b3f8a9f"
+    }
+  },
+  "recovery": {
+    "verifiedFiles": 141,
+    "archiveBytes": 19537924,
+    "fullMp4sRecovered": 2,
+    "allFaceLayersRecovered": false
+  },
+  "pending": [
+    "Full matched-scene CPU turn video",
+    "Temporal edge/performance review",
+    "Production tracking and per-shot integration",
+    "General identity and occlusion validation"
+  ],
+  "rejected": [
+    "Hard appearance-view switching",
+    "Whole-shot static viewport",
+    "Fixed studio-neutral expression on held-out smiles",
+    "NORMAL_CLONE chin seam correction"
+  ]
+}
