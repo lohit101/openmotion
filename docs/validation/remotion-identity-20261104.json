@@ -1,0 +1,307 @@
+{
+  "date": "2026-11-04",
+  "scope": "Same existing GPU; short difficult openings and identity-reference comparisons. No production identity recipe selected.",
+  "instanceId": 58966215,
+  "gpu": "NVIDIA A100-SXM4-40GB",
+  "newRentals": 0,
+  "newModelDownloads": 0,
+  "newWeightBytes": 0,
+  "modelFamily": "Existing Viggle INT8 + matching DMD; existing Qwen Image 2.1; existing Standard/ONNX facial worker",
+  "sourceCases": [
+    {
+      "sourceSHA256": "36bbf507bfea1aaf8493fbc64fd414d874aab690f995ccd4b000e7cfa015afc0",
+      "referenceSHA256": "1eefb82ef6daf7ae97393b81f74b50e95bd5fa63ca411dd6186bf42b5e8b911f",
+      "frames": 73,
+      "width": 480,
+      "height": 864,
+      "detectableFrames": 64,
+      "case": "hand"
+    },
+    {
+      "sourceSHA256": "375524505408296cf27cd016df1d7682d3e3c7ed6db701371ad5eb19aa8c1749",
+      "referenceSHA256": "5f7f94b9af2178deee1ba536263d9f7cae9d16085d0d8484216eb7e4d8695131",
+      "frames": 73,
+      "width": 480,
+      "height": 864,
+      "detectableFrames": 60,
+      "case": "rear"
+    }
+  ],
+  "nativeComparisons": [
+    {
+      "case": "hand",
+      "mode": "baseline",
+      "quality": "balanced",
+      "status": "completed",
+      "nativeSeconds": 39.1,
+      "observedSeconds": 45.904,
+      "outputSHA256": "f4d1203ce25e85cf496ef51b8f6036a6fe31d4e05b5469c03c85c56aad169a78",
+      "name": "hand-balanced"
+    },
+    {
+      "case": "hand",
+      "mode": "full-guide",
+      "quality": "balanced",
+      "status": "completed",
+      "nativeSeconds": 80.105,
+      "observedSeconds": 84.125,
+      "outputSHA256": "4030e5f5f07281f55a861ff7e39d89ab0d99ecde010f69ca90a5b15ab48c8bee",
+      "name": "hand-covered-full-guide"
+    },
+    {
+      "case": "hand",
+      "mode": "scoped-guide",
+      "quality": "balanced",
+      "status": "completed",
+      "nativeSeconds": 41.711,
+      "observedSeconds": 46.412,
+      "outputSHA256": "38020acfe36aeaad4dabf0d4aae6a72b907d4dad501d4c19533e112c300a5436",
+      "name": "hand-covered-scoped-early"
+    },
+    {
+      "case": "hand",
+      "mode": "scoped-guide",
+      "quality": "balanced",
+      "status": "completed",
+      "nativeSeconds": 41.139,
+      "observedSeconds": 46.232,
+      "outputSHA256": "2281ae2eb3bb238e0718477061a4f42357358e5a7251a868f6a162fc2745ab3c",
+      "name": "hand-covered-scoped-late"
+    },
+    {
+      "case": "hand",
+      "mode": "baseline",
+      "quality": "balanced",
+      "status": "completed",
+      "nativeSeconds": 46.483,
+      "observedSeconds": 52.778,
+      "outputSHA256": "4ebd423de3c13dab2c7f523c8ffa66c20a12984fb94d4165d2b9987d4825dbbf",
+      "name": "hand-covered-start"
+    },
+    {
+      "case": "hand",
+      "mode": "baseline",
+      "quality": "fast",
+      "status": "completed",
+      "nativeSeconds": 66.16,
+      "observedSeconds": 83.07,
+      "outputSHA256": "6dcfc94301c77cc55d51a2abebfcb85d4d8f2562ee7c3aaaaf488366e49345f5",
+      "name": "hand-fast"
+    },
+    {
+      "case": "hand",
+      "mode": "residual",
+      "quality": "balanced",
+      "status": "completed",
+      "nativeSeconds": 40.314,
+      "observedSeconds": 46.85,
+      "outputSHA256": "662266421d851d4be04e0ca262c6d5f40334e5171afa5607faee40d5bf83b16a",
+      "name": "hand-multiview20"
+    },
+    {
+      "case": "hand",
+      "mode": "residual",
+      "quality": "balanced",
+      "status": "completed",
+      "nativeSeconds": 40.877,
+      "observedSeconds": 45.998,
+      "outputSHA256": "c4def9c870002c9d8850d982f548498f2f81cb7ddd3cde7b957d859babe5c689",
+      "name": "hand-multiview50"
+    },
+    {
+      "case": "hand",
+      "mode": "baseline",
+      "quality": "balanced",
+      "status": "completed",
+      "nativeSeconds": 22.598,
+      "observedSeconds": 27.072,
+      "outputSHA256": "554ce8e57681a6a0b65ebc22f6b4242967b89bd6a442463b429b89e1eefdffea",
+      "name": "hand-newref-back"
+    },
+    {
+      "status": "assembled",
+      "name": "hand-newref-bidirectional"
+    },
+    {
+      "case": "hand",
+      "mode": "baseline",
+      "quality": "balanced",
+      "status": "completed",
+      "nativeSeconds": 22.648,
+      "observedSeconds": 26.335,
+      "outputSHA256": "d4bd69ca9865d8cd77d2e814730e6df28a0e7a913c7f9c83a49deb8be115f5ed",
+      "name": "hand-newref-forward"
+    },
+    {
+      "case": "hand",
+      "mode": "baseline",
+      "quality": "balanced",
+      "status": "completed",
+      "nativeSeconds": 39.825,
+      "observedSeconds": 44.517,
+      "outputSHA256": "482f437136c79af07575cb264b405a82d977a61a7e8998f726bc626a8e26f3be",
+      "name": "hand-newref-full"
+    },
+    {
+      "case": "hand",
+      "mode": "residual",
+      "quality": "balanced",
+      "status": "completed",
+      "nativeSeconds": 39.707,
+      "observedSeconds": 49.004,
+      "outputSHA256": "9a405d111b33e7c29e147b385dc58bcba544df239fa53fc6bef59f6de520d517",
+      "name": "hand-residual10"
+    },
+    {
+      "case": "rear",
+      "mode": "baseline",
+      "quality": "balanced",
+      "status": "completed",
+      "nativeSeconds": 46.145,
+      "observedSeconds": 50.519,
+      "outputSHA256": "11efab9a90c134c5d873029d9edff01a1ee9388b2f632393c52eb7627075c36a",
+      "name": "rear-balanced"
+    },
+    {
+      "case": "rear",
+      "mode": "residual",
+      "quality": "balanced",
+      "status": "completed",
+      "nativeSeconds": 39.358,
+      "observedSeconds": 42.657,
+      "outputSHA256": "d2e41aaa372c936b73a9513ac0a0ca5db20ec542167ad8ac70231f817888c58d",
+      "name": "rear-residual20"
+    },
+    {
+      "case": "rear",
+      "mode": "baseline",
+      "quality": "balanced",
+      "status": "completed",
+      "nativeSeconds": 45.871,
+      "observedSeconds": 51.577,
+      "outputSHA256": "cf3a51212c7b8053e958d299a518cb84621d2f9f1270bdf8cb3ed181ed7d1383",
+      "name": "rear-reverse"
+    }
+  ],
+  "photos": [
+    {
+      "jobId": "6bdeaa91-2563-4786-bb6a-e3c5d8ee3eef",
+      "elapsedSeconds": 44.606,
+      "status": "completed",
+      "name": "quality"
+    },
+    {
+      "jobId": "28fb88fb-beba-43ba-9a2b-54a5745926a1",
+      "elapsedSeconds": 16.438,
+      "status": "completed",
+      "name": "fast"
+    },
+    {
+      "jobId": "e1a4d872-e9ca-4f07-a6c8-7f6f00915dfc",
+      "elapsedSeconds": 51.835,
+      "status": "completed",
+      "name": "hair"
+    },
+    {
+      "jobId": "6466a4d2-58cf-489b-87a2-397d05b29f13",
+      "elapsedSeconds": 20.64,
+      "status": "completed",
+      "name": "covered"
+    }
+  ],
+  "managedAppTest": {
+    "jobId": "9e2b4739-0e5b-454e-aaef-17f0753c5904",
+    "frames": 73,
+    "totalSeconds": 249.707,
+    "faceWorkerSeconds": 48.92015354199975,
+    "refinedFrames": 65,
+    "skippedFrames": 8,
+    "calibration": "skipped: anchor-eyes-not-visible",
+    "visualPass": false
+  },
+  "reusedVideoFinishing": [
+    {
+      "baseComparison": "hand-covered-start",
+      "complete": true,
+      "version": "source-face-v10",
+      "workerSeconds": 49.27425645499898,
+      "refinedFrames": 64,
+      "skippedFrames": 9,
+      "calibration": "active",
+      "anchorFrame": 36,
+      "baseSHA256": "4ebd423de3c13dab2c7f523c8ffa66c20a12984fb94d4165d2b9987d4825dbbf",
+      "sourceSHA256": "36bbf507bfea1aaf8493fbc64fd414d874aab690f995ccd4b000e7cfa015afc0",
+      "referenceSHA256": "580239ef95649c7ac7215f7b4365ce937ef373e0ad52c83b78c7765a4f5ad72d",
+      "outputSHA256": "74110e9011955f74bb215db07a478bbefe38cf5faa7d727c8fb4884234c96963",
+      "visualResult": "Closer sampled blinks and mouth openings; softens fine detail. Native motion timing and changing facial structure remain. No general quality pass."
+    },
+    {
+      "baseComparison": "hand-covered-full-guide",
+      "complete": true,
+      "version": "source-face-v10",
+      "workerSeconds": 51.44930994599417,
+      "refinedFrames": 65,
+      "skippedFrames": 8,
+      "calibration": "active",
+      "anchorFrame": 36,
+      "baseSHA256": "4030e5f5f07281f55a861ff7e39d89ab0d99ecde010f69ca90a5b15ab48c8bee",
+      "sourceSHA256": "36bbf507bfea1aaf8493fbc64fd414d874aab690f995ccd4b000e7cfa015afc0",
+      "referenceSHA256": "580239ef95649c7ac7215f7b4365ce937ef373e0ad52c83b78c7765a4f5ad72d",
+      "outputSHA256": "a727b9fa6a95a64bf334401d5cdb787c36a31f03fb7a0d049d064c208d4ea1a8",
+      "visualResult": "Closer sampled blinks and mouth openings; softens fine detail. Native motion timing and changing facial structure remain. No general quality pass."
+    }
+  ],
+  "review": {
+    "synchronizedFrames": [
+      0,
+      6,
+      12,
+      18,
+      24,
+      36,
+      48,
+      72
+    ],
+    "nativePlayback": "Backward/forward assembly played and reviewed. Full-guide candidate opened and playback started; final native screen capture failed. End frames were reviewed from decoded media.",
+    "faceGallery": "Individual same-character crops on the hand case only; no cross-character gallery on the back-facing case.",
+    "bestDirection": "Repaint the actual covered opening; use a clear separate facial donor. Still not a general quality pass.",
+    "rejected": [
+      "Three-pass hand shortcut",
+      "Strong multi-view residual",
+      "Face-scoped timed guide with visible facial artifact",
+      "Full guide as default: motion differs"
+    ],
+    "productionIdentityChanges": 0,
+    "unacceptedProbeCode": "Archived privately; experimental registrations removed from production.",
+    "metricsCaveat": "Face detection counts, opening proxies and geometric ratios are not identity or gaze accuracy scores."
+  },
+  "cost": {
+    "computeHourlyUSD": 0.6506666666666666,
+    "estimatedComputeSeconds": 4069.146,
+    "estimatedComputeUSD": 0.73546,
+    "retainedStorageHourlyUSD": 0.014814814814814812,
+    "caveat": "Goal intervals through independently confirmed stops, including setup/idle; not a final provider invoice. Existing retained storage, packages and small media transfers are separate."
+  },
+  "finalProviderState": {
+    "confirmedAt": "2026-11-03T18:44:48.573038+00:00",
+    "instance": {
+      "id": 58966215,
+      "state": "exited",
+      "intendedState": "stopped",
+      "computeStopped": true
+    },
+    "idleEnabled": true,
+    "launch": {
+      "phase": "stopped",
+      "safetyStatus": "stopped",
+      "message": "The previous instance request could not be confirmed. Compute is confirmed stopped. Retained storage is still billed.",
+      "updatedAt": "2026-11-03T18:43:51.747Z"
+    }
+  },
+  "remaining": [
+    "General fixed identity geometry and pose-specific face views",
+    "Independent motion/partial-face validation",
+    "Persistent target tracking and ambiguous-person review",
+    "Cut detection and per-shot appearance references"
+  ]
+}
