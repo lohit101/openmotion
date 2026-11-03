@@ -123,6 +123,15 @@ export const modelDefinitions = pinnedModels.map(file => {
     trigger: filename(file.destination) === SOCIAL_STYLE ? 'instag00n' : '',
     source: filename(file.destination) === SOCIAL_STYLE ? extras.files[0].source : '' };
 });
+// Retain catalog metadata for inventories and immutable historical workflows.
+// Retirement only removes new provisioning and creation affordances.
+const currentModelIds = new Set([...viggle.files, ...repaint.files, ...imageAdapters.files, ...qwenImage.files, ...imageControls.files, ...facialModels.files, ...facialCleanupModels.files, ...facialEyeFinishModels.files, ...upscaleModels.files].map(file => file.destination));
+const retiredModelIds = new Set(scailModels.map(file => file.destination).filter(id => !currentModelIds.has(id)));
+export const isRetiredModel = (id: string) => retiredModelIds.has(id);
+export const downloadableModelDefinitions = modelDefinitions.filter(file => !isRetiredModel(file.id));
+export function assertDownloadableModelFiles(files: string[]) {
+  if (files.some(isRetiredModel)) throw new Error('SCAIL-2 / Wan is retired. Its existing files and saved runs are kept; new downloads are disabled.');
+}
 export type ModelStatus = 'unknown' | 'missing' | 'queued' | 'downloading' | 'reconnecting' | 'installed' | 'failed';
 export interface ModelTransfer { downloaded: number; total: number; bytesPerSecond?: number; phase?: string; remoteActive?: boolean; }
 export interface ModelFileState { id: string; status: ModelStatus; percent: number | null; message: string; error: string | null; downloaded?: number; total?: number; bytesPerSecond?: number; remoteActive?: boolean; }

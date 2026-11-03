@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import type { Catalog, Graph } from '../shared/types';
-import { emptyModels, IMAGE_IDENTITY, modelDefinitions, modelWorkingReserve, pinnedModels, type InstalledLora, type ModelInventory, type ModelsState, type ModelTransfer, type ModelFileState, type ModuleDownloadPlan, type ModuleDownloadState } from '../shared/models';
+import { assertDownloadableModelFiles, emptyModels, IMAGE_IDENTITY, isRetiredModel, modelDefinitions, modelWorkingReserve, pinnedModels, type InstalledLora, type ModelInventory, type ModelsState, type ModelTransfer, type ModelFileState, type ModuleDownloadPlan, type ModuleDownloadState } from '../shared/models';
 import { deletableModelFile, inventoryKey } from '../shared/downloads';
 import type { Store } from './store';
 import { lorasFrom, type ConnectionManager } from './comfy';
@@ -37,6 +37,7 @@ export function missingPinnedAdapters(graph: Graph, catalog: Catalog): string[] 
 export function downloadPinnedModels(repo: string, instanceId: number | null, endpoint: string, files: string[], signal: AbortSignal,
   progress: (message: string, percent?: number | null, transfer?: ModelTransfer) => void, recover=false,cancelOnly=false): Promise<void> {
   signal.throwIfAborted();
+  if (!cancelOnly) assertDownloadableModelFiles(files);
   if (!instanceId || endpoint !== 'http://127.0.0.1:8188') throw new Error('Connect the managed GPU through GPU cloud before downloading models.');
   return new Promise((resolve, reject) => {
     const child = spawn('python3', ['-u', path.join(repo, 'scripts/managed_models.py'), '--instance-id', String(instanceId),
@@ -109,6 +110,10 @@ export class ModelManager {
     this.state.moduleSetup=saved.moduleSetup;
     for(const old of saved.files||[]){const file=this.state.files.find(f=>f.id===old.id);if(!file)continue;
       Object.assign(file,old,...(old.remoteActive?[{status:'reconnecting',message:'Checking the saved transfer after reconnecting.'}]:[]));
+      if (isRetiredModel(file.id)) {
+        if (file.remoteActive || ['downloading', 'reconnecting'].includes(file.status)) Object.assign(file, { status: 'reconnecting', remoteActive: true, message: 'Checking and stopping a retired-model transfer; existing files are kept.' });
+        else if (file.status === 'queued') Object.assign(file, { status: 'failed', error: 'This model is retired. New downloads are disabled.', message: 'Existing files are kept.' });
+      }
       if(transferring(file)&&(!this.cancelled||file.remoteActive))this.queue.add(file.id);
     }
     if(this.state.moduleSetup&&(['downloading','preparing','reconnecting'].includes(this.state.moduleSetup.status)||this.state.moduleSetup.activeRuntime))this.state.moduleSetup.status='reconnecting';
@@ -161,6 +166,7 @@ export class ModelManager {
     this.emit();
   }
   async prepareModule(plan:ModuleDownloadPlan){
+    assertDownloadableModelFiles(plan.files);
     if(this.moduleWork){if(this.state.moduleSetup?.key===plan.key)return this.state;throw new Error('Finish or cancel the current module download first.');}
     if(this.state.busy)throw new Error('Finish or check the existing transfers first.');
     const instanceId=this.store.value<number|null>('cloud-connected-instance',null),endpoint=this.connection.status.endpoint;
@@ -314,6 +320,7 @@ export class ModelManager {
     return this.refreshing;
   }
   async start(files: string[], recovery=false, owned=false) {
+    if (!recovery) assertDownloadableModelFiles(files);
     if(!owned&&(this.moduleWork||this.state.moduleSetup?.activeRuntime||this.state.facialPreparing))throw new Error('Wait for the current module setup to finish or confirm its status before downloading other files.');
     if (this.state.deleting) throw new Error('Wait for the LoRA removal to finish.');
     if (!files.length || files.length > modelDefinitions.length || files.some(id => !modelDefinitions.some(file => file.id === id))) throw new Error('Choose known model files from the download list.');
@@ -333,6 +340,7 @@ export class ModelManager {
       const planned = new Set([...files, ...this.queue, ...this.state.files.filter(transferring).map(file => file.id)]);
       this.state.transferFiles=[...new Set([...(this.work?this.state.transferFiles||[]:[]),...this.state.files.filter(file=>planned.has(file.id)&&file.status!=='installed').map(file=>file.id)])];
       const remaining = this.state.files.filter(file => planned.has(file.id) && file.status !== 'installed').reduce((sum, file) => {
+        if (isRetiredModel(file.id)) return sum;
         const size = pinnedModels.find(model => model.destination === file.id)!.size;
         return sum + size - Math.min(size, Math.max(0, file.downloaded || 0));
       }, 0);
@@ -340,6 +348,10 @@ export class ModelManager {
       if (remaining && this.state.diskFreeBytes !== undefined && this.state.diskFreeBytes < required) throw new Error(`These files need ${(required / 1e9).toFixed(2)} GB free including working space; this GPU has ${(this.state.diskFreeBytes / 1e9).toFixed(2)} GB. No new download was started. Use a larger disk or remove unused extras first.`);
       for (const id of files) {
         const file = this.state.files.find(file => file.id === id)!;
+        if (isRetiredModel(id) && !file.remoteActive) {
+          Object.assign(file, { status: 'failed', error: 'This model is retired. New downloads are disabled.', message: 'Existing files are kept.' });
+          this.queue.delete(id); continue;
+        }
         if(file.status==='installed')continue;
         if(transferring(file)){if(!this.work)this.queue.add(id);continue;}
         Object.assign(file, { status: 'queued', percent: null, error: null, message: 'Waiting to download' }); this.queue.add(id);
@@ -352,14 +364,16 @@ export class ModelManager {
             const id = this.queue.values().next().value!; this.queue.delete(id);
             const file = this.state.files.find(file => file.id === id)!;
             const recoverFile=file.remoteActive===true;
+            const retired = isRetiredModel(id);
+            if (retired && !recoverFile) { Object.assign(file, { status: 'failed', error: 'This model is retired. New downloads are disabled.', message: 'Existing files are kept.' }); this.emit(); continue; }
             Object.assign(file, { status:recoverFile?'reconnecting':'downloading',remoteActive:true,message:recoverFile?'Reconnecting to the saved download':'Connecting to download',percent:recoverFile?file.percent:null }); this.emit();
             const warning = setTimeout(() => { file.message = 'Taking longer than usual. Download is still running.'; this.emit(); }, 15 * 60000);
             try {
               await this.download(this.repo, instanceId, endpoint, [id], signal, (message, percent, transfer) => {
                 if (signal.aborted) return;
                 file.message = message; if (percent !== undefined) file.percent = percent; if (transfer) {Object.assign(file, transfer);file.status=transfer.phase==='reconnecting'?'reconnecting':'downloading';if(transfer.phase!=='reconnecting')file.error=null;} this.emit();
-              },recoverFile,this.cancelled);
-              Object.assign(file, {status:this.cancelled?'missing':'installed',remoteActive:false,percent:this.cancelled?null:100,message:this.cancelled?'Cancelled. Partial files are retained.':'Downloaded and SHA256 verified',error:null});
+              },recoverFile,this.cancelled || retired);
+              Object.assign(file, {status:retired?'failed':this.cancelled?'missing':'installed',remoteActive:false,percent:retired||this.cancelled?null:100,message:retired?'Retired-model transfer stopped. Existing files are kept.':this.cancelled?'Cancelled. Partial files are retained.':'Downloaded and SHA256 verified',error:retired?'This model is retired. New downloads are disabled.':null});
             } catch (error) {
               const unknown=(error as ModelDownloadError).remoteActive===true;
               Object.assign(file,{status:unknown?'reconnecting':signal.aborted?'missing':'failed',remoteActive:unknown,percent:unknown?file.percent:null,message:unknown?'Waiting to verify the saved transfer.':signal.aborted?'Cancelled. Partial files are kept for resume.':'Download failed',error:unknown||( !signal.aborted)?(error as Error).message:null});

@@ -91,3 +91,6 @@
   .workflow-layout .disclosure-meta { max-width: 100px; }
   .workflow-layout .asset-caption { grid-template-columns: minmax(0, 1fr) auto; }
 }
+.remotion-model-label { display: flex; align-items: center; gap: 8px; margin: -10px 0 24px; color: var(--quiet); font-size: 11px; }
+.retired-workflow-notice { margin-bottom: 24px; padding: 16px 0; border-block: 1px solid var(--line-soft); }
+.retired-workflow-notice p { margin: 0 0 12px; color: var(--muted); font-size: 12px; line-height: 1.6; }

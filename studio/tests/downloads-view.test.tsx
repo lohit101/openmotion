@@ -1,13 +1,24 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import DownloadsWorkspace from '../src/DownloadsWorkspace';
-import { emptyModels, type ModelInventory } from '../shared/models';
+import { downloadableModelDefinitions, emptyModels, NATURAL_SPEED, type ModelInventory } from '../shared/models';
+import { DownloadButton } from '../src/ModelDownloads';
 
 const snapshot: ModelInventory = { key: 'vast:123', instanceId: 123, endpoint: 'http://127.0.0.1:8188', gpu: 'A40', checkedAt: '2026-10-27T00:00:00Z', files: [
   { id: 'diffusion_models/flux-2-klein-4b-fp8.safetensors', size: 2_000_000_000, partialSize: 0, measured: true },
   { id: 'loras/custom.safetensors', size: 100_000_000, partialSize: 20_000_000, measured: true },
 ] };
 describe('Downloads inventory view', () => {
+  it('keeps stored retired models removable and excludes them from download controls and bulk provisioning', () => {
+    const state = emptyModels(), id = 'loras/' + NATURAL_SPEED;
+    state.inventories = [{ ...snapshot, files: [{ id, size: 100, partialSize: 0, measured: true }] }]; state.checkedAt = snapshot.checkedAt;
+    const controls = { state, online: true, blocked: false, download: () => undefined, remove: () => undefined };
+    const html = renderToStaticMarkup(<DownloadsWorkspace controls={controls} required={[]} refresh={() => undefined} cancel={() => undefined} setup={() => undefined} />);
+    expect(html).toContain('Retired · stored files only'); expect(html).toContain('Delete Natural / swap acceleration from GPU');
+    expect(html).not.toContain('Download Natural / swap acceleration');
+    expect(html).toContain(`All ${new Set(downloadableModelDefinitions.map(file => file.id)).size} available model files`);
+    expect(renderToStaticMarkup(<DownloadButton files={[id]} controls={controls} label="Retired file" />)).toBe('');
+  });
   it('shows a saved disk inventory while offline with its workflow uses and disabled removal', () => {
     const state = emptyModels(); state.inventories = [snapshot];
     const html = renderToStaticMarkup(<DownloadsWorkspace controls={{ state, online: false, blocked: false, download: () => undefined, remove: () => undefined }} required={[]}

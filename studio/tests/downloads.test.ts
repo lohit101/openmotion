@@ -1,8 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { deletableModelFile, downloadRows, modelUsage } from '../shared/downloads';
-import { emptyModels, modelDefinitions, QWEN_STRUCTURE, type ModelInventory } from '../shared/models';
+import { downloadableModelDefinitions, emptyModels, isRetiredModel, modelDefinitions, QWEN_STRUCTURE, type ModelInventory } from '../shared/models';
 
 describe('download inventory presentation', () => {
+  it('hides retired files from the available catalog while retaining measured stored files and deletion', () => {
+    const state = emptyModels(), retired = modelDefinitions.filter(file => isRetiredModel(file.id));
+    expect(retired.length).toBeGreaterThan(0);
+    expect(downloadRows(state).some(file => file.retired)).toBe(false);
+    expect(downloadableModelDefinitions.some(file => isRetiredModel(file.id))).toBe(false);
+    const id = retired[0].id, snapshot: ModelInventory = { key: 'vast:1', instanceId: 1, endpoint: 'http://127.0.0.1:8188', gpu: 'A40', checkedAt: '2026-11-03', files: [{ id, size: 1234, partialSize: 500, measured: true }] };
+    expect(downloadRows(state, snapshot).find(row => row.id === id)).toMatchObject({ retired: true, onDisk: 1734, measured: true, usage: [{ workflow: 'Retired files' }] });
+    expect(deletableModelFile(id)).toBe(true);
+    expect(downloadRows(state, snapshot).filter(file => file.retired)).toHaveLength(1);
+  });
   it('counts CUDA face dependencies as core face files, with no custom-LoRA classification',()=>{
     const snapshot:ModelInventory={key:'vast:1',instanceId:1,endpoint:'http://127.0.0.1:8188',gpu:'RTX A6000',checkedAt:'2026-10-28',files:[{id:'face-refinement/hyperswap_1a_256.onnx',size:402742682,partialSize:0,measured:true}]};
     const row=downloadRows(emptyModels(),snapshot).find(item=>item.id.startsWith('face-refinement/'))!;

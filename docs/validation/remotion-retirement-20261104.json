@@ -1,0 +1,44 @@
+{
+  "date": "2026-11-04",
+  "feature": "Retire SCAIL-2 provisioning and simplify Remotion controls",
+  "tests": {
+    "studioPassed": 559,
+    "typecheck": true,
+    "productionBuild": true,
+    "historicalGraphsCompiledUnchanged": 165,
+    "historicalTerminalRejectionsUnchanged": 129,
+    "historicalMismatches": 0
+  },
+  "deployment": {
+    "deployedAt": "2026-11-03T18:33:31.100921+00:00",
+    "savedJobsUnchanged": 367,
+    "draftsUnchanged": true,
+    "connectionBefore": "offline",
+    "gpuResumed": false,
+    "connectionState": "offline",
+    "gpuToolsUpdated": false,
+    "feature": "Retire SCAIL-2 new creation/download surfaces and simplify Remotion controls",
+    "gpuTestsRun": 0,
+    "remoteInstalls": 0,
+    "modelDownloads": 0
+  },
+  "liveRejection": {
+    "retiredFileDownloadStatus": 400,
+    "createdJobs": 0,
+    "modelTransfers": 0
+  },
+  "browserReview": "Browser providers unavailable; no new native browser interaction/visual pass claimed. Native video review belongs to the separate research report.",
+  "preserved": {
+    "savedJobRows": 367,
+    "videoAndImageDrafts": true,
+    "modelFilesDeleted": 0,
+    "paidRecipesChanged": 0
+  },
+  "gpu": {
+    "instanceId": 58966215,
+    "state": "exited",
+    "intendedState": "stopped",
+    "computeStopped": true,
+    "resumedForCleanup": false
+  }
+}

@@ -7,13 +7,15 @@ import { PassThrough } from 'node:stream';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { defaults, type Catalog, type Graph, type Job } from '../shared/types';
-import { I2V_SPEED, modelBytes, modelDefinitions, modelFilesForSettings, NATURAL_SPEED, pinnedModels, RELIGHT, setupModelFiles, SOCIAL_STYLE } from '../shared/models';
+import { downloadableModelDefinitions, I2V_SPEED, isRetiredModel, modelBytes, modelDefinitions, modelFilesForSettings, NATURAL_SPEED, pinnedModels, RELIGHT, setupModelFiles, SOCIAL_STYLE } from '../shared/models';
 import { compileWorkflow } from '../server/workflow';
 import { downloadPinnedModels, installedModelIds, missingPinnedAdapters, ModelManager, releaseModelCache } from '../server/models';
 import { Store } from '../server/store';
 import type { ConnectionManager } from '../server/comfy';
 
 vi.mock('node:child_process', () => ({ spawn: vi.fn() }));
+const ACTIVE_LORA = 'viggle_animate_dmd_lora.safetensors';
+const ACTIVE_BYTES = pinnedModels.find(file => file.destination === 'loras/' + ACTIVE_LORA)!.size;
 const repo = path.resolve(import.meta.dirname, '../..');
 const template: Graph = JSON.parse(readFileSync(path.join(repo, 'workflows/api/scail2_int8_swap.json'), 'utf8'));
 const catalog: Catalog = JSON.parse(readFileSync(path.join(repo, 'integration-snapshot/object-info.json'), 'utf8'));
@@ -111,10 +113,20 @@ describe('explicit file delivery', () => {
     expect(() => downloadPinnedModels(repo, 123, 'http://127.0.0.1:8188', [], AbortSignal.abort(new Error('Cancelled')), () => {})).toThrow('Cancelled');
     expect(spawn).not.toHaveBeenCalled();
   });
+  it('rejects retired model downloads before spawning, but permits checking a saved transfer only to stop it', async () => {
+    const file = 'loras/' + NATURAL_SPEED, signal = new AbortController().signal;
+    expect(isRetiredModel(file)).toBe(true);
+    expect(() => downloadPinnedModels(repo, 123, 'http://127.0.0.1:8188', [file], signal, () => {})).toThrow('retired');
+    expect(spawn).not.toHaveBeenCalled();
+    const child = fakeChild(), pending = downloadPinnedModels(repo, 123, 'http://127.0.0.1:8188', [file], signal, () => {}, true, true);
+    const args = vi.mocked(spawn).mock.calls[0][1] as string[];
+    expect(args).toContain('--recover'); expect(args).toContain('--cancel-transfer');
+    child.emit('close', 0); await pending;
+  });
 
   it('reports real download counters, verifies completion and sends only pinned model destinations', async () => {
     const child = fakeChild(), progress = vi.fn();
-    const pending = downloadPinnedModels(repo, 123, 'http://127.0.0.1:8188', ['loras/' + NATURAL_SPEED], new AbortController().signal, progress);
+    const pending = downloadPinnedModels(repo, 123, 'http://127.0.0.1:8188', ['loras/' + ACTIVE_LORA], new AbortController().signal, progress);
     child.stdout.write('Downloading adapter.safetensors (0.00 / 0.63 GB)\n  adapter.safetensors: 25%\nVerified: adapter.safetensors\n');
     child.emit('close', 0); await pending;
     expect(progress).toHaveBeenCalledWith('Downloading adapter.safetensors', 25);
@@ -122,22 +134,22 @@ describe('explicit file delivery', () => {
     const args = vi.mocked(spawn).mock.calls[0][1] as string[];
     expect(args).toContain('--instance-id'); expect(args).toContain('123');
     const files = JSON.parse(args[args.indexOf('--model-files') + 1]);
-    expect(files.filter((name: string) => name.startsWith('loras/'))).toEqual(['loras/' + NATURAL_SPEED]);
+    expect(files.filter((name: string) => name.startsWith('loras/'))).toEqual(['loras/' + ACTIVE_LORA]);
     expect(args).not.toContain('start'); expect(args).not.toContain('launch');
   });
   it('uses exact byte telemetry and shows checksum verification as a separate stage', async () => {
-    const child = fakeChild(), progress = vi.fn(), file = 'loras/' + NATURAL_SPEED;
+    const child = fakeChild(), progress = vi.fn(), file = 'loras/' + ACTIVE_LORA;
     const pending = downloadPinnedModels(repo, 123, 'http://127.0.0.1:8188', [file], new AbortController().signal, progress);
-    const message = (downloaded: number, phase: string) => 'RECAST_MODEL_PROGRESS ' + JSON.stringify({ destination: file, downloaded, total: 630697104, phase }) + '\n';
-    child.stdout.write(message(315348552, 'downloading') + message(630697104, 'verifying') + message(630697104, 'ready'));
+    const message = (downloaded: number, phase: string) => 'RECAST_MODEL_PROGRESS ' + JSON.stringify({ destination: file, downloaded, total: ACTIVE_BYTES, phase }) + '\n';
+    child.stdout.write(message(ACTIVE_BYTES / 2, 'downloading') + message(ACTIVE_BYTES, 'verifying') + message(ACTIVE_BYTES, 'ready'));
     child.emit('close', 0); await pending;
     expect(progress.mock.calls.map(call => call.slice(0, 2))).toEqual([['Downloading model file', 50], ['Verifying SHA256', null], ['File verified', 100]]);
-    expect(progress.mock.calls[0][2]).toMatchObject({ downloaded: 315348552, total: 630697104 });
+    expect(progress.mock.calls[0][2]).toMatchObject({ downloaded: ACTIVE_BYTES / 2, total: ACTIVE_BYTES });
   });
 
   it('surfaces failed transfers without returning success or attempting a render', async () => {
     const child = fakeChild();
-    const pending = downloadPinnedModels(repo, 123, 'http://127.0.0.1:8188', ['loras/' + NATURAL_SPEED], new AbortController().signal, () => {});
+    const pending = downloadPinnedModels(repo, 123, 'http://127.0.0.1:8188', ['loras/' + ACTIVE_LORA], new AbortController().signal, () => {});
     const check = expect(pending).rejects.toThrow('Partial files are retained');
     child.stderr.write('Model access failed (HTTP 403)\n'); child.emit('close', 1); await check;
     expect(spawn).toHaveBeenCalledTimes(1);
@@ -145,7 +157,7 @@ describe('explicit file delivery', () => {
 
   it('cancels the transfer worker without stopping the GPU or submitting a job', async () => {
     const child = fakeChild(), controller = new AbortController();
-    const pending = downloadPinnedModels(repo, 123, 'http://127.0.0.1:8188', ['loras/' + NATURAL_SPEED], controller.signal, () => {});
+    const pending = downloadPinnedModels(repo, 123, 'http://127.0.0.1:8188', ['loras/' + ACTIVE_LORA], controller.signal, () => {});
     const check = expect(pending).rejects.toThrow('Cancelled');
     controller.abort(new Error('Cancelled')); expect(child.kill).toHaveBeenCalledWith('SIGTERM');
     child.emit('close', null); await check; expect(spawn).toHaveBeenCalledTimes(1);
@@ -155,8 +167,9 @@ describe('explicit file delivery', () => {
 describe('manual model queue', () => {
   let store: Store | undefined, manager: ModelManager | undefined, root = '';
   afterEach(async () => { await manager?.cancel(); manager = undefined; store?.close(); store = undefined; if (root) await rm(root, { recursive: true, force: true }); });
-  async function fixture() {
+  async function fixture(saved?: object) {
     root = await mkdtemp(path.join(os.tmpdir(), 'recast-manual-models-')); store = new Store(root); store.set('cloud-connected-instance', 123);
+    if (saved) store.set('model-download-state-v1', saved);
     const choices: string[] = [], live: Catalog = { LoraLoaderModelOnly: { input: { required: { lora_name: [choices] } }, output: ['MODEL'] } };
     const connection = { status: { state: 'online', endpoint: 'http://127.0.0.1:8188', loras: [] }, client: () => ({ json: vi.fn(async (route: string) => route === '/queue' ? { queue_running: [], queue_pending: [] } : live) }), emit: vi.fn() };
     const controls = new Map<string, { resolve: () => void; reject: (error: Error) => void }>();
@@ -174,7 +187,7 @@ describe('manual model queue', () => {
     return { manager, worker, storage, controls, connection, choices, untilIdle, releaseCache };
   }
   it('refreshes availability without downloading and installs only an explicitly clicked file', async () => {
-    const { manager, worker, controls, untilIdle } = await fixture(), file = 'loras/' + NATURAL_SPEED;
+    const { manager, worker, controls, untilIdle } = await fixture(), file = 'loras/' + ACTIVE_LORA;
     await manager.refresh(); expect(worker).not.toHaveBeenCalled(); expect(manager.state.files.every(file => file.status === 'missing')).toBe(true);
     await manager.start([file]); await manager.start([file]); expect(worker).toHaveBeenCalledTimes(1);
     expect(manager.state.files.find(item => item.id === file)).toMatchObject({ status: 'downloading', percent: 23 });
@@ -183,8 +196,34 @@ describe('manual model queue', () => {
     expect(manager.state.files.filter(item => item.status === 'installed').map(item => item.id)).toEqual([file]);
     expect(spawn).not.toHaveBeenCalled();
   });
+  it('rejects retired files and mixed module plans without checking storage or starting work', async () => {
+    const { manager, worker, storage } = await fixture(), retired = 'loras/' + NATURAL_SPEED;
+    await expect(manager.start([retired, 'loras/' + ACTIVE_LORA])).rejects.toThrow('retired');
+    await expect(manager.prepareModule({ module: 'remotion', key: 'stale-plan', files: [retired], runtimes: [] })).rejects.toThrow('retired');
+    expect(worker).not.toHaveBeenCalled(); expect(storage).not.toHaveBeenCalled(); expect(manager.state.busy).toBe(false);
+  });
+  it('does not automatically resume a retired queued download after restarting Studio', async () => {
+    const id = 'loras/' + NATURAL_SPEED;
+    const { manager, worker } = await fixture({ instanceId: 123, endpoint: 'http://127.0.0.1:8188', files: [{ id, status: 'queued', percent: null, error: null, message: '' }] });
+    await manager.recoverPending();
+    expect(worker).not.toHaveBeenCalled(); expect(manager.state.busy).toBe(false);
+    expect(manager.state.files.find(file => file.id === id)).toMatchObject({ status: 'failed', error: expect.stringContaining('retired') });
+  });
+  it('checks an uncertain retired transfer only to cancel it, and protects it while the stop remains unconfirmed', async () => {
+    const id = 'loras/' + NATURAL_SPEED;
+    const { manager, worker, untilIdle } = await fixture({ instanceId: 123, endpoint: 'http://127.0.0.1:8188', files: [{ id, status: 'reconnecting', remoteActive: true, percent: 10, error: null, message: '' }] });
+    worker.mockImplementationOnce(async (_repo, _instance, _endpoint, files, _signal, _progress, recover, cancelOnly) => {
+      expect(files).toEqual([id]); expect(recover).toBe(true); expect(cancelOnly).toBe(true);
+      throw Object.assign(new Error('Remote stop unconfirmed'), { remoteActive: true });
+    });
+    await manager.recoverPending(); await manager.settle();
+    expect(manager.state.busy).toBe(true); expect(manager.state.files.find(file => file.id === id)?.remoteActive).toBe(true);
+    worker.mockImplementationOnce(async (_repo, _instance, _endpoint, _files, _signal, _progress, recover, cancelOnly) => { expect(recover).toBe(true); expect(cancelOnly).toBe(true); });
+    await manager.recoverPending(); await manager.settle(); await untilIdle();
+    expect(manager.state.files.find(file => file.id === id)).toMatchObject({ status: 'failed', remoteActive: false });
+  });
   it('keeps at most four transfers active, exposes failures and retries only when requested', async () => {
-    const { manager, worker, controls, untilIdle } = await fixture(); const files = pinnedModels.slice(0, 5).map(file => file.destination);
+    const { manager, worker, controls, untilIdle } = await fixture(); const files = downloadableModelDefinitions.slice(0, 5).map(file => file.id);
     await manager.start(files); expect(worker).toHaveBeenCalledTimes(4);
     controls.get(files[0])!.resolve(); await new Promise(resolve => setTimeout(resolve, 0)); expect(worker).toHaveBeenCalledTimes(5);
     controls.get(files[1])!.reject(new Error('Checksum mismatch')); for (const file of files.slice(2)) controls.get(file)!.resolve(); await untilIdle();
@@ -194,7 +233,7 @@ describe('manual model queue', () => {
     expect(manager.state.files.find(file => file.id === files[1])?.status).toBe('installed');
   });
   it('cancels active and queued transfers without an automatic retry or lifecycle action', async () => {
-    const { manager, worker } = await fixture(); const files = pinnedModels.slice(0, 5).map(file => file.destination);
+    const { manager, worker } = await fixture(); const files = downloadableModelDefinitions.slice(0, 5).map(file => file.id);
     await manager.start(files); await manager.cancel();
     expect(worker).toHaveBeenCalledTimes(4); expect(manager.state.busy).toBe(false);
     expect(manager.state.files.every(file => !['queued', 'downloading', 'failed'].includes(file.status))).toBe(true);
@@ -203,7 +242,7 @@ describe('manual model queue', () => {
   it('rejects unpinned files and offline downloads without starting a worker', async () => {
     const { manager, worker, connection } = await fixture();
     await expect(manager.start(['loras/untrusted.safetensors'])).rejects.toThrow('known model');
-    connection.status.state = 'offline'; await expect(manager.start([pinnedModels[0].destination])).rejects.toThrow('running GPU');
+    connection.status.state = 'offline'; await expect(manager.start([downloadableModelDefinitions[0].id])).rejects.toThrow('running GPU');
     expect(worker).not.toHaveBeenCalled();
   });
   it('rejects an entire model plan before any paid transfer when disk space is insufficient', async () => {
@@ -213,8 +252,8 @@ describe('manual model queue', () => {
     expect(worker).not.toHaveBeenCalled(); expect(manager.state.busy).toBe(false);
   });
   it('resumes a verified-size partial without demanding the already downloaded space again', async () => {
-    const { manager, storage, worker, controls, untilIdle } = await fixture(), file = 'loras/' + NATURAL_SPEED;
-    storage.mockImplementation(async () => ({ loras: [], freeBytes: 5 * 1024 ** 3 + 100_000_000, partials: [{ id: file, size: 600_000_000 }] }));
+    const { manager, storage, worker, controls, untilIdle } = await fixture(), file = 'loras/' + ACTIVE_LORA;
+    storage.mockImplementation(async () => ({ loras: [], freeBytes: 5 * 1024 ** 3 + 100_000_000, partials: [{ id: file, size: ACTIVE_BYTES - 50_000_000 }] }));
     await manager.start([file]); expect(worker).toHaveBeenCalledTimes(1);
     controls.get(file)!.resolve(); await untilIdle();
   });
@@ -274,12 +313,12 @@ describe('manual model queue', () => {
   });
   it('blocks deletion during a transfer and new downloads while deletion is pending', async () => {
     const { manager, choices, storage } = await fixture();
-    await manager.start(['loras/' + I2V_SPEED]);
+    await manager.start(['loras/' + ACTIVE_LORA]);
     await expect(manager.remove(SOCIAL_STYLE)).rejects.toThrow('active transfers'); await manager.cancel();
     let finish!: () => void; storage.mockImplementationOnce(async (_repo, _id, _action, name) => { await new Promise<void>(resolve => { finish = resolve; }); return { name, freedBytes: 12, removed: true }; });
     choices.push(SOCIAL_STYLE); const pending = manager.remove(SOCIAL_STYLE);
     expect(manager.state.deleting).toBe(SOCIAL_STYLE);
-    await expect(manager.start(['loras/' + I2V_SPEED])).rejects.toThrow('removal');
+    await expect(manager.start(['loras/' + ACTIVE_LORA])).rejects.toThrow('removal');
     finish(); await pending;
   });
   it('persists measured per-instance inventories while offline availability remains unknown', async () => {

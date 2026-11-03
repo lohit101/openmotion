@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { ArrowClockwise, ArrowSquareOut, CaretDown, Check, CheckCircle, DownloadSimple, HardDrives, Pause, Trash, WarningCircle } from '@phosphor-icons/react';
-import { modelDefinitions, modelWorkingReserve, type ModelsState } from '../shared/models';
+import { downloadableModelDefinitions, isRetiredModel, modelDefinitions, modelWorkingReserve, type ModelsState } from '../shared/models';
 import './models.css';
 import type { ModuleDownloadRequest } from '../shared/module-downloads';
 
@@ -8,7 +8,7 @@ export interface DownloadControls { state: ModelsState; online: boolean; blocked
 export const modelSize = (bytes: number) => bytes >= 1e9 ? `${(bytes / 1e9).toFixed(2)} GB` : bytes >= 1e6 ? `${Math.round(bytes / 1e6)} MB` : bytes >= 1e3 ? `${Math.round(bytes / 1e3)} KB` : `${bytes} B`;
 const missingBytes = (files: string[], state: ModelsState) => modelDefinitions.filter(file => files.includes(file.id) && state.files.find(item => item.id === file.id)?.status !== 'installed').reduce((sum, file) => sum + file.size - Math.min(file.size, Math.max(0, state.files.find(item => item.id === file.id)?.downloaded || 0)), 0);
 export function DownloadButton({ files, controls, label, size = false }: { files: string[]; controls: DownloadControls; label: string; size?: boolean }) {
-  if (!files.length) return null;
+  if (!files.length || files.some(isRetiredModel)) return null;
   const needed = files.filter(id => controls.state.files.find(file => file.id === id)?.status !== 'installed');
   const states = needed.map(id => controls.state.files.find(file => file.id === id));
   const active = states.some(file => ['downloading', 'queued', 'reconnecting'].includes(file?.status || ''));
@@ -38,11 +38,11 @@ export function DownloadSelect({ value, options, onChange, label, controls }: { 
   </details></div>;
 }
 
-export default function ModelsWorkspace({ controls, required, refresh, cancel, setup, useLora, missingCustom = [] }: { controls: DownloadControls; required: string[]; refresh: () => void; cancel: () => void; setup: () => void; useLora: (name: string) => void; missingCustom?: string[] }) {
+export default function ModelsWorkspace({ controls, required, refresh, cancel, setup, missingCustom = [] }: { controls: DownloadControls; required: string[]; refresh: () => void; cancel: () => void; setup: () => void; missingCustom?: string[] }) {
   const installed = controls.state.installedLoras || [], optional = installed.filter(file => !file.included);
   const used = optional.reduce((sum, file) => sum + file.size + (file.partialSize || 0), 0);
   const custom = optional.filter(file => !modelDefinitions.some(definition => definition.id === 'loras/' + file.name));
-  const definitions = [...modelDefinitions.filter(file => !file.included), ...custom.map(file => ({ id: 'loras/' + file.name, filename: file.name, size: file.size + (file.partialSize || 0), label: file.name.split('/').at(-1)!, description: 'Your uploaded LoRA', group: 'adapter', included: false, experimental: false, trigger: '', source: '' }))];
+  const definitions = [...downloadableModelDefinitions.filter(file => !file.included), ...custom.map(file => ({ id: 'loras/' + file.name, filename: file.name, size: file.size + (file.partialSize || 0), label: file.name.split('/').at(-1)!, description: 'Your uploaded LoRA', group: 'adapter', included: false, experimental: false, trigger: '', source: '' }))];
   return <section className="models-workspace" aria-label="Optional extras"><div className="models-heading"><div><span className="workspace-overline">MAKE IT YOURS</span><h2>Extras</h2><p>Add styles and features when you need them.</p></div><button className="secondary-button" disabled={controls.state.refreshing || !controls.online} onClick={refresh}><ArrowClockwise size={14} />{controls.state.refreshing ? 'Checking storage…' : 'Refresh'}</button></div>
     <div className="extras-storage"><HardDrives size={22} /><div><strong>{controls.settingUp ? 'Engine setup is running' : controls.online ? `${modelSize(used)} used by extras` : 'Connect your GPU to check storage'}</strong><p>{controls.settingUp ? 'Downloads become available when the engine is online.' : controls.online ? `${optional.length} extra ${optional.length === 1 ? 'LoRA' : 'LoRAs'} on this GPU. Remove files here to make room for others.` : 'Installed extras and their storage sizes appear here after connecting.'}</p></div></div>
     <p className="extras-included">The engine starts without model weights. Download the files for your selected settings from Remotion; adapters here are all optional. <button onClick={setup}>View GPU setup <ArrowSquareOut size={12} /></button></p>
@@ -60,7 +60,6 @@ export default function ModelsWorkspace({ controls, required, refresh, cancel, s
           {active && <div className="model-file-progress"><div role="progressbar" aria-label={`${file.label} download`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={state.percent ?? undefined} className={`meter-track ${state.percent === null ? 'indeterminate' : ''}`}><span style={state.percent === null ? undefined : { transform: `scaleX(${state.percent / 100})` }} /></div><span>{state.percent === null ? 'Connecting / verifying' : `${state.percent}%`}</span></div>}
           {active && state.total && <p className="model-file-transfer">{modelSize(state.downloaded || 0)} / {modelSize(state.total)}{state.bytesPerSecond ? ` · ${modelSize(state.bytesPerSecond)} / s` : ''}</p>}{state?.error && <p className="model-file-error" role="alert">{state.error}</p>}
           {state?.message.includes('longer than') && <p className="model-file-slow">{state.message}</p>}
-          {file.experimental && state?.status === 'installed' && <button className="extra-use-button" disabled={controls.blocked || controls.state.busy} onClick={() => useLora(file.filename)}>Use in LoRA A</button>}
         </div><div className="model-file-actions"><span className="model-file-size">{modelSize(file.size)}</span><small>{state?.status === 'installed' ? 'On this GPU' : stored?.partialSize ? `${modelSize(stored.partialSize)} partial` : state?.status === 'queued' ? 'Queued' : state?.status === 'failed' ? 'Retry available' : !controls.online ? 'GPU offline' : ''}</small><div className="extra-file-buttons">{!custom.some(item => item.name === file.filename) && <DownloadButton files={[file.id]} controls={controls} label={file.label} />}{removable ? <button className="model-delete" disabled={!controls.online || controls.blocked || controls.state.busy} title={`Remove ${file.label} from GPU`} aria-label={`Remove ${file.label} from GPU`} onClick={() => controls.remove(file.id)}><Trash size={16} /></button> : null}</div></div></article>;
       })}</div>
     </section>

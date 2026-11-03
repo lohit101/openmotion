@@ -1,4 +1,4 @@
-import { DPO, IMAGE_IDENTITY, I2V_SPEED, NATURAL_SPEED, QWEN_HEAD, QWEN_STRUCTURE, RELIGHT, SOCIAL_STYLE, modelDefinitions, qwenImageModelFiles, type ModelInventory, type ModelsState } from './models';
+import { IMAGE_IDENTITY, QWEN_HEAD, QWEN_STRUCTURE, isRetiredModel, modelDefinitions, qwenImageModelFiles, type ModelInventory, type ModelsState } from './models';
 import localFace from '../../config/local-identity.lock.json';
 import videoFace from '../../config/local-video-identity.lock.json';
 
@@ -10,6 +10,7 @@ export function modelUsage(id: string): { workflow: string; detail: string }[] {
   if(id.startsWith('face-refinement/'))return [{workflow:'GPU face refinement',detail:'Separate CUDA Hyperswap pass after video generation; also includes detection and occlusion.'}];
   const file = modelDefinitions.find(item => item.id === id);
   if (!file) return [{ workflow: 'Custom LoRA', detail: 'LoRA slots; check compatibility with the selected model.' }];
+  if (isRetiredModel(id)) return [{ workflow: 'Retired files', detail: 'SCAIL-2 / Wan · kept for saved runs. New creation and downloads are unavailable.' }];
   if (file.engine === 'viggle') return [{ workflow: 'Viggle video', detail: 'Remotion · all Viggle quality presets' }];
   if (file.engine === 'upscale') return [{ workflow: 'Clarity', detail: 'Optional FlashVSR+ Turbo video upscaling. Separate runtime preparation required.' }];
   if (file.engine === 'facial') return [{ workflow: 'Remotion facial consistency', detail: 'Standard or Regional expression transfer followed by 60% ONNX identity correction' }];
@@ -21,13 +22,7 @@ export function modelUsage(id: string): { workflow: string; detail: string }[] {
   if (id === QWEN_STRUCTURE) return [{ workflow: 'Qwen images', detail: 'Source geometry strength above zero' }];
   if (file.filename === QWEN_HEAD) return [{ workflow: 'Qwen images', detail: 'Optional separate head identity pass' }];
   if (file.engine === 'repaint') return [{ workflow: 'Qwen images', detail: file.filename.includes('turbo') ? 'Fast 8-step edits and legacy whole-person swap' : file.filename.includes('body_swap') ? 'Character and complete outfit transfer' : 'Shared by Qwen image replacement recipes' }, ...(qwenImageModelFiles.includes(id) ? [{ workflow: 'Viggle video', detail: 'Remotion · automatic Imagen segment repaints when enabled' }] : [])];
-  const detail = file.filename === NATURAL_SPEED ? 'Accelerated character-swap presets'
-    : file.filename === I2V_SPEED ? 'Fast presets and accelerated motion transfer'
-    : file.filename === DPO ? 'Detail adapter strength above zero'
-    : file.filename === RELIGHT ? 'Character relighting enabled'
-    : file.filename === SOCIAL_STYLE ? 'Optional social-media style in LoRA A or B'
-    : 'Shared by SCAIL-2 character swap and motion transfer';
-  return [{ workflow: 'SCAIL-2 video', detail }];
+  return [{ workflow: 'Retired files', detail: 'Kept for saved runs; unavailable for new creation.' }];
 }
 
 export const inventoryKey = (instanceId: number | null, endpoint: string) => instanceId ? `vast:${instanceId}` : `endpoint:${endpoint}`;
@@ -45,9 +40,9 @@ export function downloadRows(state: ModelsState, inventory?: ModelInventory, liv
     const bytes = saved?.size ?? lora?.size ?? (current?.status === 'installed' ? file.size : 0);
     const installed = bytes > 0;
     const partial = current?.status === 'downloading' ? current.downloaded || 0 : saved?.partialSize || lora?.partialSize || (!installed ? current?.downloaded : 0) || 0;
-    return { ...file, usage: modelUsage(file.id), installed, bytes, partial, onDisk: bytes + partial,
+    return { ...file, retired: isRetiredModel(file.id), usage: modelUsage(file.id), installed, bytes, partial, onDisk: bytes + partial,
       status: current?.status === 'failed' ? 'failed' : current?.status === 'downloading' || current?.status === 'queued' || current?.status === 'reconnecting' ? current.status : installed ? current?.status === 'missing' ? 'unavailable' : 'installed' : partial ? 'partial' : 'missing',
       progress: current, measured: !!saved?.measured || !!lora,
     };
-  });
+  }).filter(file => !file.retired || file.onDisk > 0 || file.progress?.remoteActive || ['queued', 'downloading', 'reconnecting'].includes(file.status));
 }

@@ -73,3 +73,4 @@
   .downloads-filters button { padding-inline: 9px; }
 }
 .downloads-bulk{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:20px 0;border-bottom:1px solid var(--line-soft);margin-bottom:24px}.downloads-bulk>div{max-width:660px}.downloads-bulk strong{font-size:14px;font-weight:500}.downloads-bulk p{font-size:12px;line-height:1.6;color:var(--muted);margin:7px 0}.downloads-bulk small{font-size:11px;line-height:1.5;color:var(--quiet)}.downloads-bulk>button{flex-shrink:0}.download-file-status.reconnecting{color:var(--accent)}@media(max-width:650px){.downloads-bulk{align-items:flex-start;flex-direction:column;gap:14px}.downloads-bulk>button{width:100%}}
+.download-retired { display: block; margin-top: 6px; color: var(--quiet); font-size: 11px; }
