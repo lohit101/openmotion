@@ -1,0 +1,439 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-11-04",
+  "evidenceCapturedAtUTC": "2026-11-03T23:29:27.207236+00:00",
+  "status": "research-in-progress; no production quality pass",
+  "relatedNarrative": "docs/remotion-local-geometry-20261104.md",
+  "goalComplete": false,
+  "qualityPass": false,
+  "changeScope": {
+    "productionInferenceMathChanged": false,
+    "productionDefaultsChanged": false,
+    "applicationOrDraftChanges": false,
+    "historicalPaidInputsAndOutputsPreserved": true,
+    "localEvaluationOnly": true,
+    "documentationTaskProviderCalls": false,
+    "documentationTaskPaidActions": false,
+    "noNewRentalInThisLocalFollowup": true,
+    "note": "Earlier same-host paid tests belong to the cumulative goal accounting below. These local diagnostic results do not authorize another paid run."
+  },
+  "budget": {
+    "capUSD": 2,
+    "reviewedConservativeAllocationUSD": 1.9815477378593036,
+    "unallocatedUSD": 0.018452262140696396,
+    "transferReserveUSD": 0.05,
+    "overnightStorageReserveUSD": 0.08,
+    "isProviderInvoice": false,
+    "newPaidActionAuthorized": false,
+    "acceptedCorrectionSeconds": 60,
+    "acceptedCorrectionUSD": 0.010844444444444445,
+    "correctionReason": "The native-control ledger timestamp preceded the start request and followed a fresh stopped-state check; an additional preceding minute had been double allocated.",
+    "uncertainty": "Provider billing available to the audit was a UTC-day aggregate including pre-goal activity. A weaker geometry-gap correction was not accepted. The allocation includes conservative padding and reserves; the small remaining arithmetic margin is not permission for more testing.",
+    "privateEvidence": ".local/remotion-budget-20261104/reviewed-allocation-v2.json"
+  },
+  "wholeFaceBypassControl": {
+    "status": "rejected and cancelled after a preserved prefix",
+    "plannedFrames": 240,
+    "preservedHashBoundFrames": 180,
+    "preservedRangeExclusive": [
+      0,
+      180
+    ],
+    "refinedFrames": 162,
+    "rawFallbackFrames": 18,
+    "originalReceiptComplete": false,
+    "observedFailure": "A conservative whole-face visibility bypass retained the raw closed mouth and different face at frame 146, then resumed the edited open mouth/face at 147. This is a visible performance and identity pop.",
+    "fallbackFramesInRepairWindow": [
+      138,
+      139,
+      140,
+      141,
+      142,
+      143,
+      144,
+      145,
+      146
+    ],
+    "controlCancellationConfirmed": true,
+    "prefixPNGHashesAndProtectedPixelsChecked": true,
+    "full240ExportOrQualityReviewClaimed": false,
+    "privateEvidence": [
+      ".local/remotion-turn-cpu-20261104/quality-cancel.json",
+      ".local/remotion-turn-cpu-20261104/cancelled-prefix-audit.json",
+      ".local/remotion-turn-cpu-20261104/full-scale/receipt.json"
+    ]
+  },
+  "regionalForegroundComparison": {
+    "status": "narrow local repair study, not accepted as a general workflow",
+    "sourceRangeExclusive": [
+      130,
+      155
+    ],
+    "frames": 25,
+    "fps": 24,
+    "secondsOfVideo": 1.0416666666666667,
+    "newFaceInferenceFrames": 19,
+    "hashReusedFaceFrames": 6,
+    "workerWallSeconds": 157.6612994999159,
+    "timingScope": "CPU face preparation/rendering/export work for this diagnostic; 19 new face renders and six explicitly reused frames. Not Viggle or complete Generate latency.",
+    "appearanceAndGeometry": "One fixed front-sheet appearance/canonical geometry, matched-scene expression baseline and continuous pose-bracketed reference XYZ ratios. No nearest-view appearance switching and no final ONNX identity blend in this candidate.",
+    "visibilityChange": "Remove the whole-face hand/visibility bypass when both faces are actually detected. Retain a pixelwise XSeg ceiling, then veto edits over the current native target hand after every facial warp.",
+    "foregroundCompositor": "Gate only the edited residual against the native generated target. Apply a one-pixel hand-mask dilation and 1.5-pixel face-side feather. Original driving-video RGB is not pasted into the target.",
+    "trackedHandModel": {
+      "model": "SAM2.1 Hiera Tiny",
+      "execution": "local Apple MPS, FP32",
+      "frames": 25,
+      "sourceRangeExclusive": [
+        130,
+        155
+      ],
+      "seconds": 36.48878704197705,
+      "seedFrame": 143,
+      "initialPositiveSeedCoverage": 1.0,
+      "initialNegativeSeedCoverage": 0.0,
+      "newWeightsForThisLocalMaskRun": 0,
+      "providerGPUUsed": false,
+      "privateEvidence": ".local/remotion-local-sam-20261104/receipt.json"
+    },
+    "independentIntegrityChecks": {
+      "all25OutputHashesChecked": true,
+      "classifiedDilatedHandPixelsEqualNativeTarget": true,
+      "pixelsOutsideVetoFeatherEqualUnvetoedCandidate": true,
+      "comparisonAndSingleOutputDecodedFrames": 25,
+      "comparisonAndSingleOutputFPS": "24/1",
+      "preEncodePixelProofOnly": true
+    },
+    "causalSeparation": {
+      "stillFrames": [
+        136,
+        138,
+        142,
+        146,
+        147,
+        150
+      ],
+      "SAMVetoChangedPixels": {
+        "136": 0,
+        "138": 59,
+        "142": 121,
+        "146": 0,
+        "147": 0,
+        "150": 0
+      },
+      "conclusion": "The 146-to-147 pop is repaired by removing the whole-face bypass. SAM supplies an independent foreground veto; it did not cause that particular mouth/identity repair."
+    },
+    "observed": "The six inspected stills retain the edited face and source-driven open mouth across 146 and 147. A synchronized 25-frame artifact exists for moving review.",
+    "movingArtifactAvailable": true,
+    "nativePlaybackReviewClaimedByThisJSONAuthor": false,
+    "audio": "Review-only AAC trim for the extracted window, not an audio-packet-identity claim.",
+    "limitations": [
+      "A forehead-hand event is not a complete hand-over-mouth/eyes, leg, car or other-object occlusion evaluation.",
+      "Exact classified-mask pixels do not prove complete real-hand segmentation.",
+      "The preserved foreground is the native generated target hand, not a recovery of the original driving-video hand pixels or exact gesture timing.",
+      "The whole-alpha XSeg ceiling can suppress legitimate jaw/neck support; preservation of the accepted jaw behavior is not proved.",
+      "This 25-frame interval does not establish full-video identity, head-turn, cuts or reappearance consistency."
+    ],
+    "privateEvidence": [
+      ".local/remotion-turn-cpu-20261104/regional25-audit.json",
+      ".local/remotion-turn-cpu-20261104/regional25-export.json",
+      ".local/remotion-turn-cpu-20261104/regional-25-comparison.mp4",
+      ".local/remotion-turn-cpu-20261104/regional-25-sam/result.mp4"
+    ],
+    "supervisorNativePlayback": {
+      "app": "QuickTime Player",
+      "reviewedMovingArtifact": true,
+      "observedBinaryFallbackRepair": true,
+      "generalQualityPass": false
+    }
+  },
+  "cropperActualRenderAB": {
+    "status": "no clear still-quality winner; temporal quality unproved",
+    "frames": [
+      12,
+      43,
+      65
+    ],
+    "variants": [
+      "private 68-point crop",
+      "official 203-point crop"
+    ],
+    "renderCount": 6,
+    "cpuWorkerSeconds": 49.676087375031784,
+    "reference": "The same approved in-scene image supplies fixed appearance, canonical geometry, expression baseline and XYZ ratios for both variants.",
+    "controlledVariable": "Only the crop representation changes for the reference, source anchor, current source and current target. The native source is decoded on the frozen 24-fps clock; the 25-fps original is not sought by frame index.",
+    "sourceAnchorFrame": 36,
+    "currentHandMaskBoundToSameTarget": true,
+    "allSixPNGHashesAndProtectedPixelsChecked": true,
+    "observation": "The actual face pixels look similar at all three inspected frames, with small placement/shape differences. Lower crop-jitter diagnostics alone are not a realism, likeness or temporal result.",
+    "privateEvidence": [
+      ".local/remotion-crop-render-20261104/results/receipt.json",
+      ".local/remotion-crop-render-20261104/audit.json",
+      ".local/remotion-crop-render-20261104/actual-face-comparison.jpg"
+    ]
+  },
+  "rejectedGeometryAndMaskCandidates": [
+    {
+      "candidate": "Fixed studio-reference rigid expression calibration",
+      "coverage": "Five CPU stills from a separate turn clip",
+      "seconds": 43.77957612485625,
+      "decision": "rejected",
+      "reason": "A neutral mouth becomes visibly pursed and smiles are lost at sampled turn frames. Constraining XYZ ratios did not establish reliable separation of anatomy and expression.",
+      "privateEvidence": ".local/remotion-turn-cpu-20261104/stills-review.json"
+    },
+    {
+      "candidate": "Fixed in-scene appearance/geometry still alternative",
+      "coverage": "Five CPU stills",
+      "seconds": 46.454767167102545,
+      "decision": "not accepted; no clear overall still winner",
+      "reason": "Smiles remain, but the neutral mouth is slightly pursed and the inspected lighting/likeness gain is modest. No second full clip was rendered from these stills.",
+      "privateEvidence": ".local/remotion-turn-cpu-20261104/matched-review.json"
+    },
+    {
+      "candidate": "Cached-layer jaw/neck permission split proxy",
+      "coverage": "Six mask-only CPU diagnostics, without new face generation",
+      "seconds": 5.687484125141054,
+      "extraJawScenePixelRange": [
+        43,
+        251
+      ],
+      "decision": "rejected proxy",
+      "reason": "The proxy produces a visible double-chin/diagonal edge. The cache lacks the original pre-ceiling alpha, original aligned edited crop and semantic label maps, so this is not an exact unified-jaw replay or evidence that the split policy succeeds.",
+      "privateEvidence": [
+        ".local/remotion-turn-cpu-20261104/jaw-policy-proxy/receipt.json",
+        ".local/remotion-turn-cpu-20261104/jaw-policy-proxy/review.jpg"
+      ]
+    }
+  ],
+  "localCoreMLComponentStudy": {
+    "status": "component speed and narrow numerical parity only",
+    "hardware": "AppleM5 /16GB RAM",
+    "onnxRuntime": "1.31.1",
+    "threads": 2,
+    "packagesInstalled": false,
+    "newModels": false,
+    "productionChanged": false,
+    "motionWarmMedianSeconds": {
+      "CPU": 0.04162395908497274,
+      "CoreMLCPUAndNeuralEngineMode": 0.027692083967849612,
+      "CoreMLAllMode": 0.046628582989796996
+    },
+    "motionDeviceCaveat": "CPUAndNeuralEngine mode planned all motion operations on CPU. No ANE execution claim is supported; CoreML provider registration is not proof of ANE use.",
+    "decoderWarmMedianSeconds": {
+      "CPU": 1.0155630828812718,
+      "CoreMLAllMode": 0.1967807081528008
+    },
+    "decoderOnlySpeedup": 5.1608874285211135,
+    "actualFeatureParity": {
+      "private68": {
+        "minimum": -1.8380367755889893,
+        "maximum": 2.4352383613586426,
+        "maxAbsoluteError": 7.420778274536133e-06,
+        "meanAbsoluteError": 1.9457290771166905e-07,
+        "p99AbsoluteError": 9.238719940185547e-07,
+        "allclose": true,
+        "convertedRGBMaximumChannelDifference": 1,
+        "convertedRGBChangedPixels": 38,
+        "totalPixels": 262144
+      },
+      "official203": {
+        "minimum": -1.7900331020355225,
+        "maximum": 2.3562748432159424,
+        "maxAbsoluteError": 4.887580871582031e-06,
+        "meanAbsoluteError": 1.693184591052462e-07,
+        "p99AbsoluteError": 7.599592208862305e-07,
+        "allclose": true,
+        "convertedRGBMaximumChannelDifference": 1,
+        "convertedRGBChangedPixels": 26,
+        "totalPixels": 262144
+      }
+    },
+    "actualFeatureTimingSeconds": {
+      "cpu": {
+        "private68": 1.2721304579172283,
+        "official203": 1.070275790989399
+      },
+      "all": {
+        "private68": 0.2648201670963317,
+        "official203": 0.1970306250732392
+      }
+    },
+    "actualFeaturePeakRSSBytes": 2949365760,
+    "coldCompilationSeparateFromWarmTiming": true,
+    "allBenchmarkWorkersTerminal": true,
+    "limitations": [
+      "The roughly 5.16-fold speedup is for the decoder component, not the full face pipeline, Viggle or complete Generate latency.",
+      "Two real frame-12 decoder inputs produce at most one converted RGB-channel-level difference; this is not full-video scene, identity, gaze or temporal parity.",
+      "Compute-plan device assignments are planning evidence, not a low-level hardware trace.",
+      "Batch-one specialization is an ORT session override; original ONNX files remain unchanged.",
+      "The first symbolic-batch attempt was rejected before prediction and is not a successful benchmark."
+    ],
+    "privateEvidence": [
+      ".local/remotion-coreml-20261104/summary.json",
+      ".local/remotion-coreml-20261104/actual-parity.json"
+    ]
+  },
+  "fixedLivePortraitStudy": {
+    "status": "completed private temporal comparison; not selected and no quality pass",
+    "fixedReferenceRule": "One approved in-scene appearance feature and canonical 21-point geometry; scalar scale and source-relative motion. No per-frame reference-identity RGB blending.",
+    "originalStills": {
+      "frames": [
+        0,
+        16,
+        36,
+        48,
+        65
+      ],
+      "workerSeconds": 73.75554512511007,
+      "findings": "Source-relative rotation makes some sampled glances more plausible, but the opening mouth is wrongly open. Lip normalization plus stitching can close it while moving the whole face; that global placement change is rejected.",
+      "privateEvidence": ".local/remotion-fixed-lp-20261104/stills-receipt.json"
+    },
+    "laterBodyStills": {
+      "frames": [
+        0,
+        16,
+        48,
+        65
+      ],
+      "workerSeconds": 70.33038200018927,
+      "sameRawBodyAsCropperAB": false,
+      "findings": "A newer native prefix uses its own current hand masks. Lip normalization without stitching avoids the global head shift but does not close the opening mouth. Eye-opening hybrid changes are experimental, not measured gaze accuracy.",
+      "privateEvidence": ".local/remotion-fixed-lp-20261104/new-body/receipt.json"
+    },
+    "mouthAbsoluteRegionalStills": {
+      "frames": [
+        0,
+        48,
+        65
+      ],
+      "workerSeconds": 15.453630749834701,
+      "generatorSeconds": [
+        4.774621916934848,
+        4.636575374985114,
+        4.511517708888277
+      ],
+      "method": "Drive the regional LP mouth Y/Z opening correction with the lip retargeter while retaining horizontal expression. Each output has one generated oral cavity; no RGB mouth/identity average.",
+      "observed": "The incorrect opening O is closed without the stitcher global-head shift, and the two clear later samples remain closed.",
+      "frameZeroFallback": {
+        "sourceMouthHandCoverage": 0.12582236842105263,
+        "observedOpeningRatio": 0.03595403954386711,
+        "usedOpeningRatio": 0.0,
+        "method": "Explicit neutral mouth closure under partial occlusion; unvalidated fallback, not measured source performance."
+      },
+      "currentClassifiedHandAndOutsidePermissionExactInThreeStills": true,
+      "qualityPass": false,
+      "limitations": [
+        "Opening ratios do not distinguish every phoneme, tongue state, teeth visibility or pucker component.",
+        "Closed-mouth stills cannot prove accurate lip sync, jaw dynamics or teeth behavior in a moving clip.",
+        "Predicted hidden landmarks from backward crop tracking are not observed facial motion."
+      ],
+      "privateEvidence": ".local/remotion-fixed-lp-20261104/mouth-absolute/receipt.json"
+    },
+    "localOptionalMLPAssets": {
+      "repo": "facefusion/models-3.0.0",
+      "revision": "728b9659bd9691bf32cbf7f61af478d94b7ba81e",
+      "count": 3,
+      "totalBytes": 925702,
+      "names": [
+        "live_portrait_eye_retargeter.onnx",
+        "live_portrait_lip_retargeter.onnx",
+        "live_portrait_stitcher.onnx"
+      ],
+      "localOnly": true,
+      "providerGPUTransfer": false,
+      "appInventoryChanged": false,
+      "note": "These are separate local private evaluation assets. Do not describe this entire follow-up as having no new model files.",
+      "privateEvidence": ".local/remotion-fixed-lp-20261104/mlp-model-receipt.json"
+    },
+    "full73TemporalCandidate": {
+      "status": "completed; not selected",
+      "completeResultAvailable": true,
+      "frames": 73,
+      "fps": 24,
+      "workerSeconds": 389.04872841690667,
+      "execution": "local original CPU ONNX; no rental or CoreML route",
+      "outputSHA256": "eb771ba398fd13f3bcf4b07325d5589892db37dbe35bebef70bb91308e4ae9fb",
+      "scriptSHA256": "41fc2393eac6ca5f296cb7e6ce41f9c14e5e99ddb96b6894e630fe3de7fa7b14",
+      "sameNativeParentForPriorComparison": true,
+      "priorLabel": "NEW fixed-PERC private experimental route, not an exact production v10 baseline",
+      "sourceVisibilityChangesFromStills": [
+        "SourceSAMfeaturecoverage replacesunvalidateddetector-boxvisibilityestimate.",
+        "Openingavailability checkscentralaperturesupport, not wholemouthpartialcoverage; source6/7clear measurementsretained.",
+        "Hiddeneyecontrolsrestorefixedreferencebaseline ratherthandrivefrominferredoccludedeye.",
+        "No breathingcorrection, temporalmattefilter, decoderoptimization, ONNXRGBfaceblend orstitcher added."
+      ],
+      "integrity": {
+        "checkedFrames": 73,
+        "targetSAMPixelsExactBeforeEncode": true,
+        "outsideFinalAlphaExactBeforeEncode": true,
+        "all292ArtifactHashesChecked": true,
+        "audioPacketsEqual": true,
+        "audioPacketCount": 144
+      },
+      "nativePlayback": {
+        "app": "QuickTime Player",
+        "playedToFinalFrame": true,
+        "observedScreenFrames": [
+          5,
+          72
+        ],
+        "contactAndEarlyFrameReview": true
+      },
+      "observedRemainingFailures": [
+        "frame6 artificial brow frown",
+        "frame12 incomplete source blink; upstream opening estimate imperfect",
+        "frame20 chin contour"
+      ],
+      "qualityPass": false,
+      "productionPromoted": false,
+      "allModelWorkersTerminal": true,
+      "privateEvidence": [
+        ".local/remotion-fixed-lp-20261104/full73/receipt.json",
+        ".local/remotion-fixed-lp-20261104/full73/independent-output-validation.json",
+        ".local/remotion-fixed-lp-20261104/full73/source-native-prior-candidate.mp4",
+        ".local/remotion-fixed-lp-20261104/full73/review-diagnostics.json"
+      ]
+    },
+    "placementFactorAudit": {
+      "complete": true,
+      "frames": 73,
+      "formula": "physical scalar gain = LP scalar scale / norm(crop affine first column)",
+      "normalizedCurveCorrelation": 0.9403232984054869,
+      "normalizedDiscrepancyPercent": {
+        "median": -0.04880434640956999,
+        "p05": -1.8982114040673048,
+        "p95": 2.5655965526520506
+      },
+      "forwardFrames8To72AnchorNormalizedPercent": {
+        "min": -1.7869598263032138,
+        "max": 4.395134294912872,
+        "std": 1.0527851786166862
+      },
+      "targetScaleCropLogStepCorrelation": 0.7320275905311668,
+      "conclusion": "Factors partly cancel; gross double-scale inheritance not established. Large opening discrepancies use occluded/backward-estimated features. Not a ground-truth face-size or jitter measurement.",
+      "privateEvidence": ".local/remotion-fixed-lp-20261104/placement-diagnostic.json"
+    }
+  },
+  "completionAudit": {
+    "finishedRemotionClaimSupported": false,
+    "higgsfieldLevelClaimSupported": false,
+    "pixelPerfectMotionClaimSupported": false,
+    "requirementsStillUnproved": [
+      "Stable, realistic face boundaries over complete diverse videos",
+      "Facial anatomy and identity through profile turns and reappearance",
+      "Hard cuts and target reacquisition across shots",
+      "Hands fully crossing eyes/mouth, forearms, legs, vehicles and arbitrary foreground objects",
+      "Reliable source-driven gaze, visemes, teeth and moving-jaw behavior",
+      "Preservation of the accepted jaw-support rule under independent foreground vetoes",
+      "End-to-end quality and creation latency across the supported workflows"
+    ],
+    "promotionDecision": "No experimental candidate in this snapshot is approved as a universally correct production workflow."
+  },
+  "providerFinalObservation": {
+    "state": "exited",
+    "intendedState": "stopped",
+    "idleAutoPauseEnabled": true,
+    "refreshedAt": "2026-11-03T23:44:06.614Z",
+    "error": null,
+    "action": "read-only refresh; no resume or rental change"
+  }
+}

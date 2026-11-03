@@ -4,6 +4,8 @@ The new short-clip controls improve the observed hand timing, but **Remotion has
 
 The user capped this goal at **$2 total usage**. The conservative allocation after independently confirmed compute shutdown is approximately **$1.9924**, including transfer and overnight storage reserves. This is an upper allocation rather than a provider invoice. Do not resume paid testing for this goal under the remaining allowance. Continue independent local work; a future paid phase requires a new budget. The existing retained disk is preserved.
 
+A subsequent ledger review removed one duplicated pre-start minute, revising the conservative allocation to **$1.98155** with both reserves unchanged. This does not authorize further paid testing. See the [local geometry follow-up](remotion-local-geometry-20261104.md).
+
 ## Short-context motion failure
 
 The original three-second evaluation used 73 real frames at 24 fps. Two 124-real-frame controls retained precisely the same decoded first 73 source frames, the same opening repaint, and the published three-pass schedule. Both seeds followed the early hand turn substantially more closely. The 73-frame three-pass comparison still had the delayed/doubled hand, so the difference is not explained by adding sampler passes.
@@ -34,7 +36,7 @@ An oversized SSH archive recovery timed out. The completed remote outputs were r
 
 Private CPU ablations also examined source-coordinate iris adjustment, stronger scene-light matching, NORMAL_CLONE and multiband blending. Stronger low-frequency lighting matches pink scene illumination better than the existing ±7.8 RGB correction limit. It does not remove the geometric chin contour. NORMAL_CLONE creates a pale halo and is rejected; multiband only softens the contour. Exact masks do not prove good blending.
 
-The fixed studio-expression variant loses a smile and creates an incorrect pout on five held-out turn frames, so it is rejected. The matched-scene expression variant retains those expressions better in stills; a separate low-priority, two-thread CPU full-clip evaluation is running. No full-clip quality conclusion is recorded for that pending work.
+The fixed studio-expression variant loses a smile and creates an incorrect pout on five held-out turn frames, so it is rejected. The matched-scene expression variant retains those expressions better in stills. Its separate low-priority CPU temporal evaluation was subsequently stopped after 180 completed frames: a whole-face visibility bypass introduced an identity/expression pop. The preserved prefix is rejected, not a full-clip quality pass. A narrower 25-frame regional repair is documented in the [local geometry follow-up](remotion-local-geometry-20261104.md).
 
 ## Cuts and remaining scope
 
