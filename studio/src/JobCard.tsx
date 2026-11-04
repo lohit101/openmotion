@@ -22,7 +22,7 @@ function PendingPreview({ job }: { job: Job }) {
 
 export default function JobCard({ job, selected, onSelect, onPatch, onReuse }: { job: Job; selected?: boolean; onSelect: () => void; onPatch: (v: Partial<Job>) => void; onReuse: () => void }) {
   const preview = useRef<HTMLVideoElement>(null);
-  const done = job.status === 'completed';
+  const done = job.status === 'completed' && !!job.output;
   const [width, height] = outputDimensions(job);
   return <article className={`job-card ${selected ? 'selected' : ''}`}>
     <button className="job-media" onClick={onSelect} onMouseEnter={() => { if (done) void preview.current?.play().catch(() => undefined); }} onMouseLeave={() => { preview.current?.pause(); if (preview.current) preview.current.currentTime = 0; }} aria-label={`Open ${job.title}`}>

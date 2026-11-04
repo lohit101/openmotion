@@ -10,6 +10,7 @@ import type { Asset } from '../shared/types';
 import { clipTime, type ClipSelection } from '../shared/clip';
 import MediaPreviewDialog from './MediaPreviewDialog';
 import { FieldLabel } from './InfoTip';
+import type { ClipLimits } from '../shared/clip-limits';
 
 export async function api<T>(route: string, body?: unknown, method?: string): Promise<T> {
   const response = await fetch('/api' + route, { method: method || (body === undefined ? 'GET' : 'POST'), headers: body === undefined ? {} : { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
@@ -25,9 +26,9 @@ export function Toggle({ label, checked, onChange, disabled = false, detail, det
 export function Modal({ open, onOpenChange, title, description, children, wide = false }: { open: boolean; onOpenChange: (v: boolean) => void; title: string; description: string; children: ReactNode; wide?: boolean }) {
   return <Dialog.Root open={open} onOpenChange={onOpenChange}><Dialog.Portal><Dialog.Overlay className="modal-overlay" /><Dialog.Content className={`modal ${wide ? 'modal-wide' : ''}`}><div className="modal-head"><div><Dialog.Title>{title}</Dialog.Title><Dialog.Description>{description}</Dialog.Description></div><Dialog.Close className="icon-button" aria-label="Close dialog"><X size={20} /></Dialog.Close></div>{children}</Dialog.Content></Dialog.Portal></Dialog.Root>;
 }
-export function AssetDrop({ kind, asset, onAsset, onError, label, emptyLabel, help, clip, clipFps = 24, onClip }: {
+export function AssetDrop({ kind, asset, onAsset, onError, label, emptyLabel, help, clip, clipFps = 24, onClip, clipLimits }: {
   kind: 'video' | 'image'; asset?: Asset; onAsset: (a: Asset | null) => void; onError: (s: string) => void;
-  label?: string; emptyLabel?: string; help?: ReactNode; clip?: ClipSelection; clipFps?: number; onClip?: (selection: ClipSelection) => void;
+  label?: string; emptyLabel?: string; help?: ReactNode; clip?: ClipSelection; clipFps?: number; onClip?: (selection: ClipSelection) => void; clipLimits?: ClipLimits;
 }) {
   const input = useRef<HTMLInputElement>(null), request = useRef<XMLHttpRequest | null>(null);
   const [dragging, setDragging] = useState(false), [uploading, setUploading] = useState(false), [percent, setPercent] = useState(0), [checking, setChecking] = useState(false);
@@ -61,6 +62,6 @@ export function AssetDrop({ kind, asset, onAsset, onError, label, emptyLabel, he
     </button><div className="asset-caption">{asset ? <><span title={asset.name}>{asset.name}</span><small>{kind === 'video' ? formatTime(asset.duration) : `${asset.width} × ${asset.height}`}</small></> : <small>{kind === 'video' ? 'MP4, MOV or WebM' : 'JPG, PNG or WebP'}</small>}</div>
     {asset && <div className="asset-footer-actions"><button type="button" className="asset-change-button" onClick={() => input.current?.click()} disabled={uploading} aria-label={`Replace ${name.toLowerCase()}`}><UploadSimple size={13} />Replace</button><button type="button" className="asset-remove-button" disabled={uploading} onClick={() => onAsset(null)} title={`Remove ${name.toLowerCase()}`} aria-label={`Remove ${name.toLowerCase()}`}><X size={14} /></button></div>}
     {asset && kind === 'video' && clip && onClip && <button type="button" className="asset-trim-caption" onClick={() => setPreview({ asset, pending: false })} aria-label={`Trim motion video: ${clip.seconds.toFixed(2)} seconds selected from ${clipTime(clip.start)} to ${clipTime(clip.start + clip.seconds)}`}><Scissors size={13} /><span><strong>{clip.seconds.toFixed(2)}s selected</strong><small>{clipTime(clip.start)} – {clipTime(clip.start + clip.seconds)}</small></span></button>}
-    {preview && <MediaPreviewDialog asset={preview.asset} clip={preview.pending ? undefined : clip} fps={clipFps} close={() => setPreview(null)} apply={kind === 'video' && onClip ? selection => { if (preview.pending) onAsset(preview.asset); onClip(selection); setPreview(null); } : undefined} />}
+    {preview && <MediaPreviewDialog asset={preview.asset} clip={preview.pending ? undefined : clip} fps={clipFps} clipLimits={clipLimits} close={() => setPreview(null)} apply={kind === 'video' && onClip ? selection => { if (preview.pending) onAsset(preview.asset); onClip(selection); setPreview(null); } : undefined} />}
   </div>;
 }

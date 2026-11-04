@@ -8,9 +8,10 @@ import { VideoPlayer } from './components';
 import { clipPosterUrl } from '../shared/clip-editor';
 import { FaceRefinementAction, FaceRefinementProgress } from './FaceRefinement';
 import './library.css';
+import KieRunDetailsDialog from './KieRunDetailsDialog';
 import { facialCalibrationReason, facialProfileLabels, isCalibratedFacialVersion, isEyeFinishedFacialVersion, isGeometryFacialVersion, isBoundaryFacialVersion, isOcclusionTrackedFacialVersion } from '../shared/facial-consistency';
 
-export default function RunDetailsDialog({ job, jobs, assets, open, close, patch, reuse, openWorkspace, previous, next, position, editVideo, selectJob }: {
+function LegacyRunDetailsDialog({ job, jobs, assets, open, close, patch, reuse, openWorkspace, previous, next, position, editVideo, selectJob }: {
   job: Job; jobs: Job[]; assets: Asset[]; open: boolean; close: () => void;
   patch: (changes: Partial<Job>) => Promise<void>; reuse: () => void; openWorkspace: () => void;
   previous?: () => void; next?: () => void; position?: string; editVideo?: () => void;
@@ -80,4 +81,8 @@ export default function RunDetailsDialog({ job, jobs, assets, open, close, patch
       <div className="run-record-footer">{stamp(job.finishedAt) && <p>Finished {stamp(job.finishedAt)}</p>}<p className="run-id">Run {job.id}</p><a href={'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(exportData, null, 2))} download={`recast-${job.id}-settings.json`}><DownloadSimple size={14} />Save run settings</a>{workflowJob?.hasWorkflow && <a href={`/api/jobs/${workflowJob.id}/workflow`}><DownloadSimple size={14} />{local || job.faceRefinement ? 'Original ComfyUI graph' : 'ComfyUI graph'}</a>}</div>
     </aside></div>
   </Dialog.Content></Dialog.Portal></Dialog.Root>;
+}
+
+export default function RunDetailsDialog(props: Parameters<typeof LegacyRunDetailsDialog>[0]) {
+  return props.job.kie ? <KieRunDetailsDialog {...props} /> : <LegacyRunDetailsDialog {...props} />;
 }

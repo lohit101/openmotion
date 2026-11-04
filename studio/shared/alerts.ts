@@ -61,7 +61,7 @@ export class ActivityAlertTracker {
       if (job.anchorChild || job.image?.segmentRepaint) continue; // Intermediate photo readiness is reported by its video, not as a final output alert.
       const old = this.jobs.get(job.id), changed = old?.status !== job.status;
       const recent = old || Date.parse(job.createdAt) >= this.startedAt;
-      if (this.initialized && recent && !job.deleted && (job.origin === 'render' || !!job.upscale || !!job.faceRefinement)) {
+      if (this.initialized && recent && !job.deleted && (job.origin === 'render' || job.origin === 'api' || !!job.upscale || !!job.faceRefinement)) {
         const base = { id: `generation:${job.id}:${job.status}:${job.finishedAt || job.progress.updatedAt}`, category: 'generation' as const, target: { view: job.upscale ? 'clarity' as const : job.mediaType === 'image' ? 'image' as const : 'create' as const, jobId: job.id } };
         if (job.status === 'completed' && job.output && (changed || !old?.output)) {
           const skipped = job.facialConsistency?.eyeCalibration?.state === 'skipped';

@@ -12,7 +12,7 @@ const categories: Record<AlertCategory, { label: string; detail: string }> = {
   exports: { label: 'Clip exports', detail: 'Your local export is ready or fails' },
 };
 
-export default function AlertSettings() {
+export default function AlertSettings({ apiOnly = false }: { apiOnly?: boolean }) {
   const { preferences, permission, sound, desktopError } = useAlertSettings(), [requesting, setRequesting] = useState(false);
   const enable = async () => { setRequesting(true); try { await browserAlerts.enableDesktop(); } finally { setRequesting(false); } };
   return <section className="alert-settings" aria-labelledby="alert-settings-heading">
@@ -32,8 +32,8 @@ export default function AlertSettings() {
       {preferences.sounds && sound === 'blocked' && <p className="alert-permission-note" role="status">Click a sound preview to enable audio. Check whether this browser tab is muted if you cannot hear it.</p>}
     </section>
     <section className="alert-events" aria-labelledby="alert-events-heading"><h3 id="alert-events-heading">Alert me about</h3><p>Choose which events play sounds and send desktop notifications. In-app status messages stay visible.</p>
-      <div>{alertCategories.map(category => <Toggle key={category} label={categories[category].label} detail={categories[category].detail} checked={preferences.events[category]} onChange={enabled => browserAlerts.configure({ events: { ...preferences.events, [category]: enabled } })} />)}</div>
+      <div>{alertCategories.filter(category => !apiOnly || category === 'generation').map(category => <Toggle key={category} label={apiOnly ? 'Video generations' : categories[category].label} detail={categories[category].detail} checked={preferences.events[category]} onChange={enabled => browserAlerts.configure({ events: { ...preferences.events, [category]: enabled } })} />)}</div>
     </section>
-    <p className="alert-session-note"><Bell size={15} />Keep a Recast tab and the local app running. Desktop banners follow browser and system notification settings. These alerts do not use your rented GPU.</p>
+    <p className="alert-session-note"><Bell size={15} />Keep a Recast tab and the local app running. Desktop banners follow browser and system notification settings. {apiOnly ? 'Alerts are delivered by your browser.' : 'These alerts do not use your rented GPU.'}</p>
   </section>;
 }
