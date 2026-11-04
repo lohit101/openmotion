@@ -10,6 +10,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 from types import ModuleType
+import contextlib
+import io
 
 import cv2
 import numpy as np
@@ -174,6 +176,27 @@ class RepairLayerTests(unittest.TestCase):
         np.testing.assert_array_equal(layers['parentCrop'],30)
         np.testing.assert_array_equal(layers['expression'],100)
         np.testing.assert_array_equal(layers['identity'],200)
+
+
+class RepairTransportTests(unittest.TestCase):
+    def test_lost_launch_response_keeps_running_or_unknown_worker_protected(self):
+        from managed_face_repair import launch
+        rejected = subprocess.CalledProcessError(255,['private-ssh-argv'])
+        for observed in ({'running':True},OSError('unreachable')):
+            output = io.StringIO()
+            with patch('managed_face_repair.call',side_effect=[rejected,observed]),contextlib.redirect_stdout(output):
+                with self.assertRaises(subprocess.CalledProcessError):
+                    launch({},'job')
+            self.assertNotIn('STOPPED',output.getvalue())
+
+    def test_rejected_launch_clears_handle_only_after_exact_stopped_pid(self):
+        from managed_face_repair import launch
+        rejected = subprocess.CalledProcessError(1,['private-ssh-argv'])
+        output = io.StringIO()
+        with patch('managed_face_repair.call',side_effect=[rejected,{'running':False}]),contextlib.redirect_stdout(output):
+            with self.assertRaises(subprocess.CalledProcessError):
+                launch({},'job')
+        self.assertEqual(output.getvalue().strip(),'RECAST_FACE_REPAIR_STOPPED')
 
 
 @unittest.skipUnless(shutil.which('ffmpeg') and shutil.which('ffprobe'),'ffmpeg required')

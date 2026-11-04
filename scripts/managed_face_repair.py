@@ -31,6 +31,20 @@ def call(config, action, job):
     return json.loads(rows[-1])
 
 
+def launch(config, job):
+    try:
+        return call(config,'launch',job)
+    except subprocess.CalledProcessError:
+        # A lost launch response is not proof of failure.  Clear the pending
+        # remote handle only after polling this exact owned worker's PID.
+        try:
+            if call(config,'poll',job).get('running') is False:
+                print('RECAST_FACE_REPAIR_STOPPED',flush=True)
+        except (ValueError,OSError,subprocess.SubprocessError):
+            pass
+        raise
+
+
 def probe(config, job):
     """A missing owned folder is conclusive only with an exact PID audit."""
     code = '''import os,pathlib,json,sys
@@ -265,7 +279,7 @@ def main():
             if cancelled:
                 print('RECAST_FACE_REPAIR_STOPPED\nRECAST_FACE_REPAIR_CANCELLED',flush=True)
                 raise ValueError('Repair cancelled before inference.')
-            call(config,'launch',job)
+            launch(config,job)
     sent = False
     interrupted_error = None
     while True:
@@ -308,5 +322,12 @@ def main():
 if __name__ == '__main__':
     try:
         main()
+    except subprocess.CalledProcessError as error:
+        # SSH argv contains private key paths/connection identifiers.  Keep
+        # these out of the user-facing error while retaining remote diagnosis.
+        if error.returncode == 255:
+            raise SystemExit('Connection to the saved repair was interrupted. Reconnect the same GPU and choose Check & resume; verified frames were retained.')
+        detail = error.stderr.decode(errors='replace') if isinstance(error.stderr,bytes) else error.stderr
+        raise SystemExit((detail or 'Face repair transfer or tools failed. Existing video and checkpoints were retained.')[-1600:])
     except (OSError,ValueError,subprocess.SubprocessError) as error:
         raise SystemExit(str(error))
