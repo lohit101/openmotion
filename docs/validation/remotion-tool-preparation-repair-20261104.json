@@ -1,0 +1,43 @@
+{
+  "version": "remotion-tool-preparation-repair-v1",
+  "atUTC": "2026-11-04T10:49:48.309912+00:00",
+  "causes": [
+    "Detached setup worker omitted source-face-v11 from allowlist",
+    "Observer retried deterministic remote application rejection indefinitely",
+    "Source extractor rejected four official internal YAML symlink aliases"
+  ],
+  "remoteSetupWorkerAbsentBeforeLocalObserverCancellation": true,
+  "recovery": "Existing models/cancel and models/module APIs; fresh content-bound helper runtime, existing immutable helper copies untouched.",
+  "selectedModelFilesReused": 18,
+  "newWeightDownloads": 0,
+  "studioRestarts": 0,
+  "gpuResumeCalls": 0,
+  "newRentals": 0,
+  "newInference": 0,
+  "actualPinnedArchiveBytes": 55645345,
+  "actualPinnedArchiveSHA256": "1f2fbfad3ffa38110368abac76c6ef9df9c282a66d5c2807bc94abf4d2fb30f8",
+  "selectedArchiveFilesByteVerified": 41,
+  "safeAliasesMaterializedAsRegularFiles": 4,
+  "filesystemLinksCreated": 0,
+  "readiness": {
+    "busy": false,
+    "status": "complete",
+    "message": "Ready for these settings",
+    "error": null,
+    "facialPreparing": false,
+    "occlusionReady": true,
+    "allFacialReady": true,
+    "selectedInstalled": 18,
+    "selectedTotal": 18,
+    "nativeToolsReady": true,
+    "activeJobs": 0
+  },
+  "checks": {
+    "pythonTests": 322,
+    "newSetupTests": 5,
+    "newArchiveTests": 6,
+    "legacyFacialFingerprintsUnchanged": true
+  },
+  "savedV11JobsBeforeRepair": 0,
+  "updatedFacialProfileSHA256": "a0cfd405a0487ba4f20a394e512cad4fcfa43a603992fa91664ea3f07c70941c"
+}

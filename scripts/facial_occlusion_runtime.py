@@ -6,7 +6,7 @@ compute, downloads weights, or changes the ComfyUI Python environment.
 import hashlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import shutil
 import subprocess
 import tarfile
@@ -47,6 +47,109 @@ def source_root():
     return ROOT / '.local/occlusion-sam-source'
 
 
+def _wanted_source(relative):
+    path = PurePosixPath(relative)
+    return ((path.parts and path.parts[0] == 'sam2' and path.suffix in ['.py', '.yaml', '.yml']) or
+            str(path) in ['LICENSE', 'LICENSE_cctorch', 'README.md'])
+
+
+def _archive_path(name, root=None):
+    """Normalize archive names lexically, never using filesystem resolution."""
+    if not isinstance(name, str) or '\x00' in name or PurePosixPath(name).is_absolute():
+        raise ValueError('Invalid tracking archive path: ' + repr(name))
+    parts = []
+    for part in name.split('/'):
+        if part in ['', '.']:
+            continue
+        if part == '..':
+            if len(parts) <= 1:
+                raise ValueError('Tracking archive path escapes its root: ' + name)
+            parts.pop()
+        else:
+            parts.append(part)
+    if not parts or root is not None and parts[0] != root:
+        raise ValueError('Tracking archive path leaves its root: ' + name)
+    return '/'.join(parts)
+
+
+def extract_source_archive(archive, staged):
+    """Materialize pinned source entries, including safe upstream YAML aliases.
+
+    No extract/extractall operation is used. Symbolic/hard-link targets are
+    resolved inside the archive's source-member table and copied as ordinary
+    files; filesystem links are never created or followed. The caller verifies
+    the complete archive SHA256 before invoking this helper.
+    """
+    staged = Path(staged)
+    if staged.is_symlink() or not staged.is_dir() or any(staged.iterdir()):
+        raise ValueError('Tracking source staging must be a new empty directory.')
+    files = {}
+    with tarfile.open(archive, 'r:gz') as bundle:
+        entries, root = {}, None
+        for member in bundle.getmembers():
+            # Ordinary archive member names cannot contain traversal even if
+            # the entry is not selected. Only link-target paths may use a safe
+            # relative parent traversal that remains inside the archive root.
+            if '..' in PurePosixPath(member.name).parts:
+                raise ValueError('Invalid tracking archive member path: ' + member.name)
+            name = _archive_path(member.name, root)
+            if root is None:
+                root = name.split('/')[0]
+            if name in entries:
+                raise ValueError('Duplicate tracking archive entry: ' + name)
+            entries[name] = member
+
+        def regular(name, chain=()):
+            if name in chain:
+                raise ValueError('Cyclic tracking archive alias: ' + ' -> '.join((*chain, name)))
+            member = entries.get(name)
+            if member is None:
+                raise ValueError('Missing tracking archive alias target: ' + name)
+            relative = '/'.join(name.split('/')[1:])
+            if not _wanted_source(relative):
+                raise ValueError('Tracking archive alias targets unsupported source: ' + name)
+            if member.isfile():
+                if member.size < 0 or member.size > 8 * 1024 ** 2:
+                    raise ValueError('Tracking runtime source entry is too large: ' + name)
+                return member
+            if member.issym() or member.islnk():
+                link = member.linkname
+                if PurePosixPath(link).is_absolute():
+                    raise ValueError('Absolute tracking archive alias: ' + name + ' -> ' + link)
+                target = str(PurePosixPath(name).parent / link) if member.issym() else link
+                try:
+                    target = _archive_path(target, root)
+                except ValueError as error:
+                    raise ValueError('Unsafe tracking archive alias: ' + name + ' -> ' + link) from error
+                return regular(target, (*chain, name))
+            raise ValueError('Unexpected tracking runtime source entry type: ' + name)
+
+        for name, member in entries.items():
+            relative = '/'.join(name.split('/')[1:])
+            if not _wanted_source(relative) or member.isdir():
+                continue
+            actual = regular(name)
+            target = staged / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            # Staging is fresh and this routine creates regular files only.
+            # Explicit checks also reject a concurrently introduced path link.
+            parents = []
+            for parent in target.parents:
+                if parent == staged.parent:
+                    break
+                parents.append(parent)
+            if target.is_symlink() or any(p.is_symlink() for p in parents):
+                raise ValueError('Linked tracking source staging path: ' + relative)
+            with bundle.extractfile(actual) as stream, target.open('xb') as output:
+                shutil.copyfileobj(stream, output)
+            if target.stat().st_size != actual.size:
+                raise ValueError('Incomplete tracking source archive entry: ' + name)
+            files[relative] = {'size': target.stat().st_size, 'sha256': digest(target)}
+        if 'sam2/build_sam.py' not in files or 'sam2/sam2_video_predictor.py' not in files:
+            raise ValueError('The pinned tracking runtime archive is incomplete.')
+    return files
+
+
 def source_ready(verify=False):
     """Fast inventory is marker-based; explicit verification checks source bytes."""
     try:
@@ -83,25 +186,7 @@ def prepare_source():
             raise ValueError('The tracking runtime archive checksum differs from its pinned source.')
         staged = temporary / 'source'
         staged.mkdir()
-        files = {}
-        with tarfile.open(archive, 'r:gz') as bundle:
-            for member in bundle:
-                parts = Path(member.name).parts
-                if not parts or '..' in parts or Path(member.name).is_absolute():
-                    raise ValueError('Invalid path in tracking runtime archive.')
-                relative = Path(*parts[1:])
-                wanted = (relative.parts and relative.parts[0] == 'sam2' and relative.suffix in ['.py', '.yaml', '.yml']) or str(relative) in ['LICENSE', 'LICENSE_cctorch', 'README.md']
-                if not wanted or member.isdir():
-                    continue
-                if not member.isfile() or member.size > 8 * 1024 ** 2:
-                    raise ValueError('Unexpected tracking runtime source entry.')
-                target = staged / relative
-                target.parent.mkdir(parents=True, exist_ok=True)
-                with bundle.extractfile(member) as stream, target.open('wb') as output:
-                    shutil.copyfileobj(stream, output)
-                files[str(relative)] = {'size': target.stat().st_size, 'sha256': digest(target)}
-        if 'sam2/build_sam.py' not in files or 'sam2/sam2_video_predictor.py' not in files:
-            raise ValueError('The pinned tracking runtime archive is incomplete.')
+        files = extract_source_archive(archive, staged)
         (staged / '.recast-source.json').write_text(json.dumps({
             'revision': cfg['sam_revision'], 'archiveSHA256': cfg['sam_archive_sha256'], 'files': files,
         }, indent=2) + '\n')

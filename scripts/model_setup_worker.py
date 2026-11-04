@@ -29,7 +29,7 @@ def status(folder):
 def main():
     p=argparse.ArgumentParser();p.add_argument('action',choices=['start','status','worker']);p.add_argument('--root',type=Path,required=True);p.add_argument('--request',required=True);p.add_argument('--job');a=p.parse_args()
     root=a.root.resolve();request=json.loads(a.request);version=request.get('version')
-    if request.get('kind')!='facial' or version not in [f'source-face-v{n}'for n in range(1,11)]:raise ValueError('Unknown runtime preparation.')
+    if request.get('kind')!='facial' or version not in [f'source-face-v{n}'for n in range(1,12)]:raise ValueError('Unknown runtime preparation.')
     key=key_for(request);folder=root/'state/module-setups'/key
     if a.job and a.job!=key:raise ValueError('Runtime setup identity changed.')
     if a.action!='status':folder.mkdir(parents=True,exist_ok=True)

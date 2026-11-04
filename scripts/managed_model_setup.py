@@ -23,8 +23,19 @@ def prepare(config,version,profile,cancelled=lambda:False):
             if not lines:raise RuntimeError('No runtime-setup status was returned.')
             state=json.loads(lines[-1])
             if state.get('requestSHA256')!=key:raise RuntimeError('Runtime-setup status belongs to another request.')
-        except (OSError,subprocess.SubprocessError,ValueError,RuntimeError):
+        except subprocess.CalledProcessError as error:
+            # SSH transport failures use255. An authenticated remote helper's
+            # application rejection must reach the user, not loop forever as a
+            # connection retry (for example an unsupported recipe version).
+            if error.returncode != 255:
+                detail = (error.stderr or '').strip()
+                if isinstance(detail, bytes): detail = detail.decode(errors='replace')
+                raise RuntimeError(detail[-1800:] or 'The remote runtime-setup command was rejected.') from None
             print('RECAST_FACIAL_STAGE Reconnecting to the existing facial-tool setup',flush=True);time.sleep(3);continue
+        except (OSError,subprocess.SubprocessError):
+            print('RECAST_FACIAL_STAGE Reconnecting to the existing facial-tool setup',flush=True);time.sleep(3);continue
+        except (ValueError,RuntimeError) as error:
+            raise RuntimeError('Runtime-setup status could not be verified: '+str(error)) from None
         if state['confirmedStopped']:
             if state.get('complete'):return
             raise RuntimeError(state.get('error')or'Facial setup stopped. Retry from Download Remotion; existing weights are kept.')
