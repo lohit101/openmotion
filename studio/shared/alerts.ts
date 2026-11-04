@@ -29,7 +29,7 @@ export class ActivityAlertTracker {
   private initialized = false;
   private connection: Connection | null = null;
   private settledConnection: 'online' | 'offline' | null = null;
-  private jobs = new Map<string, { status: Job['status']; output: boolean }>();
+  private jobs = new Map<string, { status: Job['status']; output: boolean; repairState?: string }>();
   private scope = '';
   private batch: { id: string; files: Set<string>; failed: Set<string> } | null = null;
   private setup = new Map<string, string | null>();
@@ -61,20 +61,23 @@ export class ActivityAlertTracker {
       if (job.anchorChild || job.image?.segmentRepaint) continue; // Intermediate photo readiness is reported by its video, not as a final output alert.
       const old = this.jobs.get(job.id), changed = old?.status !== job.status;
       const recent = old || Date.parse(job.createdAt) >= this.startedAt;
-      if (this.initialized && recent && !job.deleted && (job.origin === 'render' || !!job.upscale || !!job.faceRefinement)) {
+      if (this.initialized && recent && !job.deleted && (job.origin === 'render' || !!job.upscale || !!job.faceRefinement || !!job.faceRepair)) {
         const base = { id: `generation:${job.id}:${job.status}:${job.finishedAt || job.progress.updatedAt}`, category: 'generation' as const, target: { view: job.upscale ? 'clarity' as const : job.mediaType === 'image' ? 'image' as const : 'create' as const, jobId: job.id } };
-        if (job.status === 'completed' && job.output && (changed || !old?.output)) {
+        if (job.faceRepair?.state === 'review' && old?.repairState !== 'review') {
+          alerts.push({ ...base, tone: 'success', title: 'Face repair is ready to compare', body: 'Review the candidates and both joins before accepting. Your original is preserved.' });
+        }
+        else if (job.status === 'completed' && job.output && (changed || !old?.output)) {
           const skipped = job.facialConsistency?.eyeCalibration?.state === 'skipped';
-          alerts.push({ ...base, tone: skipped ? 'warning' : 'success', title: job.upscale ? 'Your upscaled video is ready' : job.mediaType === 'image' ? 'Your image is ready' : 'Your video is ready',
+          alerts.push({ ...base, tone: skipped ? 'warning' : 'success', title: job.faceRepair ? 'Repaired revision saved' : job.upscale ? 'Your upscaled video is ready' : job.mediaType === 'image' ? 'Your image is ready' : 'Your video is ready',
             body: skipped ? 'Saved to your library. Eye calibration was skipped because ' + facialCalibrationReason(job.facialConsistency?.eyeCalibration?.reason) + '. The existing facial finish was retained.' : 'Saved to your library. Open it to view the result.' });
         }
         else if (changed && ['failed', 'interrupted'].includes(job.status)) {
           const photo = job.viggleRepaint?.activePhotoId && snapshot.jobs.find(p => p.id === job.viggleRepaint!.activePhotoId);
           const repaintFailed = photo && photo.status === 'failed';
-          alerts.push({ ...base, tone: job.status === 'failed' || repaintFailed ? 'error' : 'warning', title: repaintFailed ? 'Segment face refresh failed' : job.status === 'failed' ? 'Generation failed' : 'Generation needs attention', body: 'Open the run to review what happened. Completed files are kept.', detail: job.error || undefined });
+          alerts.push({ ...base, tone: job.status === 'failed' || repaintFailed ? 'error' : 'warning', title: job.faceRepair ? 'Face repair needs attention' : repaintFailed ? 'Segment face refresh failed' : job.status === 'failed' ? 'Generation failed' : 'Generation needs attention', body: 'Open the run to review what happened. Completed files are kept.', detail: job.error || undefined });
         }
       }
-      this.jobs.set(job.id, { status: job.status, output: !!job.output });
+      this.jobs.set(job.id, { status: job.status, output: !!job.output, repairState: job.faceRepair?.state });
     }
     const connectedId = cloud.instances.find(instance => instance.connected)?.id;
     const scope = connection.state === 'online' ? `${connection.endpoint}:${connectedId || connection.gpu || ''}` : this.scope;

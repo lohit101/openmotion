@@ -90,6 +90,7 @@ function imageProgress(job: Job): number {
 
 /** Weighted completion estimate; a high-water mark in the view prevents resets. */
 export function overallProgressEstimate(job: Job): number {
+  if (job.faceRepair) return outputReady(job) ? 100 : job.faceRepair.state === 'review' ? 99 : Math.min(98, Math.max(0, job.progress.completedFrames / Math.max(1, job.progress.targetFrames) * 98));
   if (job.upscale) return outputReady(job) ? 100 : Number.isFinite(job.upscale.progress) ? Math.min(99, Math.max(0, job.upscale.progress)) : 0;
   if (outputReady(job)) return 100;
   if (job.status === 'queued' && !job.segments.length && !job.anchoredVideo?.branches.some(b => b.progress > 0)) return 0;

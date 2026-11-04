@@ -12,7 +12,7 @@ function PendingPreview({ job }: { job: Job }) {
   const overall = useOverallProgress(job);
   const active = ['queued', 'running', 'reconnecting'].includes(job.status);
   const percent = job.faceRefinement ? Math.min(99, Math.floor(98 * job.progress.completedFrames / Math.max(1, job.progress.targetFrames))) : overall;
-  const label = job.status === 'queued' ? 'Queued' : job.status === 'reconnecting' ? 'Reconnecting' : job.status === 'running' ? job.faceRefinement ? 'Refining face' : 'Rendering' : job.status === 'failed' ? 'Failed' : job.status === 'cancelled' ? 'Cancelled' : 'Needs attention';
+  const label = job.faceRepair?.state === 'review' ? 'Ready to compare' : job.status === 'queued' ? 'Queued' : job.status === 'reconnecting' ? 'Reconnecting' : job.status === 'running' ? job.faceRepair ? 'Repairing face' : job.faceRefinement ? 'Refining face' : 'Rendering' : job.status === 'failed' ? 'Failed' : job.status === 'cancelled' ? 'Cancelled' : 'Needs attention';
   const Icon = job.status === 'queued' ? Clock : job.status === 'failed' ? WarningCircle : active ? Sparkle : Pause;
   return <div className={`job-pending${active ? ' is-active' : ''}${job.status === 'failed' ? ' is-failed' : ''}`} title={job.error || job.progress.stage}>
     <span className="job-pending-label"><Icon size={14} /><span>{label}</span></span>
@@ -22,7 +22,7 @@ function PendingPreview({ job }: { job: Job }) {
 
 export default function JobCard({ job, selected, onSelect, onPatch, onReuse }: { job: Job; selected?: boolean; onSelect: () => void; onPatch: (v: Partial<Job>) => void; onReuse: () => void }) {
   const preview = useRef<HTMLVideoElement>(null);
-  const done = job.status === 'completed';
+  const done = job.status === 'completed' && !!job.output;
   const [width, height] = outputDimensions(job);
   return <article className={`job-card ${selected ? 'selected' : ''}`}>
     <button className="job-media" onClick={onSelect} onMouseEnter={() => { if (done) void preview.current?.play().catch(() => undefined); }} onMouseLeave={() => { preview.current?.pause(); if (preview.current) preview.current.currentTime = 0; }} aria-label={`Open ${job.title}`}>
