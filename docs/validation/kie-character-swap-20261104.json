@@ -1,0 +1,75 @@
+{
+  "version": "kie-character-swap-validation-v1",
+  "status": "locally-validated-live-kie-generation-pending",
+  "branch": "feat/kie-character-swap",
+  "baseline": "8d90ed5",
+  "application": {
+    "provider": "kie.ai",
+    "model": "wan/3-0-video",
+    "defaultResolution": "480P",
+    "resolutions": [
+      "480P",
+      "720P",
+      "1080P"
+    ],
+    "defaultPort": 3001,
+    "dataRoot": "studio/kie-data",
+    "gpuRequired": false
+  },
+  "originalGpu": {
+    "instanceId": 58966215,
+    "independentlyConfirmedStoppedAt": "2026-11-04T13:19:47.341553+00:00",
+    "state": "exited",
+    "intendedState": "stopped",
+    "diskRetained": true,
+    "oldRepairGoal": "paused",
+    "repairSessionEstimateUSD": 0.1766577604021399,
+    "invoiceFinalized": false
+  },
+  "paidKieGenerationCalls": 0,
+  "externalUserMediaUploadsByAgent": 0,
+  "liveKieQualityMeasured": false,
+  "liveKieLatencyMeasured": false,
+  "checks": {
+    "fullStudioSuite": {
+      "files": 54,
+      "passed": 693,
+      "failed": 0
+    },
+    "clientMockHttpChecks": 46,
+    "backendFinalFocusedChecks": 21,
+    "uiFocusedChecks": 42,
+    "typecheck": "passed",
+    "productionBuild": "passed",
+    "browser": {
+      "application": "Brave Browser",
+      "url": "http://127.0.0.1:3001",
+      "navigation": [
+        "Remotion",
+        "My library",
+        "Settings"
+      ],
+      "defaultResolution": "480p",
+      "qualityOptions": [
+        "480p",
+        "720p",
+        "1080p"
+      ],
+      "privateKeySetup": "verified visible; no credential entered",
+      "libraryCollections": [
+        "Library",
+        "Favourites",
+        "Trash"
+      ],
+      "welcomeScreen": "visible; no automatic selection",
+      "gpuDashboardControls": "absent"
+    },
+    "originalDataIsolation": "separate unmarked-database guard and inert-startup regression passed",
+    "paidTaskRecovery": "known tasks resume without resubmission; unknown outcomes require review",
+    "completedDownloadOfflineRecovery": "verified task, URL hash, file hash and byte count required",
+    "localHostProtection": "foreign Host and Origin writes rejected",
+    "secrets": "private server-only storage permissions checked; absent from public state",
+    "realKieGeneration": "not run; no user key configured",
+    "gpuInference": "not run"
+  }
+}
