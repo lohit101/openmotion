@@ -42,7 +42,7 @@
     "nativeReverseResampled": false,
     "reconstructionReceiptSHA256": "253921077272deacb00a29eb121d4f947173300ec9f2cc9adb23666a2096b401"
   },
-  "fullRawLocalAssemblyRecovered": false,
+  "fullRawLocalAssemblyRecovered": true,
   "budget": {
     "conservativeAllocationUSD": 2.193104419509,
     "observedAtUTC": "2026-11-04T05:54:42Z",
@@ -182,6 +182,92 @@
       "Computed masks are not physical hand groundtruth",
       "Unchanged mouth latent does not prove unchanged decoded mouth",
       "No changes selected for production"
+    ],
+    "selectedOpenEyeTemplate": {
+      "selectorPolicySHA256": "2d7bbdf55678e1ff249f63b2e8c5d0ab145c84a307724095464b4869cd3f9885",
+      "sourceStatsSHA256": "55fb6c4038950ce243ab832a612d703d294a74817de0b3d4235db51fafb8aefd",
+      "sourcePositions": 73,
+      "poseAndVisibilityQualified": 59,
+      "selectedSourceFrame": 53,
+      "neutralityCertified": false,
+      "rootVisualReviewBeforeGeneration": true,
+      "cachedSelectorSeconds": 0.10227125,
+      "appearanceAnchorStill36": true,
+      "oldAreaGroupsEligibilityEyeZAndOtherOffsetsUnchanged": true,
+      "EYScalarsChanged": 8,
+      "frames": [
+        36,
+        48,
+        72,
+        60,
+        37
+      ],
+      "generatorCPUSeconds": 85.2042975409422,
+      "closed72ByteExact": true,
+      "validationSHA256": "eae6f528d52b838197caebdc16f759a50296655e9f926d4069bd9586325ec586",
+      "independentAuditSHA256": "8a4aee8f9ba59c27c027b4be0318888bfaf9b02e299b33b6c4a3a9e1b688f62b",
+      "visualVerdictSHA256": "03a81f759216ad7d034e49bfb419b421ae020ca9a5f7332e9f101952cec999f7",
+      "rawParentStillMixed41Preview": true,
+      "rerunOnFullNativePNGSequence": false,
+      "verdict": "Promising still balance versus globalzeroY; not a temporal/anatomy/gaze/hand quality pass",
+      "productionPromoted": false
+    }
+  },
+  "stoppedHostRecovery": {
+    "complete": true,
+    "files": 80,
+    "bytes": 43308442,
+    "resumeCalls": 0,
+    "newInference": false,
+    "providerStoppedAtChecks": true,
+    "remoteSHA256Computed": false,
+    "rsyncContentChecksumVerified": true,
+    "localFileSHA256Recorded": true,
+    "estimatedEgressUSD": 5.6416463778666665e-05,
+    "usesExistingTransferReserve": true,
+    "receiptSHA256": "d71215cc900c5f467b91f78c1fa4cd9ef51511f4771318033970ff6a13e198e0",
+    "typedContainerResourceFormat": true,
+    "gnuClient": "rsync  version 3.5.1  protocol version 33",
+    "macGNUTransferUtilityInstalled": true
+  },
+  "fullRawAssembly": {
+    "frames": 73,
+    "fps": "24/1",
+    "RGBMasterExact": true,
+    "nativePNGPromptValuesMatch": 78,
+    "onlyObservedLoaderCacheFieldsNormalized": true,
+    "firstFiveReversePNGsExactFloatContext": true,
+    "bridgedMP4ExactPriorSHA": true,
+    "anchor36Copies": 1,
+    "acceptedSyntheticFrames": 0,
+    "sourceAACPacketsExact": 144,
+    "masterSHA256": "b93f0a8cf4d404e4bb519356cbce0319a7407bb712ea0dfae414dbc7777e8ed9",
+    "previewSHA256": "a8d695af2a42c3c99ef2eeca0d6ed560284b83dd594881444a1aeeb62f3a10c1",
+    "sourceComparisonSHA256": "0b56def36a6a9002b4cb47710f42e5b30f467e6a29a8895894d9ba912fc60911",
+    "assemblyReceiptSHA256": "1cb2d792024c68d6450a7904690e28c167519d36c1ce70e242cb07591bccdcad",
+    "nativeQuickTimeOpenedAndFinalFrameObserved": true,
+    "visualReceiptSHA256": "4e99b9e78e5839f39229e8461d5f9c1dede52ceea638cb8c3e940a09c2ee5703",
+    "qualityPass": false,
+    "findings": [
+      "Hand topology mostly coherent in dense0\u201324review",
+      "No obvious raw eye/lip over visible palm",
+      "Ring and nail details regenerated",
+      "Early eye closure missed",
+      "Head tilt/recoil18\u201324 strongly damped",
+      "Ending blink phase/depth and closed-mouth errors",
+      "No obvious severe36\u219237cut in contacts",
+      "Matched unpinned control remains unsubmitted"
+    ]
+  },
+  "remainingHeadMotionLimit": {
+    "currentFinisherKeepsTargetRotationScaleTranslation": true,
+    "sourceRelativeRotationCurrentNativeAppearanceTestRun": false,
+    "auditSHA256": "c7fe131e61765edfad5b6e542dc5df04899f70448b811de3670f98016b6e5b3d",
+    "risks": [
+      "Crop-coordinate bases and rotation convention",
+      "Head/hair/ear/neck mismatch",
+      "New support clipping and foreground coverage",
+      "Unchanged rigid-source latent does not prove unchanged pixels"
     ]
   }
 }

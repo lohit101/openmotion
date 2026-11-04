@@ -31,7 +31,7 @@ The bridged arm then completed. The controller refused to submit the final arm b
 
 ## Available review and limits
 
-The full 73-frame lossless assembly is **not locally recovered**. A local tail preview can cover source frames 32–72 using the five genuine reverse float frames in chronological order, followed by decoded frames 5–40 of the bridged MP4. Its first five frames are quantized from the original float output; the remainder has MP4 compression. This supports inspection of visible geometry and motion at the 36→37 join, with a compression caveat. It is not an all-PNG reconstruction or the missing controlled A/B comparison.
+The initial review had only a partial tail: source frames 32–72 using five genuine reverse float frames followed by decoded bridged MP4 frames 5–40. Its mixed compression limited fine boundary assessment. **The stopped-host recovery below subsequently recovered all native PNGs and the complete 73-frame lossless assembly.** The earlier mixed preview remains immutable; it is not the missing controlled A/B comparison.
 
 Initial sampled forward frames retain the reference appearance but miss a source eyelid movement. No perfect identity, gaze, mouth, occlusion, cut handling or general quality claim is established. The older seed-42 native control also used a different reference-image hash; it cannot substitute for the missing matched control.
 
@@ -55,6 +55,28 @@ A further cache-only color diagnostic finds a large source-relative skin-color c
 The final five-state factorial review confirms the same tradeoff with and without raw-eye texture. Cache-only texture interventions leave decoded mouth pixels exact. The upstream zero-Y intervention also changes decoded mouth RGB slightly (up to 11 channel levels in the sampled mouth region), despite preserving source mouth latents. This decoder coupling is another reason not to describe the intervention as an eye-only pixel fix.
 
 The useful next calibration study must distinguish character anatomy from eye state across open, half-lidded, closed and glancing poses. It must not fit a constant to one winning frame. Whole-sequence replay, hand-covered openings, head turns/reappearance, complex speaking and the missing native control remain necessary before any production promotion. No new profile or app default was enabled.
+
+## Separate eye-state observation
+
+A predeclared, source-only statistical shortlist examined all 73 source positions using hash-bound current-frame 68-point geometry, existing pose/confidence gates and computed visibility. The first eight positions remain unknown where a current-frame detection is absent. Fifty-nine positions qualify. Exact-value Otsu separation of minimum binocular eye-aspect ratio is followed by an upper-state median representative with persistent source-time neighbors. This selects frame53; no output frame, maximum-aperture winner or literal test index chooses the template. Cached scoring takes 0.102 seconds, excluding the earlier feature extraction. The shortlist cannot certify neutrality or physical visibility.
+
+After inspecting source53 against source36 and the fixed reference, a private test replaces only the eight EY-Y offsets with `reference.expY − source53.expY`. The original eye-area baseline, EY-Z, groups, eligibility, every other offset, masks, appearance anchor36 and identity blend stay fixed. Five CPU samples (36, 48, 72, 60, 37) complete in 85.204 seconds. Independent checks bind the selected frame, crop and motion, and verify the exact closed72 negative control.
+
+Across these stills the selected observation gives a better balance: less excessive opening at36/37, while48 and60 remain more open than the rejected global-zero-Y version. Mouth RGB and alpha still change slightly because the decoder is coupled. These stills use the then-available mixed-tail parent; they have not been rerun as a finished sequence on the newly recovered native PNGs. This is a candidate for temporal testing, not a production profile or proof of correct anatomy, gaze or tracking across other clips. It must remain a fixed observation for the shot rather than switching offsets per frame.
+
+## Stopped-host recovery and full raw review
+
+Vast's documented host-level copy route can read stopped Docker storage when the host has open ports. It is separate from the stopped container's unavailable SSH service. The scoped recovery used only the paid output folder and a whitelist of 80 filenames from the two native histories. No compute-resume, new generation, model setup, remote write or rental request occurred. [Official data-movement documentation](https://docs.vast.ai/guides/instances/storage/data-movement), [pinned copy implementation](https://github.com/vast-ai/vast-cli/blob/a357b331fdebc4c137dd11be853e1290bdc27c9a/vastai/cli/commands/storage.py#L78).
+
+The installed macOS OpenRSYNC authenticated but constructed ordinary remote-shell mode instead of the required daemon-over-SSH mode. GNU rsync3.5.1 was installed locally through Homebrew. The legacy numeric module then returned Unknown module; the documented `C.58966215` form in both the copy request and module worked. Previous failed diagnostics are preserved.
+
+All 80 files, totaling 43,308,442 bytes, were recovered. A second authenticated rsync whole-content check reports no differences; local SHA256 hashes bind every file. This is not a claim that remote SHA256 was computed. Provider checks before/after the handshake and completed download show all four compute states stopped. Nominal egress is approximately $0.0000564 within the existing transfer reserve, excluding protocol overhead. Retained user storage continues billing independently; earlier cumulative estimates are timestamped snapshots, not a promise that retained storage becomes free.
+
+The local assembler verifies 78 PNG prompts against their native graphs, allowing only the observed loader `is_changed` cache fingerprints. Every remaining field matches; the reference fingerprint equals the approved image hash. The first five reverse PNGs exactly match the saved float-context quantization; the downloaded bridged MP4 matches its earlier local SHA256. Assembly has 73 frames at24fps, one anchor36, no accepted held-tail positions, exact FFV1 pixels and all144 original AAC packets copied once. The source comparison was opened in native QuickTime and reached the last frame.
+
+Full raw inspection covers every opening frame0–24 plus dense ending contacts. Hand/arm topology is mostly coherent and there is no obvious eye/lip painted over the visible palm in this raw candidate. Ring/nail details are regenerated, so exact hand/accessory preservation is not established. Early visible-eye closure is missed; head tilt/recoil18–24 is strongly damped; ending blink phase/depth and mouth closure remain inaccurate. No severe36→37 face cut is obvious in contacts. **The raw candidate fails the full quality requirement.**
+
+A code audit explains a remaining limit: the current PERC finisher copies source expression while using generated-target rotation, scale, translation and scene placement. It cannot deliberately recover a missing source head tilt. A current-native-appearance/source-relative-rotation-only test has not been run; earlier fixed-portrait source-rotation experiments changed different models, geometry and appearance. Crop basis, head/hair/ear/neck support, foreground protection and temporal behavior must be checked before attempting or promoting that different route.
 
 ## Budget and terminal state
 
