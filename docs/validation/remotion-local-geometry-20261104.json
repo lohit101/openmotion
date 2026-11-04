@@ -496,7 +496,7 @@
     ]
   },
   "partialSourceEyeStudy": {
-    "status": "completed24-frame local temporal diagnostic; full73 continuation pending, no production quality pass",
+    "status": "completed73-frame local temporal diagnostic; no production/general quality pass",
     "failed68Fit": {
       "sourceFrame6EyeDisplacementPixels": 17.64,
       "generatorsRunBeforeRejection": 0
@@ -535,7 +535,10 @@
       ".local/remotion-production-v10-cpu-20261104/eye-regional-probe/crosscrop/receipt.json",
       ".local/remotion-production-v10-cpu-20261104/eye-regional-probe/crosscrop/orbital-v2-receipt.json",
       ".local/remotion-hybrid24-20261104-corrected/opening-comparison.mp4",
-      ".local/remotion-hybrid24-20261104-corrected/integrity-audit.json"
+      ".local/remotion-hybrid24-20261104-corrected/integrity-audit.json",
+      ".local/remotion-hybrid73-20261104/integrity-audit.json",
+      ".local/remotion-hybrid73-20261104/media-receipt.json",
+      ".local/remotion-hybrid73-20261104/full73-comparison.mp4"
     ],
     "completed24": {
       "frames": 24,
@@ -562,6 +565,60 @@
       "repeatedPreviewAddsUniqueEvidence": false,
       "qualityPass": false,
       "productionChanged": false
+    },
+    "full73Continuation": {
+      "realFrames": 73,
+      "fps": "24/1",
+      "PNGHashesVerified": 292,
+      "sourceRawDecodedPixelComparisons": 146,
+      "immutableParentPrefixPNGHashesVerified": 96,
+      "parentExperimentUnchanged": true,
+      "allOwnTargetHandPixelsExact": true,
+      "allFallbackOutsideOrbitalPermissionExact": true,
+      "allPrimaryOutsideOriginalChangedSupportExact": true,
+      "manualEventLabelsUsedForAdmission": false,
+      "routeCounts": {
+        "primary-v10": 65,
+        "confirmed-source-occlusion-left-eye-fallback": 8
+      },
+      "continuationStartZeroBasedFrame": 24,
+      "continuationPositionCount": 49,
+      "newGeneratorsThisContinuation": 48,
+      "exactExistingPrimary65Reused": true,
+      "newGeneratorFrameTimerSeconds": 506.2916127105709,
+      "activeProcessSecondsExcludingReviewWait": 508.56719108391553,
+      "reviewWaitSeconds": 42.150954666081816,
+      "workerTerminal": true,
+      "productionChanges": false,
+      "qualityPromotion": false,
+      "originalAudio": {
+        "audioStartSeconds": 0,
+        "audioMappedOncePerOutput": true,
+        "audioCodecCopy": true,
+        "completeAudioPrefixPacketCount": 68,
+        "combinedEncoderEarlyAudioTerminationFixedBySeparateRemux": true,
+        "allOutputsSameOriginalAudioPacketPrefix": true,
+        "realVideoFrames": 73,
+        "fps": "24/1",
+        "videoDurationFraction": "73/24",
+        "noFabricatedVideoFrames": true,
+        "videoDurationSeconds": 3.0416666666666665,
+        "audioContainerDurationSeconds": 3.04322,
+        "source": "native original source; distinct from earlier prepared-source144packetdiagnostic"
+      },
+      "supervisorNativePlayback": {
+        "app": "QuickTime Player",
+        "playedThroughFinalFrame": true,
+        "openingAndFinalFrameObserved": true,
+        "pinkLightContactsReviewed": [
+          36,
+          40,
+          43,
+          44
+        ],
+        "noGeneralQualityPass": true
+      },
+      "nativeContextLimitation": "Fixedbody from earlierreal124controlincludeslatercutinconditioning; faceablation holdsbodyfixed and doesnotvalidateuniversalcontextpadding."
     }
   },
   "preparedSharedAnchorComparison": {
