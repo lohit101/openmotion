@@ -194,7 +194,9 @@ export class FaceRepairManager {
         run.state = 'processing'; run.remoteActive = !local; this.store.saveJob(job);
         await this.execute.run(request, path.join(work, 'request.json'), work, signal, (frame, frames, stage) => {
           if (!Number.isSafeInteger(frame) || !Number.isSafeInteger(frames) || frames < 1 || frame < 0 || frame > frames) return;
-          run.processedFrames = Math.max(run.processedFrames, Math.min(run.frames, Math.floor(frame / frames * run.frames)));
+          // Tracking has several independent N-frame scans. Only the actual
+          // chronological composition prefix counts as processed face frames.
+          if (frames === run.frames && /^(Repairing selected facial frames|Preserving accepted frames)$/.test(stage)) run.processedFrames = Math.max(run.processedFrames, frame);
           progress(frame, frames, stage);
         });
         run.remoteActive = false; run.state = 'downloaded'; this.store.saveJob(job);

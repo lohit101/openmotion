@@ -191,3 +191,25 @@ it('serves only validated repair candidates and masters from a hidden data root 
   await httpRequest(app).get(`/api/jobs/${job.id}/face-repairs/arbitrary/video`).expect(400);
   await httpRequest(app).get(`/api/jobs/${job.id}/face-repairs/boundary/request.json`).expect(400);
 });
+it('does not count complete tracking scans as completed face processing', async () => {
+  const f = await fixture(), observed: number[] = [], raw: [number, number, string][] = [];
+  let job: Job;
+  const execute: FaceRepairExecutor = {
+    async run(_request, _requestFile, _output, _signal, progress) {
+      progress(12, 12, 'Inspecting source faces for selected repair'); observed.push(job.faceRepair!.processedFrames);
+      progress(12, 12, 'Tracking target foreground for selected repair'); observed.push(job.faceRepair!.processedFrames);
+      progress(6, 12, 'Repairing selected facial frames'); observed.push(job.faceRepair!.processedFrames);
+      progress(12, 12, 'Inspecting target faces for selected repair'); observed.push(job.faceRepair!.processedFrames);
+      progress(9, 12, 'Preserving accepted frames'); observed.push(job.faceRepair!.processedFrames);
+      const error = new FaceRepairError('Fixture stopped before completing composition'); error.remoteStopped = true; throw error;
+    }, async cancel() {},
+  };
+  const manager = new FaceRepairManager(f.store, repo, f.connection, () => {}, execute, async () => fakeHash);
+  job = await manager.create(f.parent.id, f.selection);
+  await manager.run(job, new AbortController().signal, (frame, frames, stage) => raw.push([frame, frames, stage]));
+  expect(observed).toEqual([0, 0, 6, 6, 9]);
+  expect(f.store.job(job.id)?.faceRepair?.processedFrames).toBe(9);
+  expect(raw[0]).toEqual([12, 12, 'Inspecting source faces for selected repair']);
+  expect(raw.at(-1)).toEqual([9, 12, 'Preserving accepted frames']);
+  expect(f.store.job(job.id)?.status).toBe('interrupted');
+});
