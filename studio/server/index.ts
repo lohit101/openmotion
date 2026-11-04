@@ -39,7 +39,7 @@ import { openEventStream } from './event-stream';
 import { ManagedFacialConsistency, newFacialRun } from './facial-consistency';
 import { canFinishFacialLocally, facialRuntimeReadyForSettings } from '../shared/facial-consistency';
 import { anchoredRun, canFinishAnchoredLocally, videoDirectionFrames } from '../shared/anchored-video';
-import { FaceRepairManager, registerFaceRepairRoutes } from './face-repair';
+import { FaceRepairManager, registerFaceRepairRoutes, sendFaceRepairFile } from './face-repair';
 
 const STUDIO = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const REPO = path.dirname(STUDIO);
@@ -306,7 +306,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   app.get('/api/jobs/:id/:type', (req, res) => {
     const job = store.job(String(req.params.id)); if (!job) return void res.sendStatus(404);
     if (req.params.type === 'repair-master' && job.faceRepair?.acceptedCandidateId) {
-      const file = faceRepairs.candidateFile(job.id, job.faceRepair.acceptedCandidateId, 'master'); res.attachment(`recast-${job.id}-repair-master.mkv`); return void res.sendFile(file);
+      const file = faceRepairs.candidateFile(job.id, job.faceRepair.acceptedCandidateId, 'master'); res.attachment(`recast-${job.id}-repair-master.mkv`); return void sendFaceRepairFile(res, file);
     }
     if (req.params.type === 'directional-pipeline' && job.anchoredVideo) {
       res.attachment(`recast-${job.id}-directional-pipeline.json`);
@@ -355,7 +355,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     const target = file && existsSync(file) ? file : fallback;
     if (!target) return void res.sendStatus(404);
     if (req.query.download) res.attachment(`${job.title.replace(/[^a-zA-Z0-9 _-]/g, '').slice(0, 70)}.mp4`);
-    res.sendFile(target);
+    if (job.faceRepair) sendFaceRepairFile(res, target); else res.sendFile(target);
   });
   const frontend = options.frontendRoot || path.join(STUDIO, 'dist');
   if (existsSync(frontend)) { app.use(express.static(frontend)); app.get('/{*path}', (_req, res) => res.sendFile(path.join(frontend, 'index.html'))); }

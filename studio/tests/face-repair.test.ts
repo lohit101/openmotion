@@ -1,10 +1,12 @@
 import { createHash, randomUUID } from 'node:crypto';
+import express from 'express';
+import httpRequest from 'supertest';
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, expect, it } from 'vitest';
 import { Store, publicJob } from '../server/store';
-import { FaceRepairManager, FaceRepairError, type FaceRepairExecutor, type FaceRepairRequest } from '../server/face-repair';
+import { FaceRepairManager, FaceRepairError, registerFaceRepairRoutes, type FaceRepairExecutor, type FaceRepairRequest } from '../server/face-repair';
 import { facialFingerprint } from '../server/facial-consistency';
 import { command } from '../server/media';
 import { defaults, type Job } from '../shared/types';
@@ -16,8 +18,8 @@ const repo = path.resolve(import.meta.dirname, '../..'), roots: string[] = [], s
 const hash = (file: string) => createHash('sha256').update(readFileSync(file)).digest('hex');
 const fakeHash = 'a'.repeat(64);
 afterEach(() => { for (const store of stores) store.close(); for (const root of roots) rmSync(root, { recursive: true, force: true }); roots.length = stores.length = 0; });
-async function fixture() {
-  const root = mkdtempSync(path.join(os.tmpdir(), 'face-repair-')); roots.push(root);
+async function fixture(hiddenRoot = false) {
+  const root = mkdtempSync(path.join(os.tmpdir(), hiddenRoot ? '.face-repair-' : 'face-repair-')); roots.push(root);
   const store = new Store(path.join(root, 'data')); stores.push(store); store.set('cloud-connected-instance', 42);
   const id = randomUUID(), folder = path.join(store.root, 'jobs', id), finish = path.join(folder, 'facial-consistency'); mkdirSync(finish, { recursive: true });
   const raw = path.join(folder, 'final.mp4'), source = path.join(folder, 'prepared-source.mp4'), output = path.join(finish, 'final.mp4');
@@ -177,4 +179,15 @@ it('preserves an original larger prepared driving stream without rejecting a dow
   const receiptFile = path.join(folder, 'facial-consistency/receipt.json'), receipt = JSON.parse(readFileSync(receiptFile, 'utf8')); receipt.inputs.source = { width: 80, height: 112, frames: 12, fps: '24' }; writeFileSync(receiptFile, JSON.stringify(receipt));
   const job = await f.manager.create(parent.id, f.selection); expect(job.faceRepair).toMatchObject({ width: 64, height: 96, frames: 12 });
   expect(job.faceRepair?.binding.sourceSHA256).toBe(hash(source)); expect(f.calls()).toBe(0);
+});
+it('serves only validated repair candidates and masters from a hidden data root with video range support', async () => {
+  const f = await fixture(true), job = await f.manager.create(f.parent.id, f.selection); await f.manager.run(job, new AbortController().signal, () => {});
+  const app = express(); app.use(express.json()); registerFaceRepairRoutes(app, f.manager, f.store, () => {});
+  app.use((error: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => { res.status(400).json({ error: error.message }); });
+  const url = `/api/jobs/${job.id}/face-repairs/boundary`;
+  const video = await httpRequest(app).get(`${url}/video`).expect(200); expect(video.headers['content-type']).toMatch(/video\/mp4/);
+  const ranged = await httpRequest(app).get(`${url}/video`).set('Range', 'bytes=0-15').expect(206); expect(ranged.headers['content-range']).toMatch(/^bytes 0-15\//);
+  const master = await httpRequest(app).get(`${url}/master`).expect(200); expect(master.headers['content-disposition']).toContain('attachment;');
+  await httpRequest(app).get(`/api/jobs/${job.id}/face-repairs/arbitrary/video`).expect(400);
+  await httpRequest(app).get(`/api/jobs/${job.id}/face-repairs/boundary/request.json`).expect(400);
 });

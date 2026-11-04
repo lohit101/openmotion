@@ -1,4 +1,4 @@
-import type { Express } from 'express';
+import type { Express, Response } from 'express';
 import { execFileSync, spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
@@ -323,6 +323,11 @@ export class FaceRepairManager {
     return file;
   }
 }
+// The root may legitimately be RECAST_DATA under .local or another hidden
+// directory. Only callers' server-selected known media basenames are served.
+export function sendFaceRepairFile(res: Response, file: string) {
+  return res.sendFile(path.basename(file), { root: path.dirname(file) });
+}
 export function registerFaceRepairRoutes(app: Express, manager: FaceRepairManager, store: Store, kick: () => void) {
   app.get('/api/jobs/:id/face-repairs', async (req, res) => res.json(await manager.eligibility(String(req.params.id))));
   app.post('/api/jobs/:id/face-repairs', async (req, res) => { const job = await manager.create(String(req.params.id), req.body); res.status(202).json(publicJob(job)); kick(); });
@@ -330,6 +335,6 @@ export function registerFaceRepairRoutes(app: Express, manager: FaceRepairManage
   app.get('/api/jobs/:id/face-repairs/:candidateId/:type', (req, res) => {
     const type = z.enum(['video', 'master']).parse(req.params.type), file = manager.candidateFile(String(req.params.id), String(req.params.candidateId), type);
     if (type === 'master' || req.query.download) res.attachment(`recast-repair-${String(req.params.id)}-${String(req.params.candidateId)}.${type === 'master' ? 'mkv' : 'mp4'}`);
-    res.sendFile(file);
+    sendFaceRepairFile(res, file);
   });
 }
