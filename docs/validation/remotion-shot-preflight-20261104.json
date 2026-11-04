@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-11-04",
+  "evidenceCapturedAtUTC": "2026-11-04T02:03:54.578729+00:00",
+  "status": "private source-cut candidates and planning mechanics tested; no application or video quality pass",
+  "goalComplete": false,
+  "qualityPass": false,
+  "scope": {
+    "localOnly": true,
+    "newModelsOrPackages": false,
+    "rentalOrSSHOrPaidActions": false,
+    "productionOrUIChanges": false,
+    "historicalJobsAndDraftsChanged": false,
+    "frozenHelpersChanged": false,
+    "appDurationLimitChanged": false
+  },
+  "budget": {
+    "capUSD": 2,
+    "extraTenCentRequestApproved": false,
+    "newPaidWorkAuthorized": false,
+    "conservativeAllocationUSD": 1.9815477378593036,
+    "isInvoice": false
+  },
+  "detectorStudy": {
+    "cases": 5,
+    "underlyingSourceVideos": 4,
+    "analysisFPS": 24,
+    "analysisWidth": 160,
+    "defaultThresholdsSwept": false,
+    "scdetThreshold": 10,
+    "contentThreshold": 27,
+    "adaptiveRatioThreshold": 3,
+    "adaptiveContentFloor": 15,
+    "neighborWindow": 2,
+    "minimumSceneFrames": 15,
+    "installedPySceneDetectOrParityClaim": false,
+    "aggregateDecodeAndScoringSeconds": 2.3054309580000005,
+    "timingExcludesProbeHashContactAndNativeMapping": true,
+    "provenanceClockChecksPassed": 26,
+    "detectorArtifactsHashChecked": 29,
+    "sourceClock": {
+      "originalFrames": 257,
+      "originalFPS": 25,
+      "analysisFrames": 247,
+      "allAnalysisFramesMappedByExactResizedRGBHash": true,
+      "preparedFirstPostEditFrame": 83,
+      "originalFirstPostEditFrame": 86,
+      "originalBoundarySeconds": 3.44,
+      "preparedBoundarySeconds": 3.4583333333333335
+    },
+    "counterexamples": [
+      "Continuous hand/head movement triggers fixed HSV candidates.",
+      "An early continuous glasses motion triggers raw candidates in all three methods.",
+      "Minimum15 suppression can hide genuine early edits.",
+      "scdet misses four reviewed same-room pose edits.",
+      "Adaptive same-scene218 requires review; global appearance is not target identity."
+    ],
+    "automaticCutApprovalOrTargetTrackingEstablished": false,
+    "transitionHandlingImplemented": false
+  },
+  "shotPlanner": {
+    "version": "private-shot-plan-v1",
+    "testsPassed": 14,
+    "testsFailed": 0,
+    "strictTypecheckPassed": true,
+    "actualUnchangedHelpers": [
+      "viggleWindows",
+      "anchorIssue",
+      "anchoredRun"
+    ],
+    "coveragePropertyShotLengthsInclusive": [
+      5,
+      720
+    ],
+    "approvedRangesExample": [
+      [
+        0,
+        83
+      ],
+      [
+        83,
+        124
+      ]
+    ],
+    "sourceBoundBoundaryApprovalRequired": true,
+    "candidateScoresApproveCuts": false,
+    "separatePerShotReferenceApprovalRequired": true,
+    "explicitApprovalsMaySharePhotoBytes": true,
+    "previousShotAppearanceOrMotionCarryAllowed": false,
+    "acceptedSourceFramesCoveredExactlyOnce": true,
+    "existingSamplingOverlapAndDuplicateDirectionalAnchorPreserved": true,
+    "shortShotsSilentlyPaddedOrMerged": false,
+    "observedFrame84SupportedAsLaterAnchorAfter83": false,
+    "alternativeActualPhotoOrFrameInferred": false,
+    "actualMediaSamplingPlanApproved": false,
+    "synthetic849FrameCaseExpandsAppLimit": false
+  },
+  "acceptanceStillMissing": [
+    "Independent labeled source cohort before any automatic-boundary policy.",
+    "Managed shot analysis/review/target selection integration.",
+    "Per-shot native rendering, image refresh and recovery/cancellation validation.",
+    "Target identity through occlusion, turns, offscreen reappearance and cuts.",
+    "Final facial geometry, lips/gaze/teeth, scene edges and1080p quality."
+  ],
+  "privateEvidence": {
+    "study-report.json": "a9e8e861f95adbc9bbee6f5033b5b74357aee6ac9c88ee81db1186a3172c04b3",
+    "detector-receipt.json": "9691d19a32ebf9cc75b1d1dfbc749ec67012bf47cc6c1ddc4cab81282b4061c6",
+    "integrity-validation.json": "333d3ac9fbf472af955f1b721a4b4384acdca6e6a61330f8256a372f048be644",
+    "source-boundary-human-review.json": "18f2f98d2982a6eb1b9fc19dcbb0d2e962091b513d9f804d7cca13f50195115c",
+    "shot-plan-validation.json": "868db6550fb8b9256bd36e65d71433ca9776e77dd2b6a888257a7d0715e19b03"
+  }
+}
