@@ -67,7 +67,18 @@
     "issues": [],
     "idlePauseRestored": true,
     "rootReadOnlyRecheckAll4ProviderStatesStopped": true,
-    "rootReadOnlyRecheckActiveStudioJobs": 0
+    "rootReadOnlyRecheckActiveStudioJobs": 0,
+    "latestOfflineReadOnlyConfirmation": {
+      "checkedAtUTC": "2026-11-04T08:02:34.941662+00:00",
+      "instanceId": 58966215,
+      "actual_status": "exited",
+      "intended_status": "stopped",
+      "cur_state": "stopped",
+      "next_state": "stopped",
+      "readOnly": true,
+      "resumeCalls": 0,
+      "receiptSHA256": "1704b24b5fdea44d5f54e59160e559363cfcf7e25af2e6e1094ca42c1a007a33"
+    }
   },
   "limitations": [
     "Matched unpinned arm never submitted",
@@ -261,7 +272,7 @@
   },
   "remainingHeadMotionLimit": {
     "currentFinisherKeepsTargetRotationScaleTranslation": true,
-    "sourceRelativeRotationCurrentNativeAppearanceTestRun": false,
+    "sourceRelativeRotationCurrentNativeAppearanceTestRun": true,
     "auditSHA256": "c7fe131e61765edfad5b6e542dc5df04899f70448b811de3670f98016b6e5b3d",
     "risks": [
       "Crop-coordinate bases and rotation convention",
@@ -269,5 +280,80 @@
       "New support clipping and foreground coverage",
       "Unchanged rigid-source latent does not prove unchanged pixels"
     ]
+  },
+  "sourceRelativeRotationDiagnostic": {
+    "privateOnly": true,
+    "productionChanges": false,
+    "newWeights": 0,
+    "cloudInferenceCalls": 0,
+    "CPUThreads": 1,
+    "frames": [
+      23,
+      36
+    ],
+    "generatorOutputs": 4,
+    "elapsedSeconds": 65.3657019159291,
+    "modelSeconds": {
+      "appearance": 1.7791424170136452,
+      "warp": 44.3462369160261,
+      "decode": 8.502710334025323,
+      "identity": 3.9290087074041367
+    },
+    "peakRSSBytes": 2794078208,
+    "sameE53CalibrationBothArms": true,
+    "actualRawNativeMasterSHA256": "b93f0a8cf4d404e4bb519356cbce0319a7407bb712ea0dfae414dbc7777e8ed9",
+    "receiptSHA256": "7ec6e6555f2d90e48af313d5106d109fca11f2cf9cf2e5f070e7e62285b3f4b3",
+    "scriptSHA256": "a8f47b1b61bf57ccdc207e5c8ac0d1672bb07b2b8cc91335c51bf54a7fb6436c",
+    "mathAuditSHA256": "ae049dae5ecca0f5843492790fe1714e0f4a7521f3e7b85e199fa9040fa1709e",
+    "maskAndExpressionAuditSHA256": "1cbcf132ad09d3c6a0390b6a2de7c708a2e5de4c59d2413175d84dae49c4fc6e",
+    "anchor36ByteExact": true,
+    "frame23ChangedScenePixels": 31129,
+    "maskAlgorithmsAndSettingsUnchanged": true,
+    "generatedAlphaForcedEqual": false,
+    "outsideOwnComputedAlphaExact": true,
+    "independentTargetHandMaskAvailable": false,
+    "sceneRollTransferred": false,
+    "qualityPass": false,
+    "visualFinding": "Modest upward-tilt improvement in frame23; no temporal, lip-sync, identity, jaw/neck or foreground quality pass.",
+    "fullSequenceFinished": false,
+    "productionEnabled": false,
+    "independentPostRenderAuditSHA256": "dd50fc3ffa5aee31c585e946b1a9ac99df3d31e5527788aef3ce677433878d17",
+    "candidateAddsPositiveAlphaOutsideBaselinePixels": 0,
+    "candidateRemovesPositiveAlphaPixels": 337,
+    "rawParserNeckPermissionPixels": {
+      "A": 1406,
+      "B": 284
+    },
+    "obviousNewJawNeckForeheadSeamInReviewedStill": false,
+    "independentVisualVerdict": "Promising direction in one clear still, not a temporal, physical-foreground, identity or production quality pass."
+  },
+  "occlusionTopologyAudit": {
+    "receiptSHA256": "96ab3ca1e19985e5bced09c5c120f629a777293f80e4450554e953b928fd1148",
+    "seconds": 0.49114120800000005,
+    "frames": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "differentEarlierRawCohort": true,
+    "oldMaskAppliedToNewNativeVideo": false,
+    "modelCalls": 0,
+    "networkOrPaidActions": false,
+    "productionChanges": false,
+    "threshold": 0.05,
+    "connectivity": 8,
+    "enclosedLowComponentsInEveryFrame": 0,
+    "candidateEqualsPlainXSeg": true,
+    "weightedPermissionLossInsideComputedHand": 7120,
+    "weightedPermissionLossOutsideComputedHand": 3635.49,
+    "outsideLossMostlyMouthAndNearMaskEdge": true,
+    "provenVisibleAnatomyRegression": false,
+    "temporalTopologySwitchObserved": false,
+    "qualityPass": false
   }
 }

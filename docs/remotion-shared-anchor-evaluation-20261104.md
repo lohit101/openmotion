@@ -78,6 +78,30 @@ Full raw inspection covers every opening frame0–24 plus dense ending contacts.
 
 A code audit explains a remaining limit: the current PERC finisher copies source expression while using generated-target rotation, scale, translation and scene placement. It cannot deliberately recover a missing source head tilt. A current-native-appearance/source-relative-rotation-only test has not been run; earlier fixed-portrait source-rotation experiments changed different models, geometry and appearance. Crop basis, head/hair/ear/neck support, foreground protection and temporal behavior must be checked before attempting or promoting that different route.
 
+## Source-relative head rotation diagnostic
+
+The recovered raw video shows a source head tilt that the animation dampens. A separate private test keeps each current generated frame's appearance features, canonical controls, scale, translation and scene placement, but changes the **driven** rotation to follow source motion relative to the shared anchor. The appearance-side `kp_source` retains the current raw target rotation. Both arms use the same fixed source53 eye-calibration candidate described above; this is not a comparison against a different eye recipe.
+
+With column-vector rotation matrices and anchor `a = 36`, the desired rotation is `Rs_i @ Rs_a.T @ Rt_a`. An equivalent difference form, `Rt_a + (Rs_i − Rs_a) @ Rs_a.T @ Rt_a`, makes the anchor exactly equal without a frame-index branch. Independent array checks verify the production row-projection order, current raw appearance controls, crop transforms and same E53 expression. These rotations live in independently eye-line-normalized crop coordinates; scene roll remains the target's and is not transferred.
+
+Before generation, six existing CPU motion calls took 1.942 seconds. Four parser and four XSeg calls on source/target23 and36 took 1.741 seconds. The actual scenes have no hand crossing the tested facial regions. Existing mask algorithms and thresholds remain unchanged; generated labels may naturally alter final alpha. There is no new independent hand mask for this native candidate, and old target masks were not reused on it.
+
+Four paired CPU outputs—baseline and rotation candidate at23 and36—completed in **65.366 seconds**, using one thread and existing weights only. The frame36 negative control is byte-identical through the decoder, prediction, alpha and final scene composite. Frame23 moves toward the source's upward tilt, with 31,129 changed scene pixels between the two finished versions. Visual review finds a modest improvement in orientation, while source mouth shape, head outline and neck integration are not established as correct. The same frozen jaw rule also produces different downstream jaw support, so unchanged algorithm does not mean unchanged boundary pixels.
+
+Observed model time includes 44.346 seconds in warping, 8.503 in decoding, 1.779 in appearance extraction and 3.929 in identity operations; worker peak RSS is approximately 2.79 GB. These are this Mac CPU diagnostic's component times, not GPU or complete Generate timings. An earlier isolated CoreML decoder speedup cannot be applied to the dominant warping stage or claimed as the same speedup for the whole workflow.
+
+Every output preserves raw scene pixels outside its own computed alpha. This is a technical check, not proof of physical foreground protection. Two stills do not validate motion flicker, identity stability, mouth timing, hand-covered openings, cuts or reappearance. **No production workflow, profile, default or draft was changed.** Evidence is preserved under ignored `.local/remotion-source-r-only-20261104/`.
+
+Independent post-render replay verifies every cached array and both PNGs are identical at36. At23, the candidate adds zero positive-alpha pixels outside the baseline and removes337; its permission on raw-parser neck pixels decreases from1,406 to284. Root and independent visual review find no obvious detached jaw/neck or forehead hard edge in this one still. These observations do not certify motion continuity or a physical foreground boundary, and do not resolve the remaining expression, identity and scene-lighting limits.
+
+## Separate occlusion-topology audit
+
+A cache-only study tests whether border connectivity can distinguish a foreground hand from legitimate low-XSeg facial features. Its inputs are eight frames from the earlier hash-bound raw/SAM cohort, not the newly recovered native video. No old mask was applied to a new frame.
+
+With the frozen low-XSeg threshold of 0.05 and eight-connected components, each frame has one low component touching the crop border and no enclosed components. The proposed rule therefore reduces exactly to plain XSeg. Against a counterfactual semantic-feature override, it removes 7,120 weighted permission units inside the computed hand and 3,635.49 outside it, almost all near mouth/lip boundaries. Those outside-mask losses are close to the SAM boundary and may include mask error; they do not prove removal of truly visible anatomy. No topology switch occurs in these eight frames, so stable recovery of enclosed features is untested.
+
+This 0.47-second array audit runs no models or network requests. Border connectivity supplies no new distinction in this sample and is not promoted as a foreground fix. Its receipt and weighted diagnostic contacts are preserved under ignored `.local/remotion-occlusion-topology-20261104/`.
+
 ## Budget and terminal state
 
 The user explicitly approved a **$2.20 cumulative cap** for this same existing rental. The conservative allocation at 05:54:42 UTC is **$2.19310**, including the existing transfer/storage reserves and continuous retained-disk accounting. This is a planning estimate, not a finalized provider invoice.
