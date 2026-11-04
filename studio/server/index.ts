@@ -39,6 +39,7 @@ import { openEventStream } from './event-stream';
 import { ManagedFacialConsistency, newFacialRun } from './facial-consistency';
 import { canFinishFacialLocally, facialRuntimeReadyForSettings } from '../shared/facial-consistency';
 import { anchoredRun, canFinishAnchoredLocally, videoDirectionFrames } from '../shared/anchored-video';
+import { FaceRepairManager, registerFaceRepairRoutes } from './face-repair';
 
 const STUDIO = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const REPO = path.dirname(STUDIO);
@@ -56,7 +57,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   const draftSource=store.asset(store.draft().sourceId||'');
   if(draftSource?.kind==='video')try{await refreshVideoDuration(store,draftSource);}catch{/* Missing originals must not prevent opening the library. Submission validates them. */}
   for (const job of store.jobs()) {
-    if (job.origin === 'render' && ['queued', 'running', 'reconnecting'].includes(job.status)) { job.status = 'interrupted'; job.error = 'The local app restarted. Reconnect to check the existing GPU job before resuming.'; store.saveJob(job); }
+    if (['render', 'repair'].includes(job.origin) && ['queued', 'running', 'reconnecting'].includes(job.status)) { job.status = 'interrupted'; job.error = 'The local app restarted. Reconnect to check the existing GPU job before resuming.'; store.saveJob(job); }
   }
   const app = express(); app.disable('x-powered-by');
   app.use((req, res, next) => {
@@ -72,7 +73,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   // Request activity is GPU work, not browsing or inventory refreshes. This also
   // invalidates idle probes when async request preflight has not queued work yet.
   app.use((req, res, next) => {
-    const work = req.method === 'POST' && (/^\/api\/upscale\/(?:prepare|jobs(?:\/[^/]+\/recover)?)$/.test(req.path) || /^\/api\/(?:jobs(?:\/[^/]+\/(?:resume|refine-face))?|images\/jobs|models\/(?:download|module|recover|delete)|video-identity\/gpu\/setup|facial-consistency\/prepare|connection\/connect)$/.test(req.path) ||
+    const work = req.method === 'POST' && (/^\/api\/upscale\/(?:prepare|jobs(?:\/[^/]+\/recover)?)$/.test(req.path) || /^\/api\/(?:jobs(?:\/[^/]+\/(?:resume|refine-face|face-repairs))?|images\/jobs|models\/(?:download|module|recover|delete)|video-identity\/gpu\/setup|facial-consistency\/prepare|connection\/connect)$/.test(req.path) ||
       /^\/api\/cloud\/(?:launch|launches\/[^/]+\/continue|instances\/[^/]+\/(?:start|connect))$/.test(req.path));
     if (work) {
       if (idle.state.status === 'pausing') return void res.status(409).json({ error: 'GPU idle pause is in progress. Wait for its confirmed status, then start & connect before generating.' });
@@ -83,7 +84,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   const clipEditor = registerClipEditorRoutes(app, store);
   let upscale: UpscaleManager;
   const videoIdentity = registerVideoIdentityRoutes(app, store, repo, createGpuFaceBackend(store,repo,connection,()=>{
-    if(upscale?.busy || runner.busy || models.state.busy || cloud.state.busy || store.jobs().some(job=>job.origin==='render' && ['queued','running','reconnecting'].includes(job.status)))throw new Error('Finish current GPU setup, downloads or rendering before GPU face refinement.');
+    if(upscale?.busy || runner.busy || runner.hasUnconfirmedFaceWork() || models.state.busy || cloud.state.busy || store.jobs().some(job=>['render', 'repair'].includes(job.origin) && ['queued','running','reconnecting'].includes(job.status)))throw new Error('Finish current GPU setup, downloads or rendering before GPU face refinement.');
   }));
   upscale = new UpscaleManager(store, repo, connection, clipEditor, () => {
     if (runner.busy || runner.active || models.state.busy&&!models.preparingClarity || cloud.state.busy || videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork() || store.jobs().some(job => ['queued','running','reconnecting'].includes(job.status))) throw new Error('Finish current GPU setup or generation before Clarity.');
@@ -97,6 +98,15 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     store.unsettledJobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status) ||
       (job.faceRefinement?.execution === 'remote CUDA' && job.faceRefinement.instanceId === store.value('cloud-connected-instance', null) &&
         job.status === 'interrupted' && job.cancellationConfirmed !== true)));
+  const faceRepairs = new FaceRepairManager(store, repo, connection, root => {
+    if (models.state.busy || cloud.state.busy || upscale.busy || videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork()) throw new Error('Finish GPU setup, Clarity or unresolved face processing before creating a repair.');
+    if (connection.status.state !== 'online' || connection.status.endpoint !== 'http://127.0.0.1:8188') throw new Error('Reconnect the managed GPU before starting face repair.');
+    if (!facialRuntimeReadyForSettings(root.settings, models.state) || !models.state.facialOcclusionRuntimeReady) throw new Error('Prepare the existing Remotion facial and hand-tracking tools before repairing. No files were downloaded.');
+  });
+  runner.faceRepairs = faceRepairs;
+  const observeRepairStops = () => { for (const launch of cloud.state.launches) if (launch.instanceId && ((launch.phase === 'stopped' && launch.safetyStatus === 'stopped') || (launch.phase === 'destroyed' && launch.safetyStatus === 'disarmed'))) faceRepairs.observeProviderStop(launch.instanceId, Date.parse(launch.updatedAt)); };
+  observeRepairStops(); store.on('event', event => { if (event.type === 'cloud') observeRepairStops(); });
+  registerFaceRepairRoutes(app, faceRepairs, store, () => { idle.touch(); void runner.kick(); });
   registerCharacterRoutes(app, store);
   const bootstrap = () => ({ assets: store.assets().map(publicAsset), characters: store.characters(), capabilities: { imagenSegmentRepaint: true }, jobs: store.jobs().map(publicJob), draft: store.draft(), imageDraft: store.imageDraft(), connection: connection.status, cloud: cloud.state, models: models.state });
   app.get('/api/bootstrap', (_req, res) => res.json(bootstrap()));
@@ -139,7 +149,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   });
   app.post('/api/models/cancel', async (_req, res) => res.json(await models.cancel()));
   app.post('/api/models/delete', async (req, res) => {
-    const assertIdle = () => { if (upscale.busy || videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork() || cloud.state.busy || runner.busy || store.unsettledJobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status) || job.facialConsistency?.remoteActive && job.facialConsistency.instanceId === store.value('cloud-connected-instance', null) || job.faceRefinement?.execution === 'remote CUDA' && job.status === 'interrupted' && job.cancellationConfirmed !== true)) throw new Error('Finish setup or rendering before deleting model files.'); };
+    const assertIdle = () => { if (upscale.busy || videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork() || cloud.state.busy || runner.busy || store.unsettledJobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status) || (job.facialConsistency?.remoteActive && job.facialConsistency.instanceId === store.value('cloud-connected-instance', null) || job.faceRepair?.remoteActive && job.faceRepair.instanceId === store.value('cloud-connected-instance', null)) || job.faceRefinement?.execution === 'remote CUDA' && job.status === 'interrupted' && job.cancellationConfirmed !== true)) throw new Error('Finish setup or rendering before deleting model files.'); };
     try { assertIdle(); } catch (error) { return void res.status(409).json({ error: (error as Error).message }); }
     const value = z.object({ name: z.string().min(1).max(300) }).parse(req.body);
     res.json(await models.remove(value.name, assertIdle));
@@ -282,6 +292,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   });
   app.post('/api/jobs/:id/resume', async (req, res) => {
     const job = store.job(String(req.params.id)); if (!job) return void res.sendStatus(404);
+    if (job.faceRepair) { await runner.resume(job); return void res.json(publicJob(store.job(job.id)!)); }
     if (job.upscale) { await upscale.recover(job); return void res.json(publicJob(store.job(job.id)!)); }
     if (job.faceRefinement) { await videoIdentity.resume(job); return void res.json(publicJob(store.job(job.id)!)); }
     if (idle.state.status === 'pausing') return void res.status(409).json({ error: 'Wait for the automatic GPU pause to settle before resuming.' });
@@ -294,6 +305,9 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   });
   app.get('/api/jobs/:id/:type', (req, res) => {
     const job = store.job(String(req.params.id)); if (!job) return void res.sendStatus(404);
+    if (req.params.type === 'repair-master' && job.faceRepair?.acceptedCandidateId) {
+      const file = faceRepairs.candidateFile(job.id, job.faceRepair.acceptedCandidateId, 'master'); res.attachment(`recast-${job.id}-repair-master.mkv`); return void res.sendFile(file);
+    }
     if (req.params.type === 'directional-pipeline' && job.anchoredVideo) {
       res.attachment(`recast-${job.id}-directional-pipeline.json`);
       return void res.json({ jobId: job.id, ...job.anchoredVideo, branches: job.anchoredVideo.branches.map(b => ({ ...b, graph: b.childJobId ? store.job(b.childJobId)?.workflow : null })) });
@@ -349,7 +363,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     const message = error instanceof z.ZodError ? error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join(' ') : error.code === 'LIMIT_FILE_SIZE' ? 'Videos can be up to 512 MB.' : error.message || 'This action could not be completed.';
     res.status(error instanceof z.ZodError ? 422 : error instanceof multer.MulterError ? 413 : 400).json({ error: String(message).slice(0, 2000) });
   });
-  return { app, store, connection, runner, cloud, models, clipEditor, videoIdentity, upscale, idle };
+  return { app, store, connection, runner, cloud, models, clipEditor, videoIdentity, upscale, idle, faceRepairs };
 }
 async function main() {
   const port = Number(process.env.PORT || 3000);

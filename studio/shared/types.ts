@@ -10,6 +10,7 @@ import { imagenRepaintProfileSchema } from './characters';
 import type { ViggleRepaintRun } from './segment-repaint';
 import { facialProfileSchema, type FacialConsistencyRun } from './facial-consistency';
 import type { AnchoredVideoRun, AnchorChild } from './anchored-video';
+import type { FaceRepairRun } from './face-repair';
 
 export const settingsSchema = z.object({
   engine: z.enum(['scail2', 'viggle']).default('scail2'),
@@ -67,13 +68,14 @@ export interface Job {
   anchoredVideo?: AnchoredVideoRun;
   anchorChild?: AnchorChild;
   facialConsistency?: FacialConsistencyRun;
+  faceRepair?: FaceRepairRun;
   id: string; title: string; status: JobStatus; settings: Settings; sourceId: string; referenceId: string;
   createdAt: string; startedAt?: string; finishedAt?: string; favorite: boolean; deleted: boolean;
   width: number; height: number; outputSize?: { width: number; height: number }; progress: Progress; segments: Segment[]; context: string;
   pendingPrompt: string | null; uploads: { source: string; reference: string; preparedFrame?: string; face?: string; clothing?: string; original?: string; mask?: string; noiseMask?: string; faceMask?: string; structure?: string; bodyMask?: string; bodyReference?: string; bodyAppearance?: string; bodyBase?: string; headReference?: string; repaintSegment?: number; sharedAnchor?: string } | null;
   error: string | null; output: string | null; poster: string | null; cancelRequested: boolean;
   cancellationConfirmed?: boolean; submitting?: boolean; retryRequired?: boolean;
-  elapsedSeconds: number | null; origin: 'render' | 'import' | 'edit' | 'upscale'; upscale?: UpscaleRun; workflow: Record<string, GraphNode> | null;
+  elapsedSeconds: number | null; origin: 'render' | 'import' | 'edit' | 'upscale' | 'repair'; upscale?: UpscaleRun; workflow: Record<string, GraphNode> | null;
   edit?: ClipEditReceipt;
   hasWorkflow?: boolean;
   promptVersion?: 'scene-v1';

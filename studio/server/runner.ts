@@ -19,6 +19,8 @@ import { canFinishFacialLocally, isEyeFinishedFacialVersion } from '../shared/fa
 import { faceHash, FacialConsistencyError, type FacialBackend } from './facial-consistency';
 import { AnchorWaitError, assertAnchorChild, projectAnchorChild, runAnchoredBranches, anchorFileHash } from './anchored-video';
 import { canFinishAnchoredLocally } from '../shared/anchored-video';
+import { canFinishRepairLocally } from '../shared/face-repair';
+import type { FaceRepairManager } from './face-repair';
 
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 export class Runner {
@@ -31,12 +33,17 @@ export class Runner {
   public imageProcessor = processImage;
   public repaintTargetPreparer?: RepaintTargetPreparer;
   public facial?: FacialBackend;
-  hasUnconfirmedFaceWork() { return this.store.unsettledJobs().some(job => job.status === 'interrupted' && job.facialConsistency?.remoteActive && job.facialConsistency.instanceId === this.store.value('cloud-connected-instance', null) && !job.facialConsistency.cancellationConfirmed); }
+  public faceRepairs?: FaceRepairManager;
+  hasUnconfirmedFaceWork() { return this.store.unsettledJobs().some(job => job.status === 'interrupted' && (job.facialConsistency?.remoteActive && job.facialConsistency.instanceId === this.store.value('cloud-connected-instance', null) && !job.facialConsistency.cancellationConfirmed || job.faceRepair?.remoteActive && job.faceRepair.instanceId === this.store.value('cloud-connected-instance', null) && !job.faceRepair.cancellationConfirmed)); }
   async reconcileFaceCancellations() {
     if (this.cancellationRecheck) return this.cancellationRecheck;
     if (this.busy || this.active || !this.facial || this.connection.status.state !== 'online') return;
     this.cancellationRecheck = (async () => {
       for (const job of this.store.jobs()) {
+        if (job.status === 'interrupted' && job.cancelRequested && job.faceRepair?.remoteActive && job.faceRepair.instanceId === this.store.value('cloud-connected-instance', null) && !job.faceRepair.cancellationConfirmed) {
+          try { await this.cancel(job); } catch { /* Unknown repair worker remains busy. */ }
+          continue;
+        }
         if (job.status !== 'interrupted' || !job.cancelRequested || !job.facialConsistency?.remoteActive ||
           job.facialConsistency.instanceId !== this.store.value('cloud-connected-instance', null) || job.facialConsistency.cancellationConfirmed) continue;
         try { await this.cancel(job); }
@@ -48,7 +55,7 @@ export class Runner {
   constructor(public store: Store, public connection: ConnectionManager, public template: Graph, public repo: string, geometry?: ReferenceGeometry) { this.geometry = geometry || localReferenceGeometry(repo); }
   interrupt(reason: string) {
     this.abort?.abort(new OfflineError(reason));
-    for (const job of this.store.jobs()) if (job.origin === 'render' && ['queued', 'running', 'reconnecting'].includes(job.status)) {
+    for (const job of this.store.jobs()) if (['render', 'repair'].includes(job.origin) && ['queued', 'running', 'reconnecting'].includes(job.status)) {
       job.status = 'interrupted'; job.error = reason; job.progress.stage = 'GPU instance action requested'; job.progress.value = null; job.progress.max = null; this.store.saveJob(job);
     }
   }
@@ -57,7 +64,10 @@ export class Runner {
     this.busy = true;
     try {
       while (true) {
-        const next = this.store.jobs().reverse().find(j => j.origin === 'render' && !j.anchorChild && !j.deleted && ['queued', 'running', 'reconnecting'].includes(j.status) && (this.connection.status.state === 'online' || canFinishImageLocally(j) || canFinishFacialLocally(j) || canFinishAnchoredLocally(j)));
+        // A failed detached facial worker can remain active after the last run.
+        // Recheck between jobs, not only before entering the serialized queue.
+        if (this.externalGpuBusy()) break;
+        const next = this.store.jobs().reverse().find(j => ['render', 'repair'].includes(j.origin) && !j.anchorChild && !j.deleted && ['queued', 'running', 'reconnecting'].includes(j.status) && (this.connection.status.state === 'online' || canFinishImageLocally(j) || canFinishFacialLocally(j) || canFinishAnchoredLocally(j) || canFinishRepairLocally(j)));
         if (!next) break;
         this.active = next; this.abort = new AbortController(); await this.run(next, this.abort.signal); this.active = null;
       }
@@ -84,6 +94,11 @@ export class Runner {
   async cancel(job: Job) {
     job.cancelRequested = true;
     this.store.saveJob(job, false);
+    if (job.faceRepair) {
+      if (!this.faceRepairs) throw new Error('Face repair tools are unavailable.');
+      if (this.active?.id === job.id) { this.active.cancelRequested = true; this.abort?.abort(); return; }
+      await this.faceRepairs.cancel(job); return;
+    }
     if (job.facialConsistency?.remoteActive) {
       job.cancellationConfirmed = false; job.status = 'interrupted'; job.error = 'Checking facial-processing cancellation. The rendered video is kept.';
       this.store.saveJob(job, false);
@@ -138,6 +153,7 @@ export class Runner {
     try { await task; } finally { this.resumes.delete(job.id); }
   }
   private async resumeChecked(job: Job, retryMissing: boolean) {
+    if (job.faceRepair) { if (!this.faceRepairs) throw new Error('Face repair tools are unavailable.'); await this.faceRepairs.resume(job); void this.kick(); return; }
     if (job.anchoredVideo) {
       const childId = job.anchoredVideo.activeChildId, child = childId ? this.store.job(childId) : null;
       if (child?.status === 'interrupted') {
@@ -171,6 +187,10 @@ export class Runner {
     job.retryRequired = false; job.status = 'queued'; job.cancelRequested = false; job.cancellationConfirmed = false; job.error = null; this.store.saveJob(job, false); void this.kick();
   }
   async run(job: Job, signal: AbortSignal) {
+    if (job.faceRepair) {
+      if (!this.faceRepairs) { job.status = 'interrupted'; job.error = 'Face repair tools are unavailable.'; this.store.saveJob(job); return; }
+      await this.faceRepairs.run(job, signal, (frame, frames, stage) => this.stage(job, stage, frame, frames, 'work units')); return;
+    }
     this.runningJobs.set(job.id, job);
     const folder = path.join(this.store.root, 'jobs', job.id); await mkdir(folder, { recursive: true });
     const source = this.store.asset(job.sourceId)!, reference = this.store.asset(job.referenceId)!;

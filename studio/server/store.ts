@@ -13,6 +13,7 @@ import type { Character } from '../shared/characters';
 const unsettled = `json_extract(data, '$.status') IN ('queued','running','reconnecting')
   OR json_extract(data, '$.facialConsistency.remoteActive') = 1
   OR json_extract(data, '$.upscale.remoteActive') = 1
+  OR json_extract(data, '$.faceRepair.remoteActive') = 1
   OR (json_extract(data, '$.status') = 'interrupted'
     AND json_extract(data, '$.faceRefinement.execution') = 'remote CUDA'
     AND json_extract(data, '$.cancellationConfirmed') IS NOT 1)`;
@@ -28,6 +29,8 @@ export class Store extends EventEmitter {
       CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, idem TEXT UNIQUE, data TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS characters (id TEXT PRIMARY KEY, data TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, data TEXT NOT NULL);`);
+    const existingIndex = this.db.prepare("SELECT sql FROM sqlite_master WHERE name='jobs_unsettled_v1'").get() as { sql: string } | undefined;
+    if (existingIndex && !existingIndex.sql.includes('faceRepair.remoteActive')) this.db.exec('DROP INDEX jobs_unsettled_v1');
     this.db.exec(`CREATE INDEX IF NOT EXISTS jobs_unsettled_v1 ON jobs(id) WHERE ${unsettled}`);
   }
   value<T>(key: string, fallback: T): T { const row = this.db.prepare('SELECT data FROM settings WHERE key=?').get(key) as { data: string } | undefined; return row ? JSON.parse(row.data) : fallback; }
