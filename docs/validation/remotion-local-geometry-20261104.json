@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "date": "2026-11-04",
-  "evidenceCapturedAtUTC": "2026-11-04T01:33:13.485170+00:00",
+  "evidenceCapturedAtUTC": "2026-11-04T01:46:54.315057+00:00",
   "status": "research-in-progress; no production quality pass",
   "relatedNarrative": "docs/remotion-local-geometry-20261104.md",
   "goalComplete": false,
@@ -12,10 +12,11 @@
     "applicationOrDraftChanges": false,
     "historicalPaidInputsAndOutputsPreserved": true,
     "localEvaluationOnly": true,
-    "documentationTaskProviderCalls": false,
+    "documentationTaskProviderCalls": true,
     "documentationTaskPaidActions": false,
     "noNewRentalInThisLocalFollowup": true,
-    "note": "Earlier same-host paid tests belong to the cumulative goal accounting below. These local diagnostic results do not authorize another paid run."
+    "note": "Earlier same-host paid tests belong to the cumulative goal accounting below. These local diagnostic results do not authorize another paid run.",
+    "documentationTaskProviderReadOnly": true
   },
   "budget": {
     "capUSD": 2,
@@ -436,12 +437,14 @@
     "promotionDecision": "No experimental candidate in this snapshot is approved as a universally correct production workflow."
   },
   "providerFinalObservation": {
+    "observedAtUTC": "2026-11-04T01:47:46.234594+00:00",
+    "providerRefreshedAt": "2026-11-04T01:47:22.774Z",
+    "providerError": null,
+    "instanceId": 58966215,
     "state": "exited",
     "intendedState": "stopped",
-    "idleAutoPauseEnabled": true,
-    "refreshedAt": "2026-11-03T23:44:06.614Z",
-    "error": null,
-    "action": "read-only refresh; no resume or rental change"
+    "idlePauseEnabled": true,
+    "action": "read-only provider refresh; no resume/SSH/transfer/inference"
   },
   "unchangedV10NewBodyControl": {
     "status": "four CPU stills; not a temporal quality pass",
@@ -824,5 +827,67 @@
     "includedInPendingThreeCallSharedAnchorScope": false,
     "privateEvidence": ".local/remotion-preswap-input-audit-20261104/report.json",
     "privateEvidenceSHA256": "4456a1266360139110de2e8d2dc9ded5ef5c857e4799d1c65a96c1a36af05fd5"
+  },
+  "hybridGeneralizationReadiness": {
+    "status": "read-only implementation audit complete; independent-clip and production readiness not established",
+    "corrected24AndFull73HelperASTsEqual": true,
+    "openingAdmissionsComputedRatherThanForcedByFrameNumber": true,
+    "literalCrossCalibrationSeedAndCacheSplitFrame": 8,
+    "evaluatedFallbackEye": "image-left",
+    "sourceSAMGovernsAllPrimaryHiddenFeatureTransfer": false,
+    "handPromptsDetectorDerived": true,
+    "sourcePreparationAssumesFrameZeroHand": true,
+    "targetActualSeedFrame": 2,
+    "targetSeedRequiredNoLaterThanFrame": 8,
+    "lateMultipleOrOtherOccludersHandled": false,
+    "targetReidentificationCutResetOrManaged203SAMRuntimeImplemented": false,
+    "independentClipWithOwnAssetsAnchorMasksAndReferencesTested": false,
+    "privateEvidence": ".local/remotion-hybrid-readiness-20261104/audit.json",
+    "privateEvidenceSHA256": "9135e15d33e1833af26ce1b249b7e2b007ff1dcfe226d90e472088f0de35f2c7",
+    "productionChanges": false,
+    "newModelOrCloudActions": false
+  },
+  "arrayOnlyVisibleEyePolicy": {
+    "status": "private parameterized math/ownership helper; not a new validated video workflow",
+    "assetPathsOrReferenceFrameInsideModule": false,
+    "newThresholdsOrSweep": false,
+    "modelOrGeneratorCalls": 0,
+    "cloudActions": 0,
+    "productionChanges": false,
+    "fixtures": [
+      0,
+      6
+    ],
+    "noEditOwnershipCasesPerExistingRuntime": 16,
+    "existingRuntimes": [
+      "4.12.0",
+      "5.0.0"
+    ],
+    "allFinalModuleAndTestHashesMatchBothRuntimeReceipts": true,
+    "moduleSHA256": "4fdc64dc61f881c05572572ab54cbbfbb2f4b6f16b08c7d9b44cefea75b1a929",
+    "testSHA256": "1e1e10aa814d13615e8f9a0acc73ced90fbc63296b47f552e8bc5ed5ca22fc7f",
+    "singleRuntimeHistoricalReplayBitExact": false,
+    "singleRuntimeHistoricalReplayMaximumBGRDelta": 1,
+    "historicalCachedResidualReconstructionSeparatelyExactInOpenCV4": true,
+    "cachedProjectedResidualSubstitutedIntoModule": false,
+    "openCV5MirroredRightImageOutputsExact": true,
+    "openCV4MirroredRightMaximumChannelDeltas": [
+      2,
+      1
+    ],
+    "mirroredPermissionArraysClaimedBitExact": false,
+    "computedHardTargetVetoAndOutsidePermissionExactBothRuntimes": true,
+    "independentSavedOutputPairsChecked": 4,
+    "independentNoEditReceiptEntriesChecked": 32,
+    "independentAuditUsesNumpyCrossDilation": true,
+    "realOppositeSideVideoOrModelEquivarianceTested": false,
+    "sourceToTargetImageSideAnatomicalCorrespondenceAssumed": true,
+    "independentFullSourceFacePoseGate": false,
+    "twoClearEyesWithOccludedMouthSupported": false,
+    "generalQualityOrUIReadinessClaim": false,
+    "privateEvidence": ".local/remotion-hybrid-general-policy-20261104/receipt.json",
+    "privateEvidenceSHA256": "62dea3ce3fc407ed563f545adb0dc507483b3d765ebcf887ad2c1426fe17ee2c",
+    "independentAudit": ".local/remotion-hybrid-general-policy-20261104/independent-output-audit.json",
+    "independentAuditSHA256": "fbaa09d6e17126bee19d114400bc25cf8dc0bd6314fa2a7648e449d2b2b751aa"
   }
 }
