@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "date": "2026-11-04",
-  "evidenceCapturedAtUTC": "2026-11-03T23:29:27.207236+00:00",
+  "evidenceCapturedAtUTC": "2026-11-04T01:33:13.485170+00:00",
   "status": "research-in-progress; no production quality pass",
   "relatedNarrative": "docs/remotion-local-geometry-20261104.md",
   "goalComplete": false,
@@ -665,7 +665,164 @@
       ".local/remotion-shared-anchor-20261104/design.json",
       ".local/remotion-shared-anchor-20261104/test-receipt.json",
       ".local/remotion-shared-anchor-20261104/causal-v2/manifest-v2.json",
-      ".local/remotion-shared-anchor-20261104/causal-v2/allowed-graph-diff-v2.json"
-    ]
+      ".local/remotion-shared-anchor-20261104/causal-v2/allowed-graph-diff-v2.json",
+      ".local/remotion-shared-anchor-20261104/execution-readiness-audit.json"
+    ],
+    "cpuExecutionReadinessChecks": 24,
+    "executionReadinessOfflineOnly": true,
+    "savedDryRunRefusesInference": true,
+    "actualHostNodeModelSchemaAndCUDAReadinessVerified": false,
+    "extraTenCentQuestion": "pending explicit user reply; not authorized"
+  },
+  "anatomyDecomposition": {
+    "status": "completed private motion-only diagnostic; no new retarget implementation",
+    "motionExtractorCPUCalls": 24,
+    "boundedAlignmentImages": 13,
+    "cpuSeconds": 5.182938042096794,
+    "appearanceWarpDecodeOrIdentityCalls": 0,
+    "newWeights": 0,
+    "cloudOrPaidActions": false,
+    "handSampleFrames": [
+      0,
+      6,
+      36,
+      65
+    ],
+    "turnSampleFrames": [
+      0,
+      48,
+      96,
+      168,
+      216,
+      239
+    ],
+    "targetCanonicalEyeControlSpacingVariationPercent": {
+      "hand": 1.8344432746941308,
+      "turn": 0.7728586712676844
+    },
+    "sourceExpressionMouthControlSpanChangePercent": {
+      "hand": [
+        3.425100104099399,
+        8.444313034889905
+      ],
+      "turn": [
+        -6.969482056932397,
+        15.902483023244308
+      ]
+    },
+    "physicalAnatomyOrIdentityMetric": false,
+    "limitations": [
+      "Expression controls include genuine gaze, smiles and visemes; fixed group centroids or mouth widths can suppress performance.",
+      "Covered opening states do not reveal hidden anatomical ground truth.",
+      "Turn inputs are a new consistent ArcFace cohort with their own approved reference, not an exact historical GPU replay.",
+      "No independently editable anatomy-only subspace was established."
+    ],
+    "privateEvidence": ".local/remotion-anatomy-decomposition-20261104/report.json",
+    "privateEvidenceSHA256": "311de4498f9c90e016dbf427de225ebb6e7f7bd4467b2af02d4f2db4b6b82bff"
+  },
+  "isolatedScaleComparison": {
+    "status": "completed; correction not selected",
+    "newCPUGenerators": 6,
+    "cpuSeconds": 60.73195170820691,
+    "sampleStates": [
+      "HAND36",
+      "HAND65",
+      "TURN0",
+      "TURN48"
+    ],
+    "handBaselinesReusedExactly": true,
+    "turnBaselinesNewInternallyControlledCPU": true,
+    "onlyDrivenXYAnisotropyChanged": true,
+    "xyProductAndZPreserved": true,
+    "expressionGazeAndOriginalAppearanceControlsUnchanged": true,
+    "turnPermissionsExactlyEqual": true,
+    "handBaselinePermissionsUnavailable": true,
+    "handSupportComparison": "changed-RGB proxy; not permission equality",
+    "computedHandVetoPassed": true,
+    "outputControlPredictionAndPermissionHashesChecked": true,
+    "temporalQualityVerified": false,
+    "qualityPass": false,
+    "promotionDecision": "Do not promote this correction. Four stills show small shape changes without a clear visual improvement that would justify a production default.",
+    "workerTerminalConfirmed": true,
+    "productionChanges": false,
+    "newWeights": 0,
+    "cloudOrPaidActions": false,
+    "privateEvidence": ".local/remotion-scale-only-20261104/verdict.json",
+    "privateEvidenceSHA256": "4a5e98d6b4bc7ba6e1dabc6c14efc1301c7ebe3caa7190f193d544c7f00d81e0"
+  },
+  "existingUpscalerContributionAudit": {
+    "status": "completed read-only paired-media and pinned-code audit",
+    "matchedPairsFound": 11,
+    "allSourceAndOutputContainerHashesMatch": true,
+    "allFrozenCurrentRecipesMatch": true,
+    "pairsExtracted": 7,
+    "frameTimestampPairsChecked": 1688,
+    "sparseFrameSamples": 79,
+    "additionalDenseContactEntries": 16,
+    "uniformScaleFactor": 2.25,
+    "globalAspectStretchFound": false,
+    "visibleReconstructionChanges": [
+      "tooth separations and white-tooth shape",
+      "lip and eye edges",
+      "skin and hair detail"
+    ],
+    "doubleToothRowOrGrossWideningCausallyEstablished": false,
+    "chinSeamsAlreadyInSomeBaseFrames": true,
+    "fastRepeatFactor": 1,
+    "gaussianDuplicateMergeActive": false,
+    "oneStepSigmaEndpoints": [
+      1,
+      0
+    ],
+    "positiveSigmaShiftIsSourceFidelityControl": false,
+    "avatarOrForegroundMaskConditioning": false,
+    "nativeHandPixelProofExtendsThroughGenerativeUpscaling": false,
+    "newModelInferenceOrPaidActions": false,
+    "productionChanges": false,
+    "limitations": [
+      "This is sampled still/contact review, not a new full normal-speed playback review or an identity score.",
+      "The exact two uploaded screenshots are not conclusively timestamp-bound to a saved pair; relevant glasses/portrait examples exist but are not claimed identical to every reported defect.",
+      "Only final compressed videos are available for these comparisons. The worker deletes its lossless working bridge after verified export, so changes cannot be apportioned exactly between learned restoration, interpolation/color and final encoding from these files alone.",
+      "Two additional completed v2upscales use an uploaded edited source, whose exact source asset exists but lacks a direct Remotion job-hash match; they are excluded from the v3Remotion conclusions.",
+      "A sharper plausible tooth edge is not evidence of true recovered anatomy. Conversely, an already-blurred base cannot prove that every added fine feature is incorrect.",
+      "No general conclusion about Clarity temporal flicker, all cuts or all face poses follows from sparse sample images."
+    ],
+    "privateEvidence": ".local/remotion-upscale-contribution-20261104/audit.json",
+    "privateEvidenceSHA256": "5051e03c2a8a3f6a32b150a99038e9ae94aa47c4d1976819482b9a0fe23b4cdd"
+  },
+  "earlierPreswapInputAudit": {
+    "status": "completed existing-evidence audit; legacy input not a clean performance-preserving candidate",
+    "sourceFrames": 73,
+    "fps": 24,
+    "sourceStart": 0,
+    "sameOriginalSourceAndClockVerified": true,
+    "nativeABGraphDiffRestrictedToDrivingFilenameAndArtifactPrefixes": true,
+    "nativeShortContextConfoundShared": true,
+    "ordinaryFaceFusionIdentityOnlySwapTested": false,
+    "actualInputRenderer": "rejected nearest-two-view fixed-avatar geometry/appearance bank",
+    "openingOriginalActorRetainedFramesExclusive": [
+      0,
+      8
+    ],
+    "exactRequestedSavedPNGsWithReceiptHashes": [
+      0,
+      12,
+      36
+    ],
+    "requestedPreviewOnlyFrames": [
+      6,
+      65
+    ],
+    "exactFrame12AlreadyChangesSourceEyeAndMouthPerformance": true,
+    "losslessUploadedDrivingMasterAvailableLocally": false,
+    "finalTargetSAMVetoPresent": false,
+    "exactPhysicalHandProtectionProved": false,
+    "newInferenceOrDrivingVideoPrepared": false,
+    "productionChanges": false,
+    "paidActions": false,
+    "futureIdentityOnlyTestAuthorized": false,
+    "includedInPendingThreeCallSharedAnchorScope": false,
+    "privateEvidence": ".local/remotion-preswap-input-audit-20261104/report.json",
+    "privateEvidenceSHA256": "4456a1266360139110de2e8d2dc9ded5ef5c857e4799d1c65a96c1a36af05fd5"
   }
 }
