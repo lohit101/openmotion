@@ -29,7 +29,14 @@
     "acceptedCorrectionUSD": 0.010844444444444445,
     "correctionReason": "The native-control ledger timestamp preceded the start request and followed a fresh stopped-state check; an additional preceding minute had been double allocated.",
     "uncertainty": "Provider billing available to the audit was a UTC-day aggregate including pre-goal activity. A weaker geometry-gap correction was not accepted. The allocation includes conservative padding and reserves; the small remaining arithmetic margin is not permission for more testing.",
-    "privateEvidence": ".local/remotion-budget-20261104/reviewed-allocation-v2.json"
+    "privateEvidence": ".local/remotion-budget-20261104/reviewed-allocation-v2.json",
+    "networkReserveReview": {
+      "cachedDayInternetChargeUSD": 0.085,
+      "wholeDayIncludesPreGoalTraffic": true,
+      "justifiesSmallerReserve": false,
+      "retainedTransferReserveUSD": 0.05,
+      "privateEvidence": ".local/remotion-budget-20261104/network-reserve-audit.json"
+    }
   },
   "wholeFaceBypassControl": {
     "status": "rejected and cancelled after a preserved prefix",
@@ -380,7 +387,7 @@
       },
       "observedRemainingFailures": [
         "frame6 artificial brow frown",
-        "frame12 incomplete source blink; upstream opening estimate imperfect",
+        "frame12 eye opens more than visible near-closed source; no exact aperture ground truth",
         "frame20 chin contour"
       ],
       "qualityPass": false,
@@ -435,5 +442,173 @@
     "refreshedAt": "2026-11-03T23:44:06.614Z",
     "error": null,
     "action": "read-only refresh; no resume or rental change"
+  },
+  "unchangedV10NewBodyControl": {
+    "status": "four CPU stills; not a temporal quality pass",
+    "frames": [
+      0,
+      6,
+      12,
+      65
+    ],
+    "workerSeconds": 21.99438862502575,
+    "sameSourceDonorAndFrozenCalibration": true,
+    "cpuDonorEmbeddingRecomputed": true,
+    "bitIdenticalCUDAParity": false,
+    "oldAnchorBGRHashReproduced": false,
+    "oldDecodedGPUAnchorAvailable": false,
+    "registrationMaxSceneCornerCenterDisplacementPixels": 0.332,
+    "sourceUncertainRawFallbackFrames": [
+      0,
+      6
+    ],
+    "refinedFrames": [
+      12,
+      65
+    ],
+    "refinedFrameSeconds": [
+      10.744102792115882,
+      9.954180832952261
+    ],
+    "observations": [
+      "Raw fallback at0/6 misses visible source eyelid closure.",
+      "Frame12 visible closure is more plausible than LP sample.",
+      "Frame65 sampled glance/likeness remains reasonable; not gaze accuracy proof."
+    ],
+    "separateSAMDiagnostic": {
+      "belongsToUnchangedV10": false,
+      "changedPixelsByFrame": {
+        "0": 0,
+        "6": 0,
+        "12": 7,
+        "65": 0
+      },
+      "allComputedHandPixelsExact": true
+    },
+    "qualityPass": false,
+    "productionChanged": false,
+    "paidActions": false,
+    "newModels": 0,
+    "privateEvidence": [
+      ".local/remotion-production-v10-cpu-20261104/evaluation-spec.json",
+      ".local/remotion-production-v10-cpu-20261104/results/receipt.json",
+      ".local/remotion-production-v10-cpu-20261104/anchor-provenance-audit.json"
+    ]
+  },
+  "partialSourceEyeStudy": {
+    "status": "completed24-frame local temporal diagnostic; full73 continuation pending, no production quality pass",
+    "failed68Fit": {
+      "sourceFrame6EyeDisplacementPixels": 17.64,
+      "generatorsRunBeforeRejection": 0
+    },
+    "crossCalibratedSourceCrop": {
+      "primarySourceDetectionInvented": false,
+      "inventedSource68": false,
+      "calibrationAnchor": 8,
+      "generatorCalls": 2,
+      "workerSeconds": 20.984188999980688,
+      "sourceRoute": "203trackedROI cross-calibrated to realclear8 ArcFace; actualsourcepixels"
+    },
+    "ownershipFinding": "Iris-only support leaves displaced upperlashes around a newclosedlid. Sweptorbital core plus outerskin feather removes obvious detachedline in frame6 still and inspected8frameprefix.",
+    "orbitalV2": {
+      "expressionOrIdentityGeneratorCalls": 0,
+      "paidOrCloudActions": false,
+      "browAndHandVetoUnchanged": true,
+      "stillsOnly": true,
+      "qualityPass": false
+    },
+    "correctedOpening": {
+      "uniqueFrames": 8,
+      "fps": 24,
+      "manualEventLabelsUsedForRuntimeAdmission": false,
+      "superseded80PercentGateRejected": true,
+      "nativePlaybackApp": "QuickTime Player",
+      "previewLoopsAddEvidence": false,
+      "qualityPass": false
+    },
+    "remainingLimitations": [
+      "frame0 partial opening/gaze still differs",
+      "transition into primaryface route is still under evaluation",
+      "mouth/jaw/faceidentity/cuts remain unproved"
+    ],
+    "privateEvidence": [
+      ".local/remotion-production-v10-cpu-20261104/eye-regional-probe/crosscrop/receipt.json",
+      ".local/remotion-production-v10-cpu-20261104/eye-regional-probe/crosscrop/orbital-v2-receipt.json",
+      ".local/remotion-hybrid24-20261104-corrected/opening-comparison.mp4",
+      ".local/remotion-hybrid24-20261104-corrected/integrity-audit.json"
+    ],
+    "completed24": {
+      "frames": 24,
+      "PNGHashesVerified": 96,
+      "sourceAndRawDecodedPixelComparisons": 48,
+      "allOwnTargetHandPixelsExact": true,
+      "allFallbackOutsideOrbitalPermissionExact": true,
+      "allPrimaryOutsideOriginalChangedSupportExact": true,
+      "sourceAdmissionUsesManualLabels": false,
+      "rejectedGatePrefixPreserved": true,
+      "newGeneratorsAcrossThis24FrameTest": 21,
+      "exactEarlier0And6FallbackAnd12PrimaryReuse": true,
+      "generatorFrameTimerSecondsAcrossBothProcesses": 209.13313899887726,
+      "correctedProcessSecondsIncludesOpeningReviewWait": 350.50385733298026,
+      "workerTerminal": true,
+      "fps": 24,
+      "silentDurationSeconds": 1,
+      "nativePlaybackApp": "QuickTime Player",
+      "playedToFinalFrame": true,
+      "observedScreenFrames": [
+        12,
+        23
+      ],
+      "repeatedPreviewAddsUniqueEvidence": false,
+      "qualityPass": false,
+      "productionChanged": false
+    }
+  },
+  "preparedSharedAnchorComparison": {
+    "status": "private unregistered plan; no native inference or budget authorization",
+    "realSourceFrames": 73,
+    "reverseRealFrames": 37,
+    "reverseHoldPositions": 87,
+    "forwardOriginalRangeExclusive": [
+      32,
+      73
+    ],
+    "forwardRealFrames": 41,
+    "forwardHoldPositions": 83,
+    "bothModelPositions": 124,
+    "reverseToForwardPrefixMapping": [
+      4,
+      3,
+      2,
+      1,
+      0
+    ],
+    "chronologicalOriginalPrefix": [
+      32,
+      33,
+      34,
+      35,
+      36
+    ],
+    "videoLatentsPinned": 2,
+    "reencodesChronologicalPixels": true,
+    "nativeSamplerLatentsReversedOrRecovered": false,
+    "originalReverseReceiptPreserved": true,
+    "cpuLineageAndMediaTests": 18,
+    "cpuMatchedControlChecks": 9,
+    "syntheticDecodedFrameOrderExact": true,
+    "syntheticSourceAudioPacketsExact": 144,
+    "actualNativeCallsRequired": 3,
+    "sharedReferenceOffsetConfound": "Photo at36 whilebothforwardwindowstarts32; neitherarmhasfirstframe-matchedphoto",
+    "productionChanges": false,
+    "paidAuthorization": false,
+    "nativeQualityVerified": false,
+    "speedImprovementClaimed": false,
+    "privateEvidence": [
+      ".local/remotion-shared-anchor-20261104/design.json",
+      ".local/remotion-shared-anchor-20261104/test-receipt.json",
+      ".local/remotion-shared-anchor-20261104/causal-v2/manifest-v2.json",
+      ".local/remotion-shared-anchor-20261104/causal-v2/allowed-graph-diff-v2.json"
+    ]
   }
 }
