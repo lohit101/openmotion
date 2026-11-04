@@ -33,3 +33,6 @@ data/
 integration-snapshot/instance.json
 integration-snapshot/recent-history.json
 
+
+# Independent API-only workspace state and private credentials.
+studio/kie-data/

@@ -8,9 +8,9 @@
   },
   "scripts": {
     "dev": "node dev.mjs",
-    "dev:server": "tsx watch server/index.ts",
-    "dev:client": "vite --host 127.0.0.1",
-    "build": "tsc --noEmit && vite build && esbuild server/index.ts --bundle --platform=node --target=node24 --format=esm --packages=external --outfile=dist-server/index.js",
+    "dev:server": "tsx watch server/kie-index.ts",
+    "dev:client": "vite --host 127.0.0.1 --port 5174",
+    "build": "tsc --noEmit && vite build && esbuild server/kie-index.ts --bundle --platform=node --target=node24 --format=esm --packages=external --outfile=dist-server/index.js",
     "start": "node dist-server/index.js",
     "test": "vitest run",
     "check": "tsc --noEmit",

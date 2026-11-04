@@ -10,6 +10,7 @@ import { imagenRepaintProfileSchema } from './characters';
 import type { ViggleRepaintRun } from './segment-repaint';
 import { facialProfileSchema, type FacialConsistencyRun } from './facial-consistency';
 import type { AnchoredVideoRun, AnchorChild } from './anchored-video';
+import type { KieBootstrap, KieVideoRun } from './kie';
 
 export const settingsSchema = z.object({
   engine: z.enum(['scail2', 'viggle']).default('scail2'),
@@ -67,13 +68,14 @@ export interface Job {
   anchoredVideo?: AnchoredVideoRun;
   anchorChild?: AnchorChild;
   facialConsistency?: FacialConsistencyRun;
+  kie?: KieVideoRun;
   id: string; title: string; status: JobStatus; settings: Settings; sourceId: string; referenceId: string;
   createdAt: string; startedAt?: string; finishedAt?: string; favorite: boolean; deleted: boolean;
   width: number; height: number; outputSize?: { width: number; height: number }; progress: Progress; segments: Segment[]; context: string;
   pendingPrompt: string | null; uploads: { source: string; reference: string; preparedFrame?: string; face?: string; clothing?: string; original?: string; mask?: string; noiseMask?: string; faceMask?: string; structure?: string; bodyMask?: string; bodyReference?: string; bodyAppearance?: string; bodyBase?: string; headReference?: string; repaintSegment?: number; sharedAnchor?: string } | null;
   error: string | null; output: string | null; poster: string | null; cancelRequested: boolean;
   cancellationConfirmed?: boolean; submitting?: boolean; retryRequired?: boolean;
-  elapsedSeconds: number | null; origin: 'render' | 'import' | 'edit' | 'upscale'; upscale?: UpscaleRun; workflow: Record<string, GraphNode> | null;
+  elapsedSeconds: number | null; origin: 'render' | 'import' | 'edit' | 'upscale' | 'api'; upscale?: UpscaleRun; workflow: Record<string, GraphNode> | null;
   edit?: ClipEditReceipt;
   hasWorkflow?: boolean;
   promptVersion?: 'scene-v1';
@@ -94,7 +96,7 @@ export type Graph = Record<string, GraphNode>;
 export type Catalog = Record<string, { input: { required?: Record<string, unknown[]>; optional?: Record<string, unknown[]> }; output: string[] }>;
 export interface Connection { state: 'offline' | 'connecting' | 'online'; endpoint: string; gpu: string | null; message: string; loras: string[]; checkedAt: string | null; }
 export interface Draft { sourceId: string | null; referenceId: string | null; settings: Settings; }
-export interface Bootstrap { assets: Asset[]; jobs: Job[]; draft: Draft; connection: Connection; cloud: CloudState; models: ModelsState; imageDraft?: ImageDraft; characters?: Character[]; capabilities?: { imagenSegmentRepaint: boolean }; }
+export interface Bootstrap { kie?: KieBootstrap; assets: Asset[]; jobs: Job[]; draft: Draft; connection: Connection; cloud: CloudState; models: ModelsState; imageDraft?: ImageDraft; characters?: Character[]; capabilities?: { imagenSegmentRepaint: boolean }; }
 
 function dimensionsAt(settings: Settings, source: Pick<Asset, 'width' | 'height'>, short: number, grid: number): [number, number] {
   let ratio = source.width / source.height;
