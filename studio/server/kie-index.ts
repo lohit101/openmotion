@@ -32,6 +32,12 @@ export async function createKieApplication(options: { dataRoot?: string; fronten
   const jobs = new KieJobs(store, account, client, options.pollMs);
   const app = express(); app.disable('x-powered-by');
   app.use((req, res, next) => {
+    // A loopback socket alone does not prevent a foreign domain from rebinding
+    // to localhost. Validate Host before trusting it for same-origin checks.
+    try {
+      const host = new URL(`http://${req.get('host') || ''}`);
+      if (!['127.0.0.1', 'localhost', '[::1]'].includes(host.hostname) || host.username || host.password || host.pathname !== '/' || host.search || host.hash) throw new Error('Foreign Host');
+    } catch { return void res.status(403).json({ error: 'Open Recast using localhost or 127.0.0.1.' }); }
     const origin = req.get('origin');
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       if (req.get('sec-fetch-site') === 'cross-site') return void res.status(403).json({ error: 'Open the local Recast app to make changes.' });
