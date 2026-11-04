@@ -1,0 +1,251 @@
+{
+  "version": "face-repair-validation-v1",
+  "date": "2026-11-04",
+  "status": "paused-by-user-after-failed-v1-comparison",
+  "scope": "Selective face repair before Clarity, with explicit candidate review and immutable parent",
+  "authorization": {
+    "newTestCapUSD": 2,
+    "transferRecoveryShutdownReserveUSD": 0.25,
+    "maximumWorkingAllocationUSD": 1.75,
+    "allowedInstanceId": 58966215,
+    "maximumComputeHourlyUSD": 0.7,
+    "newRentalAllowed": false,
+    "modelDownloadAllowed": false,
+    "publicLaunchDeferred": true
+  },
+  "fixtures": [
+    {
+      "parentJobId": "3d5ec5d8-505e-4bc0-98c8-ff96c8d4435b",
+      "profile": "source-face-v8",
+      "frames": 240,
+      "fps": 24,
+      "purpose": "Current beta-eye route and disjoint selections",
+      "ranges": [
+        [
+          55,
+          79
+        ],
+        [
+          110,
+          134
+        ]
+      ],
+      "visualReview": "pending"
+    },
+    {
+      "parentJobId": "9e2b4739-0e5b-454e-aaef-17f0753c5904",
+      "profile": "source-face-v10",
+      "frames": 73,
+      "fps": 24,
+      "purpose": "Hand occlusion",
+      "ranges": [
+        [
+          0,
+          18
+        ],
+        [
+          48,
+          65
+        ]
+      ],
+      "visualReview": "pending"
+    },
+    {
+      "parentJobId": "df9e1812-466e-4c57-ac7f-a2693cfff5a9",
+      "profile": "source-face-v10",
+      "frames": 240,
+      "fps": 24,
+      "purpose": "Held-out frontal smile, blink and glance",
+      "ranges": [
+        [
+          174,
+          198
+        ]
+      ],
+      "visualReview": "Synchronized baseline stills reviewed; repair motion pending"
+    },
+    {
+      "parentJobId": "548803c7-8eb1-4876-a1f2-2412719af1c1",
+      "profile": "source-face-v8",
+      "frames": 209,
+      "fps": 24,
+      "purpose": "Held-out reclining head movement and blink",
+      "ranges": [
+        [
+          150,
+          174
+        ]
+      ],
+      "visualReview": "Synchronized baseline stills reviewed; repair motion pending"
+    },
+    {
+      "parentJobId": "9d6a88be-d25a-4517-9559-e5c626cfda7a",
+      "profile": "source-face-v8",
+      "frames": 320,
+      "fps": 24,
+      "purpose": "Held-out close facial speech, kiss/closed lips and upward chin movement",
+      "ranges": [
+        [
+          264,
+          304
+        ]
+      ],
+      "visualReview": "Synchronized baseline stills reviewed; repair motion pending"
+    }
+  ],
+  "checks": {
+    "offlineRegression": "pending",
+    "historicalFingerprints": "pending",
+    "protectedFramesAndPixels": "Worker receipt reports exact protection on unchanged v1 outputs; not a visual quality result.",
+    "audioAndTiming": "Worker receipt reports verified original MP4 audio packets/padding, PCM master audio and frame clock on unchanged v1 outputs.",
+    "queueAndIdleProtection": "pending",
+    "cancelAndReconnect": "One real cancellation and same-attempt resume confirmed.",
+    "identityImprovementInMotion": "failed: both candidates changed zero frames",
+    "boundaryImprovementInMotion": "failed: both candidates changed zero frames",
+    "bothJoinsReviewed": "No improved candidate exists; seamless-repair quality is unvalidated.",
+    "nativeUIReview": "pending",
+    "backendProtocol": {
+      "tests": 16,
+      "auditTests": 7,
+      "baselineCommit": "8d90ed5",
+      "legacyFacialVersionsByteAndFingerprintUnchanged": 11,
+      "fingerprintInputFilesByteUnchanged": 37,
+      "additionalFrozenRuntimeFilesByteUnchanged": 4,
+      "sourceSizeRegressionPassed": true,
+      "newGpuActions": 0,
+      "qualityAcceptance": "Requires separate moving-video review."
+    }
+  },
+  "paidActivity": {
+    "testLeaseStarted": true,
+    "newInferenceSubmitted": true,
+    "spentUSD": null,
+    "invoiceFinalized": false,
+    "inferenceType": "Selected-frame facial processing only; no new Viggle sampling.",
+    "budgetFinalization": "Rate-based new repair-test session estimate; not a finalized invoice. Excludes unrelated user work and future retained-disk storage.",
+    "estimatedSessionUSD": 0.1766577604021399,
+    "withinNewTestCap": true,
+    "newRental": false,
+    "newModelWeights": false
+  },
+  "deployment": {
+    "localAppReloaded": false,
+    "publicRelease": false,
+    "commit": null,
+    "repairQualityPromoted": false,
+    "productionFrontendRestoredToBaseline": "8d90ed5",
+    "productionBackendRestartedForRepair": false
+  },
+  "limitations": [
+    "The first real v1 repair failed to change any frames; no identity or boundary improvement is established.",
+    "The ALLOW-map inversion bug and unavailable-foreground preservation are unresolved in this paused task.",
+    "An unchanged candidate passing integrity checks is not a repair-quality pass.",
+    "Playable MP4 recompression is distinct from exact protected-pixel checks on the lossless RGB master."
+  ],
+  "baselineInputChecks": {
+    "fixturesInitiallyChecked": 4,
+    "frameCountsExact": true,
+    "ratesMatch24FPS": true,
+    "dimensionsMatch": true,
+    "startTimesZero": true,
+    "scope": "Existing parent inputs only, not repair outputs. Two parents have different AAC final discard-padding from raw, so repair copies finished-parent audio."
+  },
+  "intermediateChecks": [
+    {
+      "checkedAt": "2026-11-04T12:36:32.233281+00:00",
+      "name": "Face repair UI helpers and review-state audit",
+      "testFiles": [
+        "studio/tests/face-repair-audit.test.tsx",
+        "studio/tests/face-repair-ui.test.tsx"
+      ],
+      "passedTests": 11,
+      "scope": "Frame permissions, normalized loop membership and explicit new-attempt state; no native browser or GPU-quality validation."
+    },
+    {
+      "name": "Python worker syntax",
+      "command": "python3 -m py_compile scripts/face_repair.py scripts/face_repair_worker.py",
+      "passed": true,
+      "scope": "Syntax only, not managed execution."
+    },
+    {
+      "name": "Independent Python selective repair regression rerun",
+      "command": ".local/analysis-venv/bin/python -m unittest tests.test_face_repair",
+      "passedTests": 12,
+      "seconds": 0.892,
+      "scope": "Local synthetic export/clock/audio/protection/recovery checks; no managed GPU quality validation."
+    }
+  ],
+  "staging": {
+    "prepared": true,
+    "parentFixtures": 5,
+    "productionDatabaseReadOnly": true,
+    "independentDatabase": true,
+    "inputCopiesSHA256Verified": true,
+    "paidExecutionRequiresBoundedLease": true,
+    "serverStartedByAuditAgent": false,
+    "publicRelease": false
+  },
+  "pause": {
+    "reason": "User paused repair to pursue a separate Kie API branch.",
+    "repairV2AuthorizedToContinue": false,
+    "furtherPaidRepairTestingAuthorizedDuringPause": false,
+    "recordedAt": "2026-11-04T13:18:50.655373+00:00"
+  },
+  "actualManagedComparison": {
+    "jobId": "c2b4b0c0-8faf-4b68-b19b-bd9650f30a9e",
+    "parentJobId": "3d5ec5d8-505e-4bc0-98c8-ff96c8d4435b",
+    "parentProfile": "source-face-v8",
+    "version": "face-repair-v1",
+    "receiptSHA256": "581e4f19b8f913b825a4b5d14b685df04fd2a7c91984be8c14e3f76e65db0c6c",
+    "recordedComplete": true,
+    "frames": 240,
+    "fps": 24,
+    "width": 864,
+    "height": 480,
+    "positiveWeightFrames": 68,
+    "layerProducingFrames": 14,
+    "foregroundUnavailablePreservedFrames": 54,
+    "outsideEditableFrames": 172,
+    "candidates": [
+      {
+        "id": "boundary",
+        "recipe": "inward-boundary-v1",
+        "changedFrames": 0,
+        "qualified": false,
+        "acceptanceBlocked": true
+      },
+      {
+        "id": "identity80",
+        "recipe": "identity80-v1",
+        "changedFrames": 0,
+        "qualified": false,
+        "acceptanceBlocked": true
+      }
+    ],
+    "outcome": "No visible repair: both candidates unchanged; not a quality pass.",
+    "diagnosedCause": "The upstream targetVeto field is an ALLOW-permission map. v1 complemented it as though it marked blocked pixels, suppressing all clear-frame edit permission.",
+    "independentIssue": "Unavailable foreground tracking conservatively preserved 54 selected frames; this remains unresolved.",
+    "correctedV2VisualResult": "Not implemented or validated before pause.",
+    "newViggleInference": false,
+    "cancelResume": {
+      "realCancellationConfirmed": true,
+      "sameAttemptResumed": true,
+      "trigger": "User Clarity work took priority."
+    },
+    "privateEvidence": [
+      ".local/face-repair-20261104/staging/data/jobs/c2b4b0c0-8faf-4b68-b19b-bd9650f30a9e/face-repair/receipt.json",
+      ".local/face-repair-20261104/zero-change-diagnostic.json",
+      ".local/face-repair-20261104/zero-change-tracking-diagnostic.json"
+    ]
+  },
+  "computeStop": {
+    "independentlyConfirmedAt": "2026-11-04T13:19:47.341553+00:00",
+    "instanceId": 58966215,
+    "state": "exited",
+    "intendedState": "stopped",
+    "computeStopped": true,
+    "connected": false,
+    "fiveMinuteIdlePreferenceRestored": true,
+    "privateReceipt": ".local/face-repair-20261104/confirmed-stop.json"
+  }
+}
