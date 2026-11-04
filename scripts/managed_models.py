@@ -86,6 +86,8 @@ def main():
                     'result["facialCalibratedRuntimeReady"]=result["facialCleanupRuntimeReady"] and json.loads(marker.read_text()).get("calibrationProfileSHA256")==sys.argv[9];'
                     'result["facialGeometryRuntimeReady"]=result["facialCleanupRuntimeReady"] and json.loads(marker.read_text()).get("geometryProfiles")==json.loads(sys.argv[11]);'
                     'result["facialBoundaryRuntimeReady"]=result["facialGeometryRuntimeReady"] and json.loads(marker.read_text()).get("boundaryProfiles")==json.loads(sys.argv[12]) and json.loads(marker.read_text()).get("cleanupWorkerSHA256")==json.loads(sys.argv[8])[0];'
+                    'occlusion_marker=root.parent/"facial-runtime/state/occlusion-runtime-ready.json";'
+                    'result["facialOcclusionRuntimeReady"]=result["facialBoundaryRuntimeReady"] and result["facialCalibratedRuntimeReady"] and occlusion_marker.is_file() and json.loads(occlusion_marker.read_text()).get("profileSHA256")==sys.argv[13];'
                     'eye_marker=root.parent/"facial-runtime/state/eye-runtime-ready.json";'
                     'result["facialEyeFinishRuntimeReady"]=result["facialCalibratedRuntimeReady"] and eye_marker.is_file() and json.loads(eye_marker.read_text()).get("profileSHA256")==sys.argv[10] and json.loads(eye_marker.read_text()).get("nativeBindingsVerified") is True;'
                     '\nfor proc in Path("/proc").glob("[0-9]*"):\n'
@@ -98,7 +100,7 @@ def main():
             geometry = {f'source-face-v{n}': facial.fingerprint(f'source-face-v{n}') for n in [6, 7, 8]}
             boundary = {f'source-face-v{n}': facial.fingerprint(f'source-face-v{n}') for n in [9, 10]}
             from facial_runtime import compatible_worker_hashes
-            vast.remote(config, ['python3', '-c', code, str(root / 'scripts'), str(root / 'models'), json.dumps(selected_manifest()['files']),json.dumps(face_files), facial.fingerprint('source-face-v2'), facial.digest(facial.ROOT / 'scripts/video_timing.py'), facial.fingerprint('source-face-v3'), json.dumps(compatible_worker_hashes()), facial.fingerprint('source-face-v4'), facial.fingerprint('source-face-v5'), json.dumps(geometry), json.dumps(boundary)])
+            vast.remote(config, ['python3', '-c', code, str(root / 'scripts'), str(root / 'models'), json.dumps(selected_manifest()['files']),json.dumps(face_files), facial.fingerprint('source-face-v2'), facial.digest(facial.ROOT / 'scripts/video_timing.py'), facial.fingerprint('source-face-v3'), json.dumps(compatible_worker_hashes()), facial.fingerprint('source-face-v4'), facial.fingerprint('source-face-v5'), json.dumps(geometry), json.dumps(boundary), facial.fingerprint('source-face-v11')])
             return
         # Execute the current small storage helper without reinstalling the
         # engine or relying on an older helper on a retained rental.

@@ -5,17 +5,19 @@ import { FieldLabel } from './InfoTip';
 import { Toggle } from './components';
 import { DownloadSelect, type DownloadControls } from './ModelDownloads';
 
-export default function FacialConsistencyControls({ value, change, downloads, sceneMatch, changeSceneMatch, cleanup, changeCleanup, eyeCalibration, changeEyeCalibration, eyeFinish, changeEyeFinish, boundaryBlend, changeBoundaryBlend }: {
+export default function FacialConsistencyControls({ value, change, downloads, sceneMatch, changeSceneMatch, cleanup, changeCleanup, eyeCalibration, changeEyeCalibration, eyeFinish, changeEyeFinish, boundaryBlend, changeBoundaryBlend, occlusionTracking, changeOcclusionTracking }: {
   value: Settings['facialConsistency']; change: (value: FacialProfile) => void; downloads: DownloadControls;
   sceneMatch?: boolean; changeSceneMatch?: (value: boolean) => void;
   cleanup?: boolean; changeCleanup?: (value: boolean) => void;
   eyeCalibration?: boolean; changeEyeCalibration?: (value: boolean) => void;
   eyeFinish?: boolean; changeEyeFinish?: (value: boolean) => void;
   boundaryBlend?: boolean; changeBoundaryBlend?: (value: boolean) => void;
+  occlusionTracking?: boolean; changeOcclusionTracking?: (value: boolean) => void;
 }) {
   const active = !!value && value !== 'off';
   const boundaryUnavailable = value === 'perform-onnx60' && eyeCalibration === true && eyeFinish === true;
-  const settings = { engine: 'viggle', facialConsistency: value, facialSceneMatch: sceneMatch, facialFeatureCleanup: cleanup ?? true, facialEyeCalibration: eyeCalibration === true, facialEyeFinish: eyeFinish === true, facialBoundaryBlend: boundaryBlend === true };
+  const occlusionAvailable = value === 'perform-onnx60' && sceneMatch !== false && cleanup !== false && eyeCalibration === true && eyeFinish !== true && boundaryBlend === true;
+  const settings = { engine: 'viggle', facialConsistency: value, facialSceneMatch: sceneMatch, facialFeatureCleanup: cleanup ?? true, facialEyeCalibration: eyeCalibration === true, facialEyeFinish: eyeFinish === true, facialBoundaryBlend: boundaryBlend === true, facialOcclusionTracking: occlusionTracking === true };
   return <div className="full-label">
     <FieldLabel label="Facial consistency" help="Runs automatically after Viggle, before the video appears in Library. Standard uses the accepted PerformRecast source expressions; Regional reduces cheek/jaw/depth changes. Both blend a fixed-reference Hyperswap identity pass at 60%. Feature cleanup owns complete eyes and eyebrows and restores gated native eye detail. Covered, uncertain or mismatched faces are preserved and reported. This does not guarantee exact gaze or identity. Uses an x86_64 CUDA GPU; downloads are explicit." />
     <DownloadSelect label="Facial consistency" value={value || 'off'} onChange={v => change(v as FacialProfile)} controls={downloads}
@@ -30,5 +32,7 @@ export default function FacialConsistencyControls({ value, change, downloads, sc
       detail="Adds restrained eye-only restoration and bounded source-driven eye-position correction after the existing finish. Uses the character’s own eye pixels, keeps current blink gates and preserves hair/body/scene. Requires a separate explicit 381 MB model download and optional runtime preparation. Source eye positions are estimated; likeness and gaze still need review." />}
     {active && sceneMatch !== false && cleanup !== false && changeBoundaryBlend && <Toggle label="Soften face boundary · beta" checked={boundaryBlend === true} onChange={changeBoundaryBlend} disabled={boundaryUnavailable} detailVisible={boundaryUnavailable}
       detail={boundaryUnavailable ? 'Boundary blending is inactive with beta eye restoration. Turn off Restore eye detail & match glances to try this comparison.' : 'Fades only the outer face boundary inward and matches peripheral lighting. Keeps the source-driven expression, full eyes/mouth and speaking-chin permission. Uses the installed models; explicit tool update is required. Evaluated on saved frames; full GPU quality and speed are not yet validated.'} />}
+    {active && changeOcclusionTracking && <Toggle label="Protect hands & track visible eyes · beta" checked={occlusionTracking === true} onChange={changeOcclusionTracking} disabled={!occlusionAvailable} detailVisible={!occlusionAvailable}
+      detail={occlusionAvailable ? 'Tracks foreground hands and preserves their video pixels during facial finishing. A visible eye can still follow the source when part of the face is covered. Uncertain regions keep the animation. Additional tracking files and tool preparation are explicit; review hand edges, blinks and likeness in your result.' : 'Available with Standard + ONNX 60%, scene matching, feature cleanup, eye calibration and face boundary blending. Turn off beta eye restoration to use foreground tracking.'} />}
   </div>;
 }

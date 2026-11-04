@@ -6,7 +6,7 @@ import path from 'node:path';
 import type { Job } from '../shared/types';
 import { outputDimensions } from '../shared/types';
 import { frameFloor } from '../shared/clip';
-import { canFinishFacialLocally, facialVersionForSettings, usesFacialConsistency, isCalibratedFacialVersion, isCleanupFacialVersion, isEyeFinishedFacialVersion, isGeometryFacialVersion, isBoundaryFacialVersion, type FacialConsistencyRun } from '../shared/facial-consistency';
+import { canFinishFacialLocally, facialVersionForSettings, facialProgressForRun, usesFacialConsistency, isCalibratedFacialVersion, isCleanupFacialVersion, isEyeFinishedFacialVersion, isGeometryFacialVersion, isBoundaryFacialVersion, isOcclusionTrackedFacialVersion, type FacialConsistencyRun } from '../shared/facial-consistency';
 import type { ConnectionManager } from './comfy';
 import type { Store } from './store';
 
@@ -14,7 +14,27 @@ export class FacialConsistencyError extends Error {
   remoteStopped = false; cancellationConfirmed = false;
 }
 export const faceHash = (file: string) => createHash('sha256').update(readFileSync(file)).digest('hex');
+const occlusionFingerprintFiles = [
+  'config/facial-consistency-occlusion.lock.json',
+  'config/facial-consistency-occlusion-models.lock.json',
+  'config/facial-consistency-occlusion-runtime.lock.json',
+  'scripts/face_partial_source.py', 'scripts/face_occlusion_tracking.py',
+  'scripts/face_occlusion_finish.py',
+  'scripts/facial_occlusion_runtime.py',
+  'scripts/face_occlusion_vendor/__init__.py',
+  'scripts/face_occlusion_vendor/mp_palmdet.py',
+  'scripts/face_occlusion_vendor/mp_handpose.py',
+  'scripts/face_occlusion_vendor/crop.py',
+  'scripts/face_occlusion_vendor/LICENSE.opencv-zoo',
+  'scripts/face_occlusion_vendor/LICENSE.performrecast',
+  'scripts/face_occlusion_vendor/provenance.json',
+];
 export const facialFingerprint = (repo: string, version: FacialConsistencyRun['version'] = 'source-face-v1') => {
+  if (isOcclusionTrackedFacialVersion(version)) {
+    const hash = createHash('sha256').update(Buffer.from(facialFingerprint(repo, 'source-face-v10'), 'hex'));
+    for (const name of occlusionFingerprintFiles) hash.update(readFileSync(path.join(repo, name)));
+    return hash.digest('hex');
+  }
   if (isBoundaryFacialVersion(version)) {
     const hash = createHash('sha256').update(Buffer.from(facialFingerprint(repo, version === 'source-face-v9' ? 'source-face-v6' : 'source-face-v7'), 'hex'));
     for (const name of ['config/facial-consistency-boundary.lock.json', 'scripts/face_boundary_blend.py']) hash.update(readFileSync(path.join(repo, name)));
@@ -93,6 +113,98 @@ export function newFacialRun(job: Pick<Job, 'settings' | 'progress'>, repo: stri
     instanceId, profileSHA256: facialFingerprint(repo, version), state: 'pending', processedFrames: 0, frames: job.progress.targetFrames };
 }
 
+export function validateFacialOcclusionReceipt(repo: string, receipt: any, tracking: any, expected: {
+  jobId: string;
+  sourceSHA256: string; baseSHA256: string; referenceSHA256: string; profileSHA256: string;
+  frames: number; width: number; height: number; fps: number; trackingReceiptSHA256: string;
+}): NonNullable<FacialConsistencyRun['occlusion']> {
+  const invalid = () => { throw new FacialConsistencyError('The foreground-tracking input, model or frame provenance failed validation. Existing output was preserved.'); };
+  const hash = (v: unknown) => typeof v === 'string' && /^[0-9a-f]{64}$/.test(v);
+  const count = (v: unknown, max: number) => Number.isInteger(v) && Number(v) >= 0 && Number(v) <= max;
+  const policyFile = path.join(repo, 'config/facial-consistency-occlusion.lock.json');
+  const policy = JSON.parse(readFileSync(policyFile, 'utf8'));
+  const manifestFile = path.join(repo, 'config/facial-consistency-occlusion-models.lock.json');
+  const manifest = JSON.parse(readFileSync(manifestFile, 'utf8'));
+  const o = receipt?.occlusion;
+  const fps = (value: unknown) => {
+    if (typeof value !== 'string' || !/^\d+(?:\/\d+)?$/.test(value)) return false;
+    const [n, d = 1] = value.split('/').map(Number);
+    return n > 0 && d > 0 && n / d === expected.fps;
+  };
+  if (!o || o.version !== 'source-occlusion-v1' || o.sourceRGBTransferred !== false || o.protectedByTargetMask !== true ||
+    o.receiptSHA256 !== expected.trackingReceiptSHA256 || !hash(o.receiptSHA256) ||
+    ['partialEyeFrames', 'primaryFrames', 'preservedFrames'].some(k => !count(o[k], expected.frames)) ||
+    o.partialEyeFrames + o.primaryFrames + o.preservedFrames !== expected.frames ||
+    tracking?.complete !== true || tracking.version !== 'source-occlusion-v1' || tracking.sourceRGBTransferred !== false ||
+    tracking.jobId !== expected.jobId || tracking.requestVersion !== 'source-face-v11' ||
+    tracking.sourceSHA256 !== expected.sourceSHA256 || tracking.rawSHA256 !== expected.baseSHA256 ||
+    tracking.referenceSHA256 !== expected.referenceSHA256 || tracking.profileSHA256 !== expected.profileSHA256 ||
+    tracking.frames !== expected.frames || tracking.width !== expected.width || tracking.height !== expected.height || !fps(tracking.fps) ||
+    tracking.policySHA256 !== faceHash(policyFile) || tracking.modelManifestSHA256 !== faceHash(manifestFile) ||
+    tracking.controllerSHA256 !== faceHash(path.join(repo, 'scripts/face_occlusion_tracking.py')) ||
+    !tracking.binding || ['jobId', 'requestVersion', 'sourceSHA256', 'rawSHA256', 'referenceSHA256', 'profileSHA256', 'frames', 'width', 'height', 'fps', 'policySHA256', 'controllerSHA256', 'modelManifestSHA256']
+      .some(k => tracking.binding[k] !== tracking[k]) ||
+    !Array.isArray(tracking.records) || tracking.records.length !== expected.frames ||
+    !Array.isArray(receipt.records) || receipt.records.length !== expected.frames || !Array.isArray(tracking.trackBindings)) invalid();
+  const models: Record<string, { filename: string; provider: string }> = {
+    landmark203: { filename: 'landmark203.onnx', provider: 'CUDAExecutionProvider' },
+    palm: { filename: 'palm_detection_mediapipe_2023feb.onnx', provider: 'OpenCV DNN CPU' },
+    hand: { filename: 'handpose_estimation_mediapipe_2023feb.onnx', provider: 'OpenCV DNN CPU' },
+    sam2: { filename: 'sam2.1_hiera_tiny.pt', provider: 'Torch CUDA FP32' },
+  };
+  for (const [key, model] of Object.entries(models)) {
+    const file = manifest.files.find((v: any) => path.basename(v.destination) === model.filename), actual = tracking.models?.[key];
+    if (!file || !actual || actual.sha256 !== file.sha256 || actual.size !== file.size ||
+      !Array.isArray(actual.providers) || actual.providers.length !== 1 || actual.providers[0] !== model.provider ||
+      typeof actual.used !== 'boolean' || typeof actual.providerVerified !== 'boolean' || actual.used && !actual.providerVerified ||
+      actual.used && actual.runtimeProviders !== undefined && (!Array.isArray(actual.runtimeProviders) || !actual.runtimeProviders.length ||
+        key === 'landmark203' && actual.runtimeProviders[0] !== 'CUDAExecutionProvider' || key === 'sam2' && !/cuda/i.test(String(actual.runtimeProviders[0])))) invalid();
+  }
+  const bindings = new Map<string, any>();
+  for (const b of tracking.trackBindings) {
+    if (!b || !hash(b.sha256) || bindings.has(b.sha256) || b.version !== policy.version || b.policySHA256 !== tracking.policySHA256 ||
+      b.sourceSHA256 !== expected.sourceSHA256 || b.frameCount !== expected.frames || !count(b.anchorFrame, expected.frames - 1) ||
+      typeof b.trackId !== 'string' || !b.trackId || typeof b.shotId !== 'string' || !b.shotId) invalid();
+    bindings.set(b.sha256, b);
+  }
+  const states = ['segmented', 'known-none', 'unavailable'];
+  const routes = { primary: 0, 'partial-eye': 0, preserved: 0 };
+  for (let i = 0; i < expected.frames; i++) {
+    const t = tracking.records[i], r = receipt.records[i], c = r?.occlusion;
+    if (!t || t.frame !== i || t.file !== `frames/${String(i).padStart(6, '0')}.npz` || !hash(t.sha256) ||
+      !hash(t.sourceDecodedSHA256) || !hash(t.targetDecodedSHA256) || !states.includes(t.sourceMaskState) || !states.includes(t.targetMaskState) ||
+      typeof t.trackValid !== 'boolean' || t.trackBindingSHA256 !== null && !hash(t.trackBindingSHA256) ||
+      t.trackValid && !bindings.has(t.trackBindingSHA256) ||
+      !r || r.frame !== i || !c || c.trackingFrameSHA256 !== t.sha256 || c.sourceMaskState !== t.sourceMaskState || c.targetMaskState !== t.targetMaskState ||
+      c.targetProtectedPixelsExact !== true || c.sourceRGBTransferred !== false || !Object.hasOwn(routes, c.route) ||
+      c.route === 'primary' && r.action !== 'refined' || c.route === 'partial-eye' && r.action !== 'partial-eye' ||
+      c.route === 'preserved' && !['preserved', 'skipped'].includes(r.action) ||
+      t.targetMaskState === 'unavailable' && c.route !== 'preserved') invalid();
+    routes[c.route as keyof typeof routes]++;
+    if (c.route === 'partial-eye') {
+      const a = r.partialEyeAdmission, p = r.partialEye;
+      const selected = a?.selectedImageEye === 'image-left' ? 0 : a?.selectedImageEye === 'image-right' ? 1 : -1;
+      const vector = (value: any, size: number) => Array.isArray(value) && value.length === size && value.every((v: any) => Number.isFinite(v) && v >= 0 && v <= 1);
+      if (!t.trackValid || t.sourceMaskState !== 'segmented' || !bindings.has(t.trackBindingSHA256) ||
+        !a?.admitted || selected < 0 || a.manualLabelsUsed !== false || a.trackedROIBounded !== true ||
+        !vector(a.rawHandCoverageEyesMouth, 3) || !vector(a.dilatedHandCoverageEyesMouth, 3) ||
+        !a.dilatedHandCoverageEyesMouth.some((v: number) => v > 0) || a.dilatedHandCoverageEyesMouth[selected] !== 0 ||
+        !Array.isArray(a.sourceEyeOutside) || a.sourceEyeOutside.length !== 2 || a.sourceEyeOutside.some((v: any) => typeof v !== 'boolean') || a.sourceEyeOutside[selected] ||
+        !Array.isArray(a.sourceEyeWidths) || a.sourceEyeWidths.length !== 2 || a.sourceEyeWidths.some((v: any) => !Number.isFinite(v)) ||
+        a.sourceEyeWidths[selected] < policy.partial_eye.source_minimum_eye_width ||
+        !Number.isFinite(a.sourceCropScale) || a.sourceCropScale < policy.partial_eye.source_crop_min_scale || a.sourceCropScale > policy.partial_eye.source_crop_max_scale ||
+        !p?.edited || p.selectedImageEye !== a.selectedImageEye || p.rawPredictedBrowMouthAndOutsideSupportExact !== true || p.targetVetoZeroExact !== true ||
+        p.sourceRGBTransferred !== false || !count(p.changedPixels, expected.width * expected.height)) invalid();
+      const clear = a.dilatedHandCoverageEyesMouth.slice(0, 2).filter((v: number, eye: number) => v === 0 && !a.sourceEyeOutside[eye] && a.sourceEyeWidths[eye] >= policy.partial_eye.source_minimum_eye_width);
+      if (clear.length !== 1) invalid();
+    }
+  }
+  if (routes.primary !== o.primaryFrames || routes['partial-eye'] !== o.partialEyeFrames || routes.preserved !== o.preservedFrames ||
+    receipt.refinedFrames !== routes.primary + routes['partial-eye'] || receipt.skippedFrames !== routes.preserved) invalid();
+  return { version: 'source-occlusion-v1', receiptSHA256: o.receiptSHA256, partialEyeFrames: o.partialEyeFrames,
+    primaryFrames: o.primaryFrames, preservedFrames: o.preservedFrames, sourceRGBTransferred: false, protectedByTargetMask: true };
+}
+
 export class ManagedFacialConsistency implements FacialBackend {
   constructor(private store: Store, private repo: string, private connection: ConnectionManager) {}
   private args(job: Job, action: string, reference?: string) {
@@ -128,17 +240,18 @@ export class ManagedFacialConsistency implements FacialBackend {
     // A fully downloaded receipt can finish offline, without another GPU call.
     const receiptFile = path.join(files.folder, 'receipt.json'), final = path.join(files.folder, 'final.mp4');
     let downloaded = false;
-    try { await access(receiptFile); await access(final); await access(path.join(files.folder, 'transport.json')); if (isCalibratedFacialVersion(run.version)) await access(path.join(files.folder, 'calibration.json')); if (isEyeFinishedFacialVersion(run.version)) for (const name of ['native-receipt.json', 'eye-finish/request.json', 'eye-finish/restoration.json', 'eye-finish/observations.json', 'eye-finish/placement.json']) await access(path.join(files.folder, name)); downloaded = true; } catch { /* Use the same remote worker below. */ }
+    try { await access(receiptFile); await access(final); await access(path.join(files.folder, 'transport.json')); if (isCalibratedFacialVersion(run.version)) await access(path.join(files.folder, 'calibration.json')); if (isOcclusionTrackedFacialVersion(run.version)) await access(path.join(files.folder, 'occlusion-receipt.json')); if (isEyeFinishedFacialVersion(run.version)) for (const name of ['native-receipt.json', 'eye-finish/request.json', 'eye-finish/restoration.json', 'eye-finish/observations.json', 'eye-finish/placement.json']) await access(path.join(files.folder, name)); downloaded = true; } catch { /* Use the same remote worker below. */ }
     if (!downloaded) {
       if (canFinishFacialLocally(job)) throw new FacialConsistencyError('A downloaded face result is missing locally; reconnect to recover its existing remote copy.');
       run.state = 'processing'; run.remoteActive = true; this.store.saveJob(job);
       await facialCommand(this.repo, [...this.args(job, 'run', files.reference), '--source', files.source, '--target', files.base, '--output', files.folder], signal,
         (frame, frames, stage) => {
-          const eyeFinish = isEyeFinishedFacialVersion(run.version);
-          if (frames !== run.frames * (eyeFinish ? 4 : 1) || frame < 0 || frame > frames) return;
-          if (eyeFinish) run.workUnits = { completed: Math.max(run.workUnits?.completed || 0, frame), total: frames };
-          run.processedFrames = Math.max(run.processedFrames, eyeFinish ? Math.max(0, frame - 3 * run.frames) : frame);
-          run.state = frame === frames ? 'saving' : 'processing'; this.store.saveJob(job); progress(frame, frames, stage, eyeFinish ? 'work units' : 'frames');
+          const work = facialProgressForRun(run.version, run.frames, frame, frames);
+          if (!work) return;
+          if (work.multistage) run.workUnits = { completed: Math.max(run.workUnits?.completed || 0, work.completed), total: work.total };
+          run.processedFrames = Math.max(run.processedFrames, work.processedFrames);
+          const completed = work.multistage ? run.workUnits!.completed : work.completed;
+          run.state = completed === work.total ? 'saving' : 'processing'; this.store.saveJob(job); progress(completed, work.total, stage, work.multistage ? 'work units' : 'frames');
         });
     }
     run.remoteActive = false; run.state = 'downloaded'; this.store.saveJob(job);
@@ -158,7 +271,7 @@ export class ManagedFacialConsistency implements FacialBackend {
         b.jobId !== job.id || b.version !== run.version || b.profileSHA256 !== run.profileSHA256 || b.anchorFrame !== run.anchorFrame ||
         b.sourceSHA256 !== signature.sourceSHA256 || b.referenceSHA256 !== signature.referenceSHA256 ||
         Object.entries({ ...b, ...m }).some(([key, value]) => JSON.stringify(c[key]) !== JSON.stringify(value)) ||
-        !Array.isArray(receipt.records) || receipt.records.some((r: any) => active && r.action === 'refined'
+        !Array.isArray(receipt.records) || receipt.records.some((r: any) => active && (r.action === 'refined' || isOcclusionTrackedFacialVersion(run.version) && r.action === 'partial-eye')
           ? !r.calibration || r.calibration.sourceMouthLatentUnchanged !== true || r.calibration.sourceJawLatentUnchanged !== true ||
             !Array.isArray(r.calibration.eyeCalibrationWeights) || r.calibration.eyeCalibrationWeights.length !== 2 || r.calibration.eyeCalibrationWeights.some((v: any, i: number) => !Number.isFinite(v) || v < 0 || v > 1 || !c.eligibleEyes[i] && v !== 0)
           : !!r.calibration))
@@ -197,6 +310,14 @@ export class ManagedFacialConsistency implements FacialBackend {
         nativeOutputSHA256: eye.nativeOutputSHA256, sourceRGBTransferred: false };
     }
     const [width, height] = outputDimensions(job);
+    if (isOcclusionTrackedFacialVersion(run.version)) {
+      const trackingFile = path.join(files.folder, 'occlusion-receipt.json');
+      let tracking: any;
+      try { tracking = JSON.parse(await readFile(trackingFile, 'utf8')); }
+      catch { throw new FacialConsistencyError('The saved foreground-tracking receipt is missing or invalid. Existing output was preserved.'); }
+      run.occlusion = validateFacialOcclusionReceipt(this.repo, receipt, tracking, { ...signature, jobId: job.id, profileSHA256: run.profileSHA256,
+        frames: run.frames, width, height, fps: job.settings.fps, trackingReceiptSHA256: faceHash(trackingFile) });
+    }
     if (isBoundaryFacialVersion(run.version)) {
       const boundary = JSON.parse(readFileSync(path.join(this.repo, 'config/facial-consistency-boundary.lock.json'), 'utf8'));
       if (!Array.isArray(receipt.records) || receipt.records.some((record: any) => {

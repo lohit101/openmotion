@@ -15,6 +15,7 @@ from .logic import OVERLAP, context_matches, dimensions, padded_length, viggle_l
 from .audio import RecastVigglePinAudio
 from .face_reference import RecastViggleFaceReference
 from .encoded_context import RecastViggleEncodedAnchor, RecastViggleEncodedReference, RecastViggleSaveEncodedContext
+from .shared_anchor import RecastViggleSource124, RecastViggleSaveSharedAnchor, RecastViggleSharedAnchor
 
 
 class SwapControls:
@@ -393,6 +394,9 @@ class RecastViggleAnchor:
 
 
 NODE_CLASS_MAPPINGS = {
+    "RecastViggleSource124": RecastViggleSource124,
+    "RecastViggleSaveSharedAnchor": RecastViggleSaveSharedAnchor,
+    "RecastViggleSharedAnchor": RecastViggleSharedAnchor,
     "RecastViggleEncodedAnchor": RecastViggleEncodedAnchor,
     "RecastViggleEncodedReference": RecastViggleEncodedReference,
     "RecastViggleSaveEncodedContext": RecastViggleSaveEncodedContext,
@@ -411,6 +415,9 @@ NODE_CLASS_MAPPINGS = {
     "SwapSaveContext": SwapSaveContext,
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
+    "RecastViggleSource124": "Prepare Real Source with Explicit124-frame Context",
+    "RecastViggleSaveSharedAnchor": "Save Bound Reverse Opening Pixels",
+    "RecastViggleSharedAnchor": "Restore Chronological Shared Reference Prefix",
     "RecastViggleEncodedAnchor": "Restore Complete Encoded Viggle Overlap",
     "RecastViggleEncodedReference": "Previous Raw Appearance · Encoded Overlap",
     "RecastViggleSaveEncodedContext": "Encode Complete Next Overlap and Save Receipt",

@@ -397,7 +397,7 @@ describe('jaw-aware facial recipes', () => {
 describe('optional inward face-boundary treatment', () => {
   it('keeps existing routes as defaults and adds no weights or beta eye stages', async () => {
     expect(settingsSchema.parse({}).facialBoundaryBlend).toBe(false);
-    const settings = { ...defaults, engine: 'viggle' as const, facialConsistency: 'perform-onnx60' as const, facialBoundaryBlend: true };
+    const settings = { ...defaults, engine: 'viggle' as const, facialConsistency: 'perform-onnx60' as const, facialBoundaryBlend: true, facialOcclusionTracking: false };
     expect(facialVersionForSettings(settings)).toBe('source-face-v10');
     expect(facialVersionForSettings({ ...settings, facialEyeCalibration: false })).toBe('source-face-v9');
     expect(facialVersionForSettings({ ...settings, facialConsistency: 'regional-onnx60' })).toBe('source-face-v9');
@@ -411,7 +411,7 @@ describe('optional inward face-boundary treatment', () => {
       facialFingerprint(repo, 'source-face-v9'), facialFingerprint(repo, 'source-face-v10')]);
   });
   it('requires explicit updated capability without mistaking installed weights for ready tools', () => {
-    const selected = { ...defaults, engine: 'viggle' as const, facialConsistency: 'perform-onnx60' as const, facialBoundaryBlend: true };
+    const selected = { ...defaults, engine: 'viggle' as const, facialConsistency: 'perform-onnx60' as const, facialBoundaryBlend: true, facialOcclusionTracking: false };
     const ready = { facialCalibratedRuntimeReady: true, facialGeometryRuntimeReady: true };
     expect(facialRuntimeReadyForSettings(selected, ready)).toBe(false);
     expect(facialRuntimeReadyForSettings(selected, { ...ready, facialBoundaryRuntimeReady: true })).toBe(true);

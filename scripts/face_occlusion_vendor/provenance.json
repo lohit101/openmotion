@@ -1,0 +1,34 @@
+{
+  "opencvZooRevision": "48b10fa505aeb51fbd127fc60a5c660040e823b7",
+  "performRecastRevision": "0206abf3ba9e5b1eaa3cdc584879d5fa20d6a0b4",
+  "cropOriginalSHA256": "1b9a5e9dce8dfec19d599e18562ead719c0444b654017c30883f0e8dff2260e0",
+  "modifications": {
+    "crop.py": "Removed import-time global OpenCV thread/ocl mutations only; numerical crop math unchanged."
+  },
+  "files": {
+    "mp_handpose.py": {
+      "sha256": "7d67bfc645f8807496af26b8f393e084d72113cf5293a520b0e9905e9a331aa5",
+      "bytes": 9463
+    },
+    "__init__.py": {
+      "sha256": "06ea05e4c4ec094aeb6d73cec58ac3fbb1c58119bf86a4d98ae33a7c7e35fb3b",
+      "bytes": 83
+    },
+    "crop.py": {
+      "sha256": "fe575047804409ba8dd9f1c974da0b8054167c5f8f03418fb8665cab045d4d61",
+      "bytes": 7878
+    },
+    "mp_palmdet.py": {
+      "sha256": "f06ce44a9b77e12b49d72416388829fd1a481ffe7a516d914e5a8c6ca50710be",
+      "bytes": 93560
+    },
+    "LICENSE.performrecast": {
+      "sha256": "8598ea09d3950dabeebfe503b6bfddca241ee8dc79ef3a66750ccf74bccc0ca5",
+      "bytes": 1545
+    },
+    "LICENSE.opencv-zoo": {
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "bytes": 11358
+    }
+  }
+}

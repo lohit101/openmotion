@@ -1,4 +1,5 @@
 import { randomUUID, createHash } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 import { createReadStream } from 'node:fs';
 import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -16,6 +17,7 @@ export async function anchorFileHash(file: string) {
 export async function assertAnchorChild(store: Store, child: Job, signal: AbortSignal): Promise<string> {
   const branch = child.anchorChild!, parent = store.job(branch.parentJobId), source = store.asset(child.sourceId), ref = store.asset(child.referenceId);
   if (!parent?.anchoredVideo || !source || !ref || !parent.anchoredVideo.branches.some(b => b.childJobId === child.id && b.direction === branch.direction && b.frames === branch.frames)) throw new AnchorWaitError('The saved directional source no longer belongs to this parent. Paid frames were preserved.');
+  if (parent.anchoredVideo.version === 'shared-anchor-v2' && (branch.sharedVersion !== 'shared-anchor-v2' || branch.sourceSHA256 !== parent.anchoredVideo.preparedSHA256 || branch.anchorFrame !== parent.anchoredVideo.anchorFrame || branch.referenceSHA256 !== parent.anchoredVideo.referenceSHA256 || child.renderVersion !== 'viggle-context124-v2')) throw new AnchorWaitError('The saved shared source/version binding changed. Existing branches were preserved.');
   if (await anchorFileHash(source.path) !== branch.inputSHA256 || await anchorFileHash(ref.path) !== branch.referenceSHA256) throw new AnchorWaitError('A saved directional input changed. Restore its original file; nothing was resubmitted.');
   const info = await videoFrameInfo(source.path, signal);
   if (info.frames !== branch.frames || Math.abs(info.start) > .001) throw new AnchorWaitError('Directional source timing changed. No sampling was submitted.');
@@ -36,7 +38,7 @@ export function projectAnchorChild(parent: Job, child: Job) {
   parent.progress.node = child.progress.node; parent.progress.value = child.progress.value; parent.progress.max = child.progress.max; parent.progress.unit = child.progress.unit;
   const priorWindows = branch.direction === 'forward' ? viggleWindows(a.branches[0].frames).length : 0;
   parent.progress.segment = priorWindows + child.progress.segment;
-  parent.progress.completedFrames = Math.min(a.frames, a.branches.reduce((n, b) => n + b.completedFrames, 0) - (a.branches.every(b => b.completedFrames > 0) ? 1 : 0));
+  parent.progress.completedFrames = Math.min(a.frames, a.branches.reduce((n, b) => n + b.completedFrames, 0) - (a.branches.every(b => b.completedFrames > 0) ? a.version === 'shared-anchor-v2' ? 5 : 1 : 0));
   parent.progress.updatedAt = Date.now();
 }
 export async function prepareAnchoredSources(host: Host, job: Job, signal: AbortSignal) {
@@ -64,7 +66,8 @@ async function makeChild(host: Host, parent: Job, branch: AnchorBranch, folder: 
   const asset = await ingest(host.store, sourceFile, 'video', `${direction} motion.mkv`, true);
   const child: Job = { ...structuredClone(parent), id: randomUUID(), title: `${parent.title.slice(0, 80)} · ${direction} branch`, sourceId: asset.id,
     settings: { ...parent.settings, referenceTime: null, start: 0, seconds: branch.frames / 24, facialConsistency: 'off', imagenRepaintEnabled: !!parent.viggleRepaint },
-    anchoredVideo: undefined, anchorChild: { parentJobId: parent.id, direction, frames: branch.frames, inputSHA256: await anchorFileHash(asset.path), referenceSHA256: a.referenceSHA256! },
+    anchoredVideo: undefined, anchorChild: { parentJobId: parent.id, direction, frames: branch.frames, inputSHA256: await anchorFileHash(asset.path), referenceSHA256: a.referenceSHA256!,
+      ...(a.version === 'shared-anchor-v2' ? { sharedVersion: 'shared-anchor-v2' as const, sourceSHA256: a.preparedSHA256!, anchorFrame: a.anchorFrame } : {}) },
     facialConsistency: undefined, framingVersion: undefined, referenceFraming: undefined, framingCheck: undefined, continuationSource: undefined, videoRecovery: undefined,
     viggleSegmentation: branch.frames > 124 ? parent.viggleSegmentation || (parent.settings.viggleReferenceMode === 'original' ? 'five-frame-v1' : 'last-frame-v2') : undefined,
     viggleRepaint: parent.viggleRepaint ? { ...structuredClone(parent.viggleRepaint), records: [{ segment: 1, frame: 0, status: 'provided' }], activePhotoId: undefined, photoProgress: undefined } : undefined,
@@ -73,6 +76,31 @@ async function makeChild(host: Host, parent: Job, branch: AnchorBranch, folder: 
     segments: [], timings: [], uploads: null, context: '', output: null, poster: null, keyframe: undefined, pendingPrompt: null, workflow: null,
     cancelRequested: false, cancellationConfirmed: false, submitting: false, retryRequired: false, error: null, elapsedSeconds: null };
   host.store.addJob(child, `anchor-branch:${parent.id}:${direction}`); branch.childJobId = child.id; host.save(parent); return child;
+}
+/** New proof envelope; never relabel a reverse context as a forward receipt. */
+export async function bindSharedAnchor(host: Pick<Host, 'store' | 'save'>, parent: Job, forward: Job) {
+  const a = parent.anchoredVideo!, reverse = host.store.job(a.branches[0].childJobId!)!;
+  if (a.version !== 'shared-anchor-v2' || forward.anchorChild?.direction !== 'forward' || reverse?.anchorChild?.direction !== 'backward' || reverse.status !== 'completed') throw new AnchorWaitError('The completed reverse branch must be recovered before preparing the shared prefix.');
+  const root = path.join(host.store.root, 'jobs', reverse.id), file = path.join(root, 'shared-anchor.safetensors');
+  const graphJSON = await readFile(path.join(root, 'workflow_0.json'), 'utf8'), historyJSON = await readFile(path.join(root, 'history_0.json'), 'utf8');
+  const graph = JSON.parse(graphJSON), history = JSON.parse(historyJSON), origin = history.outputs?.['48']?.shared_anchor?.[0];
+  const hashText = (text: string) => createHash('sha256').update(text).digest('hex');
+  if (history.syntheticOnly || history.cpuOnly || history.inferencePerformed === false || !history.status?.completed || history.status.status_str !== 'success' || !isDeepStrictEqual(history.prompt?.[2], graph) || !reverse.segments.some(s => s.promptId === history.prompt?.[1]) ||
+      !origin?.artifact || origin.version !== a.version || origin.job_id !== reverse.id || origin.parent_job_id !== parent.id || origin.source_sha256 !== a.preparedSHA256 || origin.reference_sha256 !== a.referenceSHA256 || origin.branch_source_sha256 !== reverse.anchorChild.inputSHA256 || origin.anchor_frame !== String(a.anchorFrame) ||
+      graph['48']?.class_type !== 'RecastViggleSaveSharedAnchor' || graph['3']?.class_type !== 'RecastViggleSource124' || await anchorFileHash(file) !== origin.sha256) throw new AnchorWaitError('The shared prefix native history, graph or source lineage changed. Neither branch was resubmitted.');
+  const proof = { version: a.version, syntheticOnly: false, origin: 'saved-native-comfy-history', parentJobID: parent.id,
+    reverseJobID: reverse.id, forwardJobID: forward.id, sourceSHA256: a.preparedSHA256, referenceSHA256: a.referenceSHA256,
+    reverseSourceSHA256: reverse.anchorChild.inputSHA256, forwardSourceSHA256: forward.anchorChild.inputSHA256,
+    reverseFrames: reverse.anchorChild.frames, anchorFrame: a.anchorFrame, width: parent.width, height: parent.height,
+    reversePromptID: history.prompt[1], reverseGraphJSON: graphJSON, reverseGraphSHA256: hashText(graphJSON),
+    reverseHistoryJSON: historyJSON, reverseHistorySHA256: hashText(historyJSON), contextSHA256: origin.sha256,
+    originArtifact: origin.artifact, reverseLocalOrder: [4, 3, 2, 1, 0],
+    forwardPrefixAbsoluteFrames: Array.from({ length: 5 }, (_, i) => a.anchorFrame - 4 + i),
+    paidPrefixReuse: 'Copies completed reverse raw pixels into a new chronological forward prefix; no reverse-latent permutation or repeated reverse sampling.' };
+  const proofJSON = JSON.stringify(proof), bound = { file, sha256: origin.sha256, proofJSON, proofSHA256: hashText(proofJSON) };
+  if (forward.anchorChild.sharedAnchor && !isDeepStrictEqual(forward.anchorChild.sharedAnchor, bound)) throw new AnchorWaitError('The saved forward shared-prefix proof differs; existing native work was preserved.');
+  forward.anchorChild.sharedAnchor = bound; host.save(forward);
+  a.sharedPrefix = { reverseJobId: reverse.id, forwardJobId: forward.id, reversePromptId: proof.reversePromptID, contextSHA256: bound.sha256, proofSHA256: bound.proofSHA256 }; host.save(parent);
 }
 export async function runAnchoredBranches(host: Host, job: Job, signal: AbortSignal) {
   const folder = await prepareAnchoredSources(host, job, signal), a = job.anchoredVideo!;
@@ -84,6 +112,10 @@ export async function runAnchoredBranches(host: Host, job: Job, signal: AbortSig
     branch.childJobId = child.id;
     if (child.status !== 'completed') {
       a.state = 'rendering'; a.activeChildId = child.id; host.save(job);
+      if (a.version === 'shared-anchor-v2' && branch.direction === 'forward' && !child.pendingPrompt && !child.submitting && !child.segments.length) {
+        try { await bindSharedAnchor(host, job, child); }
+        catch (error) { child.status = 'interrupted'; child.error = error instanceof Error ? error.message : String(error); host.save(child); throw error; }
+      }
       if (child.status === 'interrupted') {
         await host.resumeChild(child, false); child = host.store.job(child.id)!;
         if (child.status !== 'queued') { job.retryRequired = !!child.retryRequired; throw new AnchorWaitError(`The ${branch.direction} branch needs an explicit check or paid retry: ${child.error || child.status}`); }
@@ -102,7 +134,9 @@ export async function runAnchoredBranches(host: Host, job: Job, signal: AbortSig
   }
   a.state = 'assembling'; job.progress.completedFrames = a.frames; host.stage(job, 'Joining earlier and later motion');
   const outputs = a.branches.map(b => { const child = host.store.job(b.childJobId!)!; return { direction: b.direction, frames: b.frames, file: child.output!, sha256: b.outputSHA256! }; });
+  if (a.version === 'shared-anchor-v2' && (!a.sharedPrefix || a.sharedPrefix.reverseJobId !== a.branches[0].childJobId || a.sharedPrefix.forwardJobId !== a.branches[1].childJobId)) throw new AnchorWaitError('The completed shared branches lack their frozen bridge receipt. Paid outputs were preserved.');
   const request = { version: a.version, jobId: job.id, frames: a.frames, anchorFrame: a.anchorFrame, fps: job.settings.fps, sourceSHA256: a.preparedSHA256, branches: outputs,
+    ...(a.version === 'shared-anchor-v2' ? { sharedPrefix: a.sharedPrefix } : {}),
     ...(job.outputSize ? { width: job.outputSize.width, height: job.outputSize.height } : {}) };
   const file = path.join(folder, 'anchor-assembly-request.json'); await writeFile(file, JSON.stringify(request));
   await command('python3', [path.join(host.repo, 'scripts/anchored_video.py'), 'assemble', '--folder', folder, '--request', file], signal, 180000);

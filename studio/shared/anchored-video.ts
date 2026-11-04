@@ -9,22 +9,27 @@ export interface AnchorBranch {
   state: 'waiting' | 'running' | 'interrupted' | 'completed';
 }
 export interface AnchoredVideoRun {
-  version: 'bidirectional-v1'; anchorFrame: number; frames: number;
+  version: 'bidirectional-v1' | 'shared-anchor-v2'; anchorFrame: number; frames: number;
   state: 'preparing' | 'rendering' | 'assembling' | 'assembled';
   sourceSHA256?: string; referenceSHA256?: string; preparedSHA256?: string;
   branches: AnchorBranch[]; activeChildId?: string; outputSHA256?: string; masterSHA256?: string;
+  sharedPrefix?: { reverseJobId: string; forwardJobId: string; reversePromptId: string; contextSHA256: string; proofSHA256: string };
 }
 export interface AnchorChild {
   parentJobId: string; direction: AnchorDirection; frames: number; inputSHA256: string; referenceSHA256: string;
+  /** New chronology/proof only; absent on every historical directional run. */
+  sharedAnchor?: { file: string; sha256: string; proofJSON: string; proofSHA256: string };
+  sourceSHA256?: string; anchorFrame?: number;
+  sharedVersion?: 'shared-anchor-v2';
 }
 export function referenceFrameIndex(s: Pick<Settings, 'referenceTime' | 'start' | 'fps'>): number {
   return s.referenceTime == null ? 0 : Math.round(s.referenceTime * s.fps) - frameFloor(s.start, s.fps);
 }
 /** Readiness/UI can inspect an invalid draft without throwing or downloading. */
-export function videoDirectionFrames(s: Settings): number[] {
+export function videoDirectionFrames(s: Settings, shared = false): number[] {
   const frames = clipFrameCount(s.seconds, s.fps), anchor = referenceFrameIndex(s);
   return s.engine === 'viggle' && s.referencePreparation === 'prepared' && anchor > 0 && anchor < frames
-    ? [anchor + 1, frames - anchor] : [frames];
+    ? [anchor + 1, frames - anchor + (shared ? 4 : 0)] : [frames];
 }
 export function anchorIssue(s: Settings): string | null {
   if (s.referenceTime == null) return null;
@@ -34,13 +39,13 @@ export function anchorIssue(s: Settings): string | null {
   if (anchor && (anchor < 4 || anchor > frames - 5)) return 'Choose a later reference at least four frames from either edge of the selected clip (about 0.17 seconds).';
   return null;
 }
-export function anchoredRun(s: Settings): AnchoredVideoRun | undefined {
+export function anchoredRun(s: Settings, version: AnchoredVideoRun['version'] = 'bidirectional-v1'): AnchoredVideoRun | undefined {
   const issue = anchorIssue(s); if (issue) throw new Error(issue);
   const anchorFrame = referenceFrameIndex(s); if (!anchorFrame) return;
   const frames = clipFrameCount(s.seconds, s.fps);
-  return { version: 'bidirectional-v1', anchorFrame, frames, state: 'preparing', branches: [
+  return { version, anchorFrame, frames, state: 'preparing', branches: [
     { direction: 'backward', frames: anchorFrame + 1, completedFrames: 0, progress: 0, state: 'waiting' },
-    { direction: 'forward', frames: frames - anchorFrame, completedFrames: 0, progress: 0, state: 'waiting' },
+    { direction: 'forward', frames: frames - anchorFrame + (version === 'shared-anchor-v2' ? 4 : 0), completedFrames: 0, progress: 0, state: 'waiting' },
   ] };
 }
 export const canFinishAnchoredLocally = (job: Pick<Job, 'anchoredVideo' | 'facialConsistency'>) =>

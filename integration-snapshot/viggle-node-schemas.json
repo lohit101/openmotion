@@ -535,5 +535,125 @@
     "output_node": true,
     "has_intermediate_output": false,
     "search_aliases": []
+  },
+  "RecastViggleSource124": {
+    "input": {
+      "required": {
+        "images": [
+          "IMAGE"
+        ],
+        "width": [
+          "INT",
+          {
+            "default": 480,
+            "min": 32,
+            "step": 32
+          }
+        ],
+        "height": [
+          "INT",
+          {
+            "default": 864,
+            "min": 32,
+            "step": 32
+          }
+        ]
+      }
+    },
+    "output": [
+      "IMAGE",
+      "INT",
+      "IMAGE"
+    ]
+  },
+  "RecastViggleSaveSharedAnchor": {
+    "input": {
+      "required": {
+        "images": [
+          "IMAGE"
+        ],
+        "job_id": [
+          "STRING"
+        ],
+        "parent_job_id": [
+          "STRING"
+        ],
+        "anchor_frame": [
+          "INT",
+          {
+            "min": 4
+          }
+        ],
+        "source_sha256": [
+          "STRING"
+        ],
+        "reference_sha256": [
+          "STRING"
+        ],
+        "branch_source_sha256": [
+          "STRING"
+        ],
+        "source_input": [
+          "STRING"
+        ],
+        "reference_input": [
+          "STRING"
+        ]
+      }
+    },
+    "output": [
+      "STRING"
+    ]
+  },
+  "RecastViggleSharedAnchor": {
+    "input": {
+      "required": {
+        "latent": [
+          "LATENT"
+        ],
+        "vae": [
+          "VAE"
+        ],
+        "context_input": [
+          "STRING"
+        ],
+        "proof_json": [
+          "STRING"
+        ],
+        "parent_job_id": [
+          "STRING"
+        ],
+        "forward_job_id": [
+          "STRING"
+        ],
+        "source_sha256": [
+          "STRING"
+        ],
+        "reference_sha256": [
+          "STRING"
+        ],
+        "forward_source_sha256": [
+          "STRING"
+        ],
+        "forward_source_input": [
+          "STRING"
+        ],
+        "reference_input": [
+          "STRING"
+        ],
+        "anchor_frame": [
+          "INT"
+        ],
+        "width": [
+          "INT"
+        ],
+        "height": [
+          "INT"
+        ]
+      }
+    },
+    "output": [
+      "LATENT"
+    ]
   }
 }

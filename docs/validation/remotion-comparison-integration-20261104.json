@@ -1,0 +1,72 @@
+{
+  "version": "remotion-comparison-integration-v1",
+  "atUTC": "2026-11-04T09:16:41.746627+00:00",
+  "userAccepted": [
+    "hand-blink-full-video",
+    "shared-anchor-later-reference-full-video"
+  ],
+  "deployed": true,
+  "newFacialVersion": "source-face-v11",
+  "newNativeVersion": "viggle-context124-v2",
+  "newDirectionalVersion": "shared-anchor-v2",
+  "extraTrackingWeightBytes": 278680312,
+  "downloadsExplicit": true,
+  "autoResumeCompute": false,
+  "newGPUInference": 0,
+  "newRentals": 0,
+  "remoteInstalls": 0,
+  "weightDownloads": 0,
+  "deployment": {
+    "atUTC": "2026-11-04T09:11:42.717556+00:00",
+    "preservedJobs": 367,
+    "savedJobsByteExact": true,
+    "draftsByteExactAtReload": true,
+    "imageDraftByteExactAfterActivation": true,
+    "onlyAuthorizedHydratedDraftFlagChanged": true,
+    "facialOcclusionTracking": true,
+    "connectionState": "offline",
+    "bundleSHA256": "ed25762f2c4c36ceedd947946822dfac976ad9027b46b3103688480d8fbc49ab"
+  },
+  "nativeUiVerified": {
+    "trackingToggleChecked": true,
+    "standardONNX60Selected": true,
+    "boundaryAndEyeCalibrationEnabled": true,
+    "optionalEyeRestorationOff": true,
+    "gpuPaused": true,
+    "resumeControlVisible": true,
+    "existingDownloadFooterVisible": true
+  },
+  "checks": {
+    "studioTests": 613,
+    "pythonTests": 311,
+    "latestFocusedStudioTests": 164,
+    "typecheck": true,
+    "productionBuild": true,
+    "historicalGraphsUnchanged": 165,
+    "historicalTerminalRejectionsUnchanged": 129,
+    "legacyFacialFingerprintsUnchanged": {
+      "source-face-v1": "ef8f273a320b6d34c5efccf690610ad92f1aac0fdb9c4d60c4906557ade5b419",
+      "source-face-v2": "3952a4da82fcb2284788137279c7716102bba1e5755b2f6968502dc38dec3c08",
+      "source-face-v3": "286cb1cb40cc0eab2bdbca50bb365fe0b02dedd21d260f24b5c156013ce663b6",
+      "source-face-v4": "4520b9613ed3e9d9b5e105baa85cc3332064d3564a0e759fa2af91426ac65239",
+      "source-face-v5": "665bac84437c6e61a91db8a25d193abd1989e1c7ddabb3815a38d8a267e02dfe",
+      "source-face-v6": "6ce5188c6f39a7aebc38d38eeb2a7d37fada236fce1c0908246e179773fa84d8",
+      "source-face-v7": "dc4776f15dd9829b995c46972de52baf9f74af32a1ecc08ffc261b9a1aec4294",
+      "source-face-v8": "2653e3d2c8d27223f2861f69efb461456493666bca4131c3995e3a38d3d3765f",
+      "source-face-v9": "acb3da4a0d3a500b34bd8b3951762a671602217382342b0cd25948eee145f413",
+      "source-face-v10": "8fac005e7ff5af989a819570abe31ab28c9b4e4ce5c8410ce4b745274bb18927"
+    }
+  },
+  "newFacialProfileSHA256": "60fa9bd5b605561b503af3ebe7999f1c5a0181745a0fe2f9587066988fafcd9e",
+  "qualityScope": "User-approved comparison directions integrated for personal testing; generalized managed-GPU quality and speed remain unmeasured.",
+  "preservedPrivateExperiments": [
+    "source53-eye-calibration",
+    "source-relative-driven-rotation",
+    "rejected-fixed-avatar-and-source-RGB-overlay"
+  ],
+  "limits": [
+    "Continuous-single-person hand/partial-eye beta; arbitrary cuts, cars and full reacquisition are not a verified feature.",
+    "Existing app H264 branch export is not pixel-identical to the private PNG/FFV1 comparison master.",
+    "No Higgsfield parity or universal identity/foreground guarantee."
+  ]
+}

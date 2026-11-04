@@ -12,6 +12,8 @@ export function compileViggleWorkflow(job: Job): Graph {
   const issue = engineIssue(job.settings); if (issue) throw new Error(issue);
   if (!job.uploads) throw new Error('Inputs have not been transferred.');
   const encodedOverlap = job.viggleSegmentation === 'encoded-overlap-v3';
+  const context124 = job.renderVersion === 'viggle-context124-v2';
+  const shared = job.anchorChild?.sharedVersion === 'shared-anchor-v2';
   const segmented = !!job.viggleSegmentation, previousReference = job.viggleSegmentation === 'last-frame-v2' || encodedOverlap;
   if (!segmented && (job.progress.completedFrames || job.progress.targetFrames > 124)) throw new Error('Viggle requires a fresh single shot of at most 124 frames.');
   const plan = segmented ? viggleWindow(job.progress.completedFrames, job.progress.targetFrames) : { skip: 0, cap: job.progress.targetFrames, overlap: 0 };
@@ -24,7 +26,7 @@ export function compileViggleWorkflow(job: Job): Graph {
   const add = (id: string, class_type: string, inputs: Record<string, unknown>, title: string) => { graph[id] = { class_type, inputs, _meta: { title } }; };
   const prefix = `recast/${job.id}/segment_${String(job.segments.length).padStart(4, '0')}`;
   add('2', 'VHS_LoadVideo', { video: job.uploads.source, force_rate: 24, custom_width: 0, custom_height: 0, frame_load_cap: plan.cap, skip_first_frames: plan.skip, select_every_nth: 1, format: 'None' }, 'Read the selected source window at 24 fps');
-  add('3', 'RecastViggleSource', { images: ['2', 0], width: job.width, height: job.height }, 'Fit the source without cropping and pad the H3 frame grid');
+  add('3', context124 ? 'RecastViggleSource124' : 'RecastViggleSource', { images: ['2', 0], width: job.width, height: job.height }, context124 ? 'Retain real source count; hold the last source frame only for124-position conditioning' : 'Fit the source without cropping and pad the H3 frame grid');
   if (continuing && job.viggleRepaint) {
     if (!job.uploads.preparedFrame || job.uploads.repaintSegment !== job.segments.length || !job.viggleRepaint.records.some(record => record.segment === job.segments.length + 1 && ['completed', 'skipped'].includes(record.status) && record.referenceSHA256)) throw new Error('The matching Imagen segment reference is not ready. No video segment was submitted.');
     add('4', 'LoadImage', { image: job.uploads.preparedFrame }, 'Use this segment’s saved Imagen facial identity refresh');
@@ -72,11 +74,21 @@ export function compileViggleWorkflow(job: Job): Graph {
     if (encodedOverlap) add('36', 'RecastViggleEncodedAnchor', { latent: ['40', 1], context_path: job.context, width: job.width, height: job.height, fps: 24, skip_frames: plan.skip, overlap: plan.overlap, job_id: job.id }, 'Preserve every accepted overlap latent');
     else add('36', 'RecastViggleAnchor', { latent: ['40', 1], vae: ['35', 0], context_path: job.context, width: job.width, height: job.height, fps: 24, skip_frames: plan.skip, overlap: plan.overlap, job_id: job.id, ...(previousReference ? { context_version: 'last-frame-v2' } : {}) }, 'Restore the saved five-frame continuation anchor');
   }
+  const sharedPrefix = shared && job.anchorChild!.direction === 'forward' && !continuing;
+  if (sharedPrefix) {
+    const child = job.anchorChild!, bridge = child.sharedAnchor;
+    if (!context124 || !bridge || !job.uploads.sharedAnchor || !child.sourceSHA256 || child.anchorFrame === undefined) throw new Error('The source-bound shared reference prefix is not ready. No forward window was submitted.');
+    add('36', 'RecastViggleSharedAnchor', { latent: ['40', 1], vae: ['35', 0], context_input: job.uploads.sharedAnchor,
+      proof_json: bridge.proofJSON, parent_job_id: child.parentJobId, forward_job_id: job.id,
+      source_sha256: child.sourceSHA256, reference_sha256: child.referenceSHA256, forward_source_sha256: child.inputSHA256,
+      forward_source_input: job.uploads.source, reference_input: job.uploads.reference,
+      anchor_frame: child.anchorFrame, width: job.width, height: job.height }, 'Validate native reverse lineage and re-encode chronological five-frame prefix');
+  }
   add('31', 'BasicGuider', { model: ['25', 0], conditioning: ['40', 0] }, 'One model evaluation per sigma interval');
   add('38', 'RandomNoise', { noise_seed: segmented ? (s.seed + job.segments.length) % Number.MAX_SAFE_INTEGER : s.seed }, 'Reproducible video noise');
   add('41', 'KSamplerSelect', { sampler_name: 'euler' }, 'Euler distilled video sampler');
   add('42', 'ManualSigmas', { sigmas: viggleSigmas(s) }, 'Exact shifted sigma boundaries; do not shift again');
-  add('43', 'SamplerCustomAdvanced', { noise: ['38', 0], guider: ['31', 0], sampler: ['41', 0], sigmas: ['42', 0], latent_image: continuing ? ['36', 0] : ['40', 1] }, 'Propagate replacement through the source motion');
+  add('43', 'SamplerCustomAdvanced', { noise: ['38', 0], guider: ['31', 0], sampler: ['41', 0], sigmas: ['42', 0], latent_image: continuing || sharedPrefix ? ['36', 0] : ['40', 1] }, 'Propagate replacement through the source motion');
   add('44', 'VAEDecode', { samples: ['43', 0], vae: ['35', 0] }, 'Decode the complete replacement shot');
   add('45', 'SwapFinalizeShot', { images: ['44', 0], source_count: ['3', 1], overlap: plan.overlap, fps: 24, audio: ['2', 2] }, 'Trim grid padding and accepted overlap; preserve source timing');
   add('46', 'VHS_VideoCombine', { images: ['45', 0], audio: ['45', 1], frame_rate: 24, loop_count: 0, filename_prefix: prefix, format: 'video/h264-mp4', pix_fmt: 'yuv420p', crf: 16, save_metadata: true, trim_to_audio: false, pingpong: false, save_output: true }, 'Export the replacement at native 24 fps');
@@ -85,6 +97,13 @@ export function compileViggleWorkflow(job: Job): Graph {
     if (encodedOverlap) add('47', 'RecastViggleSaveEncodedContext', { images: ['45', 2], vae: ['35', 0], fps: 24, skip_frames: plan.skip, next_skip_frames: next?.skip ?? plan.skip + plan.cap - 5, job_id: job.id, ...(!next ? { terminal: true } : {}) }, next ? 'Encode the complete next overlap and save its raw appearance' : 'Record final video completion without an unused continuation');
     else add('47', 'RecastViggleSaveContext', { images: ['45', 2], fps: 24, skip_frames: plan.skip, next_skip_frames: next?.skip ?? plan.skip + plan.cap - 5, job_id: job.id, ...(!next ? { terminal: true } : {}), ...(previousReference ? { version: 'last-frame-v2' } : {}) }, next ? 'Save the next exact anchor and segment receipt' : 'Record final video completion without an unused continuation');
   } else add('47', 'SwapSaveContext', { images: ['45', 2], fps: 24, skip_frames: 0 }, 'Save completion receipt and source count');
+  if (shared && job.anchorChild!.direction === 'backward' && !plan.skip) {
+    const child = job.anchorChild!;
+    if (!context124 || !child.sourceSHA256 || child.anchorFrame === undefined) throw new Error('The shared reverse source binding is missing.');
+    add('48', 'RecastViggleSaveSharedAnchor', { images: ['45', 2], job_id: job.id, parent_job_id: child.parentJobId,
+      anchor_frame: child.anchorFrame, source_sha256: child.sourceSHA256, reference_sha256: child.referenceSHA256,
+      branch_source_sha256: child.inputSHA256, source_input: job.uploads.source, reference_input: job.uploads.reference }, 'Retain exact first five reverse raw pixels and original lineage for the forward bridge');
+  }
   if (job.outputSize) {
     add('52', 'ImageScale', { image: ['45', 0], upscale_method: 'lanczos', width: job.outputSize.width, height: job.outputSize.height, crop: 'disabled' }, 'Export exact HD dimensions');
     graph['46'].inputs.images = ['52', 0];

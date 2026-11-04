@@ -134,7 +134,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   app.post('/api/models/recover',async(_req,res)=>{await models.recoverPending();res.json(models.state);});
   app.post('/api/facial-consistency/prepare', async (req, res) => {
     if (upscale.busy || videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork() || cloud.state.busy || runner.busy || store.jobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status))) return void res.status(409).json({ error: 'Finish GPU work before preparing facial tools.' });
-    const value = z.object({ version: z.enum(['source-face-v1', 'source-face-v2', 'source-face-v3', 'source-face-v4', 'source-face-v5', 'source-face-v6', 'source-face-v7', 'source-face-v8', 'source-face-v9', 'source-face-v10']).default('source-face-v6') }).strict().parse(req.body);
+    const value = z.object({ version: z.enum(['source-face-v1', 'source-face-v2', 'source-face-v3', 'source-face-v4', 'source-face-v5', 'source-face-v6', 'source-face-v7', 'source-face-v8', 'source-face-v9', 'source-face-v10', 'source-face-v11']).default('source-face-v6') }).strict().parse(req.body);
     res.json(await models.prepareFacialTools(value.version));
   });
   app.post('/api/models/cancel', async (_req, res) => res.json(await models.cancel()));
@@ -243,7 +243,11 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     if (isViggle(value.settings) && value.settings.referencePreparation === 'prepared' && Math.abs((reference.width / reference.height) / (source.width / source.height) - 1) > 0.05) return void res.status(400).json({ error: 'An already edited source frame must keep the source video’s aspect ratio. Use automatic reference preparation for a standalone character photo.' });
     const settings = { ...value.settings, prompt: migrateDemoPrompt(value.settings.prompt, value.settings.mode) }; if (settings.randomSeed) settings.seed = randomInt(0, 0xffffffff);
     const [width, height] = renderGeometry(settings, source), [outputWidth, outputHeight] = geometry(settings, source), target = clipFrameCount(settings.seconds, settings.fps);
-    const segmented = isViggle(settings) && videoDirectionFrames(settings).some(frames => frames > 124);
+    const segmented = isViggle(settings) && videoDirectionFrames(settings, true).some(frames => frames > 124);
+    if (isViggle(settings)) {
+      const required = ['RecastViggleSource124', 'RecastViggleSaveSharedAnchor', 'RecastViggleSharedAnchor'];
+      if (required.some(name => !connection.catalog[name])) return void res.status(409).json({ error: 'Connect / retry setup in GPU cloud to load the updated motion-continuity tools. Existing weights are reused; nothing was queued.' });
+    }
     if (segmented && repaint && !runner.repaintTargetPreparer) await assertRepaintReady(repo, store, repaint);
     const segmentation = settings.viggleReferenceMode === 'original' ? 'five-frame-v1' as const : 'encoded-overlap-v3' as const;
     const continuationNodes = segmentation === 'encoded-overlap-v3'
@@ -258,7 +262,8 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
       progress: { stage: 'Queued', node: null, value: null, max: null, unit: 'steps', segment: 1, segments: isViggle(settings) ? viggleWindows(target).length : segmentCount(target, settings.framesPerPass), completedFrames: 0, targetFrames: target, updatedAt: Date.now() },
       segments: [], context: '', pendingPrompt: null, uploads: null, error: null, output: null, poster: null, cancelRequested: false, elapsedSeconds: null, origin: 'render', workflow: null };
     job.facialConsistency = newFacialRun(job, repo, store.value<number | null>('cloud-connected-instance', null));
-    job.anchoredVideo = anchoredRun(settings);
+    if (isViggle(settings)) job.renderVersion = 'viggle-context124-v2';
+    job.anchoredVideo = anchoredRun(settings, isViggle(settings) ? 'shared-anchor-v2' : 'bidirectional-v1');
     if (job.anchoredVideo) job.progress.segments = job.anchoredVideo.branches.reduce((sum, b) => sum + viggleWindows(b.frames).length, 0);
     store.addJob(job, key); res.status(201).json(publicJob(job)); void runner.kick();
   });

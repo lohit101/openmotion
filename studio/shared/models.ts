@@ -12,10 +12,11 @@ import upscaleModels from '../../config/upscale-models.lock.json';
 import facialModels from '../../config/facial-consistency-models.lock.json';
 import facialCleanupModels from '../../config/facial-consistency-cleanup-models.lock.json';
 import facialEyeFinishModels from '../../config/facial-consistency-eye-finish-models.lock.json';
-import { facialVersionForSettings, usesFacialConsistency, isCleanupFacialVersion, isEyeFinishedFacialVersion } from './facial-consistency';
+import facialOcclusionModels from '../../config/facial-consistency-occlusion-models.lock.json';
+import { facialVersionForSettings, usesFacialConsistency, isCleanupFacialVersion, isEyeFinishedFacialVersion, isOcclusionTrackedFacialVersion } from './facial-consistency';
 import { videoDirectionFrames } from './anchored-video';
 import { isViggle } from './engines';
-import type { Settings } from './types';
+import type { Catalog, Settings } from './types';
 import type { ImageSettings } from './image-replacement';
 import { usesSpeedAdapter } from './sampling';
 
@@ -26,14 +27,18 @@ export const DPO = 'wan2.1_SCAIL_2_DPO_lora_bf16.safetensors';
 export const SOCIAL_STYLE = 'Instagoon-v1-step00001400.safetensors';
 const scailModels = [...base.files, ...relight.files, ...natural.files, ...extras.files];
 const contentFilterWeight = (destination: string) => /(?:^|\/)nsfw_\d+\./.test(destination);
-export const pinnedModels = [...scailModels, ...viggle.files, ...repaint.files, ...imageAdapters.files, ...qwenImage.files, ...imageControls.files, ...facialModels.files, ...facialCleanupModels.files, ...facialEyeFinishModels.files, ...upscaleModels.files].filter(file => !contentFilterWeight(file.destination));
+export const pinnedModels = [...scailModels, ...viggle.files, ...repaint.files, ...imageAdapters.files, ...qwenImage.files, ...imageControls.files, ...facialModels.files, ...facialCleanupModels.files, ...facialEyeFinishModels.files, ...facialOcclusionModels.files, ...upscaleModels.files].filter(file => !contentFilterWeight(file.destination));
 export const upscaleModelFiles = upscaleModels.files.map(file => file.destination);
 export const facialModelFiles = facialModels.files.map(file => file.destination).filter(id => !contentFilterWeight(id));
 export const facialCleanupModelFiles = facialCleanupModels.files.map(file => file.destination);
 export const facialEyeFinishModelFiles = facialEyeFinishModels.files.map(file => file.destination);
-export const facialFilesForSettings = (settings: { facialSceneMatch?: boolean; facialFeatureCleanup?: boolean; facialConsistency?: Settings['facialConsistency']; facialEyeCalibration?: boolean; facialEyeFinish?: boolean; facialBoundaryBlend?: boolean }) =>
+export const facialOcclusionModelFiles = facialOcclusionModels.files.map(file => file.destination);
+export const viggleToolNodes = ['RecastViggleSource124', 'RecastViggleSaveSharedAnchor', 'RecastViggleSharedAnchor'] as const;
+export const hasViggleTools = (catalog?: Catalog | null) => !!catalog && viggleToolNodes.every(name => !!catalog[name]);
+export const facialFilesForSettings = (settings: { facialSceneMatch?: boolean; facialFeatureCleanup?: boolean; facialConsistency?: Settings['facialConsistency']; facialEyeCalibration?: boolean; facialEyeFinish?: boolean; facialBoundaryBlend?: boolean; facialOcclusionTracking?: boolean }) =>
   [...facialModelFiles, ...(isCleanupFacialVersion(facialVersionForSettings(settings)) ? facialCleanupModelFiles : []),
-    ...(isEyeFinishedFacialVersion(facialVersionForSettings(settings)) ? facialEyeFinishModelFiles : [])];
+    ...(isEyeFinishedFacialVersion(facialVersionForSettings(settings)) ? facialEyeFinishModelFiles : []),
+    ...(isOcclusionTrackedFacialVersion(facialVersionForSettings(settings)) ? facialOcclusionModelFiles : [])];
 export const modelWorkingReserve = (files: string[]) => (files.some(file => file.startsWith('upscale/')) ? 15 : 5) * 1024 ** 3 + (files.some(file => file.startsWith('face_consistency/')) ? 512 * 1024 ** 2 : 0);
 export const setupModelFiles: string[] = setup.files;
 export const imageModelFiles = repaint.files.map(file => file.destination);
@@ -67,7 +72,7 @@ const filename = (destination: string) => destination.split('/').at(-1)!;
 
 // Describe requirements only. Selection never initiates a download.
 export function modelFilesForSettings(s: Settings): string[] {
-  if (isViggle(s)) return [...new Set([...viggle.files.map(file => file.destination), ...(usesFacialConsistency(s) ? facialFilesForSettings(s) : []), ...(s.referencePreparation === 'prepared' ? [] : repaint.files.map(file => file.destination)), ...(s.imagenRepaintEnabled && s.imagenRepaint && videoDirectionFrames(s).some(frames => frames > 124) ? qwenImageModelFiles.filter(file => !file.startsWith('loras/') || file.includes('turbo_lora')) : [])])];
+  if (isViggle(s)) return [...new Set([...viggle.files.map(file => file.destination), ...(usesFacialConsistency(s) ? facialFilesForSettings(s) : []), ...(s.referencePreparation === 'prepared' ? [] : repaint.files.map(file => file.destination)), ...(s.imagenRepaintEnabled && s.imagenRepaint && videoDirectionFrames(s, true).some(frames => frames > 124) ? qwenImageModelFiles.filter(file => !file.startsWith('loras/') || file.includes('turbo_lora')) : [])])];
   const adapters = new Set<string>();
   if (s.dpoStrength > 0) adapters.add(DPO);
   if (usesSpeedAdapter(s.preset)) adapters.add(s.preset === 'natural' && s.mode === 'swap' ? NATURAL_SPEED : I2V_SPEED);
@@ -85,6 +90,10 @@ const descriptions: Record<string, [string, string, 'core' | 'adapter' | 'featur
   'codeformer.onnx': ['Eye detail restoration · beta', 'Optional 35% eye-interior restoration after calibrated facial finishing. Does not repaint hair, body or scene.', 'feature'],
   'face_landmarker.task': ['Source eye-position observer · beta', 'Optional bounded source-driven eye placement using the replacement character’s own pixels. Runs on the managed host CPU.', 'feature'],
   'bisenet_resnet_34.onnx': ['Facial feature cleanup masks', 'Identifies complete eyes, eyebrows and mouth while protecting target hair, glasses and scene. Used only by facial feature cleanup.', 'feature'],
+  'landmark203.onnx': ['Partial-face tracker · beta', 'Tracks a visible eye through a partial face occlusion. Used only by foreground tracking; downloaded explicitly.', 'feature'],
+  'palm_detection_mediapipe_2023feb.onnx': ['Hand detector · beta', 'Finds foreground hands for the optional facial tracking pass. Downloaded only when selected.', 'feature'],
+  'handpose_estimation_mediapipe_2023feb.onnx': ['Hand landmarks · beta', 'Helps identify foreground hand geometry before facial finishing. Downloaded only when selected.', 'feature'],
+  'sam2.1_hiera_tiny.pt': ['Foreground hand masks · SAM 2.1 Tiny', 'Tracks hand masks so the facial pass can retain covered video pixels. Optional beta tracking files and runtime are prepared explicitly.', 'feature'],
   'minimax_h3_ref2va_viggle_pruned_int8_convrot.safetensors': ['Viggle Animate INT8', 'Propagates a source-aligned character edit through the video', 'core'],
   'viggle_animate_dmd_lora.safetensors': ['Viggle distillation adapter', 'Required matching accelerator for the three-pass video recipe', 'adapter'],
   'fixed_embed_fwd_anyframe.safetensors': ['Viggle fixed conditioning', 'Tiny precomputed video conditioning; no video text encoder download', 'core'],
@@ -115,17 +124,17 @@ const descriptions: Record<string, [string, string, 'core' | 'adapter' | 'featur
 };
 const facialLabels: Record<string, string> = { 'appearance_feature_extractor.onnx': 'PerformRecast appearance', 'motion_extractor.onnx': 'PerformRecast facial motion', 'warping_module.onnx': 'PerformRecast motion warping', 'spade_generator.onnx': 'PerformRecast face decoder', 'hyperswap_1a_256.onnx': 'ONNX identity swap · Hyperswap', 'arcface_w600k_r50.onnx': 'Face reference encoder', '2dfan4.onnx': 'Facial landmarks', 'yunet_2023_mar.onnx': 'Face detector', 'xseg_1.onnx': 'Face occlusion masks' };
 export const modelDefinitions = pinnedModels.map(file => {
-  const facial = [...facialModels.files, ...facialCleanupModels.files, ...facialEyeFinishModels.files].some(item => item.destination === file.destination);
+  const facial = [...facialModels.files, ...facialCleanupModels.files, ...facialEyeFinishModels.files, ...facialOcclusionModels.files].some(item => item.destination === file.destination);
   const [label, description, group] = (file.destination.startsWith('upscale/') ? [filename(file.destination) === 'dit.safetensors' ? 'FlashVSR+ Turbo transformer' : filename(file.destination) === 'TCDecoder.ckpt' ? 'FlashVSR+ video decoder' : 'FlashVSR+ input conditioning', 'Clarity video upscaling. Optional; never downloaded by selection or inference.', 'feature' as const] as const : undefined) || descriptions[filename(file.destination)] || [facialLabels[filename(file.destination)] || filename(file.destination), 'Source-driven facial consistency dependency. Shared by Standard and Regional, with a 60% identity blend.', 'feature' as const];
   const engine = file.destination.startsWith('upscale/') ? 'upscale' : facial ? 'facial' : viggle.files.some(item => item.destination === file.destination) ? 'viggle' : [...repaint.files, ...imageAdapters.files, ...qwenImage.files, ...imageControls.files].some(item => item.destination === file.destination) ? 'repaint' : 'scail2';
   return { id: file.destination, filename: filename(file.destination), size: file.size, label, description, group,
-    engine, included: group === 'core', experimental: filename(file.destination) === SOCIAL_STYLE,
+    engine, included: group === 'core', experimental: filename(file.destination) === SOCIAL_STYLE || facialOcclusionModelFiles.includes(file.destination),
     trigger: filename(file.destination) === SOCIAL_STYLE ? 'instag00n' : '',
     source: filename(file.destination) === SOCIAL_STYLE ? extras.files[0].source : '' };
 });
 // Retain catalog metadata for inventories and immutable historical workflows.
 // Retirement only removes new provisioning and creation affordances.
-const currentModelIds = new Set([...viggle.files, ...repaint.files, ...imageAdapters.files, ...qwenImage.files, ...imageControls.files, ...facialModels.files, ...facialCleanupModels.files, ...facialEyeFinishModels.files, ...upscaleModels.files].map(file => file.destination));
+const currentModelIds = new Set([...viggle.files, ...repaint.files, ...imageAdapters.files, ...qwenImage.files, ...imageControls.files, ...facialModels.files, ...facialCleanupModels.files, ...facialEyeFinishModels.files, ...facialOcclusionModels.files, ...upscaleModels.files].map(file => file.destination));
 const retiredModelIds = new Set(scailModels.map(file => file.destination).filter(id => !currentModelIds.has(id)));
 export const isRetiredModel = (id: string) => retiredModelIds.has(id);
 export const downloadableModelDefinitions = modelDefinitions.filter(file => !isRetiredModel(file.id));
@@ -141,7 +150,7 @@ export interface ModuleDownloadState extends ModuleDownloadPlan { instanceId:num
 export interface InstalledLora { name: string; size: number; partialSize?: number; included: boolean; }
 export interface ModelInventoryFile { id: string; size: number; partialSize: number; measured: boolean; }
 export interface ModelInventory { key: string; instanceId: number | null; endpoint: string; gpu: string | null; checkedAt: string; files: ModelInventoryFile[]; freeBytes?: number; }
-export interface ModelsState { files: ModelFileState[]; busy: boolean; refreshing: boolean; error: string | null; checkedAt: string | null; installedLoras: InstalledLora[]; deleting: string | null; diskFreeBytes?: number; inventories?: ModelInventory[]; facialRuntimeReady?: boolean; facialCleanupRuntimeReady?: boolean; facialCalibratedRuntimeReady?: boolean; facialEyeFinishRuntimeReady?: boolean; facialGeometryRuntimeReady?: boolean; facialBoundaryRuntimeReady?: boolean; facialPreparing?:boolean; moduleSetup?:ModuleDownloadState; transferInstanceId?:number; transferEndpoint?:string; transferStartedAt?:number; transferFiles?:string[]; localIdentityReady?:boolean; localPoseReady?:boolean; }
+export interface ModelsState { files: ModelFileState[]; busy: boolean; refreshing: boolean; error: string | null; checkedAt: string | null; installedLoras: InstalledLora[]; deleting: string | null; diskFreeBytes?: number; inventories?: ModelInventory[]; viggleToolsReady?: boolean; facialRuntimeReady?: boolean; facialCleanupRuntimeReady?: boolean; facialCalibratedRuntimeReady?: boolean; facialEyeFinishRuntimeReady?: boolean; facialGeometryRuntimeReady?: boolean; facialBoundaryRuntimeReady?: boolean; facialOcclusionRuntimeReady?: boolean; facialPreparing?:boolean; moduleSetup?:ModuleDownloadState; transferInstanceId?:number; transferEndpoint?:string; transferStartedAt?:number; transferFiles?:string[]; localIdentityReady?:boolean; localPoseReady?:boolean; }
 export const emptyModels = (): ModelsState => ({ files: modelDefinitions.map(file => ({ id: file.id, status: 'unknown', percent: null, message: '', error: null })), busy: false, refreshing: false, error: null, checkedAt: null, installedLoras: [], deleting: null });
 
 export function modelBytes(files: string[]): number {

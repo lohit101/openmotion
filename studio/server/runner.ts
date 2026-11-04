@@ -1,7 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import WebSocket from 'ws';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import { compileWorkflow, validateGraph } from './workflow';
 import { applyProgress, ConnectionManager, OfflineError } from './comfy';
 import { command, poster, prepareVideo } from './media';
@@ -17,7 +17,7 @@ import { DownloadError, type DownloadProgress } from './download';
 import { prepareSegmentRepaint, replaceFailedRepaint, RepaintWaitError, type RepaintTargetPreparer } from './segment-repaint';
 import { canFinishFacialLocally, isEyeFinishedFacialVersion } from '../shared/facial-consistency';
 import { faceHash, FacialConsistencyError, type FacialBackend } from './facial-consistency';
-import { AnchorWaitError, assertAnchorChild, projectAnchorChild, runAnchoredBranches } from './anchored-video';
+import { AnchorWaitError, assertAnchorChild, projectAnchorChild, runAnchoredBranches, anchorFileHash } from './anchored-video';
 import { canFinishAnchoredLocally } from '../shared/anchored-video';
 
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -251,6 +251,11 @@ export class Runner {
         const video = await client.upload(prepared, job.id + '-source', signal); this.stage(job, 'Transferring inputs to GPU', 1, 2, 'inputs');
         const image = await client.upload(referenceFile, job.id + '-reference', signal); job.uploads = { source: video, reference: image }; this.save(job);
       }
+      if (job.anchorChild?.sharedAnchor && !job.uploads?.sharedAnchor) {
+        const bridge = job.anchorChild.sharedAnchor;
+        if (await anchorFileHash(bridge.file) !== bridge.sha256 || createHash('sha256').update(bridge.proofJSON).digest('hex') !== bridge.proofSHA256) throw new AnchorWaitError('The local shared-prefix backup changed; paid reverse frames were preserved.');
+        job.uploads!.sharedAnchor = await client.upload(bridge.file, job.id + '-shared-anchor', signal); this.save(job);
+      }
       while (job.progress.completedFrames < job.progress.targetFrames) {
         this.checkCancelled(job);
         job.progress.segment = job.segments.length + 1;
@@ -361,6 +366,13 @@ export class Runner {
         // disconnect must not turn a completed paid segment into a new render.
         const receipt = path.join(folder, `history_${job.segments.length}.json`);
         await writeFile(receipt + '.part', JSON.stringify(history, null, 2)); await rename(receipt + '.part', receipt);
+        if (job.anchorChild?.sharedVersion === 'shared-anchor-v2' && job.anchorChild.direction === 'backward' && !job.segments.length) {
+          const shared = outputs['48']?.shared_anchor?.[0];
+          if (!shared?.artifact || shared.job_id !== job.id || shared.parent_job_id !== job.anchorChild.parentJobId || !/^[0-9a-f]{64}$/.test(shared.sha256)) throw new AnchorWaitError('The completed reverse window lacks its bound shared prefix. Paid output was retained.');
+          const backup = path.join(folder, 'shared-anchor.safetensors');
+          if (!await exists(backup)) await client.download(shared.artifact, backup, signal);
+          if (await anchorFileHash(backup) !== shared.sha256) throw new AnchorWaitError('Shared-prefix backup checksum failed. The native reverse result remains saved.');
+        }
         this.stage(job, 'Downloading completed segment');
         if (!await exists(path.join(folder, file))) await client.download(video, path.join(folder, file), signal, this.transferProgress(job, 'Downloading completed segment'));
         if (job.viggleSegmentation && !context.terminal) {

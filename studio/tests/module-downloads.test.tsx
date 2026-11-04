@@ -17,11 +17,11 @@ const photo=sourceFrameImageSettings(imageDefaults);
 describe('module-specific download presentation',()=>{
   it('requests the minimal selected recipe rather than every model family',()=>{
     const motion=moduleDownloadPlan('remotion',video),image=moduleDownloadPlan('imagen',photo),clarity=moduleDownloadPlan('clarity');
-    expect(motion.files).toEqual(modelFilesForSettings(video));expect(motion.files).toHaveLength(4);expect(motion.runtimes).toEqual([]);
+    expect(motion.files).toEqual(modelFilesForSettings(video));expect(motion.files).toHaveLength(4);expect(motion.runtimes).toEqual(['viggle-tools']);
     expect(image.files).toEqual(imageFilesForSettings(photo));expect(image.files.some(f=>f.includes('bfs_head'))).toBe(false);
     expect(clarity.files).toEqual(upscaleModelFiles);expect(clarity.runtimes).toEqual(['clarity']);
     const face=moduleDownloadPlan('remotion',{...video,facialConsistency:'perform-onnx60',facialFeatureCleanup:true,facialEyeCalibration:false});
-    expect(face.runtimes).toEqual(['facial:source-face-v6']);expect(face.files.some(f=>f.includes('eye_finish'))).toBe(false);
+    expect(face.runtimes).toEqual(['viggle-tools','facial:source-face-v6']);expect(face.files.some(f=>f.includes('eye_finish'))).toBe(false);
     expect(moduleDownloadPlan('remotion',{...video,referencePreparation:'auto'}).files.some(f=>f.includes('klein'))).toBe(true);
     expect(moduleDownloadRequestSchema.safeParse({module:'clarity',files:['arbitrary']}).success).toBe(false);
   });

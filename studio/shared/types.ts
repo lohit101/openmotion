@@ -23,6 +23,7 @@ export const settingsSchema = z.object({
   facialEyeCalibration: z.boolean().default(true),
   facialEyeFinish: z.boolean().default(false),
   facialBoundaryBlend: z.boolean().default(false),
+  facialOcclusionTracking: z.boolean().default(false),
   imagenRepaint: imagenRepaintProfileSchema.nullable().default(null),
   imagenRepaintEnabled: z.boolean().default(false),
   mode: z.enum(['swap', 'motion']).default('swap'),
@@ -49,7 +50,7 @@ export const settingsSchema = z.object({
   loraBStrength: z.number().min(-2).max(2).default(0.8),
 });
 export type Settings = z.infer<typeof settingsSchema>;
-export const defaults: Settings = settingsSchema.parse({ prompt: defaultPrompt() });
+export const defaults: Settings = settingsSchema.parse({ prompt: defaultPrompt(), facialOcclusionTracking: true });
 export interface Asset { id: string; kind: 'video' | 'image'; name: string; path: string; width: number; height: number; duration: number; fps: number; size: number; hasAudio: boolean; poster: string; createdAt: string; sourceFrame?: { videoId: string; time: number }; maskFor?: string; }
 export type JobStatus = 'queued' | 'running' | 'reconnecting' | 'interrupted' | 'completed' | 'failed' | 'cancelled';
 export type FaceSwapMethod = 'direct' | 'source-performance';
@@ -69,7 +70,7 @@ export interface Job {
   id: string; title: string; status: JobStatus; settings: Settings; sourceId: string; referenceId: string;
   createdAt: string; startedAt?: string; finishedAt?: string; favorite: boolean; deleted: boolean;
   width: number; height: number; outputSize?: { width: number; height: number }; progress: Progress; segments: Segment[]; context: string;
-  pendingPrompt: string | null; uploads: { source: string; reference: string; preparedFrame?: string; face?: string; clothing?: string; original?: string; mask?: string; noiseMask?: string; faceMask?: string; structure?: string; bodyMask?: string; bodyReference?: string; bodyAppearance?: string; bodyBase?: string; headReference?: string; repaintSegment?: number } | null;
+  pendingPrompt: string | null; uploads: { source: string; reference: string; preparedFrame?: string; face?: string; clothing?: string; original?: string; mask?: string; noiseMask?: string; faceMask?: string; structure?: string; bodyMask?: string; bodyReference?: string; bodyAppearance?: string; bodyBase?: string; headReference?: string; repaintSegment?: number; sharedAnchor?: string } | null;
   error: string | null; output: string | null; poster: string | null; cancelRequested: boolean;
   cancellationConfirmed?: boolean; submitting?: boolean; retryRequired?: boolean;
   elapsedSeconds: number | null; origin: 'render' | 'import' | 'edit' | 'upscale'; upscale?: UpscaleRun; workflow: Record<string, GraphNode> | null;
@@ -77,7 +78,7 @@ export interface Job {
   hasWorkflow?: boolean;
   promptVersion?: 'scene-v1';
   framingVersion?: 'face-v1'; referenceFraming?: ReferenceFraming; framingCheck?: FramingCheck;
-  renderVersion?: 'continuous-v1'; saveDiagnosticLatent?: boolean;
+  renderVersion?: 'continuous-v1' | 'viggle-context124-v2'; saveDiagnosticLatent?: boolean;
   viggleSegmentation?: 'five-frame-v1' | 'last-frame-v2' | 'encoded-overlap-v3';
   viggleRepaint?: ViggleRepaintRun;
   continuationSource?: { jobId: string; frames: number };

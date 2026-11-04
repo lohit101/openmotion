@@ -20,6 +20,7 @@ def selected_manifest(files=None):
     available = []
     for name in ('models.lock.json', 'optional-models.lock.json', 'natural-models.lock.json', 'extra-models.lock.json', 'viggle-models.lock.json', 'repaint-models.lock.json', 'image-adapters.lock.json', 'qwen-image-models.lock.json', 'image-controls.lock.json', 'facial-consistency-models.lock.json', 'facial-consistency-cleanup-models.lock.json', 'facial-consistency-eye-finish-models.lock.json', 'upscale-models.lock.json'):
         available.extend(json.loads((ROOT / 'config' / name).read_text())['files'])
+    available.extend(json.loads((ROOT / 'config/facial-consistency-occlusion-models.lock.json').read_text())['files'])
     available = [item for item in available if not is_content_filter_weight(item.get('destination', ''))]
     if files is None:
         files = [item['destination'] for item in available]

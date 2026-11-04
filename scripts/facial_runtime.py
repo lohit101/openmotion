@@ -38,6 +38,10 @@ def profile():
 
 
 def profile_hash(version='source-face-v1'):
+    if version == 'source-face-v11':
+        from facial_occlusion_runtime import FILES
+        data = bytes.fromhex(profile_hash('source-face-v10'))
+        return hashlib.sha256(data + b''.join((ROOT / name).read_bytes() for name in FILES)).hexdigest()
     if version in BOUNDARY_BASES:
         data = bytes.fromhex(profile_hash(BOUNDARY_BASES[version]))
         return hashlib.sha256(data + b''.join((ROOT / name).read_bytes() for name in BOUNDARY_FILES)).hexdigest()
@@ -100,11 +104,14 @@ def inspect(verify=False, model_root=None, version='source-face-v1'):
     if not ready:
         missing.append('Isolated facial-processing runtime')
     manifest = json.loads((ROOT / 'config/facial-consistency-models.lock.json').read_text())
-    if version in ['source-face-v3', 'source-face-v4', 'source-face-v5', *GEOMETRY_BASES, *BOUNDARY_BASES]:
+    if version in ['source-face-v3', 'source-face-v4', 'source-face-v5', *GEOMETRY_BASES, *BOUNDARY_BASES, 'source-face-v11']:
         extra = json.loads((ROOT / 'config/facial-consistency-cleanup-models.lock.json').read_text())
         manifest = {**manifest, 'files': [*manifest['files'], *extra['files']], 'total_bytes': manifest['total_bytes'] + extra['total_bytes']}
     if version in ['source-face-v5', 'source-face-v8']:
         extra = json.loads((ROOT / 'config/facial-consistency-eye-finish-models.lock.json').read_text())
+        manifest = {**manifest, 'files': [*manifest['files'], *extra['files']], 'total_bytes': manifest['total_bytes'] + extra['total_bytes']}
+    if version == 'source-face-v11':
+        extra = json.loads((ROOT / 'config/facial-consistency-occlusion-models.lock.json').read_text())
         manifest = {**manifest, 'files': [*manifest['files'], *extra['files']], 'total_bytes': manifest['total_bytes'] + extra['total_bytes']}
     ignored_bytes = 0
     for item in manifest['files']:
@@ -130,7 +137,7 @@ def inspect(verify=False, model_root=None, version='source-face-v1'):
                          json.loads(marker.read_text()).get('cleanupWorkerSHA256') in compatible_worker_hashes())
     except (OSError, ValueError):
         cleanup_hash, cleanup_ready = None, False
-    if version in ['source-face-v3', 'source-face-v4', 'source-face-v5', *GEOMETRY_BASES, *BOUNDARY_BASES] and not cleanup_ready:
+    if version in ['source-face-v3', 'source-face-v4', 'source-face-v5', *GEOMETRY_BASES, *BOUNDARY_BASES, 'source-face-v11'] and not cleanup_ready:
         ready = False
         missing.append('Updated facial feature-cleanup tools')
     try:
@@ -138,7 +145,7 @@ def inspect(verify=False, model_root=None, version='source-face-v1'):
         calibration_ready = cleanup_ready and json.loads(marker.read_text()).get('calibrationProfileSHA256') == calibration_hash
     except (OSError, ValueError):
         calibration_hash, calibration_ready = None, False
-    if version in ['source-face-v4', 'source-face-v5', 'source-face-v7', 'source-face-v8', 'source-face-v10'] and not calibration_ready:
+    if version in ['source-face-v4', 'source-face-v5', 'source-face-v7', 'source-face-v8', 'source-face-v10', 'source-face-v11'] and not calibration_ready:
         ready = False
         missing.append('Updated facial eye-calibration tools')
     try:
@@ -163,7 +170,7 @@ def inspect(verify=False, model_root=None, version='source-face-v1'):
         geometry_ready = cleanup_ready and json.loads(marker.read_text()).get('geometryProfiles') == geometry_hashes
     except (OSError, ValueError):
         geometry_ready = False
-    if version in [*GEOMETRY_BASES, *BOUNDARY_BASES] and not geometry_ready:
+    if version in [*GEOMETRY_BASES, *BOUNDARY_BASES, 'source-face-v11'] and not geometry_ready:
         ready = False
         missing.append('Updated jaw-geometry tools')
     boundary_hashes = {name: profile_hash(name) for name in BOUNDARY_BASES}
@@ -172,9 +179,18 @@ def inspect(verify=False, model_root=None, version='source-face-v1'):
                           json.loads(marker.read_text()).get('cleanupWorkerSHA256') == digest(ROOT / 'scripts/facial_worker.py'))
     except (OSError, ValueError):
         boundary_ready = False
-    if version in BOUNDARY_BASES and not boundary_ready:
+    if version in [*BOUNDARY_BASES, 'source-face-v11'] and not boundary_ready:
         ready = False
         missing.append('Updated face-boundary tools')
+    from facial_occlusion_runtime import ready as occlusion_runtime_ready
+    try:
+        occlusion_hash = profile_hash('source-face-v11')
+        occlusion_ready = boundary_ready and calibration_ready and occlusion_runtime_ready(occlusion_hash, verify)
+    except (OSError, ValueError, KeyError):
+        occlusion_hash, occlusion_ready = None, False
+    if version == 'source-face-v11' and not occlusion_ready:
+        ready = False
+        missing.append('Hand and partial-face tracking tools')
     return {'ready': not missing, 'runtimeReady': ready, 'missing': missing, 'profileSHA256': profile_hash(),
             'sceneProfileSHA256': scene_hash if scene_ready else None, 'cleanupProfileSHA256': cleanup_hash if cleanup_ready else None,
             'cleanupWorkerSHA256': json.loads(marker.read_text()).get('cleanupWorkerSHA256') if cleanup_ready else None,
@@ -182,6 +198,7 @@ def inspect(verify=False, model_root=None, version='source-face-v1'):
             'eyeFinishProfileSHA256': eye_hash if eye_ready else None,
             'geometryProfiles': geometry_hashes if geometry_ready else None,
             'boundaryProfiles': boundary_hashes if boundary_ready else None,
+            'occlusionProfileSHA256': occlusion_hash if occlusion_ready else None,
             'timingSHA256': timing_hash if timing_ready else None, 'bytes': manifest['total_bytes'] - ignored_bytes}
 
 
@@ -265,6 +282,9 @@ def prepare(version='source-face-v1'):
         fcntl.flock(lock, fcntl.LOCK_EX)
         if inspect()['runtimeReady']:
             link_models()
+            if version == 'source-face-v11':
+                from facial_occlusion_runtime import prepare as prepare_occlusion
+                prepare_occlusion(paths()[1], profile_hash(version))
             write_ready_marker()
             if version in ['source-face-v5', 'source-face-v8']:
                 prepare_eye_runtime()
@@ -295,6 +315,9 @@ def prepare(version='source-face-v1'):
         subprocess.run([str(python), '-m', 'pip', 'install', *profile()['packages']], env=env, check=True)
         subprocess.run([str(python), '-c', 'import torch,onnxruntime as o;o.preload_dlls();assert torch.cuda.is_available() and "CUDAExecutionProvider" in o.get_available_providers()'], check=True)
         link_models()
+        if version == 'source-face-v11':
+            from facial_occlusion_runtime import prepare as prepare_occlusion
+            prepare_occlusion(python, profile_hash(version))
         write_ready_marker()
         if version in ['source-face-v5', 'source-face-v8']:
             prepare_eye_runtime()

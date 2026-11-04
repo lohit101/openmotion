@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "total_bytes": 278680312,
+  "usage": "Explicit source-face-v11 tracking files. Existing recognition/swapper terms remain unchanged. Tracking models are separate from character identity.",
+  "files": [
+    {
+      "repo": "KlingTeam/LivePortrait",
+      "revision": "82a4fa6735ca58432b6ce39301b4b9ee066dea47",
+      "filename": "liveportrait/landmark.onnx",
+      "destination": "face_consistency/occlusion/landmark203.onnx",
+      "size": 114666491,
+      "sha256": "31d22a5041326c31f19b78886939a634a5aedcaa5ab8b9b951a1167595d147db",
+      "url": "https://huggingface.co/KlingTeam/LivePortrait/resolve/82a4fa6735ca58432b6ce39301b4b9ee066dea47/liveportrait/landmark.onnx"
+    },
+    {
+      "repo": "opencv/opencv_zoo",
+      "revision": "48b10fa505aeb51fbd127fc60a5c660040e823b7",
+      "filename": "palm_detection_mediapipe_2023feb.onnx",
+      "destination": "face_consistency/occlusion/palm_detection_mediapipe_2023feb.onnx",
+      "size": 3905734,
+      "sha256": "78ff51c38496b7fc8b8ebdb6cc8c1abb02fa6c38427c6848254cdaba57fcce7c",
+      "url": "https://media.githubusercontent.com/media/opencv/opencv_zoo/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/palm_detection_mediapipe/palm_detection_mediapipe_2023feb.onnx"
+    },
+    {
+      "repo": "opencv/opencv_zoo",
+      "revision": "48b10fa505aeb51fbd127fc60a5c660040e823b7",
+      "filename": "handpose_estimation_mediapipe_2023feb.onnx",
+      "destination": "face_consistency/occlusion/handpose_estimation_mediapipe_2023feb.onnx",
+      "size": 4099621,
+      "sha256": "db0898ae717b76b075d9bf563af315b29562e11f8df5027a1ef07b02bef6d81c",
+      "url": "https://media.githubusercontent.com/media/opencv/opencv_zoo/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/handpose_estimation_mediapipe/handpose_estimation_mediapipe_2023feb.onnx"
+    },
+    {
+      "repo": "facebook/sam2.1-hiera-tiny",
+      "revision": "de431c4043854a71d8101e17995dfe596bf101a5",
+      "filename": "sam2.1_hiera_tiny.pt",
+      "destination": "face_consistency/occlusion/sam2.1_hiera_tiny.pt",
+      "size": 156008466,
+      "sha256": "7402e0d864fa82708a20fbd15bc84245c2f26dff0eb43a4b5b93452deb34be69",
+      "url": "https://huggingface.co/facebook/sam2.1-hiera-tiny/resolve/de431c4043854a71d8101e17995dfe596bf101a5/sam2.1_hiera_tiny.pt"
+    }
+  ]
+}

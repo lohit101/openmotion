@@ -51,7 +51,7 @@ export class Store extends EventEmitter {
   }
   draft(): Draft {
     const draft = this.value<Draft>('draft', { sourceId: null, referenceId: null, settings: defaults });
-    draft.settings = { ...defaults, ...draft.settings };
+    draft.settings = { ...defaults, ...draft.settings, facialOcclusionTracking: draft.settings.facialOcclusionTracking === true };
     const prompt = migrateDemoPrompt(draft.settings.prompt, draft.settings.mode);
     if (prompt !== draft.settings.prompt) { draft.settings.prompt = prompt; this.set('draft', draft); }
     return draft;
@@ -59,4 +59,4 @@ export class Store extends EventEmitter {
   imageDraft() { const draft = imageDraftSchema.parse(this.value('image-draft', emptyImageDraft())); if (draft.settings.prompt === legacyImagePrompt) draft.settings.prompt = defaultImagePrompt; return draft; }
   close() { this.db.close(); }
 }
-export function publicJob(job: Job): Job { return { ...job, hasWorkflow: !!job.workflow, workflow: null, uploads: null, context: '', keyframe: job.keyframe ? 'ready' : undefined, output: job.output ? 'ready' : null, poster: job.poster ? 'ready' : null }; }
+export function publicJob(job: Job): Job { return { ...job, ...(job.anchorChild?.sharedAnchor ? { anchorChild: { ...job.anchorChild, sharedAnchor: { ...job.anchorChild.sharedAnchor, file: 'ready', proofJSON: '' } } } : {}), hasWorkflow: !!job.workflow, workflow: null, uploads: null, context: '', keyframe: job.keyframe ? 'ready' : undefined, output: job.output ? 'ready' : null, poster: job.poster ? 'ready' : null }; }

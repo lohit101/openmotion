@@ -1,0 +1,20 @@
+{
+  "version": "occlusion-runtime-v1",
+  "sam_repository": "https://github.com/facebookresearch/sam2",
+  "sam_revision": "2b90b9f5ceec907a1c18123530e92e794ad901a4",
+  "sam_archive_url": "https://codeload.github.com/facebookresearch/sam2/tar.gz/2b90b9f5ceec907a1c18123530e92e794ad901a4",
+  "sam_archive_sha256": "1f2fbfad3ffa38110368abac76c6ef9df9c282a66d5c2807bc94abf4d2fb30f8",
+  "sam_config": "configs/sam2.1/sam2.1_hiera_t.yaml",
+  "packages": [
+    "hydra-core==1.3.2",
+    "omegaconf==2.3.0",
+    "antlr4-python3-runtime==4.9.3",
+    "iopath==0.1.10",
+    "portalocker==2.10.1",
+    "termcolor==2.5.0"
+  ],
+  "device": "cuda",
+  "batch_frames": 64,
+  "autocast": false,
+  "implicit_weight_download": false
+}

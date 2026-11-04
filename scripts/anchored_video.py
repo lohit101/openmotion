@@ -82,7 +82,8 @@ def prepare(folder, request):
         raise ValueError('Prepared source changed before directional extraction.')
     actual = info(source)
     frames, anchor = request['frames'], request['anchorFrame']
-    if request['version'] != 'bidirectional-v1' or request['fps'] != 24 or not isinstance(anchor, int) or not 4 <= anchor <= frames-5 or actual['frames'] != frames or any(actual[k] != request[k] for k in ['width', 'height']):
+    shared = request['version'] == 'shared-anchor-v2'
+    if request['version'] not in ['bidirectional-v1', 'shared-anchor-v2'] or request['fps'] != 24 or not isinstance(anchor, int) or not 4 <= anchor <= frames-5 or actual['frames'] != frames or any(actual[k] != request[k] for k in ['width', 'height']):
         raise ValueError('Invalid directional frame range or source canvas. No inference was submitted.')
     receipt = root/'sources.json'
     old = saved(receipt, request, root)
@@ -94,7 +95,7 @@ def prepare(folder, request):
     outputs = {}
     for direction, trim, mapping in [
         ('backward', f'trim=start_frame=0:end_frame={anchor+1},reverse', list(range(anchor, -1, -1))),
-        ('forward', f'trim=start_frame={anchor}:end_frame={frames}', list(range(anchor, frames))),
+        ('forward', f'trim=start_frame={anchor-4 if shared else anchor}:end_frame={frames}', list(range(anchor-4 if shared else anchor, frames))),
     ]:
         partial = root/(direction+'.part.mkv')
         run(['ffmpeg', '-v', 'error', '-nostdin', '-y', '-i', str(source), '-map', '0:v:0', '-an',
@@ -106,7 +107,8 @@ def prepare(folder, request):
         partial.replace(file)
         outputs[file.name] = sha(file)
     result = {'inputs': request, 'outputs': outputs, 'decodedFramesExact': True,
-              'backwardFrames': anchor+1, 'forwardFrames': frames-anchor, 'sourceAnchorCopies': 2}
+              'backwardFrames': anchor+1, 'forwardFrames': frames-anchor+(4 if shared else 0), 'sourceAnchorCopies': 2,
+              **({'sharedPrefixFrames': list(range(anchor-4, anchor+1)), 'syntheticSourceFrames': 0} if shared else {})}
     atomic(receipt, result)
     return result
 
@@ -114,7 +116,8 @@ def prepare(folder, request):
 def assemble(folder, request):
     root = folder/'anchor-media'
     source = folder/'prepared-source.mp4'
-    if request['version'] != 'bidirectional-v1' or request['fps'] != 24 or sha(source) != request['sourceSHA256']:
+    shared = request['version'] == 'shared-anchor-v2'
+    if request['version'] not in ['bidirectional-v1', 'shared-anchor-v2'] or request['fps'] != 24 or sha(source) != request['sourceSHA256']:
         raise ValueError('The original prepared clip changed; both paid branches were kept.')
     source_info = info(source)
     if source_info['frames'] != request['frames']:
@@ -125,7 +128,7 @@ def assemble(folder, request):
     if any(not isinstance(value, int) or value < 2 or value % 2 for value in canvas.values()):
         raise ValueError('Invalid frozen directional export canvas.')
     branches = request['branches']
-    if [b['direction'] for b in branches] != ['backward', 'forward'] or [b['frames'] for b in branches] != [request['anchorFrame']+1, request['frames']-request['anchorFrame']]:
+    if [b['direction'] for b in branches] != ['backward', 'forward'] or [b['frames'] for b in branches] != [request['anchorFrame']+1, request['frames']-request['anchorFrame']+(4 if shared else 0)]:
         raise ValueError('Directional ranges do not cover the frozen clip exactly.')
     for branch in branches:
         actual = info(branch['file'])
@@ -138,12 +141,13 @@ def assemble(folder, request):
     back, forward = (Path(b['file']) for b in branches)
     # Reversing the earlier branch gives source order. Drop only its duplicated
     # anchor; the later branch supplies that single frame. Never crossfade motion.
-    filters = f'[0:v]reverse,trim=end_frame={request["anchorFrame"]},setpts=N/(24*TB)[b];[1:v]setpts=N/(24*TB)[f];[b][f]concat=n=2:v=1:a=0[v]'
+    filters = (f'[0:v]reverse,setpts=N/(24*TB)[b];[1:v]trim=start_frame=5,setpts=N/(24*TB)[f];[b][f]concat=n=2:v=1:a=0[v]' if shared else
+               f'[0:v]reverse,trim=end_frame={request["anchorFrame"]},setpts=N/(24*TB)[b];[1:v]setpts=N/(24*TB)[f];[b][f]concat=n=2:v=1:a=0[v]')
     partial = root/'master.part.mkv'
     run(['ffmpeg', '-v', 'error', '-nostdin', '-y', '-i', str(back), '-i', str(forward),
          '-filter_complex', filters, '-map', '[v]', '-an', '-frames:v', str(request['frames']),
          '-c:v', 'ffv1', '-level', '3', '-pix_fmt', 'yuv420p', str(partial)])
-    expected = list(reversed(hashes(back)))[:-1] + hashes(forward)
+    expected = list(reversed(hashes(back))) + hashes(forward)[5:] if shared else list(reversed(hashes(back)))[:-1] + hashes(forward)
     if info(partial)['frames'] != request['frames'] or hashes(partial) != expected or len(expected) != request['frames']:
         raise ValueError('Directional joining changed decoded frames or timing. Both paid branches were retained.')
     master = root/'master.mkv'
@@ -158,7 +162,8 @@ def assemble(folder, request):
     preview.replace(final)
     result = {'inputs': request, 'frames': request['frames'], 'anchorCopies': 1, 'decodedFramesExact': True,
               'masterSHA256': sha(master), 'outputSHA256': sha(final), 'outputs': {'anchor-media/master.mkv': sha(master), 'final.mp4': sha(final)},
-              'mapping': {'earlier': f'backward frames {request["anchorFrame"]} through 1 in reverse order', 'anchorAndLater': 'all forward frames in order'},
+              'mapping': ({'earlierAndAnchor': f'all backward frames {request["anchorFrame"]} through0 in reverse order', 'later': 'forward frames5 onward; first five shared chronological frames discarded', 'sourceClock': list(range(request['frames'])), 'syntheticOutputPositionsAccepted': 0} if shared else
+                          {'earlier': f'backward frames {request["anchorFrame"]} through 1 in reverse order', 'anchorAndLater': 'all forward frames in order'}),
               'audio': 'playable output copies original prepared source once; FFV1 master is video-only', 'preview': 'H.264 CRF 16; decoded YUV pixels preserved exactly in FFV1 master'}
     atomic(receipt, result)
     return result

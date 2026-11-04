@@ -59,6 +59,26 @@ class AnchoredVideoTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'Prepared source changed'):
             media.prepare(self.folder,self.request)
 
+    def test_shared_anchor_keeps_reverse_anchor_and_discards_forward_five_pixel_prefix(self):
+        request = {**self.request, 'version': 'shared-anchor-v2'}
+        first = media.prepare(self.folder, request)
+        self.assertEqual(first, media.prepare(self.folder, request))
+        root = self.folder/'anchor-media'
+        source_hashes = media.hashes(self.source)
+        self.assertEqual(media.hashes(root/'backward.mkv'), list(reversed(source_hashes[:7])))
+        self.assertEqual(media.hashes(root/'forward.mkv'), source_hashes[2:])
+        self.assertEqual(first['sharedPrefixFrames'], [2,3,4,5,6])
+        assembly = {k:request[k] for k in ['version','jobId','frames','anchorFrame','fps','sourceSHA256']}
+        assembly['branches'] = [{'direction':d,'frames':n,'file':str(root/(d+'.mkv')),'sha256':media.sha(root/(d+'.mkv'))} for d,n in [('backward',7),('forward',13)]]
+        result = media.assemble(self.folder, assembly)
+        self.assertEqual(result['frames'],15)
+        self.assertEqual(result['anchorCopies'],1)
+        self.assertEqual(media.hashes(root/'master.mkv'), source_hashes)
+        self.assertEqual(result, media.assemble(self.folder, assembly))
+        def audio(file):
+            return json.loads(subprocess.check_output(['ffprobe','-v','error','-select_streams','a:0','-show_packets','-show_data_hash','sha256','-show_entries','packet=pts,dts,duration,data_hash','-of','json',str(file)]))['packets']
+        self.assertEqual(audio(self.folder/'final.mp4'),audio(self.source))
+
     def test_short_edges_are_explicitly_rejected_without_padding(self):
         for anchor in [0,1,3,11,14]:
             with self.subTest(anchor=anchor),self.assertRaisesRegex(ValueError,'Invalid directional frame range'):

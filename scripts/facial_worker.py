@@ -2,6 +2,7 @@
 """Managed-host facial worker. Resumable per-frame output; no implicit setup."""
 import argparse
 import fcntl
+import hashlib
 from fractions import Fraction
 import json
 import os
@@ -97,7 +98,7 @@ def preflight(folder):
     expected = request['expected']
     if not all(isinstance(expected.get(key), int) for key in ['width', 'height', 'frames']) or not 1 <= expected['frames'] <= 720 or not all(64 <= expected[key] <= 4096 for key in ['width', 'height']):
         raise ValueError('Invalid expected facial video dimensions or frame count.')
-    if version in ['source-face-v4', 'source-face-v5', 'source-face-v7', 'source-face-v8', 'source-face-v10'] and (request['profile'] != 'perform-onnx60' or type(request.get('anchorFrame')) is not int or not 0 <= request['anchorFrame'] < expected['frames']):
+    if version in ['source-face-v4', 'source-face-v5', 'source-face-v7', 'source-face-v8', 'source-face-v10', 'source-face-v11'] and (request['profile'] != 'perform-onnx60' or type(request.get('anchorFrame')) is not int or not 0 <= request['anchorFrame'] < expected['frames']):
         raise ValueError('Choose a matching source-anchor frame for Standard eye calibration before rendering.')
     if __import__('shutil').disk_usage(folder).free < 5*1024**3 + expected['width']*expected['height']*expected['frames']*3:
         raise ValueError('Free more disk space for resumable face frames before rendering. No video sampling was submitted.')
@@ -115,7 +116,7 @@ def preflight(folder):
     # Initialize the actual models now, before any new video sampling is paid for.
     from face_performance import FaceModels
     FaceModels(MODEL_ROOT, embedding)
-    if version in ['source-face-v3', 'source-face-v4', 'source-face-v5', 'source-face-v6', 'source-face-v7', 'source-face-v8', 'source-face-v9', 'source-face-v10']:
+    if version in ['source-face-v3', 'source-face-v4', 'source-face-v5', 'source-face-v6', 'source-face-v7', 'source-face-v8', 'source-face-v9', 'source-face-v10', 'source-face-v11']:
         from face_feature_cleanup import SemanticParser
         SemanticParser(MODEL_ROOT)
     if version in ['source-face-v5', 'source-face-v8']:
@@ -186,9 +187,36 @@ def process_native(folder):
     pre = json.loads((folder / 'preflight.json').read_text())
     if pre['referenceSHA256'] != inputs['referenceSHA256'] or digest(folder / 'donor.npy') != pre['embeddingSHA256']:
         raise ValueError('The fixed reference-face conditioning changed.')
+    occlusion_state = None
+    tracking_seconds = 0.
+    if version == 'source-face-v11':
+        from face_occlusion_tracking import prepare_occlusion
+        def tracking_cancelled():
+            if (result / 'CANCEL').exists():
+                raise ValueError('Tracking cancelled; saved preparations and video were retained.')
+            idle()
+            return False
+        def tracking_progress(completed, total, stage):
+            offsets = {'Inspecting source': 0, 'Tracking source': 1, 'Inspecting target': 2,
+                       'Tracking target': 3, 'Tracking partial': 4}
+            offset = next((v for k, v in offsets.items() if stage.startswith(k)), 4)
+            units = offset * info['frames'] + round(info['frames'] * min(1., max(0., completed / max(1, total))))
+            update = {'frame': units, 'frames': 6 * info['frames'], 'stage': stage}
+            atomic(result / 'occlusion-progress.json', update)
+            print(json.dumps(update), flush=True)
+        # SAM is released before loading the facial appearance/warping models.
+        tracking_started = time.monotonic()
+        occlusion_state = prepare_occlusion(folder, inputs, info, face, tracking_progress,
+                                           tracking_cancelled, model_root=MODEL_ROOT)
+        tracking_seconds = time.monotonic() - tracking_started
+        atomic(result / 'occlusion-progress.json', {'frame': 5 * info['frames'],
+            'frames': 6 * info['frames'], 'stage': 'Matching source expressions and facial identity'})
+        tracking_sha = digest(occlusion_state.receipt_path)
+        if previous and previous.get('occlusion', {}).get('receiptSHA256') != tracking_sha:
+            raise ValueError('Saved tracking preparation changed; completed face frames were preserved.')
     models = FaceModels(MODEL_ROOT, np.load(folder / 'donor.npy'))
     semantic_parser = None
-    if version in ['source-face-v3', 'source-face-v4', 'source-face-v5', 'source-face-v6', 'source-face-v7', 'source-face-v8', 'source-face-v9', 'source-face-v10']:
+    if version in ['source-face-v3', 'source-face-v4', 'source-face-v5', 'source-face-v6', 'source-face-v7', 'source-face-v8', 'source-face-v9', 'source-face-v10', 'source-face-v11']:
         from face_feature_cleanup import SemanticParser
         semantic_parser = SemanticParser(MODEL_ROOT)
     receipt = {'inputs': signature, 'complete': False, 'records': records, 'gpu': models.gpu, 'onnxruntime': ort.__version__,
@@ -196,8 +224,14 @@ def process_native(folder):
         'profile': request['profile'], 'blend': .6, 'sourceGeometryMapping': {'from': [source_info['width'], source_info['height']], 'to': [info['width'], info['height']]}}
     if semantic_parser is not None:
         receipt['providers']['parser'] = semantic_parser.session.get_providers()
+    if occlusion_state is not None:
+        receipt['occlusion'] = {'version': 'source-occlusion-v1', 'receiptSHA256': tracking_sha,
+                                'sourceRGBTransferred': False, 'protectedByTargetMask': True,
+                                'preparationSeconds': previous.get('occlusion', {}).get('preparationSeconds', tracking_seconds) if previous else tracking_seconds}
+        if not previous:
+            receipt['elapsedSeconds'] += tracking_seconds
     correction_models = models
-    if version in ['source-face-v4', 'source-face-v5', 'source-face-v7', 'source-face-v8', 'source-face-v10']:
+    if version in ['source-face-v4', 'source-face-v5', 'source-face-v7', 'source-face-v8', 'source-face-v10', 'source-face-v11']:
         correction_models, calibration = eye_calibration(folder, models, semantic_parser, request, inputs, info)
         if previous and previous.get('calibration') != calibration:
             raise ValueError('The saved calibration receipt changed; existing face frames were preserved.')
@@ -227,18 +261,27 @@ def process_native(folder):
             continue
         if original.shape[:2] != frame.shape[:2]:
             original = cv2.resize(original, (info['width'], info['height']), interpolation=cv2.INTER_AREA)
-        source_face, target_face = face(original), face(frame)
+        occlusion_observation = occlusion_state.frame(index) if occlusion_state is not None else None
+        if occlusion_observation is not None and (
+                hashlib.sha256(original.tobytes()).hexdigest() != occlusion_observation['sourceDecodedSHA256'] or
+                hashlib.sha256(frame.tobytes()).hexdigest() != occlusion_observation['targetDecodedSHA256']):
+            raise ValueError('Tracking preparation does not match this exact source/output frame. Saved video was preserved.')
+        if occlusion_observation is not None:
+            source_face, target_face = occlusion_observation['sourceFace'], occlusion_observation['targetFace']
+        else:
+            source_face, target_face = face(original), face(frame)
+        target_tracking_ready = occlusion_observation is None or occlusion_observation['targetMaskState'] in ['known-none', 'segmented']
         edited = frame
         record = {'frame': index, 'action': 'preserved', 'reason': 'uncertain-or-multiple-face', 'protectedPixelsExact': True}
-        if source_face is not None and target_face is not None:
+        if source_face is not None and target_face is not None and target_tracking_ready:
             gap = np.abs(pose(source_face[1])-pose(target_face[1]))
             if gap[0] <= .25 and gap[1] <= .35:
                 driver, sm = warp_face_by_face_landmark_5(original, source_face[1], 'arcface_128', (512, 512))
                 crop, tm = warp_face_by_face_landmark_5(frame, target_face[1], 'arcface_128', (512, 512))
-                if version in ['source-face-v3', 'source-face-v4', 'source-face-v5', 'source-face-v6', 'source-face-v7', 'source-face-v8', 'source-face-v9', 'source-face-v10']:
+                if version in ['source-face-v3', 'source-face-v4', 'source-face-v5', 'source-face-v6', 'source-face-v7', 'source-face-v8', 'source-face-v9', 'source-face-v10', 'source-face-v11']:
                     points = cv2.transform(source_face[2].reshape(1, 68, 2), sm)[0]
-                    if version in ['source-face-v6', 'source-face-v7', 'source-face-v8', 'source-face-v9', 'source-face-v10']:
-                        if version in ['source-face-v9', 'source-face-v10']:
+                    if version in ['source-face-v6', 'source-face-v7', 'source-face-v8', 'source-face-v9', 'source-face-v10', 'source-face-v11']:
+                        if version in ['source-face-v9', 'source-face-v10', 'source-face-v11']:
                             from face_boundary_blend import cleanup_frame
                         else:
                             from face_jaw_geometry import cleanup_frame
@@ -250,7 +293,7 @@ def process_native(folder):
                             create_occlusion_mask(crop).clip(0, 1), request['profile'] == 'regional-onnx60')
                     if cleanup['editablePixels']:
                         record.update(action='refined', reason=None, cleanup=cleanup, matrix=tm.tolist(), sourceMatrix=sm.tolist())
-                        if version in ['source-face-v4', 'source-face-v5', 'source-face-v7', 'source-face-v8', 'source-face-v10'] and receipt['calibration']['state'] == 'active':
+                        if version in ['source-face-v4', 'source-face-v5', 'source-face-v7', 'source-face-v8', 'source-face-v10', 'source-face-v11'] and receipt['calibration']['state'] == 'active':
                             record['calibration'] = correction_models.last
                     else:
                         record['reason'] = 'face-occluded'
@@ -259,6 +302,11 @@ def process_native(folder):
                     record.update(legacy_record)
             else:
                 record['reason'] = 'source-output-pose-mismatch'
+        if occlusion_state is not None:
+            from face_occlusion_finish import finish_frame
+            edited, record = finish_frame(correction_models, semantic_parser, frame, original,
+                target_face, source_face, occlusion_observation, edited, record,
+                receipt.get('calibration', {}).get('state') == 'active')
         destination = result / f'frame-{index:06d}.png'
         temporary = destination.with_name(destination.stem + '.tmp.png')
         if not cv2.imwrite(str(temporary), edited):
@@ -286,6 +334,12 @@ def process_native(folder):
     partial.replace(result / 'final.mp4')
     receipt.update(complete=True, outputSHA256=digest(result / 'final.mp4'), elapsedSeconds=elapsed+time.monotonic()-started,
         refinedFrames=sum(r['action'] == 'refined' for r in records), skippedFrames=sum(r['action'] != 'refined' for r in records))
+    if occlusion_state is not None:
+        partial = sum(r['action'] == 'partial-eye' for r in records)
+        primary = sum(r['action'] == 'refined' for r in records)
+        receipt['occlusion'].update(partialEyeFrames=partial, primaryFrames=primary,
+                                    preservedFrames=info['frames'] - partial - primary)
+        receipt.update(refinedFrames=partial + primary, skippedFrames=info['frames'] - partial - primary)
     atomic(receipt_file, receipt)
     return receipt
 
@@ -315,7 +369,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('action', choices=['status', 'prepare', 'preflight', 'launch', 'poll', 'cancel', 'worker'])
     parser.add_argument('--job')
-    parser.add_argument('--version', choices=['source-face-v1', 'source-face-v2', 'source-face-v3', 'source-face-v4', 'source-face-v5', 'source-face-v6', 'source-face-v7', 'source-face-v8', 'source-face-v9', 'source-face-v10'], default='source-face-v1')
+    parser.add_argument('--version', choices=['source-face-v1', 'source-face-v2', 'source-face-v3', 'source-face-v4', 'source-face-v5', 'source-face-v6', 'source-face-v7', 'source-face-v8', 'source-face-v9', 'source-face-v10', 'source-face-v11'], default='source-face-v1')
     args = parser.parse_args()
     (ROOT / 'state').mkdir(parents=True, exist_ok=True)
     if args.action == 'status':
@@ -323,7 +377,7 @@ def main():
     elif args.action == 'prepare':
         idle()
         prepare(version=args.version)
-        value = inspect()
+        value = inspect(version=args.version)
     else:
         job = str(uuid.UUID(args.job))
         folder = ROOT / 'jobs' / job
@@ -345,6 +399,10 @@ def main():
             if receipt.exists():
                 r = json.loads(receipt.read_text())
                 value.update(frame=len(r['records']), frames=r['inputs']['target']['frames'])
+                if r['inputs'].get('version') == 'source-face-v11':
+                    count = r['inputs']['target']['frames']
+                    value.update(frame=5 * count + len(r['records']), frames=6 * count,
+                                 stage='Matching source expressions and facial identity')
                 if r['inputs'].get('version') in ['source-face-v5', 'source-face-v8']:
                     count = r['inputs']['target']['frames']
                     progress = folder / 'result/eye-finish/progress.json'
@@ -353,6 +411,11 @@ def main():
                         value.update(frame=p['completed'], frames=p['total'], stage=f"{p['phase']} · {p['phaseFrame']}/{p['phaseFrames']} frames")
                     else:
                         value.update(frame=len(r['records']), frames=4*count, stage=f"Preparing calibrated facial base · {len(r['records'])}/{count} frames")
+            tracking_progress = folder / 'result/occlusion-progress.json'
+            if tracking_progress.is_file() and (not receipt.exists() or not json.loads(receipt.read_text()).get('complete')):
+                p = json.loads(tracking_progress.read_text())
+                if not receipt.exists():
+                    value.update(frame=p['frame'], frames=p['frames'], stage=p['stage'])
             if not value['running'] and value['state'] not in ['completed', 'interrupted']:
                 value.update(state='interrupted', error='The facial worker stopped; saved frames remain on this instance.')
         elif args.action == 'launch':

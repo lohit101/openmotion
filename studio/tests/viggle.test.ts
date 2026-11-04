@@ -26,6 +26,34 @@ function fixture(): Job {
 }
 
 describe('Viggle source-aligned two-stage replacement', () => {
+  it('versions explicit124-position source context without changing historical native graphs', () => {
+    const old = fixture(); old.settings.referencePreparation = 'prepared';
+    const legacy = compileViggleWorkflow(old), current = compileViggleWorkflow({ ...old, renderVersion: 'viggle-context124-v2' });
+    expect(legacy['3'].class_type).toBe('RecastViggleSource');
+    expect(current['3'].class_type).toBe('RecastViggleSource124');
+    const restored = structuredClone(current); restored['3'] = legacy['3']; expect(restored).toEqual(legacy);
+    expect(current['45'].inputs.source_count).toEqual(['3', 1]);
+    expect(current['40'].inputs.length).toBe(124);
+    expect(validateGraph(current, catalog)).toEqual([]);
+  });
+  it('binds a new reverse prefix and requires a distinct forward proof before native sampling', () => {
+    const job = fixture(); job.settings.referencePreparation = 'prepared'; job.renderVersion = 'viggle-context124-v2';
+    job.progress.targetFrames = 37; job.anchorChild = { sharedVersion: 'shared-anchor-v2', parentJobId: 'parent', direction: 'backward', frames: 37, inputSHA256: 'a'.repeat(64), referenceSHA256: 'b'.repeat(64), sourceSHA256: 'c'.repeat(64), anchorFrame: 36 };
+    const reverse = compileViggleWorkflow(job);
+    expect(reverse['48']).toMatchObject({ class_type: 'RecastViggleSaveSharedAnchor', inputs: { images: ['45', 2], anchor_frame: 36, job_id: job.id, parent_job_id: 'parent' } });
+    expect(validateGraph(reverse, catalog)).toEqual([]);
+    job.anchorChild.direction = 'forward'; job.anchorChild.frames = 41; job.progress.targetFrames = 41;
+    expect(() => compileViggleWorkflow(job)).toThrow('shared reference prefix');
+    job.anchorChild.sharedAnchor = { file: 'retained.safetensors', sha256: 'd'.repeat(64), proofJSON: '{"sourceBound":true}', proofSHA256: 'e'.repeat(64) };
+    job.uploads!.sharedAnchor = 'copied-reverse-pixels.safetensors';
+    const forward = compileViggleWorkflow(job);
+    expect(forward['36']).toMatchObject({ class_type: 'RecastViggleSharedAnchor', inputs: { forward_job_id: job.id, parent_job_id: 'parent', anchor_frame: 36, context_input: job.uploads!.sharedAnchor } });
+    expect(forward['43'].inputs.latent_image).toEqual(['36', 0]);
+    expect(forward['4'].class_type).toBe('LoadImage');
+    expect(forward['4'].inputs.image).toBe('character.png');
+    expect(forward['48']).toBeUndefined();
+    expect(validateGraph(forward, catalog)).toEqual([]);
+  });
   it('requires each segment’s saved Imagen reference, keeps five-frame motion anchors and downloads only needed files', () => {
     const job = fixture(), view = { assetId: 'sheet', x: 0, y: 0, width: 64, height: 96 };
     Object.assign(job.settings, { referencePreparation: 'prepared', seconds: 10, imagenRepaintEnabled: true, imagenRepaint: { characterId: 'character', revision: 1, bodyView: view, faceView: view, sourceImageJobId: null } });

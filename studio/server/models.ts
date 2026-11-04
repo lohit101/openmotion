@@ -1,18 +1,29 @@
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import type { Catalog, Graph } from '../shared/types';
-import { assertDownloadableModelFiles, emptyModels, IMAGE_IDENTITY, isRetiredModel, modelDefinitions, modelWorkingReserve, pinnedModels, type InstalledLora, type ModelInventory, type ModelsState, type ModelTransfer, type ModelFileState, type ModuleDownloadPlan, type ModuleDownloadState } from '../shared/models';
+import { assertDownloadableModelFiles, emptyModels, hasViggleTools, IMAGE_IDENTITY, isRetiredModel, modelDefinitions, modelWorkingReserve, pinnedModels, type InstalledLora, type ModelInventory, type ModelsState, type ModelTransfer, type ModelFileState, type ModuleDownloadPlan, type ModuleDownloadState } from '../shared/models';
 import { deletableModelFile, inventoryKey } from '../shared/downloads';
 import type { Store } from './store';
 import { lorasFrom, type ConnectionManager } from './comfy';
 import { command } from './media';
 import { facialCommand } from './facial-consistency';
 import type { FacialConsistencyRun } from '../shared/facial-consistency';
-import { isBoundaryFacialVersion, isGeometryFacialVersion, isEyeFinishedFacialVersion, isCalibratedFacialVersion, isCleanupFacialVersion } from '../shared/facial-consistency';
+import { isBoundaryFacialVersion, isGeometryFacialVersion, isEyeFinishedFacialVersion, isCalibratedFacialVersion, isCleanupFacialVersion, isOcclusionTrackedFacialVersion } from '../shared/facial-consistency';
 const transferring=(file:ModelFileState)=>['queued','downloading','reconnecting'].includes(file.status);
 export class ModelDownloadError extends Error { remoteActive=false; }
+export interface ViggleToolsStatus { instanceId: number; ready: boolean; running: boolean; unknown: boolean; confirmedStopped: boolean; helperSHA256: string; state: string; error?: string; }
+export async function manageViggleTools(repo: string, instanceId: number, action: 'prepare' | 'status', signal?: AbortSignal): Promise<ViggleToolsStatus> {
+  const output = await command('python3', ['-u', path.join(repo, 'scripts/managed_viggle_tools.py'), '--instance-id', String(instanceId), '--action', action], signal, action === 'status' ? 20000 : 180000);
+  const line = output.split(/\r?\n/).findLast(value => value.startsWith('RECAST_VIGGLE_TOOLS '));
+  if (!line) throw new Error('The GPU did not return a video-tools setup status.');
+  const result = JSON.parse(line.slice(20));
+  if (result.instanceId !== instanceId || ['ready', 'running', 'unknown', 'confirmedStopped'].some(key => typeof result[key] !== 'boolean') ||
+    !/^[0-9a-f]{64}$/.test(result.helperSHA256) || typeof result.state !== 'string' ||
+    result.ready && (result.running || result.unknown || !result.confirmedStopped)) throw new Error('The saved video-tools status does not match this GPU.');
+  return result;
+}
 
-export async function manageModelStorage(repo: string, instanceId: number, action: 'inventory' | 'delete', name?: string): Promise<{ loras?: InstalledLora[]; files?: { id: string; size: number; verified?: boolean }[]; name?: string; freedBytes?: number; freeBytes?: number; partials?: { id: string; size: number }[]; removed?: boolean; facialRuntimeReady?: boolean; facialCleanupRuntimeReady?: boolean; facialCalibratedRuntimeReady?: boolean; facialEyeFinishRuntimeReady?: boolean; facialGeometryRuntimeReady?: boolean; facialBoundaryRuntimeReady?: boolean;facialPreparing?:boolean }> {
+export async function manageModelStorage(repo: string, instanceId: number, action: 'inventory' | 'delete', name?: string): Promise<{ loras?: InstalledLora[]; files?: { id: string; size: number; verified?: boolean }[]; name?: string; freedBytes?: number; freeBytes?: number; partials?: { id: string; size: number }[]; removed?: boolean; facialRuntimeReady?: boolean; facialCleanupRuntimeReady?: boolean; facialCalibratedRuntimeReady?: boolean; facialEyeFinishRuntimeReady?: boolean; facialGeometryRuntimeReady?: boolean; facialBoundaryRuntimeReady?: boolean; facialOcclusionRuntimeReady?: boolean;facialPreparing?:boolean }> {
   const args = ['-u', path.join(repo, 'scripts/managed_models.py'), '--instance-id', String(instanceId), '--action', action];
   if (action === 'delete') args.push(deletableModelFile(name!) ? '--file' : '--lora', name!);
   const output = await command('python3', args, undefined, 45000);
@@ -102,6 +113,7 @@ export class ModelManager {
   preparingClarity=false;
   prepareClarity?:()=>Promise<{ready:boolean;preparing:boolean;missing:string[]}>;
   checkClarity?:()=>Promise<{ready:boolean;preparing:boolean;missing:string[]}>;
+  viggleTools = (instanceId: number, action: 'prepare' | 'status', signal?: AbortSignal) => manageViggleTools(this.repo, instanceId, action, signal);
   private connectionEvent=(event:{type:string})=>{if(event.type==='connection'&&this.connection.status.state==='online')void this.recoverPending();};
   constructor(public store: Store, public connection: ConnectionManager, public repo: string, private download: DownloadWorker = downloadPinnedModels, private storage: typeof manageModelStorage = manageModelStorage, private releaseCache = releaseModelCache) {
     this.state.inventories = store.value<ModelInventory[]>('model-inventories', []);
@@ -143,7 +155,8 @@ export class ModelManager {
       if(module?.activeRuntime&&this.cancelled){
         let preparing=true;
         try{
-          if(module.activeRuntime==='clarity')preparing=(await this.checkClarity!()).preparing;
+          if(module.activeRuntime==='viggle-tools'){const result=await this.viggleTools(module.instanceId,'status');preparing=result.running||result.unknown||!result.confirmedStopped;}
+          else if(module.activeRuntime==='clarity')preparing=(await this.checkClarity!()).preparing;
           else if(module.activeRuntime.startsWith('facial:')){await this.refresh();preparing=!!this.state.error||!!this.state.facialPreparing;}
           else preparing=JSON.parse(await command('python3',[path.join(this.repo,'scripts/prepare_local_models.py'),module.activeRuntime,'--status'],undefined,15000)).preparing===true;
         }catch{/* An unknown setup must remain protected. */}
@@ -181,7 +194,7 @@ export class ModelManager {
   }
   private facialReady(version:FacialConsistencyRun['version']){
     const s=this.state;
-    return (!isBoundaryFacialVersion(version)||s.facialBoundaryRuntimeReady)&&(!isGeometryFacialVersion(version)||s.facialGeometryRuntimeReady)&&
+    return (!isOcclusionTrackedFacialVersion(version)||s.facialOcclusionRuntimeReady)&&(!isBoundaryFacialVersion(version)||s.facialBoundaryRuntimeReady)&&(!isGeometryFacialVersion(version)||s.facialGeometryRuntimeReady)&&
       (isEyeFinishedFacialVersion(version)?s.facialEyeFinishRuntimeReady:isCalibratedFacialVersion(version)?s.facialCalibratedRuntimeReady:isCleanupFacialVersion(version)?s.facialCleanupRuntimeReady:s.facialRuntimeReady);
   }
   private async runModule(state:ModuleDownloadState,recover:boolean){
@@ -195,7 +208,22 @@ export class ModelManager {
         delete state.runtimePercent;
         state.activeRuntime=runtime;this.emit();
         assertScope();
-        if(runtime.startsWith('facial:')){
+        if(runtime==='viggle-tools'){
+          const installed=hasViggleTools(this.connection.catalog);
+          if(recover||!installed){
+            state.message=recover?'Checking the existing video-tools update':'Updating Remotion video tools · installed weights are reused';this.emit();
+            this.runtimeController=new AbortController();
+            let result:ViggleToolsStatus;
+            try{result=await this.viggleTools(state.instanceId,recover?'status':'prepare',recover?undefined:this.runtimeController.signal);}
+            finally{this.runtimeController=null;}
+            if(result.running||result.unknown||!result.confirmedStopped)throw new Error('The existing video-tools update still needs checking. No replacement was started.');
+            if(!result.ready)throw new Error('The video-tools update is not ready. Retry Download Remotion to finish the existing files.');
+            if(this.cancelled||!this.scopeMatches())throw new Error('The GPU changed or the video-tools update was cancelled.');
+            await this.connection.connect('http://127.0.0.1:8188',false);assertScope();
+          }
+          this.state.viggleToolsReady=hasViggleTools(this.connection.catalog);
+          if(!this.state.viggleToolsReady)throw new Error('The connected GPU is missing the updated Remotion video tools. Retry Download Remotion.');
+        }else if(runtime.startsWith('facial:')){
           const version=runtime.slice(7)as FacialConsistencyRun['version'];await this.refresh();assertScope();
           while(this.state.facialPreparing){state.message='Waiting for the existing facial-tool setup';this.emit();await new Promise(r=>setTimeout(r,2000));await this.refresh();assertScope();}
           if(!this.facialReady(version)){
@@ -218,6 +246,7 @@ export class ModelManager {
       assertScope();Object.assign(state,{status:'complete',message:'Ready for these settings',error:null,updatedAt:Date.now()});
     }catch(error){
       let runtimeUnknown=!!state.activeRuntime&&this.connection.status.state!=='online';
+      if(state.activeRuntime==='viggle-tools'){try{const result=await this.viggleTools(state.instanceId,'status');runtimeUnknown=result.running||result.unknown||!result.confirmedStopped;}catch{runtimeUnknown=true;}}
       if(state.activeRuntime==='clarity'&&this.checkClarity){try{runtimeUnknown=(await this.checkClarity()).preparing;}catch{runtimeUnknown=true;}}
       if(state.activeRuntime?.startsWith('facial:')){await this.refresh();runtimeUnknown=!!this.state.error||!!this.state.facialPreparing;}
       const unknown=this.state.files.some(f=>state.files.includes(f.id)&&f.remoteActive)||this.state.facialPreparing||runtimeUnknown;
@@ -248,6 +277,7 @@ export class ModelManager {
           }
         }
         if (this.connection.status.state !== 'online') {
+          this.state.viggleToolsReady = false;
           for (const file of this.state.files) if (!transferring(file)) Object.assign(file, { status: 'unknown', percent: null });
           this.state.error = null; this.state.checkedAt = null; this.state.installedLoras = []; this.state.diskFreeBytes = undefined; return this.state;
         }
@@ -261,6 +291,7 @@ export class ModelManager {
           else if (file.status !== 'failed') Object.assign(file, { status: 'missing', percent: null, message: '', downloaded: 0 });
         }
         this.connection.catalog = catalog;
+        this.state.viggleToolsReady = hasViggleTools(catalog);
         let inventory: Awaited<ReturnType<typeof manageModelStorage>> | undefined;
         if (instanceId && this.connection.status.endpoint === 'http://127.0.0.1:8188') {
           const result = await this.storage(this.repo, instanceId, 'inventory');
@@ -274,6 +305,7 @@ export class ModelManager {
           this.state.facialEyeFinishRuntimeReady = !!result.facialEyeFinishRuntimeReady;
           this.state.facialGeometryRuntimeReady = !!result.facialGeometryRuntimeReady;
           this.state.facialBoundaryRuntimeReady = !!result.facialBoundaryRuntimeReady;
+          this.state.facialOcclusionRuntimeReady = !!result.facialOcclusionRuntimeReady;
           if (result.files) {
             const present = new Set([...result.files.map(file => file.id), ...(result.loras || []).filter(file => file.size > 0).map(file => 'loras/' + file.name)]);
             for (const file of this.state.files) if (!transferring(file) && !present.has(file.id)) {
