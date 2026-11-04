@@ -49,7 +49,16 @@
     "includesExistingReserves": true,
     "providerInvoice": false,
     "retainedStorageHourlyUSD": 0.014814814814814812,
-    "furtherResumeFunded": false
+    "furtherResumeFunded": false,
+    "postStopStorageReserveReconciliation": {
+      "observedAtUTC": "2026-11-04T06:23:25Z",
+      "conservativeAllocationUSD": 2.19819305106,
+      "postStop002ReserveConsumedIntoObservedStorageOnce": true,
+      "postStopReserveExhaustedAtUTC": "2026-11-04T06:02:12.625143Z",
+      "transferReservesUnchanged": true,
+      "furtherResumeFunded": false,
+      "retainedUserDiskStillAccrues": true
+    }
   },
   "terminal": {
     "confirmedAtUTC": "2026-11-04T05:54:06.625143+00:00",
@@ -93,5 +102,81 @@
       "Matched unpinned A/B"
     ],
     "independentVisualObservationsSHA256": "dc249d6d041ddb1b17693f12f7d2bf746a376b484fbbba41f4658a67cebc6e2f"
+  },
+  "offlineFinishing": {
+    "cloudOrPaidActions": false,
+    "newWeights": 0,
+    "productionChanges": false,
+    "CPUThreads": 1,
+    "qualityPass": false,
+    "baseline": {
+      "version": "source-face-v10",
+      "frames": [
+        36,
+        37,
+        48,
+        58,
+        72,
+        60
+      ],
+      "seconds": 103.44330787518993,
+      "receiptSHA256": "2fe9800a652694058d3b25c8dd46faadfae3781acf4efa6eee4109eee40b489c",
+      "validationSHA256": "7713420558f7d9169e4cd8d0c1de2ba54c5ee1ab217082811e39e713721436db",
+      "accepted41ParentPixelsExact": true,
+      "computedAlphaZeroPixelsExact": true,
+      "CPUvsCUDAParity": false
+    },
+    "noRawEyeTexture": {
+      "newModelCalls": 0,
+      "all6BaselinePixelReplayExact": true,
+      "closed72ByteIdentical": true,
+      "validationSHA256": "9bc4b59b3b5293d55c4b335df9522c5a01951a26f924635ca8f72c323c34972c",
+      "conclusion": "Not the main cause of overly open36/37 eyes"
+    },
+    "zeroEyeYOffset": {
+      "privateRecipe": true,
+      "onlyEightEYESYScalarsChanged": true,
+      "frames": [
+        36,
+        58,
+        72,
+        48,
+        60
+      ],
+      "generatorSeconds": 88.9369689989835,
+      "originalCalibrationUnchanged": true,
+      "closed72ByteIdentical": true,
+      "finalAuditSHA256": "e061624f250547350f2cafa73e05573ac746f8122cd189421f4c7730ef8a57d8",
+      "verdict": "DO NOT PROMOTE: half-lid36 improves but open/glance48/60 become too hooded"
+    },
+    "lightingDiagnostic": {
+      "modelCalls": 0,
+      "editedPixels": 0,
+      "receiptSHA256": "dde488f68f20958c38949d26fe51ed967e520d1875f3de0f214618e722af8c30",
+      "source48RelativeTo36Lab": [
+        2.985,
+        10.625,
+        -18.984
+      ],
+      "generated48RelativeTo36Lab": [
+        2.515,
+        0.203,
+        -4.281
+      ],
+      "physicalIlluminantMeasurement": false
+    },
+    "remaining": [
+      "Temporal source-eye state/anatomy calibration",
+      "Complex speaking/chin/teeth",
+      "Hand-covered opening and reappearance",
+      "Full raw native assembly and matched unpinned control"
+    ],
+    "limitations": [
+      "Sparse stills, not temporal validation",
+      "Mixed float-prefix and compressed-forward parent",
+      "Computed masks are not physical hand groundtruth",
+      "Unchanged mouth latent does not prove unchanged decoded mouth",
+      "No changes selected for production"
+    ]
   }
 }
