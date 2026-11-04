@@ -179,6 +179,16 @@ class RepairLayerTests(unittest.TestCase):
 
 
 class RepairTransportTests(unittest.TestCase):
+    def test_preparation_progress_is_immediate_and_never_claims_refined_faces(self):
+        from managed_face_repair import progress
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            progress({'frames':240},'Checking installed face repair tools')
+        line = output.getvalue().strip()
+        self.assertTrue(line.startswith('RECAST_FACE_REPAIR_PROGRESS '))
+        value = json.loads(line.split(' ',1)[1])
+        self.assertEqual(value,{'frame':0,'frames':240,'stage':'Checking installed face repair tools','phase':'preparation'})
+
     def test_lost_launch_response_keeps_running_or_unknown_worker_protected(self):
         from managed_face_repair import launch
         rejected = subprocess.CalledProcessError(255,['private-ssh-argv'])

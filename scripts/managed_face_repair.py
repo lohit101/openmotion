@@ -22,6 +22,14 @@ from face_repair import FILES, validate_request
 from face_repair import canonical_hash
 
 
+def progress(request, stage, phase='preparation'):
+    # Preparation counters are work estimates, never claims that face
+    # inference or refinement has happened. The receiver keeps high-water
+    # marks while native tracking/repair counters describe their own stages.
+    print('RECAST_FACE_REPAIR_PROGRESS '+json.dumps({'frame':0,'frames':request['frames'],
+        'stage':stage,'phase':phase}),flush=True)
+
+
 def call(config, action, job):
     command = ['python3',str(remote_root(config)/'scripts/face_repair_worker.py'),action,'--job',job]
     value = vast.remote(config,command,capture_output=True,text=True)
@@ -215,6 +223,7 @@ def main():
         if any(output == Path(value).resolve() or output in Path(value).resolve().parents for value in request['inputs'].values() if value):
             raise ValueError('Repair outputs must be separate from every immutable input.')
         output.mkdir(parents=True,exist_ok=True)
+        progress(request,'Checking installed face repair tools')
         # Fully downloaded results finish offline; no provider/SSH is needed.
         saved = try_offline(output,request)
         if saved:
@@ -269,12 +278,14 @@ def main():
     vast.remote(config,['mkdir','-p',str(folder)])
     write_request(config,folder,'request.json',request)
     if not before.get('running'):
+        progress(request,'Transferring frozen repair inputs','transfer')
         for role,(name,_) in mapping.items():
             sync(config,str(Path(request['inputs'][role]).resolve()),str(folder/name))
         if cancelled:
             print('RECAST_FACE_REPAIR_STOPPED\nRECAST_FACE_REPAIR_CANCELLED',flush=True)
             raise ValueError('Repair cancelled before inference.')
         if before.get('state') != 'completed':
+            progress(request,'Preparing face and foreground repair')
             prepare_memory(config,job,'run')
             if cancelled:
                 print('RECAST_FACE_REPAIR_STOPPED\nRECAST_FACE_REPAIR_CANCELLED',flush=True)
@@ -300,6 +311,7 @@ def main():
                 interrupted_error = value.get('error','Face repair was interrupted.')
             break
         time.sleep(1)
+    progress(request,'Downloading verified repair candidates','download')
     receipt = download_checkpoints(config,folder,output,request)
     if interrupted_error:
         if try_offline(output,request):
