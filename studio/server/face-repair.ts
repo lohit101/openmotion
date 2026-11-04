@@ -138,7 +138,12 @@ export class FaceRepairManager {
     const originalReceipt = JSON.parse(await readFile(inputs.receipt, 'utf8')), calibration = JSON.parse(await readFile(inputs.calibration, 'utf8'));
     if (!originalReceipt.complete || originalReceipt.inputs?.request?.jobId !== root.id || originalReceipt.inputs?.request?.profileSHA256 !== run.profileSHA256 || originalReceipt.outputSHA256 !== run.outputSHA256 || originalReceipt.calibration?.fileSHA256 !== binding.parentCalibrationSHA256 || calibration.binding?.jobId !== root.id || calibration.binding?.profileSHA256 !== run.profileSHA256) throw new Error('The original facial receipt or calibration no longer matches this video.');
     const [width, height] = outputDimensions(parent), frames = parent.faceRepair?.frames || parent.progress.targetFrames;
-    await this.checkMedia([inputs.finished, inputs.raw, inputs.source], frames, parent.settings.fps, width, height);
+    const sourceWidth = originalReceipt.inputs?.source?.width, sourceHeight = originalReceipt.inputs?.source?.height;
+    if (!Number.isSafeInteger(sourceWidth) || !Number.isSafeInteger(sourceHeight) || sourceWidth < 64 || sourceHeight < 64) throw new Error('The original source-size receipt is unavailable. Keep this saved video unchanged.');
+    await this.checkMedia([inputs.finished, inputs.raw], frames, parent.settings.fps, width, height);
+    // Native 720 exports may have a 736px prepared driving stream. Keep its
+    // exact original size/clock; the frozen face route resizes only its crop input.
+    await this.checkMedia([inputs.source], frames, parent.settings.fps, sourceWidth, sourceHeight);
     const ranges = normalizeRepairRanges(value.ranges, frames, parent.settings.fps), space = await statfs(this.store.root);
     const needed = frames * width * height * 3 * 2 + 1024 ** 3;
     if (space.bavail * space.bsize < needed) throw new Error('Free local storage for two lossless repair masters and review previews before starting. Nothing was queued.');

@@ -27,7 +27,7 @@ async function fixture() {
   store.addAsset({ id: 'reference', kind: 'image', name: 'Character', path: reference, poster: reference, size: 17, width: 64, height: 96, duration: 0, fps: 24, hasAudio: false, createdAt: '2026-11-04' });
   const profile = facialFingerprint(repo, 'source-face-v8');
   const calibration = path.join(finish, 'calibration.json'); writeFileSync(calibration, JSON.stringify({ binding: { jobId: id, profileSHA256: profile } }));
-  writeFileSync(path.join(finish, 'receipt.json'), JSON.stringify({ complete: true, inputs: { request: { jobId: id, profileSHA256: profile } }, outputSHA256: hash(output), calibration: { fileSHA256: hash(calibration) } }));
+  writeFileSync(path.join(finish, 'receipt.json'), JSON.stringify({ complete: true, inputs: { source: { width: 64, height: 96, frames: 12, fps: '24' }, request: { jobId: id, profileSHA256: profile } }, outputSHA256: hash(output), calibration: { fileSHA256: hash(calibration) } }));
   const parent: Job = { id, title: 'Original paid Remotion', status: 'completed', settings: { ...defaults, engine: 'viggle', facialConsistency: 'perform-onnx60', facialEyeFinish: true, fps: 24, seconds: .5 }, sourceId: 'source', referenceId: 'reference', createdAt: '2026-11-04', favorite: true, deleted: false, width: 64, height: 96,
     output, poster: null, error: null, cancelRequested: false, pendingPrompt: null, uploads: null, elapsedSeconds: 25, origin: 'render', workflow: {}, segments: [], context: '',
     progress: { stage: 'Complete', node: null, value: 12, max: 12, unit: 'frames', segment: 1, segments: 1, completedFrames: 12, targetFrames: 12, updatedAt: 0 },
@@ -169,4 +169,12 @@ it('does not turn deterministic fresh preflight failures into unknown activity o
   const unknown = f.store.job(job.id)!; unknown.faceRepair!.remoteActive = true; f.store.saveJob(unknown, false);
   await f.manager.resume(unknown); await f.manager.run(unknown, new AbortController().signal, () => {});
   expect(f.store.job(job.id)?.faceRepair?.remoteActive).toBe(true);
+});
+it('preserves an original larger prepared driving stream without rejecting a downscaled native export', async () => {
+  const f = await fixture(), parent = f.store.job(f.parent.id)!, folder = path.join(f.store.root, 'jobs', parent.id), source = path.join(folder, 'prepared-source.mp4');
+  await command('ffmpeg', ['-v', 'error', '-nostdin', '-y', '-f', 'lavfi', '-i', 'color=c=blue:s=80x112:r=24', '-frames:v', '12', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', source]);
+  parent.width = 80; parent.height = 112; parent.outputSize = { width: 64, height: 96 }; parent.settings.resolution = '720'; parent.facialConsistency!.sourceSHA256 = hash(source); f.store.saveJob(parent);
+  const receiptFile = path.join(folder, 'facial-consistency/receipt.json'), receipt = JSON.parse(readFileSync(receiptFile, 'utf8')); receipt.inputs.source = { width: 80, height: 112, frames: 12, fps: '24' }; writeFileSync(receiptFile, JSON.stringify(receipt));
+  const job = await f.manager.create(parent.id, f.selection); expect(job.faceRepair).toMatchObject({ width: 64, height: 96, frames: 12 });
+  expect(job.faceRepair?.binding.sourceSHA256).toBe(hash(source)); expect(f.calls()).toBe(0);
 });
