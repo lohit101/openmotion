@@ -148,3 +148,24 @@ it('allows an explicit retry after a verified pre-POST failure without treating 
   f.mode('success'); await request(f.app.app).post(`/api/kie/jobs/${job.id}/resume`).send({}).expect(200);
   const done = await until(() => f.app.store.job(job.id), j => ['completed', 'interrupted', 'failed'].includes(j.status)); expect(done.error).toBeNull(); expect(f.calls.creates).toHaveLength(2); expect(f.calls.uploads).toHaveLength(2);
 });
+it('adopts only a task-bound verified client download after a crash, without a key or network', async () => {
+  const f = await fixture(); await f.saveKey(); f.mode('missing-audio'); const job = await f.start(await f.inputs());
+  await until(() => f.app.store.job(job.id), j => j.status === 'interrupted');
+  const folder = path.join(f.root, 'jobs', job.id), output = path.join(folder, 'api-output.mp4'), journal = path.join(folder, 'kie-download.json'), resultFile = path.join(folder, 'kie-result.json');
+  const result = JSON.parse(await readFile(resultFile, 'utf8')), proofFile = output + '.download.json';
+  const proof = { path: output, sourceHash: createHash('sha256').update(new URL(result.url).href).digest('hex'), sha256: await kieFileHash(output), bytes: (await stat(output)).size };
+  await writeFile(proofFile, JSON.stringify(proof)); await unlink(journal); await unlink(path.join(f.root, 'secrets/kie-api-key.json'));
+  await rename(path.join(folder, 'prepared-source.saved.mp4'), path.join(folder, 'prepared-source.mp4'));
+  const before = JSON.stringify(f.calls);
+  // None of these invalid proofs may create a manager receipt or contact Kie.
+  for (const bad of [{ ...proof, sourceHash: 'a'.repeat(64) }, { ...proof, sha256: 'b'.repeat(64) }, { ...proof, bytes: proof.bytes + 1 }]) {
+    await writeFile(proofFile, JSON.stringify(bad)); await request(f.app.app).post(`/api/kie/jobs/${job.id}/recover`).send({}).expect(400);
+    await expect(stat(journal)).rejects.toMatchObject({ code: 'ENOENT' });
+  }
+  await writeFile(proofFile, JSON.stringify(proof)); await writeFile(resultFile, JSON.stringify({ ...result, taskId: 'unrelated_task' }));
+  await request(f.app.app).post(`/api/kie/jobs/${job.id}/recover`).send({}).expect(400); await expect(stat(journal)).rejects.toMatchObject({ code: 'ENOENT' });
+  await writeFile(resultFile, JSON.stringify(result)); await request(f.app.app).post(`/api/kie/jobs/${job.id}/recover`).send({}).expect(200);
+  const done = await until(() => f.app.store.job(job.id), j => ['completed', 'interrupted', 'failed'].includes(j.status));
+  expect(done.error).toBeNull(); expect(done.status).toBe('completed'); expect(JSON.stringify(f.calls)).toBe(before);
+  expect(JSON.parse(await readFile(journal, 'utf8')).recoveredFrom).toBe('verified-client-download');
+});

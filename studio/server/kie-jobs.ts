@@ -1,6 +1,6 @@
 import { createReadStream, existsSync, readFileSync } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
-import { copyFile, mkdir, readFile, rename, stat, statfs, writeFile } from 'node:fs/promises';
+import { copyFile, lstat, mkdir, readFile, rename, stat, statfs, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Job, Asset } from '../shared/types';
 import { defaults } from '../shared/types';
@@ -201,8 +201,23 @@ export class KieJobs {
     }
   }
   private async canFinishLocally(job: Job) {
-    const folder = this.folder(job), receipt = await readJSON<{ taskId: string; sha256: string }>(path.join(folder, 'kie-download.json')), file = path.join(folder, 'api-output.mp4');
-    return !!receipt && receipt.taskId === job.kie?.taskId && existsSync(file) && await kieFileHash(file) === receipt.sha256;
+    const folder = this.folder(job), journal = path.join(folder, 'kie-download.json'), receipt = await readJSON<{ taskId: string; sha256: string }>(journal), file = path.join(folder, 'api-output.mp4');
+    if (receipt) return receipt.taskId === job.kie?.taskId && existsSync(file) && await kieFileHash(file) === receipt.sha256;
+    // Recover the crash boundary after the HTTP client committed its verified
+    // output but before this manager committed its task-bound journal. This
+    // only reads owned local files; no key, DNS lookup or provider call is needed.
+    if (!job.kie?.taskId || !existsSync(file)) return false;
+    const resultFile = path.join(folder, 'kie-result.json'), clientFile = file + '.download.json';
+    if (!existsSync(resultFile) || !existsSync(clientFile)) return false;
+    for (const candidate of [file, resultFile, clientFile]) { const info = await lstat(candidate); if (!info.isFile() || info.isSymbolicLink()) return false; }
+    const result = await readJSON<{ taskId: string; url: string }>(resultFile), saved = await readJSON<{ sourceHash: string; bytes: number; sha256: string }>(clientFile);
+    if (!result || result.taskId !== job.kie.taskId || !saved || typeof result.url !== 'string') return false;
+    let url: URL; try { url = new URL(result.url); } catch { return false; }
+    if (url.protocol !== 'https:' || url.username || url.password || url.hash || url.port && url.port !== '443') return false;
+    if (saved.sourceHash !== createHash('sha256').update(url.href).digest('hex') || !Number.isSafeInteger(saved.bytes) || saved.bytes < 1 || !/^[0-9a-f]{64}$/.test(saved.sha256)) return false;
+    const actual = await lstat(file); if (actual.size !== saved.bytes || await kieFileHash(file) !== saved.sha256) return false;
+    await json(journal, { taskId: job.kie.taskId, sha256: saved.sha256, bytes: saved.bytes, recoveredFrom: 'verified-client-download' });
+    return true;
   }
   private async streamPackets(file: string, stream: 'v' | 'a') {
     const result = JSON.parse(await command('ffprobe', ['-v', 'error', '-select_streams', `${stream}:0`, '-show_packets', '-show_data_hash', 'sha256', '-show_entries', 'packet=data_hash,pts_time,dts_time,duration_time:packet_side_data=skip_samples,discard_padding', '-of', 'json', file], undefined, 30000));
