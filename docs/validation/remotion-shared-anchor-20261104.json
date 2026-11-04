@@ -147,7 +147,12 @@
       "originalCalibrationUnchanged": true,
       "closed72ByteIdentical": true,
       "finalAuditSHA256": "e061624f250547350f2cafa73e05573ac746f8122cd189421f4c7730ef8a57d8",
-      "verdict": "DO NOT PROMOTE: half-lid36 improves but open/glance48/60 become too hooded"
+      "verdict": "DO NOT PROMOTE: half-lid36 improves but open/glance48/60 become too hooded",
+      "factorialFiveVisualVerdictSHA256": "13b457eb2f73529e3699313420de283a053c0056f5ea243731736750f1acf962",
+      "decodedMouthCouplingAuditSHA256": "54bd9c56da7c6efadf80cb3299f9e1cecc92d4075876fb3b2e2efdf9563b73c4",
+      "decodedMouthPixelsUnchanged": false,
+      "maximumObservedMouthChannelDifference": 11,
+      "rawTextureOnlyVariantsPreserveMouthPixels": true
     },
     "lightingDiagnostic": {
       "modelCalls": 0,
