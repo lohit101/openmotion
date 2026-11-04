@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addRepairSelection, moveRepairEdge, repairEditableFrames, repairLoopFrames, repairPointerFrame } from '../shared/face-repair-ui';
+import { addRepairSelection, moveRepairEdge, parseRepairTime, repairEditableFrames, repairLoopFrames, repairPointerFrame } from '../shared/face-repair-ui';
 import { normalizeRepairRanges } from '../shared/face-repair';
 import { ActivityAlertTracker } from '../shared/alerts';
 import { emptyModels } from '../shared/models';
@@ -8,8 +8,14 @@ import { jobDuration, runSummary, savedRunSettings } from '../shared/library';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { RepairTimeline } from '../src/FaceRepairDialog';
 import JobCard from '../src/JobCard';
+import { overallProgressEstimate, retainOverallProgress } from '../shared/generation-progress';
 
 describe('repair timeline permission and frame gestures', () => {
+  it('commits entered times to real frames without interpreting an empty draft as zero', () => {
+    expect(parseRepairTime('', 24, 0, 240)).toBeNull(); expect(parseRepairTime('bad', 24, 0, 240)).toBeNull();
+    expect(parseRepairTime('2.3', 24, 0, 78)).toBe(55); expect(parseRepairTime('3.3', 24, 56, 240)).toBe(79);
+    expect(parseRepairTime('-5', 24, 0, 78)).toBe(0); expect(parseRepairTime('50', 24, 56, 240)).toBe(240);
+  });
   it('keeps the original pointer grab offset reversible at both frame boundaries', () => {
     const original = { id: 'range', startFrame: 55, endFrame: 79 };
     expect(moveRepairEdge(original, 'start', -200, 240).startFrame).toBe(0);
@@ -54,11 +60,26 @@ it('announces review before acceptance, then the saved revision, once each', () 
   expect(tracker.collect(snapshot(repairJob('processing')))).toEqual([]);
   const review = snapshot(repairJob('review'));
   expect(tracker.collect(review).map(a => a.title)).toEqual(['Face repair is ready to compare']);
+  const notification = new ActivityAlertTracker(Date.parse('2026-11-04T11:59:00Z')); notification.collect(snapshot(repairJob('processing')));
+  expect(notification.collect(review)[0].target).toMatchObject({ jobId: 'repair', repair: true });
   expect(tracker.collect(review)).toEqual([]);
   const saved = snapshot(repairJob('accepted'));
   expect(tracker.collect(saved).map(a => a.title)).toEqual(['Repaired revision saved']);
   expect(tracker.collect(saved)).toEqual([]);
   expect(new ActivityAlertTracker().collect(review)).toEqual([]);
+});
+it('holds one earned progress estimate across tracking, sparse correction, export and review', () => {
+  const job = repairJob('processing'); let high = 0;
+  const stages: [string, number, number][] = [
+    ['Checking installed face repair tools', 0, 240], ['Transferring frozen repair inputs', 0, 240],
+    ['Inspecting source hands and faces for selected repair', 240, 240], ['Tracking source foreground for selected repair', 240, 240],
+    ['Inspecting target hands and faces for selected repair', 1, 240], ['Tracking target foreground for selected repair', 240, 240],
+    ['Tracking partial source face for selected repair', 240, 240], ['Preserving accepted frames', 1, 240], ['Repairing selected facial frames', 134, 240],
+    ['Verifying lossless repair and original audio', 240, 241], ['Downloading verified repair candidates', 0, 240],
+  ];
+  for (const [stage, value, max] of stages) { const current = { ...job, progress: { ...job.progress, stage, value, max } }; const next = retainOverallProgress(high, current); expect(next).toBeGreaterThanOrEqual(high); expect(next).toBeLessThan(100); high = next; }
+  expect(overallProgressEstimate(repairJob('review'))).toBe(99);
+  expect(overallProgressEstimate(repairJob('accepted'))).toBe(100);
 });
 it('presents an unaccepted repair for review without a broken output-video URL', () => {
   const job = repairJob('review');

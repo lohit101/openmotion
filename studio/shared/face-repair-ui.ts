@@ -2,6 +2,11 @@ import type { FaceRepairRange } from './face-repair';
 import type { Job } from './types';
 
 export interface RepairSelection { id: string; startFrame: number; endFrame: number; }
+export function parseRepairTime(value: string, fps: number, minFrame: number, maxFrame: number): number | null {
+  if (!value.trim()) return null;
+  const seconds = Number(value);
+  return Number.isFinite(seconds) ? Math.max(minFrame, Math.min(maxFrame, Math.round(seconds * fps))) : null;
+}
 /** A cleared attempt ID is an explicit new draft, including when opened from a saved repair. */
 export function resolveRepairAttempt<T extends Pick<Job, 'id' | 'faceRepair'>>(
   job: T, jobs: readonly T[], eligibilityAttempts: readonly T[], attemptId: string | null,

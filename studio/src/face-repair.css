@@ -10,7 +10,10 @@
 .repair-sidebar p { font-size: 11px; color: var(--muted); line-height: 1.7; margin: 10px 0 0; }
 .repair-sidebar .select-trigger { width: 100%; }
 .repair-playback { border: 1px solid var(--line-soft); border-radius: 10px; overflow: hidden; background: var(--canvas); }
-.repair-video-stage { position: relative; height: clamp(180px, 43dvh, 430px); background: #0d0e10; overflow: hidden; }
+.repair-video-stage { position: relative; height: clamp(160px, 31dvh, 330px); background: #0d0e10; overflow: hidden; }
+.repair-playback:fullscreen { display: flex; flex-direction: column; width: 100vw; height: 100dvh; border-radius: 0; border: 0; }
+.repair-playback:fullscreen .repair-video-stage { height: auto; flex: 1; min-height: 0; }
+.repair-playback:fullscreen .repair-playback-controls { flex-shrink: 0; }
 .repair-video-stage video { width: 100%; height: 100%; object-fit: contain; display: block; }
 .repair-video-stage video + video { position: absolute; inset: 0; }
 .repair-video-labels, .repair-original-label { position: absolute; top: 12px; left: 12px; right: 12px; pointer-events: none; font-size: 10px; }

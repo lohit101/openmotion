@@ -90,7 +90,23 @@ function imageProgress(job: Job): number {
 
 /** Weighted completion estimate; a high-water mark in the view prevents resets. */
 export function overallProgressEstimate(job: Job): number {
-  if (job.faceRepair) return outputReady(job) ? 100 : job.faceRepair.state === 'review' ? 99 : Math.min(98, Math.max(0, job.progress.completedFrames / Math.max(1, job.progress.targetFrames) * 98));
+  if (job.faceRepair) {
+    if (outputReady(job)) return 100;
+    if (job.faceRepair.state === 'review') return 99;
+    if (job.faceRepair.state === 'downloaded') return 97;
+    if (job.status === 'queued') return 0;
+    const stage = job.progress.stage.toLowerCase(), ratio = nativeProgress(job) || 0;
+    if (/downloading|saving.*candidate/.test(stage)) return 94 + 3 * ratio;
+    if (/verifying lossless|ready for comparison/.test(stage)) return 90;
+    if (/repairing selected|preserving accepted/.test(stage)) return 45 + 43 * ratio;
+    if (/tracking partial source/.test(stage)) return 36 + 8 * ratio;
+    if (/tracking target foreground/.test(stage)) return 28 + 8 * ratio;
+    if (/inspecting target/.test(stage)) return 20 + 8 * ratio;
+    if (/tracking source foreground/.test(stage)) return 12 + 8 * ratio;
+    if (/inspecting source/.test(stage)) return 4 + 8 * ratio;
+    if (/transferring/.test(stage)) return 2;
+    return /checking|preparing/.test(stage) ? 1 : 0;
+  }
   if (job.upscale) return outputReady(job) ? 100 : Number.isFinite(job.upscale.progress) ? Math.min(99, Math.max(0, job.upscale.progress)) : 0;
   if (outputReady(job)) return 100;
   if (job.status === 'queued' && !job.segments.length && !job.anchoredVideo?.branches.some(b => b.progress > 0)) return 0;
