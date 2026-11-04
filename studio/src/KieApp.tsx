@@ -47,12 +47,12 @@ export default function KieApp() {
     if (!initialized.current) { initialized.current = true; setDraft(value.kie.draft); }
   }, []);
   useEffect(() => {
-    let live = true, refreshing = false, timer: ReturnType<typeof setTimeout>;
-    const refresh = async () => { if (!live || refreshing) return; refreshing = true; clearTimeout(timer); try { const value = await api<Bootstrap>('/bootstrap'); if (live) receive(value); } catch (reason) { if (live) { setConnected(false); if (!initialized.current) setError((reason as Error).message); } } finally { refreshing = false; if (live) timer = setTimeout(() => void refresh(), 15000); } };
+    let live = true, refreshing = false, streamRevision = 0, timer: ReturnType<typeof setTimeout>;
+    const refresh = async () => { if (!live || refreshing) return; refreshing = true; clearTimeout(timer); const revision = streamRevision; try { const value = await api<Bootstrap>('/bootstrap'); if (live) { if (revision === streamRevision) receive(value); else setConnected(true); } } catch (reason) { if (live) { setConnected(false); if (!initialized.current) setError((reason as Error).message); } } finally { refreshing = false; if (live) timer = setTimeout(() => void refresh(), 15000); } };
     void refresh();
     const stream = new EventSource('/api/events');
     stream.onopen = () => setConnected(true); stream.onerror = () => setConnected(false);
-    stream.onmessage = event => { try { const value = JSON.parse(event.data); if (value.type === 'bootstrap') receive(value.data); else if (value.type === 'job') setData(old => old ? { ...old, jobs: [value.data, ...old.jobs.filter(j => j.id !== value.data.id)].sort((a, b) => b.createdAt.localeCompare(a.createdAt)) } : old); else if (value.type === 'asset') setData(old => old ? { ...old, assets: [value.data, ...old.assets.filter(a => a.id !== value.data.id)] } : old); else if (value.type === 'kie-account') setData(old => old?.kie ? { ...old, kie: { ...old.kie, account: value.data } } : old); } catch { /* A later status refresh recovers an incomplete event. */ } };
+    stream.onmessage = event => { try { const value = JSON.parse(event.data); streamRevision++; if (value.type === 'bootstrap') receive(value.data); else if (value.type === 'job') setData(old => old ? { ...old, jobs: [value.data, ...old.jobs.filter(j => j.id !== value.data.id)].sort((a, b) => b.createdAt.localeCompare(a.createdAt)) } : old); else if (value.type === 'asset') setData(old => old ? { ...old, assets: [value.data, ...old.assets.filter(a => a.id !== value.data.id)] } : old); else if (value.type === 'kie-account') setData(old => old?.kie ? { ...old, kie: { ...old.kie, account: value.data } } : old); } catch { /* A later status refresh recovers an incomplete event. */ } };
     const visible = () => { if (!document.hidden) void refresh(); }; document.addEventListener('visibilitychange', visible);
     return () => { live = false; clearTimeout(timer); stream.close(); document.removeEventListener('visibilitychange', visible); };
   }, [receive]);
