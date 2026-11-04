@@ -69,7 +69,7 @@ export class KieJobs {
     if ((await stat(reference.path)).size > 20_000_000) throw new Error('The character image must be at most 20 MB.');
     const [sourceOriginalSHA256, referenceOriginalSHA256] = await Promise.all([kieFileHash(source.path), kieFileHash(reference.path)]);
     const fingerprint = hashText({ draft, fullPrompt, sourceOriginalSHA256, referenceOriginalSHA256 });
-    const unresolved = this.store.jobs().find(job => job.kie?.requestFingerprint === fingerprint && (active.includes(job.status) || ['submitting', 'unknown'].includes(job.kie.submission) || job.kie.taskId && !['complete', 'failed'].includes(job.kie.phase)));
+    const unresolved = this.store.jobs().find(job => job.kie?.requestFingerprint === fingerprint && (active.includes(job.status) || ['submitting', 'unknown'].includes(job.kie.submission) || job.kie.taskId && job.status !== 'cancelled' && !['complete', 'failed'].includes(job.kie.phase)));
     if (unresolved) throw new Error(`This same request already has saved work (${unresolved.id}). Open it in My library and choose Check & resume. No duplicate task was submitted.`);
     const space = await statfs(this.store.root); if (space.bavail * space.bsize < 1024 ** 3) throw new Error('Free at least 1 GB of local storage before generating.');
     const duplicate = this.store.byKey(key); if (duplicate) return duplicate;
@@ -195,7 +195,7 @@ export class KieJobs {
       const cancelled = this.store.job(job.id)?.cancelRequested;
       job.status = cancelled ? 'cancelled' : run.submission === 'rejected' ? 'failed' : 'interrupted'; run.phase = cancelled ? 'cancelled' : job.status === 'failed' ? 'failed' : 'attention';
       job.error = cancelled ? null : String((error as Error).message).split(this.store.root).join('[local media]').slice(0, 1800); job.cancellationConfirmed = !!cancelled;
-      if (cancelled) run.cancellationNotice = run.taskId || run.submission === 'unknown' ? 'Stopped following locally. Kie.ai may continue processing and charging for the accepted task. Use Check & recover to retrieve it later.' : 'Stopped before a provider task was submitted.';
+      if (cancelled) run.cancellationNotice = run.taskId || run.submission === 'unknown' ? 'Stopped following locally. Kie.ai may continue processing and charging for the accepted task. You can generate another video now; each new generation uses additional credits. Use Check & recover to retrieve this task later.' : 'Stopped before a provider task was submitted.';
       const current = this.store.job(job.id); if (current) Object.assign(job, { title: current.title, favorite: current.favorite, deleted: current.deleted, cancelRequested: current.cancelRequested });
       this.store.saveJob(job, false);
     }
@@ -252,7 +252,7 @@ export class KieJobs {
     if (!job.kie || !['queued', 'running', 'reconnecting', 'interrupted'].includes(job.status)) return job;
     job.cancelRequested = true; this.store.saveJob(job, false);
     if (this.activeId === job.id) { this.controller?.abort(); await this.running; return this.store.job(job.id)!; }
-    job.status = 'cancelled'; job.cancellationConfirmed = true; job.kie.phase = 'cancelled'; job.kie.cancellationNotice = job.kie.taskId || job.kie.submission === 'unknown' ? 'Stopped following locally. Accepted Kie.ai work may continue and consume credits. Check & recover the saved task later.' : 'Stopped before submitting a provider task.'; this.store.saveJob(job, false); return job;
+    job.status = 'cancelled'; job.cancellationConfirmed = true; job.kie.phase = 'cancelled'; job.kie.cancellationNotice = job.kie.taskId || job.kie.submission === 'unknown' ? 'Stopped following locally. Accepted Kie.ai work may continue and consume credits. You can generate another video now; each new generation uses additional credits. Check & recover the saved task later.' : 'Stopped before submitting a provider task.'; this.store.saveJob(job, false); return job;
   }
   async resume(job: Job, taskId?: string) {
     if (!job.kie || !['interrupted', 'cancelled', 'failed'].includes(job.status)) throw new Error('Choose a saved task that needs attention.');

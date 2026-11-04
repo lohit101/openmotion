@@ -169,3 +169,28 @@ it('adopts only a task-bound verified client download after a crash, without a k
   expect(done.error).toBeNull(); expect(done.status).toBe('completed'); expect(JSON.stringify(f.calls)).toBe(before);
   expect(JSON.parse(await readFile(journal, 'utf8')).recoveredFrom).toBe('verified-client-download');
 });
+
+it('releases stopped observation for a new explicit generation with identical inputs while retaining the old task', async () => {
+  const f = await fixture(); await f.saveKey(); const draft = await f.inputs(); f.mode('waiting');
+  const first = await f.start(draft);
+  await until(() => f.app.store.job(first.id), j => !!j.kie?.taskId && j.kie.phase === 'waiting');
+  await request(f.app.app).post(`/api/kie/jobs/${first.id}/cancel`).send({}).expect(200);
+  const second = await f.start(draft);
+  expect(second.id).not.toBe(first.id);
+  await until(() => f.app.store.job(second.id), j => !!j.kie?.taskId && j.kie.phase === 'waiting');
+  expect(f.calls.creates).toHaveLength(2);
+  expect(f.app.store.job(first.id)).toMatchObject({status:'cancelled', kie:{taskId:'task_fixture_1', submission:'submitted'}});
+  await request(f.app.app).post(`/api/kie/jobs/${second.id}/cancel`).send({}).expect(200);
+  f.mode('success');
+  await request(f.app.app).post(`/api/kie/jobs/${first.id}/recover`).send({}).expect(200);
+  await until(() => f.app.store.job(first.id), j => j.status === 'completed');
+  expect(f.calls.creates).toHaveLength(2);
+});
+it('still prevents an identical unknown paid submission after stopping observation', async () => {
+  const f = await fixture(); await f.saveKey(); const draft = await f.inputs(); f.mode('ambiguous');
+  const first = await f.start(draft);
+  await until(() => f.app.store.job(first.id), j => j.status === 'interrupted');
+  await request(f.app.app).post(`/api/kie/jobs/${first.id}/cancel`).send({}).expect(200);
+  await request(f.app.app).post('/api/kie/jobs').set('Idempotency-Key', randomUUID()).send(draft).expect(400);
+  expect(f.calls.creates).toHaveLength(1);
+});
