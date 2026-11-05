@@ -274,7 +274,7 @@ export class KieClient {
     if (typeof value.data !== 'number' || !Number.isFinite(value.data) || value.data < 0) throw new KieApiError('Kie returned an invalid credit balance.', 'protocol');
     return value.data;
   }
-  async uploadFile(filePath: string, key: string, kind: 'image' | 'video', signal?: AbortSignal, context?: { jobId: string; imageRole?: 'face' }) {
+  async uploadFile(filePath: string, key: string, kind: 'image' | 'video', signal?: AbortSignal, context?: { jobId: string; imageRole?: 'face' | 'additional'; imageIndex?: number }) {
     keyHeader(key); signal?.throwIfAborted();
     const file = await open(filePath, constants.O_RDONLY | constants.O_NOFOLLOW);
     try {
@@ -284,7 +284,8 @@ export class KieClient {
       if (!types[ext] || !types[ext].startsWith(kind + '/')) throw new KieApiError('Use a supported image or MP4/MOV video.', 'rejected');
       const jobId = context?.jobId || randomUUID();
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(jobId)) throw new KieApiError('The upload job identifier is invalid.', 'rejected');
-      const boundary = 'recast-' + randomUUID(), fileName = (kind === 'video' ? 'source' : context?.imageRole === 'face' ? 'face-reference' : 'reference') + ext;
+      if (context?.imageRole === 'additional' && (!Number.isInteger(context.imageIndex) || context.imageIndex! < 1 || context.imageIndex! > 8)) throw new KieApiError('The additional image index is invalid.', 'rejected');
+      const boundary = 'recast-' + randomUUID(), fileName = (kind === 'video' ? 'source' : context?.imageRole === 'face' ? 'face-reference' : context?.imageRole === 'additional' ? `appearance-reference-${context.imageIndex}` : 'reference') + ext;
       const prefix = Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="uploadPath"\r\n\r\nrecast/${jobId}\r\n--${boundary}\r\nContent-Disposition: form-data; name="fileName"\r\n\r\n${fileName}\r\n--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${fileName}"\r\nContent-Type: ${types[ext]}\r\n\r\n`);
       const suffix = Buffer.from(`\r\n--${boundary}--\r\n`);
       const stream = file.createReadStream({ autoClose: false });

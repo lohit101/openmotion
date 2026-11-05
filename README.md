@@ -15,7 +15,7 @@ bash scripts/studio.sh
 Open **http://127.0.0.1:3001**. The launcher installs locked Node dependencies when needed, builds the app and starts the local server. No Python environment, CUDA setup or model weights are required.
 
 1. Open **Settings** and save your own [Kie API key](https://kie.ai/api-key). The connection check reads your credit balance; it does not generate a video.
-2. Upload **Video1** for motion and **Image1** for the character, outfit and scene. Optionally add **Image2**, a facial close-up or multi-angle facial sheet of the same character. Preview and trim the video before generating.
+2. Upload **Video1** for motion and **Image1** for the character, outfit and scene. Optionally add **Image2**, a facial close-up or multi-angle facial sheet of the same character. Expand **More character views** to add up to eight back, side or other views, with a view label for each. Preview and trim the video before generating.
 3. Choose **480p**, **720p** or **1080p**, and adjust the prompt if needed.
 4. Press **Generate** to upload those inputs to Kie and create a paid task.
 5. Recast follows the task and downloads the completed result into **My library**.
@@ -45,6 +45,8 @@ The mobile layout does not deploy a public website. The server still binds to `1
 New character-swap runs (`kie-wan3-v2`) send the motion clip as `Video1`, the scene-ready character image as `Image1`, and the optional facial reference as `Image2` to `wan/3-0-video`. **Image1 controls the outfit, accessories, hair, body proportions, background, lighting and framing. Image2 controls facial identity, including lips and teeth; Video1 controls movement, gaze, expressions and lip movements.** Without Image2, Image1 also supplies the face. New output aspect-ratio selection follows Image1.
 
 The base prompt follows the user-provided identity/lip-sync mapping without hardcoding a particular garment or background. Additional instructions can override the defaults. The ordered references, actual prompt, input hashes and task ID are saved with the run; legacy paid jobs retain their original prompt and reference behavior when resumed. This is native multi-reference generation, with no separate face-swap pass. Prompt instructions do not guarantee perfect likeness, facial structure or frame-exact lip sync; inspect the actual output.
+
+Runs with extra views use `kie-wan3-v3`. Each view is explicitly described as back, left/right profile, front, detail or other angle in the prompt. Extra views follow the main and optional face image in submission order, with up to ten images total. They support appearance during turns; Image1 remains authoritative for the outfit/scene, the designated face reference for facial identity, and Video1 for movement. Without a separate facial reference, the extra images start at Image2 and Image1 supplies facial identity. Extra images are uploaded only on Generate, using distinct filenames and hash-bound recovery.
 
 This version accepts **2–15 whole seconds** per selected clip. Kie limits reference-video input to 15 seconds and reference plus output duration to 30 seconds. Uploaded references must meet the provider’s size, format and image-dimension limits; the app validates them before submission.
 

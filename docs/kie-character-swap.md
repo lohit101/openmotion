@@ -26,6 +26,18 @@ The optional draft property has no schema-level default, so historical frozen se
 
 ## Data and lifecycle
 
+### Extra character views (v3)
+
+In **More character views**, add up to eight extra images and label each as a back view, left/right profile, front view, detail or another angle. Kie's documented reference mode supports ten ordered images total. The app sends Image1, optional Image2 for the face, then the extras; it never silently replaces the face slot. If the optional face image is absent, the extras start at Image2 and the base prompt consistently keeps Image1 as the primary facial reference.
+
+New multi-view runs freeze `kie-wan3-v3` and a per-image view description. Extra views support the same character's back-of-head, hair, ears, body silhouette and appearance through turns and reappearance. They do not override Image1's outfit/background/lighting or Video1's performance. This supplies more model context, not a tracking, hidden-anatomy or identity guarantee.
+
+Each extra original and opaque prepared PNG has its own saved SHA-256. Anonymous `appearance-reference-N.png` names prevent overwrite on the upload service. Cached uploads resume by position, and unknown paid outcomes still require exact task-input matching rather than resubmission. Run details display all references; Reuse preserves their order and view labels. The optional draft field has no default that would mutate v1/v2 frozen settings or historical prompts.
+
+### Local editing
+
+The Kie app also registers the local **Clip editor**, with Library shortcuts, a separate timeline draft, independent audio tracks and basic video/audio effects. It uses local FFmpeg and an independent export queue, with no Kie key or paid call. See [the editor guide](clip-editor.md). Local edit jobs have `origin: edit` and actual export receipts; they are never passed to Kie's task-recovery endpoints or presented as new AI inference.
+
 The Kie server is a separate entry point. It does not construct the ComfyUI runner, cloud manager, model manager or GPU idle monitor, and registers no GPU control/setup/download routes. Local FFmpeg handles necessary media preparation, audio remuxing and previews. This is not a local neural face-refinement pipeline.
 
 Generate is the explicit boundary for uploading media and creating a paid task. API-key verification, selection changes, startup and reconnect do not create tasks. The key stays server-side in a private file with owner-only permissions. Public job metadata and receipts exclude the credential and private upload/result URLs.

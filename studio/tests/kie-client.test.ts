@@ -156,7 +156,7 @@ describe('Kie file upload', () => {
       expect(observed.body).not.toContain('private-person-holiday'); expect(observed.body).toContain('video-fixture');
     } finally { server.close(); await once(server, 'close'); }
   }));
-  it('uses distinct anonymous names for the two image roles in the same job', async () => temporary(async directory => {
+  it('uses distinct anonymous names for the main, facial and additional images in the same job', async () => temporary(async directory => {
     const original=path.join(directory,'private-person-face.png'); await writeFile(original,'image-fixture');
     const names:string[]=[];
     const transport=vi.fn<KieTransport>(async request=>{
@@ -167,7 +167,11 @@ describe('Kie file upload', () => {
     const client=new KieClient({transport,lookup,sleep}), jobId='00000000-0000-0000-0000-000000000001';
     await client.uploadFile(original,key,'image',undefined,{jobId});
     await client.uploadFile(original,key,'image',undefined,{jobId,imageRole:'face'});
-    expect(names).toEqual(['reference.png','face-reference.png']);
+    await client.uploadFile(original,key,'image',undefined,{jobId,imageRole:'additional',imageIndex:1});
+    await client.uploadFile(original,key,'image',undefined,{jobId,imageRole:'additional',imageIndex:2});
+    expect(names).toEqual(['reference.png','face-reference.png','appearance-reference-1.png','appearance-reference-2.png']);
+    for(const imageIndex of [0,9,1.2]) await expect(client.uploadFile(original,key,'image',undefined,{jobId,imageRole:'additional',imageIndex})).rejects.toMatchObject({kind:'rejected'});
+    expect(names).toHaveLength(4);
   }));
   it('rejects oversized files and symlinks before an upload POST', async () => temporary(async directory => {
     const file = path.join(directory, 'oversize.mp4'), linked = path.join(directory, 'linked.mp4');

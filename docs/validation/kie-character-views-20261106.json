@@ -1,0 +1,71 @@
+{
+  "date": "2026-11-06",
+  "branch": "feat/kie-character-swap",
+  "recipe": "kie-wan3-v3",
+  "scope": "Additional ordered character views in native Kie reference mode",
+  "limits": {
+    "additionalImages": 8,
+    "totalImages": 10
+  },
+  "viewLabels": [
+    "back",
+    "left",
+    "right",
+    "front",
+    "detail",
+    "other"
+  ],
+  "priority": {
+    "appearanceAndScene": "Image1",
+    "face": "Image2 when the facial slot is supplied; otherwise Image1",
+    "motionAndPerformance": "Video1",
+    "extraViews": "Additional angles of the same character, numbered after the primary inputs"
+  },
+  "documentation": "https://docs.kie.ai/market/wan/3-0-video.md",
+  "documentationChecked": "2026-11-06; official Markdown fetched locally and ten-image array-order contract confirmed",
+  "checks": {
+    "fullCombinedSuite": {
+      "files": 55,
+      "tests": 720,
+      "passed": true
+    },
+    "focusedKieAndEditor": {
+      "files": 4,
+      "tests": 97,
+      "passed": true
+    },
+    "typecheck": "passed",
+    "covered": [
+      "all ten image positions and explicit back-view prompt",
+      "single-face optional numbering",
+      "missing/wrong-kind/ninth-extra validation before provider submission",
+      "separate anonymous upload names with valid index bounds",
+      "independent original/prepared additional-image SHA-256 bindings",
+      "cached-upload retry without repeating earlier inputs",
+      "accepted-task recovery without duplicate task creation",
+      "legacy v1/v2 settings and prompts retained"
+    ],
+    "productionBuild": "passed",
+    "latestFocusedUIAndExports": {
+      "files": 2,
+      "tests": 23,
+      "passed": true
+    }
+  },
+  "newPaidKieTasks": 0,
+  "gpuActions": 0,
+  "qualityValidation": "No real paid multi-view video was generated. Context and recovery integration are tested; actual appearance through back turns, occlusions and cuts still needs output review.",
+  "localUpdate": {
+    "savedJobsByteUnchanged": true,
+    "savedAssetsByteUnchanged": true,
+    "draftByteUnchanged": true,
+    "jobsBefore": 9,
+    "assetsBefore": 13,
+    "jobsNow": 9,
+    "editorStatus": {
+      "busy": false
+    },
+    "editorExportsReachable": true,
+    "newUIBundleServed": true
+  }
+}

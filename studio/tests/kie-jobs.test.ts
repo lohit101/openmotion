@@ -32,7 +32,7 @@ async function fixture() {
   let mode = 'success', outputFile = generated, lastInput: KieVideoInput | undefined;
   const client: KieClientLike = {
     async getCredits() { calls.credits++; if (mode === 'invalid-key') throw new KieApiError('Invalid API key', 'rejected', 401); return 100; },
-    async uploadFile(file, _key, kind, _signal, context) { calls.uploads.push(kind); calls.uploadDetails.push({kind, file:path.basename(file), role:context?.imageRole}); if(mode === 'face-upload-fail' && context?.imageRole === 'face') throw new KieApiError('Face upload interrupted before submission', 'transient'); return { url: `https://media.example.test/${kind}/${await kieFileHash(file)}`, expiresAt: new Date(Date.now() + 24*3600*1000).toISOString(), fileName: kind, bytes: (await stat(file)).size }; },
+    async uploadFile(file, _key, kind, _signal, context) { calls.uploads.push(kind); calls.uploadDetails.push({kind, file:path.basename(file), role:context?.imageRole}); if(mode === 'additional-upload-fail' && context?.imageRole === 'additional') throw new KieApiError('Additional upload interrupted before submission', 'transient'); if(mode === 'face-upload-fail' && context?.imageRole === 'face') throw new KieApiError('Face upload interrupted before submission', 'transient'); return { url: `https://media.example.test/${kind}/${await kieFileHash(file)}`, expiresAt: new Date(Date.now() + 24*3600*1000).toISOString(), fileName: kind, bytes: (await stat(file)).size }; },
     async createTask(_key, input) { calls.creates.push(input); lastInput = input; if (mode === 'ambiguous') throw new KieApiError('Response lost', 'ambiguous'); if (mode === 'not-sent') throw new KieApiError('Reference DNS failed before POST', 'transient', undefined, undefined, true); if (mode === 'rejected') throw new KieApiError('Invalid provider request', 'rejected', 422); return { taskId: 'task_fixture_1' }; },
     async getTask(_key, id) { calls.tasks.push(id); return { taskId: id, state: mode === 'waiting' ? 'waiting' : 'succeeded', providerState: mode === 'waiting' ? 'waiting' : 'success', model: KIE_MODEL, input: mode === 'wrong-task' ? { ...lastInput!, prompt: 'Other request' } : mode === 'swapped-faces' ? {...lastInput!, reference_image_urls: [...lastInput!.reference_image_urls].reverse()} : lastInput, progress: mode === 'waiting' ? 0 : 100, urls: ['https://media.example.test/completed.mp4'], creditsConsumed: 12, costTime: 15 } satisfies KieTask; },
     async downloadResult(_url, destination) { calls.downloads++; await copyFile(outputFile, destination); if (mode === 'missing-audio') await rename(path.join(path.dirname(destination), 'prepared-source.mp4'), path.join(path.dirname(destination), 'prepared-source.saved.mp4')); return { path: destination, bytes: (await stat(destination)).size, sha256: await kieFileHash(destination) }; },
@@ -273,4 +273,43 @@ it('retains a legacy frozen draft and prompt exactly when an unsubmitted v1 job 
   await f.app.jobs.kick(); expect(f.app.store.job(job.id)?.status).toBe('completed');
   expect(f.calls.creates[0]?.prompt).toBe(fullPrompt); expect(f.calls.creates[0]?.reference_image_urls).toHaveLength(1);
   expect(await readFile(file)).toEqual(before); expect(f.app.store.job(job.id)?.kie?.settings).not.toHaveProperty('faceReferenceId');
+});
+
+it('uploads up to eight named extra views after Image1/Image2 and recovers the exact accepted request', async () => {
+  const f = await fixture(); await f.saveKey(); const draft = await f.inputs();
+  const face = (await request(f.app.app).post('/api/assets/image').attach('file', faceReference).expect(201)).body;
+  const additionalReferences: NonNullable<KieDraft['additionalReferences']> = [];
+  for (let i = 0; i < 8; i++) { const asset = (await request(f.app.app).post('/api/assets/image').attach('file', i % 2 ? reference : faceReference).expect(201)).body; additionalReferences.push({assetId:asset.id,view:i===0?'back':'other'}); }
+  f.mode('waiting'); const job = await f.start({...draft,faceReferenceId:face.id,additionalReferences});
+  const waiting = await until(()=>f.app.store.job(job.id),j=>j.kie?.phase==='waiting');
+  expect(waiting.kie?.version).toBe('kie-wan3-v3'); expect(waiting.kie?.prompt).toContain('Image3: Back view'); expect(waiting.kie?.prompt).toContain('Image10: Other angle');
+  const hashes = [waiting.kie?.referenceSHA256, waiting.kie?.faceReferenceSHA256, ...waiting.kie!.additionalReferenceSHA256!];
+  expect(f.calls.creates[0].reference_image_urls).toEqual(hashes.map(hash=>`https://media.example.test/image/${hash}`));
+  expect(f.calls.uploadDetails.slice(3).map(row=>row.file)).toEqual(Array.from({length:8},(_,index)=>`prepared-additional-reference-${index+1}.png`));
+  await request(f.app.app).post(`/api/kie/jobs/${job.id}/cancel`).send({}).expect(200); f.mode('success');
+  await request(f.app.app).post(`/api/kie/jobs/${job.id}/recover`).send({}).expect(200); await until(()=>f.app.store.job(job.id),j=>j.status==='completed');
+  expect(f.calls.creates).toHaveLength(1); expect(f.calls.uploads).toHaveLength(11);
+  const receipt=(await request(f.app.app).get(`/api/jobs/${job.id}/receipt`).expect(200)).body;
+  expect(receipt.inputSHA256.additional).toEqual(waiting.kie?.additionalReferenceSHA256); expect(receipt.settings.additionalReferences).toEqual(additionalReferences);
+});
+it('numbers extra views from Image2 without a facial reference and validates references before uploads', async () => {
+  const f = await fixture(); await f.saveKey(); const draft = await f.inputs();
+  for(const additionalReferences of [[{assetId:'missing',view:'back'}],[{assetId:draft.sourceId!,view:'back'}],Array.from({length:9},()=>({assetId:draft.referenceId!,view:'back'}))]) {
+    const response=await request(f.app.app).post('/api/kie/jobs').set('Idempotency-Key',randomUUID()).send({...draft,additionalReferences}); expect(response.status).toBeGreaterThanOrEqual(400);
+    expect((await request(f.app.app).put('/api/kie/draft').send({...draft,additionalReferences})).status).toBeGreaterThanOrEqual(400);
+  }
+  expect(f.calls.uploads).toHaveLength(0); expect(f.calls.creates).toHaveLength(0);
+  const job=await f.start({...draft,additionalReferences:[{assetId:draft.referenceId!,view:'back'}]});
+  const done=await until(()=>f.app.store.job(job.id),j=>j.status==='completed'); expect(done.kie?.prompt).toContain('Image2: Back view'); expect(done.kie?.prompt).toContain('Image1 remains the primary facial identity reference'); expect(f.calls.creates[0].reference_image_urls).toHaveLength(2);
+});
+it('rejects changed additional original/prepared media and resumes a failed extra upload without repeating earlier uploads', async () => {
+  const f=await fixture(); await f.saveKey(); const draft=await f.inputs(); const extra=(await request(f.app.app).post('/api/assets/image').attach('file',faceReference).expect(201)).body;
+  f.mode('additional-upload-fail'); const job=await f.start({...draft,additionalReferences:[{assetId:extra.id,view:'left'}]}); await until(()=>f.app.store.job(job.id),j=>j.status==='interrupted');
+  const original=f.app.store.asset(extra.id)!.path, prepared=path.join(f.root,'jobs',job.id,'prepared-additional-reference-1.png'), uploads=f.calls.uploads.length;
+  f.mode('success');
+  for(const file of [original,prepared]) {
+    const bytes=await readFile(file); await writeFile(file,Buffer.concat([bytes,Buffer.from('changed')]));
+    await request(f.app.app).post(`/api/kie/jobs/${job.id}/resume`).send({}).expect(200); const held=await until(()=>f.app.store.job(job.id),j=>j.status==='interrupted'); expect(held.error).toMatch(/additional reference changed/); expect(f.calls.creates).toHaveLength(0); expect(f.calls.uploads).toHaveLength(uploads); await writeFile(file,bytes);
+  }
+  await request(f.app.app).post(`/api/kie/jobs/${job.id}/resume`).send({}).expect(200); await until(()=>f.app.store.job(job.id),j=>j.status==='completed'); expect(f.calls.creates).toHaveLength(1); expect(f.calls.uploads).toEqual(['video','image','image','image']);
 });

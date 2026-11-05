@@ -246,4 +246,11 @@
 .kie-app .kie-face-reference .asset-drop { height: 150px; }
 .kie-app .kie-face-reference .asset-drop img { object-fit: contain; object-position: center; }
 .kie-app .kie-face-reference .asset-caption { grid-template-columns: minmax(0, 1fr) auto; }
+.kie-additional-references { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 14px; }
+.kie-additional-reference { min-width: 0; }
+.kie-app .kie-additional-reference .asset-drop { height: 145px; }
+.kie-app .kie-additional-reference .asset-drop img { object-fit: contain; object-position: center; }
+.kie-reference-view { display: grid; gap: 7px; margin-top: 12px; font-size: 11px; color: var(--muted); }
+.kie-reference-view .select-trigger { font-size: 11px; }
+.kie-reference-limit { color: var(--quiet); font-size: 10px; line-height: 1.7; margin: 16px 0 0; }
 @media (max-width: 900px) { .kie-app .kie-face-reference .asset-drop { height: 180px; } }

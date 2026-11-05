@@ -8,6 +8,7 @@ import { limitedClip, trimLimitedClip } from '../shared/clip-limits';
 import { jobDuration, runSummary, savedRunSettings } from '../shared/library';
 import { overallProgressEstimate, retainOverallProgress } from '../shared/generation-progress';
 import { KieMobilePanels, KieSidebar } from '../src/KieApp';
+import KieAdditionalReferences from '../src/KieAdditionalReferences';
 import KieSettings from '../src/KieSettings';
 import KieProgress from '../src/KieProgress';
 import LibraryWorkspace from '../src/LibraryWorkspace';
@@ -66,6 +67,14 @@ describe('Kie character-swap UI', () => {
     const single = kiePrompt(''); expect(single).not.toContain('Image2'); expect(single).toContain('face from Image1');
     const legacy = {...kieDefaults}; delete legacy.faceReferenceId;
     expect(kieDraftSchema.parse(legacy)).toEqual(legacy); expect(kieDraftSchema.parse(legacy)).not.toHaveProperty('faceReferenceId');
+  });
+
+  it('labels additional character views and preserves Image1 and facial-reference priorities', () => {
+    const references = [{assetId:'extra-back',view:'back' as const},{assetId:'extra-side',view:'left' as const}];
+    const prompt = kiePrompt('',true,references); expect(prompt).toContain('Image3: Back view'); expect(prompt).toContain('Image4: Left profile'); expect(prompt).toContain('Image2 remains the primary facial identity reference'); expect(prompt).toContain('Image1 remains authoritative for the outfit');
+    const html = renderToStaticMarkup(<KieAdditionalReferences references={references} assets={[]} hasFace change={() => {}} added={() => {}} error={() => {}} />);
+    for(const label of ['More character views','Image3 · Back view','Image4 · Left profile','Image5 · Extra view','2 of 8 extra views']) expect(html).toContain(label);
+    expect(kieDraftSchema.parse(kieDefaults)).not.toHaveProperty('additionalReferences');
   });
 
   it('offers a password-only key entry and API connection settings without GPU/model controls', () => {
