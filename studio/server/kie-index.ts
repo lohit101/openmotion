@@ -16,6 +16,7 @@ import { startLocalServer } from './local-server';
 import { KieAccount } from './kie-account';
 import { KieClient } from './kie-client';
 import { KieJobs, type KieClientLike } from './kie-jobs';
+import { registerClipEditorRoutes } from './clip-editor';
 
 const STUDIO = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const publicAsset = (asset: Asset) => ({ ...asset, path: '', poster: 'ready' });
@@ -57,6 +58,7 @@ export async function createKieApplication(options: { dataRoot?: string; fronten
   app.get('/api/health', (_req, res) => res.json({ app: 'recast-kie', provider: 'kie.ai', model: KIE_MODEL }));
   app.get('/api/bootstrap', (_req, res) => { res.setHeader('Cache-Control', 'no-store'); res.json(bootstrap()); });
   app.get('/api/events', (_req, res) => { res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' }); openEventStream(store, res, bootstrap()); });
+  const clipEditor = registerClipEditorRoutes(app, store, { effects: true });
   app.get('/api/kie/account', async (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.json(req.query.refresh === '1' ? await account.refresh() : account.status()); });
   app.post('/api/kie/account', async (req, res) => {
     if (jobs.busy) return void res.status(409).json({ error: 'Stop following active tasks before replacing the API key. Saved task IDs are kept.' });
@@ -92,16 +94,18 @@ export async function createKieApplication(options: { dataRoot?: string; fronten
     const job = await jobs.resume(find(String(req.params.id)), value.taskId); res.json(publicJob(job)); void jobs.kick();
   });
   app.patch('/api/jobs/:id', (req, res) => {
-    const job = find(String(req.params.id)), value = z.object({ title: z.string().trim().min(1).max(120).optional(), favorite: z.boolean().optional(), deleted: z.boolean().optional() }).strict().parse(req.body);
+    const job = store.job(String(req.params.id)); if (!job || !job.kie && !(job.origin === 'edit' && job.edit)) return void res.sendStatus(404);
+    const value = z.object({ title: z.string().trim().min(1).max(120).optional(), favorite: z.boolean().optional(), deleted: z.boolean().optional() }).strict().parse(req.body);
     if (value.deleted && ['queued', 'running', 'reconnecting'].includes(job.status)) return void res.status(409).json({ error: 'Stop following this task before moving it to Trash. Provider processing may continue.' });
     Object.assign(job, value); store.saveJob(job, false); res.json(publicJob(job));
   });
   app.get('/api/jobs/:id/:type', (req, res) => {
-    const job = store.job(String(req.params.id)); if (!job?.kie) return void res.sendStatus(404);
+    const job = store.job(String(req.params.id)); if (!job || !job.kie && !(job.origin === 'edit' && job.edit)) return void res.sendStatus(404);
     const type = String(req.params.type);
-    const file = type === 'video' ? job.output : type === 'poster' ? job.poster : type === 'source' ? path.join(root, 'jobs', job.id, 'prepared-source.mp4') : type === 'receipt' ? path.join(root, 'jobs', job.id, 'kie-receipt.json') : null;
+    const master = type === 'video' && req.query.download && job.edit?.format === 'mkv';
+    const file = type === 'video' ? master ? path.join(root, 'jobs', job.id, 'master.mkv') : job.output : type === 'poster' ? job.poster : type === 'source' && job.kie ? path.join(root, 'jobs', job.id, 'prepared-source.mp4') : type === 'receipt' ? path.join(root, 'jobs', job.id, job.edit ? 'clip-edit.json' : 'kie-receipt.json') : null;
     if (!file || !existsSync(file)) return void res.sendStatus(404);
-    if (req.query.download || type === 'receipt') res.attachment(`${job.title.replace(/[^a-zA-Z0-9 _-]/g, '').slice(0, 70) || 'recast'}.${type === 'receipt' ? 'json' : 'mp4'}`);
+    if (req.query.download || type === 'receipt') res.attachment(`${job.title.replace(/[^a-zA-Z0-9 _-]/g, '').slice(0, 70) || 'recast'}.${type === 'receipt' ? 'json' : master ? 'mkv' : 'mp4'}`);
     serve(res, file);
   });
   // Old GPU/model/image/rental endpoints are deliberately absent, including GET.
@@ -111,7 +115,7 @@ export async function createKieApplication(options: { dataRoot?: string; fronten
     const message = error instanceof z.ZodError ? error.issues.map(issue => `${issue.path.join('.')}: ${issue.message}`).join(' ') : error instanceof multer.MulterError ? 'The local upload is too large or incomplete.' : error.message || 'This action could not be completed.';
     res.status(error instanceof z.ZodError ? 422 : 400).json({ error: String(message).split(root).join('[local media]').slice(0, 1800) });
   });
-  return { app, store, account, jobs, bootstrap, shutdown: async () => { await jobs.shutdown(); store.close(); } };
+  return { app, store, account, jobs, clipEditor, bootstrap, shutdown: async () => { await clipEditor.shutdown(); await jobs.shutdown(); store.close(); } };
 }
 async function main() {
   const port = Number(process.env.RECAST_KIE_PORT || 3001);

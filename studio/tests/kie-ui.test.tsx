@@ -38,12 +38,12 @@ function snapshot(jobs: Job[]): Bootstrap {
 }
 
 describe('Kie character-swap UI', () => {
-  it('defaults to 480p and exposes only the character-swap workspace, videos and settings', () => {
+  it('defaults to 480p and exposes character swapping, local editing, videos and settings', () => {
     expect(kieDefaults.resolution).toBe('480P');
     expect(kieResolutions).toEqual(['480P', '720P', '1080P']);
     const html = renderToStaticMarkup(<KieSidebar view="create" select={() => {}} collapsed={false} toggle={() => {}} libraryCount={2} />);
-    for (const name of ['Remotion', 'My library', 'Settings']) expect(html).toContain(`aria-label="${name}"`);
-    for (const name of ['Imagen', 'Clarity', 'GPU cloud', 'Characters', 'Clip editor']) expect(html).not.toContain(name);
+    for (const name of ['Remotion', 'Clip editor', 'My library', 'Settings']) expect(html).toContain(`aria-label="${name}"`);
+    for (const name of ['Imagen', 'Clarity', 'GPU cloud', 'Characters']) expect(html).not.toContain(name);
     const library = renderToStaticMarkup(<LibraryWorkspace videosOnly jobs={[]} assets={[]} patch={async () => {}} reuse={() => {}} create={() => {}} openWorkspace={() => {}} />);
     expect(library).toContain('Your videos'); expect(library).not.toContain('Connect your GPU'); expect(library).not.toContain('>Images<');
   });

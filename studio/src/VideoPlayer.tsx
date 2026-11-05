@@ -7,7 +7,7 @@ import {observeFullscreen,toggleFullscreen} from './fullscreen';
 export function formatTime(seconds: number) { if (!Number.isFinite(seconds)) return '0:00'; return `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`; }
 
 export function VideoPlayer({ job, compare }: { job: Job; compare: boolean }) {
-  return <VideoPlayback src={`/api/jobs/${job.id}/video`} poster={`/api/jobs/${job.id}/poster`} width={job.width} height={job.height} label="Generated video" nativeFullscreen={!!job.kie} compareSrc={compare?`/api/jobs/${job.id}/source`:undefined}/>;
+  return <VideoPlayback src={`/api/jobs/${job.id}/video`} poster={`/api/jobs/${job.id}/poster`} width={job.width} height={job.height} label="Generated video" nativeFullscreen={!!job.kie || job.edit?.version === 'timeline-v2'} compareSrc={compare?`/api/jobs/${job.id}/source`:undefined}/>;
 }
 
 export function VideoPlayback({src,poster,width,height,label='Video',compareSrc,nativeFullscreen=false}:{src:string;poster?:string;width:number;height:number;label?:string;compareSrc?:string;nativeFullscreen?:boolean}) {

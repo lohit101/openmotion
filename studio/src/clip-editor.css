@@ -122,6 +122,56 @@
 .edit-export-result > a { display: inline-flex; align-items: center; gap: 6px; }
 .edit-export-result .edit-download { color: var(--accent-ink); background: var(--accent); padding: 9px 12px; border-radius: 6px; font-weight: 550; }
 .edit-export-result .edit-download:hover { opacity: .85; }
+.edit-enhanced .edit-preview-stage { background: #000; }
+.edit-enhanced .edit-workspace-header h1 { font-size: 28px; }
+.edit-enhanced .edit-workspace-header p { font-size: 13px; }
+.edit-audio-lanes { margin-top: 12px; border-top: 1px solid var(--line-soft); padding-top: 10px; }
+.edit-audio-empty { display: flex; align-items: center; gap: 9px; min-height: 45px; color: var(--quiet); font-size: 11px; }
+.edit-audio-lane { height: 52px; position: relative; margin-bottom: 7px; }
+.edit-audio-clip { position: absolute; top: 0; height: 46px; display: flex; align-items: center; gap: 8px; padding: 0 14px; border: 2px solid var(--line); border-radius: 6px; color: var(--text); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); cursor: grab; touch-action: none; user-select: none; }
+.edit-audio-clip > svg { flex-shrink: 0; color: var(--accent-text); pointer-events: none; }
+.edit-audio-clip > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; pointer-events: none; }
+.edit-audio-clip.selected { border-color: var(--accent-text); }
+.edit-audio-clip.is-muted { opacity: .55; }
+.edit-audio-clip:active { cursor: grabbing; }
+.edit-audio-clip:hover .edit-trim-edge, .edit-audio-clip.selected .edit-trim-edge, .edit-audio-clip:focus-within .edit-trim-edge { opacity: 1; }
+.edit-inspector { border-top: 1px solid var(--line); margin-top: 22px; padding-top: 20px; }
+.edit-inspector > header { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 16px; }
+.edit-inspector h2 { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 14px; font-weight: 550; margin: 0; overflow-wrap: anywhere; }
+.edit-inspector header > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.edit-inspector .secondary-button { min-height: 34px; font-size: 11px; white-space: nowrap; }
+.edit-effect-fields { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; max-width: 680px; }
+.edit-seconds-field { min-width: 0; display: grid; gap: 8px; color: var(--muted); font-size: 11px; }
+.edit-seconds-field > div { position: relative; }
+.edit-seconds-field input { width: 100%; height: 38px; padding: 8px 29px 8px 10px; font-variant-numeric: tabular-nums; }
+.edit-seconds-field small { position: absolute; right: 12px; top: 12px; font-size: 11px; color: var(--quiet); pointer-events: none; }
+.edit-volume { display: flex; gap: 18px; align-items: center; margin: 20px 0 14px; max-width: 480px; }
+.edit-volume > button { display: inline-flex; gap: 7px; align-items: center; min-height: 34px; border: 1px solid var(--line); padding: 7px 10px; border-radius: 6px; font-size: 11px; }
+.edit-volume > button[aria-pressed="true"] { color: var(--accent-text); background: var(--raised); }
+.edit-volume > label { display: flex; flex: 1; min-width: 0; align-items: center; gap: 10px; font-size: 11px; color: var(--muted); }
+.edit-volume input { flex: 1; min-width: 45px; width: 80px; }
+.edit-volume output { width: 36px; font-variant-numeric: tabular-nums; color: var(--text); }
+.edit-inspector-hint { font-size: 11px; color: var(--quiet); line-height: 1.7; max-width: 70ch; margin: 14px 0 0; }
+.edit-inspector-empty { display: flex; align-items: center; gap: 10px; color: var(--quiet); font-size: 12px; }
+@media (max-width: 900px) {
+  .kie-app .clip-editor-workspace { height: auto; min-height: calc(100dvh - 135px); padding-bottom: 28px; }
+  .edit-enhanced button, .edit-enhanced .icon-button, .edit-enhanced .primary-button { min-height: 44px; }
+  .edit-enhanced .edit-trim-edge { min-width: 18px; min-height: 0; }
+  .edit-enhanced .edit-selection-bar .icon-button { width: 36px; }
+  .edit-enhanced .edit-timeline-panel > header { flex-wrap: wrap; }
+  .edit-enhanced .edit-timeline-tools { width: 100%; gap: 7px; }
+  .edit-enhanced .edit-timeline-tools input { flex: 1; min-width: 35px; width: 60px; }
+  .edit-enhanced .edit-add-videos { margin-right: 0; font-size: 12px; }
+  .edit-enhanced .edit-inspector > header { flex-wrap: wrap; }
+  .edit-enhanced .edit-effect-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .edit-enhanced .edit-seconds-field { font-size: 12px; }
+  .edit-enhanced .edit-seconds-field input { height: 44px; font-size: 14px; }
+  .edit-enhanced .edit-seconds-field small { top: 15px; }
+  .edit-enhanced .edit-preview-controls .edit-play { min-width: 40px; }
+  .edit-enhanced .edit-source-item { min-height: 60px; }
+  .edit-enhanced .edit-source-tabs > button { font-size: 13px; }
+  .edit-enhanced .edit-export-result { flex-wrap: wrap; }
+}
 @media (max-width: 1100px) { .edit-main-grid { grid-template-columns: 190px minmax(0, 1fr); gap: 18px; } .edit-export-footer { flex-direction: column; gap: 3px; } }
 @media (max-width: 850px) { .edit-workspace-header { align-items: flex-start; } .edit-export-controls { flex-direction: column; align-items: stretch; } .edit-export-controls > div { min-width: 150px; } .edit-main-grid { grid-template-columns: 150px minmax(0, 1fr); gap: 14px; height: 330px; } .edit-source-browser { padding-right: 12px; } .edit-source-item { gap: 7px; } .edit-source-item > div { width: 37px; height: 48px; } .edit-project-title { flex-wrap: wrap; gap: 5px; } .edit-project-title > span { margin-left: 0; } }
 @media (max-width: 760px) {

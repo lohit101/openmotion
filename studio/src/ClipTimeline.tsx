@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState, type DragEvent, type KeyboardEvent, type PointerEvent } from 'react';
+import { useEffect, useRef, useState, type DragEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
 import { clipTime } from '../shared/clip';
 import { clipSourceKey, timelineLayout, trimTimelineClip, trimEdgeTravel, type EditorSource, type TimelineClip } from '../shared/clip-editor';
 
-interface Props { clips: TimelineClip[]; sources: Record<string, EditorSource>; selected: string | null; select: (id: string) => void; change: (clips: TimelineClip[]) => void; seek: (time: number) => void; time: number; zoom: number; importFiles: (files: File[], index: number) => void; importing: boolean; }
+interface Props { clips: TimelineClip[]; sources: Record<string, EditorSource>; selected: string | null; select: (id: string) => void; change: (clips: TimelineClip[]) => void; seek: (time: number) => void; time: number; zoom: number; importFiles: (files: File[], index: number) => void; importing: boolean; audioLane?: ReactNode; }
 interface Drag { id: string; kind: 'in' | 'out' | 'move'; x: number; lastX:number; extra:number; pointerId:number; base: TimelineClip; delta: number; target: number; }
 
-export default function ClipTimeline({ clips, sources, selected, select, change, seek, time, zoom, importFiles, importing }: Props) {
+export default function ClipTimeline({ clips, sources, selected, select, change, seek, time, zoom, importFiles, importing, audioLane }: Props) {
   const lane = useRef<HTMLDivElement>(null), viewport=useRef<HTMLDivElement>(null), drag = useRef<Drag | null>(null), edgeFrame=useRef<number|null>(null);
   const updateDrag=useRef<(state:Drag)=>void>(()=>{});
   const [visual, setVisual] = useState<Drag | null>(null);
@@ -117,6 +117,6 @@ export default function ClipTimeline({ clips, sources, selected, select, change,
       })}{visual?.kind === 'move' && visual.target === clips.length && <span className="edit-drop-end" />}
       {!clips.length && <div className="edit-timeline-empty">Drop videos here, choose Add videos, or add a Library clip.</div>}
       {dropIndex !== null && <div className="edit-file-insertion" style={{ left: `${(rows[dropIndex]?.start ?? total) * zoom}px` }} aria-hidden="true"><span>Drop to add videos</span></div>}
-    </div><div className="edit-playhead" style={{ left: `${Math.min(time, total) * zoom}px` }} aria-hidden="true"><span /></div>
+    </div>{audioLane}<div className="edit-playhead" style={{ left: `${Math.min(time, total) * zoom}px` }} aria-hidden="true"><span /></div>
   </div></div>;
 }

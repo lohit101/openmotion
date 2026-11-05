@@ -40,6 +40,8 @@ The mobile layout does not deploy a public website. The server still binds to `1
 
 ## Clips and results
 
+**Clip editor** is a separate local workspace for preparing finished clips. Add Library or imported videos, trim and split on the timeline, join clips, detach/move/trim audio, add music, adjust volume and sound fades, and apply fade/blur effects at video edges. High-quality MP4 is the default for sharing on Instagram. Exports save to Library with download, progress and completion alerts. Editing uses local FFmpeg, without a Kie key or credits, and never changes generation inputs or paid originals. See [the editor guide](docs/clip-editor.md).
+
 New character-swap runs (`kie-wan3-v2`) send the motion clip as `Video1`, the scene-ready character image as `Image1`, and the optional facial reference as `Image2` to `wan/3-0-video`. **Image1 controls the outfit, accessories, hair, body proportions, background, lighting and framing. Image2 controls facial identity, including lips and teeth; Video1 controls movement, gaze, expressions and lip movements.** Without Image2, Image1 also supplies the face. New output aspect-ratio selection follows Image1.
 
 The base prompt follows the user-provided identity/lip-sync mapping without hardcoding a particular garment or background. Additional instructions can override the defaults. The ordered references, actual prompt, input hashes and task ID are saved with the run; legacy paid jobs retain their original prompt and reference behavior when resumed. This is native multi-reference generation, with no separate face-swap pass. Prompt instructions do not guarantee perfect likeness, facial structure or frame-exact lip sync; inspect the actual output.

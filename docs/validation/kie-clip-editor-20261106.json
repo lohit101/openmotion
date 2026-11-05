@@ -1,0 +1,27 @@
+{
+  "date": "2026-11-06",
+  "branch": "feat/kie-character-swap",
+  "scope": "Local lightweight editing in the Kie app",
+  "features": ["frame-aligned trimming, splitting and joining", "separate movable/trimmable audio lanes", "local music imports", "volume, mute and audio fades", "video fade in/out and blur in/out", "high-quality source-sized MP4 export", "Library actions, editable receipts and export alerts"],
+  "checks": {
+    "newSyntheticChecks": 8,
+    "originalEditorChecks": 11,
+    "focusedEditorAndExistingKieUIChecks": 33,
+    "passed": true,
+    "typecheck": "passed",
+    "exportPixels": "Black fade endpoints and sharp/blurred intervals measured in decoded real FFmpeg MP4s",
+    "audio": "Independent original soundtrack plus imported music, exact positions, silent gaps, volumes and fades checked in decoded PCM",
+    "media": "Expected frame counts, dimensions, Range playback, downloads, saved receipts and source hashes verified",
+    "safety": "No API key required; provider calls prohibited in the fixture; foreign Host/Origin mutations rejected; generation draft and original video unchanged"
+  },
+  "uiReview": {
+    "desktopInitialLayout": "Inspected in a separate native Chrome window with a synthetic Library video",
+    "furtherNativeInteraction": "Not completed during this check because the user was actively changing Chrome windows",
+    "mobile": "Responsive four-item navigation and touch controls implemented; physical phone untested"
+  },
+  "limits": {"videoClips": 32, "audioTracks": 16, "timelineSeconds": 600, "audioImportMiB": 100, "effectSeconds": 5},
+  "legacy": "Original GPU editor defaults and no-effect paths retained; old trim/join checks pass",
+  "newPaidKieTasks": 0,
+  "gpuActions": 0,
+  "instagramPublishing": false
+}

@@ -1,4 +1,6 @@
 .kie-app .rail-bottom { padding-top: 24px; }
+.kie-app .rail-editor { padding-top: 22px; }
+.kie-app .rail-editor > .rail-section-label { display: block; margin-bottom: 9px; }
 .kie-model-label { display: flex; align-items: center; gap: 7px; margin: -4px 0 20px; color: var(--muted); font-size: 11px; }
 .kie-output-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .kie-output-summary dd { display: flex; align-items: center; gap: 4px; }
@@ -52,8 +54,9 @@
   .kie-app .topbar-controls { gap: 4px; }
   .kie-app .nav-rail { inset: auto 0 0; top: auto; width: 100%; height: var(--mobile-nav-height); padding: 5px max(12px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(12px, env(safe-area-inset-left, 0px)); z-index: 35; overflow: visible; border: 0; border-top: 1px solid var(--line); }
   .kie-app .rail-header, .kie-app .rail-section-label { display: none; }
-  .kie-app .rail-navigation { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-  .kie-app .rail-main, .kie-app .rail-bottom, .kie-app .rail-settings { display: contents; }
+  .kie-app .rail-navigation { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+  .kie-app .rail-main, .kie-app .rail-bottom, .kie-app .rail-settings, .kie-app .rail-editor { display: contents; }
+  .kie-app .rail-editor > .rail-section-label { display: none; }
   .kie-app .rail-link { min-height: 58px; justify-content: center; flex-direction: column; gap: 4px; padding: 6px; }
   .kie-app .rail-link > span { display: block; font-size: 11px; }
   .kie-app .rail-link > svg { width: 22px; height: 22px; }

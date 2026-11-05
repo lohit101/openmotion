@@ -4,15 +4,18 @@ import { createHash, randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { copyFile, mkdir, rename, rm, stat, statfs, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import multer from 'multer';
 import { z } from 'zod';
 import type { Store } from './store';
-import { command, filmstrip, poster, videoFrameInfo } from './media';
-import { clipSourceKey, editDraftSchema, type ClipEditReceipt, type EditDraft, type EditorSource, type LocalExport, type TimelineClip } from '../shared/clip-editor';
+import { command, filmstrip, ingest, poster, videoFrameInfo } from './media';
+import { clipSourceKey, editDraftSchema, hasEditEffects, type ClipEditReceipt, type EditDraft, type EditorSource, type EditorAudioSource, type LocalExport, type TimelineClip, type TimelineAudio } from '../shared/clip-editor';
 import { defaults, type Asset, type Job } from '../shared/types';
+import { audible, audioEffectFilter, videoEffectFilters } from './editor-effects';
 
 interface ResolvedSource { meta: EditorSource; file: string; signature: string; canCopy: boolean; }
 interface SavedExport extends LocalExport { requestKey: string; fingerprint: string; draft: EditDraft; }
 interface ResolvedClip { clip: TimelineClip; source: ResolvedSource; }
+interface SavedAudio extends EditorAudioSource { file: string; preview: string; }
 const ratio = (value: string) => { const [n, d = 1] = String(value).split('/').map(Number); return d ? n / d : 0; };
 const concatPath = (file: string) => "file '" + file.replace(/'/g, "'\\''") + "'";
 
@@ -24,7 +27,8 @@ export class ClipEditor {
   private abort: AbortController | null = null;
   private active: string | null = null;
   private closing = false;
-  constructor(public store: Store) {
+  private audioImports = 0;
+  constructor(public store: Store, private effects = false) {
     this.records = store.value<SavedExport[]>('clip-editor-exports', []);
     for (const row of this.records) if (['queued', 'exporting'].includes(row.status)) { row.status = 'failed'; row.stage = 'Export interrupted'; row.error = 'The local app restarted. Source clips and your timeline are unchanged; export again to retry.'; }
     this.persist();
@@ -33,6 +37,30 @@ export class ClipEditor {
   private public(row: SavedExport): LocalExport { const { requestKey: _key, fingerprint: _hash, draft: _draft, ...value } = row; return value; }
   list() { return this.records.slice(0, 30).map(row => this.public(row)); }
   get(id: string) { const row = this.records.find(item => item.id === id); return row ? this.public(row) : null; }
+  get busy() { return !!this.active || this.previews.size > 0 || this.pending.size > 0 || this.audioImports > 0 || this.records.some(row => row.status === 'queued'); }
+  audioSources(): EditorAudioSource[] { return this.store.value<SavedAudio[]>('clip-editor-audio', []).map(({ file: _file, preview: _preview, ...meta }) => meta); }
+  audioPreview(id: string) { const row = this.store.value<SavedAudio[]>('clip-editor-audio', []).find(item => item.audioId === id); if (!row || !existsSync(row.preview)) throw new Error('This audio file is unavailable. Import it again.'); return row.preview; }
+  async importAudio(file: string, title: string) {
+    this.audioImports++;
+    const audioId = randomUUID(), folder = path.join(this.store.root, 'editor-audio', audioId);
+    try {
+      const data = JSON.parse(await command('ffprobe', ['-v', 'error', '-show_streams', '-show_format', '-of', 'json', file]));
+      const stream = data.streams?.find((item: any) => item.codec_type === 'audio'), duration = Number(stream?.duration || data.format?.duration);
+      if (!stream || !(duration >= .01 && duration <= 600) || data.streams.some((item: any) => item.codec_type === 'video' && !item.disposition?.attached_pic)) throw new Error('Choose an audio file up to ten minutes, such as MP3, M4A or WAV. Use Add videos for video soundtracks.');
+      await mkdir(folder, { recursive: true });
+      const original = path.join(folder, 'original'), preview = path.join(folder, 'preview.m4a'); await rename(file, original);
+      await command('ffmpeg', ['-v', 'error', '-nostdin', '-y', '-threads', '2', '-i', original, '-map', '0:a:0', '-vn', '-c:a', 'aac', '-b:a', '192k', '-threads', '2', '-movflags', '+faststart', preview], undefined, 180000);
+      const row: SavedAudio = { audioId, title: title.replace(/[\x00-\x1f]/g, '').slice(0, 120) || 'Audio track', duration, sampleRate: Number(stream.sample_rate), channels: Number(stream.channels), file: original, preview };
+      this.store.set('clip-editor-audio', [row, ...this.store.value<SavedAudio[]>('clip-editor-audio', [])]);
+      const { file: _file, preview: _preview, ...meta } = row; return meta;
+    } catch (error) { await rm(folder, { recursive: true, force: true }); throw error; }
+    finally { this.audioImports--; }
+  }
+  private async audioSource(track: TimelineAudio) {
+    if (track.audioId) { const saved = this.store.value<SavedAudio[]>('clip-editor-audio', []).find(item => item.audioId === track.audioId); if (!saved || !existsSync(saved.file)) throw new Error('An audio original is missing. Import it again before exporting.'); return { file: saved.file, duration: saved.duration, title: saved.title }; }
+    const source = await this.source(clipSourceKey(track)); if (!source.meta.hasAudio) throw new Error('This video has no audio to separate.');
+    return { file: source.file, duration: source.meta.duration, title: source.meta.title };
+  }
   async source(key: string): Promise<ResolvedSource> {
     const assetId = key.startsWith('asset:') ? z.string().uuid().parse(key.slice(6)) : null;
     const asset = assetId ? this.store.asset(assetId) : null;
@@ -100,6 +128,7 @@ export class ClipEditor {
   }
   async start(input: unknown, requestKey: string) {
     const draft = editDraftSchema.parse(input); if (!draft.clips.length) throw new Error('Add at least one clip to your timeline.');
+    if (!this.effects && hasEditEffects(draft)) throw new Error('Open the Kie Clip editor to use effects and separate audio tracks.');
     const fingerprint = createHash('sha256').update(JSON.stringify(draft)).digest('hex'), previous = this.records.find(row => row.requestKey === requestKey);
     if (previous) { if (previous.fingerprint !== fingerprint) throw new Error('This export request belongs to a different timeline. Submit the updated edit again.'); return this.public(previous); }
     if (this.records.filter(row => ['queued', 'exporting'].includes(row.status)).length >= 3) throw new Error('Finish or cancel an export before queueing another.');
@@ -119,6 +148,8 @@ export class ClipEditor {
     if (draft.mode === 'lossless' && clips.some(({ source: { meta } }) => Math.abs(meta.fps - first.fps) > .001 || ['pixelFormat', 'colorRange', 'colorSpace', 'colorTransfer', 'colorPrimaries'].some(key => meta[key as keyof EditorSource] !== first[key as keyof EditorSource]))) throw new Error('Lossless export needs matching frame rates and color formats. Choose matching clips, or use High-quality MP4 to normalize them.');
     const audio = clips.filter(item => item.source.meta.hasAudio).map(item => item.source.meta);
     if (draft.mode === 'lossless' && audio.some(meta => meta.sampleRate !== audio[0].sampleRate || meta.channels !== audio[0].channels || meta.channelLayout !== audio[0].channelLayout)) throw new Error('Lossless audio needs matching sample rates and channels. Use High-quality MP4 to normalize this mix.');
+    if (hasEditEffects(draft) && draft.mode !== 'mp4') throw new Error('Use High-quality MP4 for fades, blur and separate audio tracks. Lossless master remains available for plain trims and joins.');
+    for (const track of draft.audioTracks || []) { const source = await this.audioSource(track); if (track.outSeconds > source.duration + .001) throw new Error('An audio trim extends beyond its original file. Shorten or reset that audio track.'); }
     return clips;
   }
   private update(row: SavedExport, stage: string, percent: number) { row.stage = stage; row.percent = Math.max(row.percent, Math.min(99, percent)); this.persist(); }
@@ -142,7 +173,8 @@ export class ClipEditor {
   private async export(row: SavedExport, signal: AbortSignal) {
     const clips = await this.resolve(row.draft), first = clips[0].source.meta;
     signal.throwIfAborted();
-    const width = Math.max(...clips.map(item => item.source.meta.width)), height = Math.max(...clips.map(item => item.source.meta.height));
+    const size = (value: number) => row.mode === 'mp4' ? Math.ceil(value / 2) * 2 : value;
+    const width = size(Math.max(...clips.map(item => item.source.meta.width))), height = size(Math.max(...clips.map(item => item.source.meta.height)));
     const duration = clips.reduce((sum, item) => sum + (item.clip.outFrame - item.clip.inFrame) / item.source.meta.fps, 0), frames = clips.reduce((sum, item) => sum + item.clip.outFrame - item.clip.inFrame, 0);
     const space = await statfs(this.store.root), required = frames * width * height * (first.pixelFormat.includes('10') ? 6 : 3) * 1.2 + 512 * 1024 ** 2;
     if (row.mode === 'lossless' && space.bavail * space.bsize < required) throw new Error(`Lossless export may need ${(required / 1e9).toFixed(1)} GB free on this computer. Free local storage or use High-quality MP4.`);
@@ -151,7 +183,8 @@ export class ClipEditor {
     const started = Date.now(); row.status = 'exporting'; this.update(row, 'Preparing local export', 1);
     // AAC priming/padding cannot be represented independently at every join in
     // one copied MP4 stream. Multiple audio clips take the exact PCM path.
-    const copy = row.mode === 'lossless' && first.codec === 'h264' && (clips.length === 1 || clips.every(item => !item.source.meta.hasAudio)) && clips.every(({ clip, source }) => source.canCopy && clip.inFrame === 0 && clip.outFrame === source.meta.frames && source.signature === clips[0].source.signature);
+    const enhanced = hasEditEffects(row.draft);
+    const copy = !enhanced && row.mode === 'lossless' && first.codec === 'h264' && (clips.length === 1 || clips.every(item => !item.source.meta.hasAudio)) && clips.every(({ clip, source }) => source.canCopy && clip.inFrame === 0 && clip.outFrame === source.meta.frames && source.signature === clips[0].source.signature);
     let method: ClipEditReceipt['method'] = copy ? 'stream-copy' : row.mode === 'lossless' ? 'lossless-encode' : 'h264-encode';
     let format: ClipEditReceipt['format'] = copy || row.mode === 'mp4' ? 'mp4' : 'mkv';
     let master = path.join(folder, format === 'mkv' ? 'master.mkv' : 'final.mp4');
@@ -165,7 +198,24 @@ export class ClipEditor {
         if (check.frames !== frames || Math.abs(check.start) > .001 || Math.abs(check.duration - duration) > .1) throw new Error('Stream copy did not preserve the timeline exactly.');
       } catch (error) { if (signal.aborted) throw error; await rm(master, { force: true }); method = 'lossless-encode'; format = 'mkv'; master = path.join(folder, 'master.mkv'); }
     }
-    if (method !== 'stream-copy') {
+    if (enhanced) {
+      const filters: string[] = [], audioLinks: string[] = [], inputs = clips.flatMap(item => ['-threads', '2', '-i', item.source.file]);
+      let offset = 0;
+      clips.forEach(({ clip, source }, index) => {
+        filters.push(...videoEffectFilters(`[${index}:v:0]`, `v${index}`, clip, source.meta, width, height));
+        if (source.meta.hasAudio && audible(clip)) { filters.push(audioEffectFilter(`[${index}:a:0]`, `a${index}`, clip, clip.inFrame / source.meta.fps, clip.outFrame / source.meta.fps, offset, duration)); audioLinks.push(`[a${index}]`); }
+        offset += (clip.outFrame - clip.inFrame) / source.meta.fps;
+      });
+      for (const [index, track] of (row.draft.audioTracks || []).entries()) {
+        if (!audible(track) || track.start >= duration) continue;
+        const source = await this.audioSource(track), inputIndex = inputs.filter(item => item === '-i').length;
+        inputs.push('-threads', '2', '-i', source.file); filters.push(audioEffectFilter(`[${inputIndex}:a:0]`, `music${index}`, track, track.inSeconds, track.outSeconds, track.start, duration)); audioLinks.push(`[music${index}]`);
+      }
+      filters.push(`${clips.map((_, index) => `[v${index}]`).join('')}concat=n=${clips.length}:v=1:a=0[video]`);
+      if (audioLinks.length) filters.push(`${audioLinks.join('')}amix=inputs=${audioLinks.length}:duration=longest:normalize=0,alimiter=limit=0.98:level=0:latency=1,atrim=duration=${duration}[audio]`);
+      const fps = Math.max(...clips.map(item => item.source.meta.fps)), total = Math.round(duration * fps);
+      await this.ffmpeg([...inputs, '-filter_complex', filters.join(';'), '-map', '[video]', ...(audioLinks.length ? ['-map', '[audio]', '-c:a', 'aac', '-b:a', '256k'] : ['-an']), '-c:v', 'libx264', '-preset', 'fast', '-crf', '16', '-pix_fmt', 'yuv420p', '-r', String(fps), '-threads', '2', '-movflags', '+faststart', master], signal, frame => this.update(row, 'Rendering your edit on this computer', 5 + Math.min(1, frame / total) * 85));
+    } else if (method !== 'stream-copy') {
       const hasAudio = clips.some(item => item.source.meta.hasAudio), audio = clips.find(item => item.source.meta.hasAudio)?.source.meta;
       const rate = row.mode === 'mp4' ? 48000 : audio?.sampleRate || 48000, layout = row.mode === 'mp4' ? 'stereo' : audio?.channelLayout || 'stereo';
       const filters: string[] = [], links: string[] = [];
@@ -190,7 +240,8 @@ export class ClipEditor {
     const checked = await videoFrameInfo(master, signal), expected = row.mode === 'mp4' ? Math.round(duration * Math.max(...clips.map(item => item.source.meta.fps))) : frames;
     if (checked.frames !== expected || Math.abs(checked.start) > .001) throw new Error('Export validation found a frame count or timestamp mismatch. Sources were kept; no incorrect result was added to the library.');
     const thumb = path.join(folder, 'poster.jpg'); await poster(preview, thumb); signal.throwIfAborted();
-    const receipt: ClipEditReceipt = { version: 'timeline-v1', mode: row.mode, method, format, videoCodec: format === 'mkv' ? 'ffv1' : 'h264', duration, frames: expected, fps: row.mode === 'mp4' ? Math.max(...clips.map(item => item.source.meta.fps)) : first.fps, width, height, sources: clips.map(({ clip, source }) => ({ ...clip, title: source.meta.title, fps: source.meta.fps, sourceFrames: source.meta.frames, width: source.meta.width, height: source.meta.height })) };
+    const audioTracks = row.draft.audioTracks ? await Promise.all(row.draft.audioTracks.map(async track => ({ ...track, title: (await this.audioSource(track)).title }))) : undefined;
+    const receipt: ClipEditReceipt = { version: enhanced ? 'timeline-v2' : 'timeline-v1', mode: row.mode, method, format, videoCodec: format === 'mkv' ? 'ffv1' : 'h264', duration, frames: expected, fps: row.mode === 'mp4' ? Math.max(...clips.map(item => item.source.meta.fps)) : first.fps, width, height, sources: clips.map(({ clip, source }) => ({ ...clip, title: source.meta.title, fps: source.meta.fps, sourceFrames: source.meta.frames, width: source.meta.width, height: source.meta.height })), ...(audioTracks ? { audioTracks } : {}) };
     await writeFile(path.join(folder, 'clip-edit.json'), JSON.stringify(receipt, null, 2));
     const original = clips[0].clip.jobId ? this.store.job(clips[0].clip.jobId) : null;
     const job: Job = { id: row.id, title: row.title, status: 'completed', settings: { ...(original?.settings || defaults), start: 0, seconds: duration, fps: receipt.fps as Job['settings']['fps'] }, sourceId: clips[0].clip.assetId || original?.sourceId || '', referenceId: original?.referenceId || '', createdAt: row.createdAt, startedAt: new Date(started).toISOString(), finishedAt: new Date().toISOString(), favorite: false, deleted: false, width, height, progress: { stage: 'Local edit complete', node: null, value: null, max: null, unit: 'frames', segment: 1, segments: 1, completedFrames: expected, targetFrames: expected, updatedAt: Date.now() }, segments: [], context: '', pendingPrompt: null, uploads: null, error: null, output: preview, poster: thumb, cancelRequested: false, elapsedSeconds: (Date.now() - started) / 1000, origin: 'edit', workflow: null, edit: receipt };
@@ -200,8 +251,17 @@ export class ClipEditor {
   async shutdown() { this.closing = true; if (this.active) this.cancel(this.active); while (this.active) await new Promise(resolve => setTimeout(resolve, 30)); }
 }
 
-export function registerClipEditorRoutes(app: Express, store: Store) {
-  const editor = new ClipEditor(store);
+export function registerClipEditorRoutes(app: Express, store: Store, options: { effects?: boolean } = {}) {
+  const editor = new ClipEditor(store, options.effects);
+  app.get('/api/clip-editor/status', (_req, res) => res.json({ busy: editor.busy }));
+  if (options.effects) {
+    const upload = multer({ dest: path.join(store.root, 'uploads'), limits: { files: 1, fileSize: 100 * 1024 ** 2, fields: 0 } });
+    app.get('/api/clip-editor/audio', (_req, res) => res.json(editor.audioSources()));
+    app.post('/api/clip-editor/audio', upload.single('file'), async (req, res) => { if (!req.file) throw new Error('Choose an audio file.'); try { res.status(201).json(await editor.importAudio(req.file.path, req.file.originalname)); } finally { await rm(req.file.path, { force: true }); } });
+    app.get('/api/clip-editor/audio/:id/preview', (req, res) => res.sendFile(editor.audioPreview(z.string().uuid().parse(req.params.id))));
+    const videos = multer({ dest: path.join(store.root, 'uploads'), limits: { files: 1, fileSize: 512 * 1024 ** 2, fields: 0 } });
+    app.post('/api/clip-editor/videos', videos.single('file'), async (req, res) => { if (!req.file) throw new Error('Choose a video file.'); try { const asset = await ingest(store, req.file.path, 'video', req.file.originalname); await editor.importAsset(asset.id); res.status(201).json({ ...asset, path: '', poster: 'ready' }); } finally { await rm(req.file.path, { force: true }); } });
+  }
   app.get('/api/clip-editor/imports', async (_req, res) => res.json(await editor.imports()));
   app.post('/api/clip-editor/imports', async (req, res) => { const { assetId } = z.object({ assetId: z.string().uuid() }).strict().parse(req.body); res.status(201).json(await editor.importAsset(assetId)); });
   app.get('/api/clip-editor/sources/:id', async (req, res) => res.json(await editor.sourceInfo(String(req.params.id))));
