@@ -6,6 +6,7 @@ outputs/
 backups/
 dist/
 .DS_Store
+node_modules/
 studio/node_modules/
 studio/data/
 studio/dist/

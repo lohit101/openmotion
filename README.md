@@ -22,6 +22,22 @@ Open **http://127.0.0.1:3001**. The launcher installs locked Node dependencies w
 
 The app and library run locally; generation runs on Kie’s service. A Kie account with credits and an internet connection are required to generate. New tasks are never submitted automatically on startup or reconnect.
 
+## Another laptop and mobile screens
+
+To install this version on another laptop:
+
+```bash
+git clone --branch feat/kie-character-swap https://github.com/lohit101/openmotion.git recast
+cd recast
+bash scripts/studio.sh
+```
+
+Enter your Kie key in Settings on the new installation. Keys, uploaded media, Library results and drafts are local data and are not included in Git.
+
+On phone and tablet screens, Recast uses bottom navigation and separate **Setup / Preview** views. Generation opens Preview; returning to Setup keeps your inputs and settings. Trim handles and playback controls support touch, and saved-run details expand when requested. Desktop keeps the side-by-side workspace.
+
+The mobile layout does not deploy a public website. The server still binds to `127.0.0.1:3001`: opening that address on your phone points to the phone itself. To use the laptop server from a phone, connect through a private, authenticated tunnel that forwards to localhost, or deploy it behind HTTPS and authentication. Keep the server awake to follow tasks and save results. Do not expose the unauthenticated local API directly to the internet. Remote access is a separate setup choice; this update does not open network ports or change Host/Origin protections.
+
 ## Clips and results
 
 The character-swap route sends the motion clip as `Video1` and the character image as `Image1` to `wan/3-0-video`. It does not use first-frame mode or a separate face-swap pass. The prompt asks for the source motion, scene, clothing and accessories to remain while the character identity changes. These are model instructions, not a guarantee of exact motion or identity.

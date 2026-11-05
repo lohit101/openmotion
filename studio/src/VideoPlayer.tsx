@@ -7,22 +7,21 @@ import {observeFullscreen,toggleFullscreen} from './fullscreen';
 export function formatTime(seconds: number) { if (!Number.isFinite(seconds)) return '0:00'; return `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`; }
 
 export function VideoPlayer({ job, compare }: { job: Job; compare: boolean }) {
-  return <VideoPlayback src={`/api/jobs/${job.id}/video`} poster={`/api/jobs/${job.id}/poster`} width={job.width} height={job.height} label="Generated video" compareSrc={compare?`/api/jobs/${job.id}/source`:undefined}/>;
+  return <VideoPlayback src={`/api/jobs/${job.id}/video`} poster={`/api/jobs/${job.id}/poster`} width={job.width} height={job.height} label="Generated video" nativeFullscreen={!!job.kie} compareSrc={compare?`/api/jobs/${job.id}/source`:undefined}/>;
 }
 
-export function VideoPlayback({src,poster,width,height,label='Video',compareSrc}:{src:string;poster?:string;width:number;height:number;label?:string;compareSrc?:string}) {
+export function VideoPlayback({src,poster,width,height,label='Video',compareSrc,nativeFullscreen=false}:{src:string;poster?:string;width:number;height:number;label?:string;compareSrc?:string;nativeFullscreen?:boolean}) {
   const compare=!!compareSrc;
   const video = useRef<HTMLVideoElement>(null), before = useRef<HTMLVideoElement>(null), container = useRef<HTMLDivElement>(null);
   const [playing, setPlaying] = useState(false), [time, setTime] = useState(0), [duration, setDuration] = useState(0), [split, setSplit] = useState(50), [muted, setMuted] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   useEffect(() => {
-    if (container.current) return observeFullscreen(container.current, setFullscreen);
-  }, []);
+    if (container.current) return observeFullscreen(container.current, setFullscreen, nativeFullscreen ? video.current || undefined : undefined);
+  }, [src, nativeFullscreen]);
   const changeFullscreen = async () => {
     if (!container.current) return;
     try {
-      if (typeof container.current.requestFullscreen === 'function') await toggleFullscreen(container.current);
-      else toast.error('Fullscreen is not available in this browser.');
+      await toggleFullscreen(container.current, nativeFullscreen ? video.current || undefined : undefined);
     } catch { toast.error('Fullscreen could not be changed. Try again or press Esc to exit.'); }
   };
   useEffect(() => { setPlaying(false); setTime(0); setDuration(Number.isFinite(video.current?.duration)?video.current!.duration:0); setSplit(50); }, [src]);

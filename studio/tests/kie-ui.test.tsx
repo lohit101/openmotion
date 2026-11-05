@@ -7,7 +7,7 @@ import { ActivityAlertTracker } from '../shared/alerts';
 import { limitedClip, trimLimitedClip } from '../shared/clip-limits';
 import { jobDuration, runSummary, savedRunSettings } from '../shared/library';
 import { overallProgressEstimate, retainOverallProgress } from '../shared/generation-progress';
-import { KieSidebar } from '../src/KieApp';
+import { KieMobilePanels, KieSidebar } from '../src/KieApp';
 import KieSettings from '../src/KieSettings';
 import KieProgress from '../src/KieProgress';
 import LibraryWorkspace from '../src/LibraryWorkspace';
@@ -46,6 +46,17 @@ describe('Kie character-swap UI', () => {
     for (const name of ['Imagen', 'Clarity', 'GPU cloud', 'Characters', 'Clip editor']) expect(html).not.toContain(name);
     const library = renderToStaticMarkup(<LibraryWorkspace videosOnly jobs={[]} assets={[]} patch={async () => {}} reuse={() => {}} create={() => {}} openWorkspace={() => {}} />);
     expect(library).toContain('Your videos'); expect(library).not.toContain('Connect your GPU'); expect(library).not.toContain('>Images<');
+  });
+
+  it('provides explicit mobile setup and preview controls with an active-task indicator', () => {
+    const setup = renderToStaticMarkup(<KieMobilePanels pane="setup" select={() => {}} processing={false} />);
+    expect(setup).toContain('aria-label="Remotion workspace"');
+    expect(setup).toContain('aria-controls="kie-setup"'); expect(setup).toContain('aria-controls="kie-preview"');
+    expect(setup).toContain('id="kie-setup-tab" role="tab" tabindex="0" aria-selected="true"');
+    expect(setup).not.toContain('Video processing');
+    const preview = renderToStaticMarkup(<KieMobilePanels pane="preview" select={() => {}} processing />);
+    expect(preview).toContain('id="kie-preview-tab" role="tab" tabindex="0" aria-selected="true"');
+    expect(preview).toContain('Video processing');
   });
 
   it('offers a password-only key entry and API connection settings without GPU/model controls', () => {

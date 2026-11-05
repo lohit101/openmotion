@@ -37,3 +37,204 @@
 .kie-service-note a { display: inline-flex; align-items: center; gap: 5px; color: var(--accent-text); }
 .kie-app .generation-simple-actions { flex-direction: column; align-items: center; }
 @media (max-width: 760px) { .kie-app .topbar { padding-inline: 16px; gap: 10px; } .kie-app .connection-button { max-width: 210px; } .kie-app .settings-connection-actions { flex-wrap: wrap; } }
+
+.kie-mobile-panels, .kie-run-details-toggle { display: none; }
+.kie-body { min-width: 320px; }
+@media (max-width: 900px) {
+  .kie-app, .kie-app.sidebar-collapsed { --sidebar-width: 0px; --mobile-nav-height: calc(68px + env(safe-area-inset-bottom, 0px)); display: block; padding-bottom: var(--mobile-nav-height); }
+  .kie-app .topbar { height: calc(64px + env(safe-area-inset-top, 0px)); padding: env(safe-area-inset-top, 0px) max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px)); gap: 12px; }
+  .kie-app .wordmark { font-size: 23px; }
+  .kie-app .wordmark > span { display: none; }
+  .kie-app .brand-mark { gap: 8px; }
+  .kie-app .brand-mark > svg { width: 25px; }
+  .kie-app .connection-button { display: flex; width: auto; height: 44px; max-width: 200px; gap: 7px; padding: 0 10px; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .kie-app .theme-button { width: 44px; height: 44px; }
+  .kie-app .topbar-controls { gap: 4px; }
+  .kie-app .nav-rail { inset: auto 0 0; top: auto; width: 100%; height: var(--mobile-nav-height); padding: 5px max(12px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(12px, env(safe-area-inset-left, 0px)); z-index: 35; overflow: visible; border: 0; border-top: 1px solid var(--line); }
+  .kie-app .rail-header, .kie-app .rail-section-label { display: none; }
+  .kie-app .rail-navigation { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .kie-app .rail-main, .kie-app .rail-bottom, .kie-app .rail-settings { display: contents; }
+  .kie-app .rail-link { min-height: 58px; justify-content: center; flex-direction: column; gap: 4px; padding: 6px; }
+  .kie-app .rail-link > span { display: block; font-size: 11px; }
+  .kie-app .rail-link > svg { width: 22px; height: 22px; }
+  .kie-app .create-layout.workflow-layout { display: block; height: auto; min-width: 0; }
+  .kie-mobile-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin: 16px max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px)); padding: 4px; border: 1px solid var(--line-soft); background: var(--input); border-radius: 11px; }
+  .kie-mobile-panels > button { min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: 7px; font-size: 14px; color: var(--muted); }
+  .kie-mobile-panels > button[aria-selected='true'] { background: var(--hover); color: var(--text); font-weight: 550; }
+  .kie-processing-dot { width: 6px; height: 6px; background: var(--accent-text); border-radius: 50%; }
+  .kie-app[data-mobile-pane='setup'] #kie-preview, .kie-app[data-mobile-pane='preview'] #kie-setup { display: none; }
+  .kie-app .editor { border: 0; container-type: normal; }
+  .kie-app .editor-scroll { overflow: visible; padding: 24px max(20px, env(safe-area-inset-right, 0px)) 8px max(20px, env(safe-area-inset-left, 0px)); }
+  .kie-app .editor-heading h1 { font-size: 25px; }
+  .kie-app .editor-description { font-size: 14px; margin-bottom: 14px; }
+  .kie-model-label { font-size: 12px; margin-bottom: 22px; }
+  .kie-app .editor-section { padding-block: 22px; }
+  .kie-app .editor-section-heading h2 { font-size: 15px; }
+  .kie-app .editor-section .input-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .kie-app .field-heading { font-size: 13px; margin-bottom: 10px; min-height: 30px; }
+  .kie-app .field-label-row { flex-wrap: wrap; }
+  .kie-app .asset-drop { height: clamp(162px, 46vw, 260px); }
+  .kie-app .drop-empty { gap: 6px; padding: 8px; }
+  .kie-app .drop-empty strong { font-size: 13px; }
+  .kie-app .drop-empty > span { display: none; }
+  .kie-app .asset-replace { font-size: 11px; }
+  .kie-app .asset-caption > span { font-size: 12px; }
+  .kie-app .asset-caption small { font-size: 11px; }
+  .kie-app .asset-change-button, .kie-app .asset-remove-button { min-height: 44px; font-size: 12px; }
+  .kie-app .asset-remove-button { width: 44px; }
+  .kie-app .asset-footer-actions { margin-top: 0; }
+  .kie-app .asset-trim-caption { min-height: 58px; gap: 7px; padding: 9px; }
+  .kie-app .asset-trim-caption strong { font-size: 12px; }
+  .kie-app .asset-trim-caption small { font-size: 10px; white-space: normal; }
+  .kie-app .full-label { font-size: 14px; }
+  .kie-body input:not([type='range']), .kie-body textarea, .kie-body .select-trigger { font-size: 16px; min-height: 48px; }
+  .kie-body input[type='range'] { min-height: 44px; }
+  .kie-body .select-trigger { padding-inline: 13px; }
+  .kie-body .select-item, .kie-body .dropdown-content [role='menuitem'] { min-height: 46px; padding: 12px; font-size: 14px; }
+  .kie-body .select-content { max-height: min(360px, 60dvh); }
+  .kie-body .info-tip-trigger { width: 32px; height: 32px; }
+  .kie-body .info-tip-trigger svg { width: 17px; height: 17px; }
+  .kie-body .info-tip-content { font-size: 13px; line-height: 1.6; max-width: min(320px, calc(100vw - 32px)); }
+  .kie-app .output-summary { padding: 14px 12px; gap: 8px; }
+  .kie-app .output-summary dt { font-size: 11px; line-height: 1.5; }
+  .kie-app .output-summary dd { font-size: 15px; gap: 2px; min-height: 32px; }
+  .kie-app .editor-disclosure > summary { min-height: 64px; font-size: 14px; }
+  .kie-app .disclosure-meta { font-size: 12px; }
+  .kie-app .toggle { min-height: 48px; font-size: 14px; }
+  .kie-app .kie-base-prompt, .kie-app .kie-base-prompt summary { font-size: 13px; }
+  .kie-app .generate-footer { padding: 16px 20px 22px; }
+  .kie-app .generate { min-height: 52px; font-size: 16px; grid-template-columns: 22px 1fr 22px; }
+  .kie-app .generate > kbd { display: none; }
+  .kie-app .generate-caption { font-size: 12px; line-height: 1.65; text-align: center; }
+  .kie-pricing-link { min-height: 32px; font-size: 12px; margin-top: 4px; padding-top: 6px; }
+  .kie-form-error { font-size: 13px; }
+  .kie-app .workspace { min-width: 0; overflow: visible; padding: 24px max(16px, env(safe-area-inset-right, 0px)) 24px max(16px, env(safe-area-inset-left, 0px)); }
+  .kie-app .workspace-header { gap: 8px; margin-bottom: 18px; align-items: center; }
+  .kie-app .workspace-header > div:first-child { min-width: 0; }
+  .kie-app .workspace-header h2 { max-width: none; font-size: 19px; overflow: hidden; text-overflow: ellipsis; }
+  .kie-app .workspace-overline { font-size: 10px; }
+  .kie-app .workspace-actions { gap: 2px; }
+  .kie-app .workspace-actions > .icon-button { display: inline-flex; }
+  .kie-app .workspace-actions > [aria-label='Reuse selected settings'] { display: none; }
+  .kie-app .workspace-actions .secondary-button { min-width: 44px; min-height: 44px; font-size: 0; padding: 10px; }
+  .kie-body .icon-button { min-width: 44px; width: 44px; height: 44px; flex-shrink: 0; }
+  .kie-app .preview-stage { height: min(640px, 70svh); min-height: 360px; }
+  .kie-app .preview-stage.has-result { padding: 54px 8px 10px; }
+  .kie-app .preview-toolbar { padding: 9px 12px; }
+  .kie-body .preview-tabs > button { min-height: 42px; padding: 9px 13px; font-size: 13px; }
+  .kie-app .recent-heading h3, .kie-app .recent-heading > button { font-size: 13px; }
+  .kie-app .recent-heading > button { min-height: 44px; }
+  .kie-app .recent-grid { grid-template-columns: none; grid-auto-columns: minmax(150px, 42%); gap: 12px; }
+  .kie-body .playback-controls { gap: 3px; width: 100%; flex-wrap: wrap; }
+  .kie-body .playback-controls .icon-button { width: 44px; height: 44px; }
+  .kie-body .playback-controls .seek { flex-basis: calc(100% - 156px); min-width: 40px; }
+  .kie-body .playback-controls .timecode { font-size: 11px; }
+  .kie-body .playback-controls .timecode:nth-of-type(2) { display: none; }
+  .kie-app .generation-info { width: 44px; height: 44px; top: 8px; right: 8px; }
+  .kie-app .generation-simple h2 { font-size: 23px; }
+  .kie-app .generation-cancel { min-height: 44px; font-size: 13px; }
+  .kie-cancel-note { font-size: 12px !important; }
+  .kie-app .generation-error { font-size: 13px; }
+  .kie-app .generation-details-view { padding: 18px; }
+  .kie-app .generation-details-view > header { flex-wrap: wrap; }
+  .kie-app .generation-details-view h2 { font-size: 16px; }
+  .kie-app .render-progress-details { font-size: 13px; }
+  .kie-app .library { grid-column: auto; padding: 26px 20px 32px; }
+  .kie-app .library-workspace .library-heading { align-items: flex-start; gap: 12px; }
+  .kie-app .library-workspace .library-heading h1 { font-size: 27px; }
+  .kie-app .library-heading p { font-size: 13px; }
+  .kie-app .library-heading .primary-button { min-height: 44px; padding: 11px; font-size: 12px; }
+  .kie-app .library-collections { gap: 0; justify-content: space-between; }
+  .kie-app .library-collections > button { gap: 5px; min-height: 52px; font-size: 12px; }
+  .kie-app .library-collections > button span { margin-left: 0; }
+  .kie-app .library-search-sort { display: grid; grid-template-columns: minmax(0, 1fr) auto; width: 100%; gap: 8px; }
+  .kie-app .library-search-sort .search-field { min-width: 0; width: 100%; height: 48px; }
+  .kie-app .library-search-sort .select-trigger { width: 145px; font-size: 13px; }
+  .kie-app .library-workspace .library-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 14px; }
+  .kie-app .job-title { font-size: 13px; min-height: 36px; }
+  .kie-app .job-card-content > small { font-size: 11px; }
+  .kie-app .job-card-content { gap: 2px; }
+  .kie-app .settings-workspace { height: auto; min-height: calc(100dvh - 64px - var(--mobile-nav-height)); padding: 26px 20px 36px; overflow: visible; }
+  .kie-app .settings-heading h1 { font-size: 28px; }
+  .kie-app .settings-heading p { font-size: 14px; }
+  .kie-app .settings-tabs > button { min-height: 48px; font-size: 14px; }
+  .kie-account-heading h2 { font-size: 21px; }
+  .kie-account-heading p, .kie-account-note, .kie-service-note { font-size: 13px; }
+  .kie-account-status { gap: 10px; padding: 16px 12px; }
+  .kie-account-status strong { font-size: 14px; }
+  .kie-account-status p { font-size: 12px; line-height: 1.5; }
+  .kie-account-status > div { min-width: 0; overflow-wrap: anywhere; }
+  .kie-app .settings-connection-actions { display: grid; grid-template-columns: 1fr; }
+  .kie-app .settings-connection-actions > * { min-height: 48px; font-size: 14px; justify-content: center; }
+  .kie-body .asset-preview-dialog, .kie-body .kie-run-dialog { inset: 0; top: 0; left: 0; transform: none; width: 100%; max-width: none; height: 100dvh; max-height: 100dvh; border: 0; border-radius: 0; }
+  .kie-body .asset-preview-dialog > header, .kie-body .kie-run-dialog .run-dialog-header { position: sticky; top: 0; z-index: 5; background: var(--surface); padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 10px; gap: 10px; }
+  .kie-body .asset-preview-dialog h2 { font-size: 15px; }
+  .kie-body .asset-photo-stage img { max-width: 100%; max-height: calc(100dvh - 100px - env(safe-area-inset-top, 0px)); }
+  .kie-body .asset-video-stage { height: min(32svh, 300px); min-height: 150px; }
+  .kie-body .clip-playback { gap: 6px; padding: 4px 12px; }
+  .kie-body .clip-playback > span { font-size: 12px; }
+  .kie-body .clip-editor { padding: 20px 28px max(20px, env(safe-area-inset-bottom, 0px)); }
+  .kie-body .clip-editor-heading { gap: 8px; align-items: baseline; }
+  .kie-body .clip-editor-heading > span { font-size: 11px; white-space: nowrap; }
+  .kie-body .clip-filmstrip { height: 64px; margin-inline: 16px; }
+  .kie-body .clip-handle { width: 32px; }
+  .kie-body .clip-handle::before { content: ''; position: absolute; inset: -6px; }
+  .kie-body .clip-ruler { font-size: 11px; }
+  .kie-body .clip-selection-summary { gap: 8px; flex-wrap: wrap; }
+  .kie-body .clip-selection-summary output, .kie-body .clip-selection-summary strong { font-size: 13px; }
+  .kie-body .clip-help, .kie-body .clip-footer p { font-size: 12px; }
+  .kie-body .clip-footer { flex-direction: column; gap: 12px; }
+  .kie-body .clip-footer p { max-width: none; }
+  .kie-body .clip-footer .primary-button { width: 100%; min-height: 48px; font-size: 15px; }
+  .kie-body .run-dialog-body { display: block; overflow-y: auto; padding-bottom: max(20px, env(safe-area-inset-bottom, 0px)); }
+  .kie-body .run-dialog-title h2 { font-size: 15px; }
+  .kie-body .run-dialog-title p { font-size: 11px; }
+  .kie-body .run-dialog-title > svg, .kie-body .run-dialog-nav > span { display: none; }
+  .kie-body .run-dialog-nav > .icon-button:last-child { margin-left: 0; }
+  .kie-body .run-preview-stage { height: min(60svh, 600px); flex: none; padding: 0 10px 12px; }
+  .kie-body .run-preview-stage .player-frame { max-height: none; }
+  .kie-body .run-preview-toolbar { padding: 8px 14px; }
+  .kie-body .run-preview-footer { padding: 12px 16px; gap: 8px; display: grid; grid-template-columns: 1fr 1fr; }
+  .kie-body .run-preview-footer .secondary-button { min-height: 44px; justify-content: center; font-size: 12px; }
+  .kie-body .run-preview-footer > :last-child { grid-column: 1 / -1; }
+  .kie-body .kie-run-details-toggle { display: flex; min-height: 48px; width: calc(100% - 32px); margin: 16px; justify-content: center; font-size: 14px; }
+  .kie-body .kie-run-dialog .run-details { display: none; border: 0; overflow: visible; padding: 16px 20px; }
+  .kie-body .kie-run-dialog.show-run-details .run-details { display: block; }
+  .kie-body .run-summary dt, .kie-body .run-inputs h4, .kie-body .run-detail-note h4, .kie-body .run-saved-prompt h4 { font-size: 12px; }
+  .kie-body .run-summary dd, .kie-body .run-detail-note p, .kie-body .run-saved-prompt p { font-size: 14px; }
+}
+@media (max-width: 374px) {
+  .kie-app .topbar { padding-inline: 12px; gap: 6px; }
+  .kie-app .brand-mark { gap: 5px; }
+  .kie-app .wordmark { font-size: 21px; }
+  .kie-app .connection-button { font-size: 11px; padding-inline: 7px; gap: 5px; }
+  .kie-app .theme-button { width: 38px; }
+  .kie-app .editor-scroll { padding-inline: 16px; }
+  .kie-app .output-summary { grid-template-columns: 1fr 1fr; }
+  .kie-app .output-summary > div:last-child { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; }
+  .kie-app .library-collections > button > svg { display: none; }
+  .kie-app .library-search-sort { grid-template-columns: 1fr; }
+  .kie-app .library-search-sort .select-trigger { width: 100%; }
+}
+@media (max-width: 900px) {
+  .kie-body .video-trimmer .clip-editor { padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px)); }
+  .kie-body .clip-footer::after { content: ''; position: fixed; z-index: 4; inset: auto 0 0; height: calc(82px + env(safe-area-inset-bottom, 0px)); background: var(--surface); border-top: 1px solid var(--line-soft); pointer-events: none; }
+  .kie-body .clip-footer .primary-button { position: fixed; z-index: 5; bottom: max(16px, env(safe-area-inset-bottom, 0px)); left: 20px; right: 20px; width: calc(100% - 40px); }
+}
+@media (max-width: 900px) {
+  .kie-body .playback-controls { display: grid; grid-template-columns: 44px 34px minmax(0, 1fr) 44px 44px; gap: 2px; }
+  .kie-body .playback-controls .seek { width: 100%; min-width: 0; }
+  .kie-app .library-media-tabs:empty { display: none; }
+  .kie-app .library-heading .secondary-button { min-height: 44px; font-size: 12px; }
+  .kie-app .render-progress-details dt { font-size: 12px; }
+  .kie-app .render-progress-details dd { font-size: 13px; overflow-wrap: anywhere; }
+}
+@media (max-width: 900px) {
+  .kie-app .input-pair .field-heading { height: 44px; align-items: flex-start; }
+  .kie-app .field-heading .field-label-row { flex-wrap: nowrap; align-items: center; min-width: 0; }
+  .kie-app .field-heading .field-label-row > span { min-width: 0; line-height: 1.4; }
+}
+@media (max-width: 900px) {
+  .kie-body [data-sonner-toaster][data-y-position='bottom'] { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+  .kie-body .primary-button.compact { min-height: 44px; font-size: 14px; }
+}

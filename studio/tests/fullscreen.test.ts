@@ -57,3 +57,29 @@ describe('video fullscreen lifecycle', () => {
     cleanup();
   });
 });
+
+it('uses the native iPhone video fullscreen API only when container fullscreen is unavailable', async () => {
+  const { document, element, request } = browser();
+  const video = Object.assign(new EventTarget(), { webkitDisplayingFullscreen: false, webkitEnterFullscreen: vi.fn(), webkitExitFullscreen: vi.fn() });
+  await toggleFullscreen(element, video as unknown as HTMLVideoElement);
+  expect(request).toHaveBeenCalledOnce(); expect(video.webkitEnterFullscreen).not.toHaveBeenCalled();
+  document.change(null);
+  Object.assign(element, { requestFullscreen: undefined });
+  await toggleFullscreen(element, video as unknown as HTMLVideoElement);
+  expect(video.webkitEnterFullscreen).toHaveBeenCalledOnce();
+  video.webkitDisplayingFullscreen = true;
+  await toggleFullscreen(element, video as unknown as HTMLVideoElement);
+  expect(video.webkitExitFullscreen).toHaveBeenCalledOnce();
+});
+it('observes native fullscreen dismissal and removes both native listeners', () => {
+  const { element } = browser(); const video = new EventTarget(), changed = vi.fn();
+  const cleanup = observeFullscreen(element, changed, video as HTMLVideoElement);
+  video.dispatchEvent(new Event('webkitbeginfullscreen')); expect(changed).toHaveBeenLastCalledWith(true);
+  video.dispatchEvent(new Event('webkitendfullscreen')); expect(changed).toHaveBeenLastCalledWith(false);
+  cleanup(); changed.mockClear(); video.dispatchEvent(new Event('webkitbeginfullscreen')); video.dispatchEvent(new Event('webkitendfullscreen'));
+  expect(changed).not.toHaveBeenCalled();
+});
+it('rejects unavailable fullscreen without claiming success or silently using another player', async () => {
+  const { element } = browser(); Object.assign(element, { requestFullscreen: undefined });
+  await expect(toggleFullscreen(element)).rejects.toThrow('not available');
+});

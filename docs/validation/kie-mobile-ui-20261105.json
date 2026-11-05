@@ -1,0 +1,72 @@
+{
+  "version": "kie-mobile-ui-validation-v1",
+  "date": "2026-11-05",
+  "branch": "feat/kie-character-swap",
+  "baseCommit": "fa1175e",
+  "status": "validated-locally",
+  "scope": "Kie-only responsive UI; GPU checkout and backend workflow unchanged",
+  "changes": [
+    "Bottom navigation below 900px, including safe-area insets",
+    "Setup and Preview switch without clearing the draft",
+    "Generation and Library-open actions select Preview; reuse selects Setup",
+    "Larger upload, trim, playback and settings controls",
+    "Pinned trim confirmation and reversible zero-start dragging",
+    "Full-screen media dialogs and expandable saved-run details",
+    "Optional Kie video fullscreen fallback for iPhone",
+    "Toasts remain above bottom navigation"
+  ],
+  "checks": {
+    "fullStudioSuite": {
+      "files": 54,
+      "passed": 699,
+      "failed": 0
+    },
+    "typecheck": "passed",
+    "productionBuild": "passed",
+    "gitDiffCheck": "passed",
+    "browser": {
+      "app": "Brave",
+      "fixture": "isolated local app on port 3215 with synthetic video/image and provider methods disabled",
+      "viewportWidthsCSSPixels": [
+        320,
+        400,
+        768,
+        915
+      ],
+      "observed": [
+        "Full-width setup and bottom navigation",
+        "Trim start dragged from 0 to 2 seconds and back to 0",
+        "Trim confirmation visible without scrolling",
+        "Video Library and full-screen preview dialog",
+        "Saved run details expand on request",
+        "320px account settings",
+        "Mock Generate automatically switches to Preview",
+        "Desktop restores both panes when widened"
+      ],
+      "physicalPhoneTested": false,
+      "iPhoneFullscreen": "API fallback covered by unit tests; not validated on a physical iPhone"
+    }
+  },
+  "paidGenerationCalls": 0,
+  "externalMediaUploads": 0,
+  "gpuActions": 0,
+  "originalKieApp": {
+    "port": 3001,
+    "restarted": false,
+    "libraryJobsObserved": 5,
+    "assetsObserved": 7,
+    "activeJobsObserved": 0,
+    "realKeyUsedForTesting": false
+  },
+  "mobileAccess": {
+    "localServerStillLoopbackOnly": true,
+    "hostOriginChecksUnchanged": true,
+    "publicDeploymentCreated": false,
+    "accessPreferenceQuestion": "private laptop access or hosted app; unanswered at validation time"
+  },
+  "limitations": [
+    "A reachable private connection or authenticated HTTPS deployment is still needed to access the laptop server from a phone.",
+    "Mobile browsers may suspend their tab; the running server continues following existing tasks, and foreground refresh retrieves status.",
+    "The laptop must stay awake and its local server running."
+  ]
+}
