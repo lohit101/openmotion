@@ -1,0 +1,52 @@
+{
+  "date": "2026-11-05",
+  "branch": "feat/kie-character-swap",
+  "scope": "Kie wan/3-0-video native ordered facial reference; no GPU workflow changes",
+  "recipe": "kie-wan3-v2",
+  "inputs": {
+    "Video1": "Movement, hand motion, head turns, gaze, expressions and lip performance",
+    "Image1": "Character hair/body, outfit/accessories, scene, lighting and framing",
+    "Image2": "Optional facial identity, structure, lips and teeth; same character as Image1",
+    "withoutImage2": "Image1 supplies facial identity"
+  },
+  "providerDocumentation": "https://docs.kie.ai/market/wan/3-0-video.md",
+  "checks": {
+    "fullStudioSuite": { "files": 54, "tests": 708, "passed": true },
+    "focusedKieSuite": { "tests": 85, "passed": true },
+    "typecheck": "passed",
+    "productionBuild": "passed; existing large-bundle advisory remains",
+    "diffWhitespace": "passed",
+    "covered": [
+      "Image1/Image2 payload order and separate anonymous upload filenames",
+      "Optional face validation and independent original/prepared SHA-256 bindings",
+      "Cached upload recovery without duplicate task creation",
+      "Changed face media rejected before resubmission",
+      "Reversed image order rejected when attaching an ambiguous task",
+      "Legacy v1 frozen draft, literal prompt, single-reference input and receipt version retained",
+      "New framing follows Image1; absent Image2 uses a single-image prompt"
+    ]
+  },
+  "ui": {
+    "fixture": "Isolated local synthetic media; provider upload/create/status/download disabled",
+    "desktop": "Three named input tiles, dynamic base prompt and Library original references verified in native Chrome",
+    "mobile": "393x852 iPhone 16 emulation: optional face tile, preview dialog and Setup navigation verified",
+    "reuse": "Saved face selection restored with other inputs and settings",
+    "physicalPhoneTested": false,
+    "temporaryWindowAndServerClosed": true
+  },
+  "localUpdate": {
+    "port": 3001,
+    "generationIdleBeforeRestart": true,
+    "savedJobsByteUnchanged": 6,
+    "draftByteUnchanged": true,
+    "assetCount": 10,
+    "newFaceUIBundleServed": true,
+    "originalGpuCheckoutUnchanged": true
+  },
+  "paidValidation": {
+    "newKieTasksSubmitted": 0,
+    "gpuResumesOrDownloads": 0,
+    "qualityAndLipSyncImprovementMeasured": false,
+    "limitation": "Prompt/schema/recovery and UI integration passed offline checks. Actual identity, structure, occlusion and lip-sync quality require reviewing a newly generated output."
+  }
+}

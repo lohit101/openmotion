@@ -238,3 +238,9 @@
   .kie-body [data-sonner-toaster][data-y-position='bottom'] { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
   .kie-body .primary-button.compact { min-height: 44px; font-size: 14px; }
 }
+
+.kie-reference-inputs > .kie-face-reference { grid-column: 1 / -1; min-width: 0; }
+.kie-app .kie-face-reference .asset-drop { height: 150px; }
+.kie-app .kie-face-reference .asset-drop img { object-fit: contain; object-position: center; }
+.kie-app .kie-face-reference .asset-caption { grid-template-columns: minmax(0, 1fr) auto; }
+@media (max-width: 900px) { .kie-app .kie-face-reference .asset-drop { height: 180px; } }

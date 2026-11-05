@@ -10,7 +10,7 @@ bash scripts/studio.sh
 
 Requirements: Node.js 24+, npm, FFmpeg and FFprobe. The launcher installs locked Node packages if needed. It does not install Python, facial models, CUDA or ComfyUI, and cannot rent or resume compute.
 
-Use **Settings** to save and verify your Kie API key, then upload a video and character image in Remotion. Keep source audio is enabled by default. Each Generate action creates a paid API task; choosing settings and checking account readiness do not.
+Use **Settings** to save and verify your Kie API key, then upload Video1 (motion) and Image1 (character, outfit and scene) in Remotion. Optionally add Image2, a facial close-up or multi-angle sheet of the same character. Image2 supplies facial identity while Video1 supplies expressions and lip movement. Keep source audio is enabled by default. Each Generate action creates a paid API task; choosing settings and checking account readiness do not.
 
 The interface retains the original player, previews, Library, favourites, reversible trash, theme and alert controls. GPU workflows and rental/download controls are absent. This branch’s `kie-data/` is independent of the original GPU checkout.
 

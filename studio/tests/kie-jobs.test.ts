@@ -13,12 +13,14 @@ import type { Job } from '../shared/types';
 
 vi.setConfig({ testTimeout: 20000 });
 const apps: Awaited<ReturnType<typeof createKieApplication>>[] = [], roots: string[] = [];
-let mediaRoot: string, source: string, reference: string, generated: string;
+let mediaRoot: string, source: string, reference: string, generated: string, faceReference: string;
 const apiKey = 'fixture-kie-key-1234567890';
 beforeAll(async () => {
   mediaRoot = await mkdtemp(path.join(os.tmpdir(), 'kie-local-media-')); source = path.join(mediaRoot, 'source.mp4'); reference = path.join(mediaRoot, 'reference.png'); generated = path.join(mediaRoot, 'generated.mp4');
   await command('ffmpeg', ['-v', 'error', '-nostdin', '-y', '-f', 'lavfi', '-i', 'testsrc2=size=240x320:rate=24:duration=4', '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000:duration=4', '-c:v', 'libx264', '-threads', '2', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', source]);
   await command('ffmpeg', ['-v', 'error', '-nostdin', '-y', '-f', 'lavfi', '-i', 'color=c=green:s=240x320', '-frames:v', '1', '-threads', '2', reference]);
+  faceReference = path.join(mediaRoot, 'face.png');
+  await command('ffmpeg', ['-v', 'error', '-nostdin', '-y', '-f', 'lavfi', '-i', 'color=c=blue:s=320x240', '-frames:v', '1', '-threads', '2', faceReference]);
   await command('ffmpeg', ['-v', 'error', '-nostdin', '-y', '-f', 'lavfi', '-i', 'testsrc2=size=240x320:rate=24:duration=2', '-f', 'lavfi', '-i', 'sine=frequency=880:sample_rate=48000:duration=2', '-c:v', 'libx264', '-threads', '2', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', generated]);
 });
 afterEach(async () => { for (const app of apps) await app.shutdown(); apps.length = 0; for (const root of roots) await rm(root, { recursive: true, force: true }); roots.length = 0; });
@@ -26,13 +28,13 @@ afterAll(async () => { await rm(mediaRoot, { recursive: true, force: true }); })
 async function until(read: () => Job | null, predicate: (job: Job) => boolean) { for (let i = 0; i < 1000; i++) { const job = read(); if (job && predicate(job)) return job; await new Promise(resolve => setTimeout(resolve, 10)); } throw new Error('The isolated mock task did not settle.'); }
 async function fixture() {
   const root = await mkdtemp(path.join(os.tmpdir(), '.kie-app-test-')); roots.push(root);
-  const calls = { credits: 0, uploads: [] as string[], creates: [] as KieVideoInput[], tasks: [] as string[], downloads: 0 };
+  const calls = { credits: 0, uploads: [] as string[], uploadDetails: [] as {kind: string; file: string; role?: string}[], creates: [] as KieVideoInput[], tasks: [] as string[], downloads: 0 };
   let mode = 'success', outputFile = generated, lastInput: KieVideoInput | undefined;
   const client: KieClientLike = {
     async getCredits() { calls.credits++; if (mode === 'invalid-key') throw new KieApiError('Invalid API key', 'rejected', 401); return 100; },
-    async uploadFile(file, _key, kind) { calls.uploads.push(kind); return { url: `https://media.example.test/${kind}/${await kieFileHash(file)}`, expiresAt: new Date(Date.now() + 24*3600*1000).toISOString(), fileName: kind, bytes: (await stat(file)).size }; },
+    async uploadFile(file, _key, kind, _signal, context) { calls.uploads.push(kind); calls.uploadDetails.push({kind, file:path.basename(file), role:context?.imageRole}); if(mode === 'face-upload-fail' && context?.imageRole === 'face') throw new KieApiError('Face upload interrupted before submission', 'transient'); return { url: `https://media.example.test/${kind}/${await kieFileHash(file)}`, expiresAt: new Date(Date.now() + 24*3600*1000).toISOString(), fileName: kind, bytes: (await stat(file)).size }; },
     async createTask(_key, input) { calls.creates.push(input); lastInput = input; if (mode === 'ambiguous') throw new KieApiError('Response lost', 'ambiguous'); if (mode === 'not-sent') throw new KieApiError('Reference DNS failed before POST', 'transient', undefined, undefined, true); if (mode === 'rejected') throw new KieApiError('Invalid provider request', 'rejected', 422); return { taskId: 'task_fixture_1' }; },
-    async getTask(_key, id) { calls.tasks.push(id); return { taskId: id, state: mode === 'waiting' ? 'waiting' : 'succeeded', providerState: mode === 'waiting' ? 'waiting' : 'success', model: KIE_MODEL, input: mode === 'wrong-task' ? { ...lastInput!, prompt: 'Other request' } : lastInput, progress: mode === 'waiting' ? 0 : 100, urls: ['https://media.example.test/completed.mp4'], creditsConsumed: 12, costTime: 15 } satisfies KieTask; },
+    async getTask(_key, id) { calls.tasks.push(id); return { taskId: id, state: mode === 'waiting' ? 'waiting' : 'succeeded', providerState: mode === 'waiting' ? 'waiting' : 'success', model: KIE_MODEL, input: mode === 'wrong-task' ? { ...lastInput!, prompt: 'Other request' } : mode === 'swapped-faces' ? {...lastInput!, reference_image_urls: [...lastInput!.reference_image_urls].reverse()} : lastInput, progress: mode === 'waiting' ? 0 : 100, urls: ['https://media.example.test/completed.mp4'], creditsConsumed: 12, costTime: 15 } satisfies KieTask; },
     async downloadResult(_url, destination) { calls.downloads++; await copyFile(outputFile, destination); if (mode === 'missing-audio') await rename(path.join(path.dirname(destination), 'prepared-source.mp4'), path.join(path.dirname(destination), 'prepared-source.saved.mp4')); return { path: destination, bytes: (await stat(destination)).size, sha256: await kieFileHash(destination) }; },
   };
   const app = await createKieApplication({ dataRoot: root, apiClient: client, pollMs: 10 }); apps.push(app);
@@ -193,4 +195,82 @@ it('still prevents an identical unknown paid submission after stopping observati
   await request(f.app.app).post(`/api/kie/jobs/${first.id}/cancel`).send({}).expect(200);
   await request(f.app.app).post('/api/kie/jobs').set('Idempotency-Key', randomUUID()).send(draft).expect(400);
   expect(f.calls.creates).toHaveLength(1);
+});
+
+it('binds the optional facial reference as Image2 and recovers its accepted task without resubmission', async () => {
+  const f = await fixture(); await f.saveKey(); const draft = await f.inputs();
+  const face = (await request(f.app.app).post('/api/assets/image').attach('file', faceReference).expect(201)).body;
+  f.mode('waiting'); const job = await f.start({...draft, faceReferenceId:face.id});
+  const waiting = await until(() => f.app.store.job(job.id), j => j.kie?.phase === 'waiting');
+  expect(waiting.kie?.version).toBe('kie-wan3-v2');
+  expect(waiting.kie?.prompt).toContain('face from Image2'); expect(waiting.kie?.prompt).toContain('Use no clothing from Video1');
+  expect(waiting.kie?.prompt).toContain('LIP SYNC'); expect(waiting.kie?.prompt).not.toContain('red lace');
+  expect(f.calls.uploads).toEqual(['video','image','image']);
+  expect(f.calls.uploadDetails.slice(1)).toEqual([{kind:'image',file:'prepared-reference.png',role:undefined},{kind:'image',file:'prepared-face-reference.png',role:'face'}]);
+  const input = f.calls.creates[0]!;
+  expect(input.reference_image_urls).toEqual([`https://media.example.test/image/${waiting.kie?.referenceSHA256}`,`https://media.example.test/image/${waiting.kie?.faceReferenceSHA256}`]);
+  expect(input.reference_image_urls[0]).not.toBe(input.reference_image_urls[1]);
+  await request(f.app.app).post(`/api/kie/jobs/${job.id}/cancel`).send({}).expect(200);
+  f.mode('success'); await request(f.app.app).post(`/api/kie/jobs/${job.id}/recover`).send({}).expect(200);
+  await until(() => f.app.store.job(job.id), j => j.status === 'completed');
+  expect(f.calls.creates).toHaveLength(1); expect(f.calls.uploads).toHaveLength(3);
+  const receipt=(await request(f.app.app).get(`/api/jobs/${job.id}/receipt`).expect(200)).body;
+  expect(receipt.version).toBe('kie-wan3-v2'); expect(receipt.inputSHA256.face).toBe(waiting.kie?.faceReferenceSHA256);
+  expect(receipt.settings.faceReferenceId).toBe(face.id);
+});
+it('rejects a missing or video facial reference before uploads or paid task creation', async () => {
+  const f=await fixture(); await f.saveKey(); const draft=await f.inputs();
+  for (const faceReferenceId of ['missing-face',draft.sourceId]) {
+    await request(f.app.app).post('/api/kie/jobs').set('Idempotency-Key',randomUUID()).send({...draft,faceReferenceId}).expect(400);
+    await request(f.app.app).put('/api/kie/draft').send({...draft,faceReferenceId}).expect(400);
+  }
+  expect(f.calls.uploads).toEqual([]); expect(f.calls.creates).toEqual([]);
+});
+it('rejects changed original and cached face files before retrying a pre-submission upload', async () => {
+  const f=await fixture(); await f.saveKey(); const draft=await f.inputs();
+  const face=(await request(f.app.app).post('/api/assets/image').attach('file',faceReference).expect(201)).body;
+  f.mode('face-upload-fail'); const job=await f.start({...draft,faceReferenceId:face.id});
+  await until(()=>f.app.store.job(job.id),j=>j.status==='interrupted'); expect(f.calls.creates).toHaveLength(0);
+  const original=f.app.store.asset(face.id)!.path, prepared=path.join(f.root,'jobs',job.id,'prepared-face-reference.png');
+  const beforeOriginal=await readFile(original), beforePrepared=await readFile(prepared), uploads=f.calls.uploads.length;
+  f.mode('success');
+  for(const [file,bytes] of [[original,beforeOriginal],[prepared,beforePrepared]] as const){
+    await writeFile(file,Buffer.concat([bytes,Buffer.from('changed')]));
+    await request(f.app.app).post(`/api/kie/jobs/${job.id}/resume`).send({}).expect(200);
+    const held=await until(()=>f.app.store.job(job.id),j=>j.status==='interrupted'); expect(held.error).toMatch(/facial reference changed/);
+    expect(f.calls.creates).toHaveLength(0); expect(f.calls.uploads).toHaveLength(uploads); await writeFile(file,bytes);
+  }
+  await request(f.app.app).post(`/api/kie/jobs/${job.id}/resume`).send({}).expect(200);
+  await until(()=>f.app.store.job(job.id),j=>j.status==='completed');
+  expect(f.calls.creates).toHaveLength(1); expect(f.calls.uploads).toEqual(['video','image','image','image']);
+});
+it('checks both reference identities and their ordering before attaching an ambiguous paid task', async () => {
+  const f=await fixture(); await f.saveKey(); const draft=await f.inputs();
+  const face=(await request(f.app.app).post('/api/assets/image').attach('file',faceReference).expect(201)).body;
+  f.mode('ambiguous'); const job=await f.start({...draft,faceReferenceId:face.id});
+  await until(()=>f.app.store.job(job.id),j=>j.status==='interrupted');
+  f.mode('swapped-faces'); await request(f.app.app).post(`/api/kie/jobs/${job.id}/recover`).send({taskId:'existing_face_task'}).expect(400);
+  expect(f.app.store.job(job.id)?.kie?.taskId).toBeUndefined(); expect(f.calls.creates).toHaveLength(1);
+  f.mode('success'); await request(f.app.app).post(`/api/kie/jobs/${job.id}/recover`).send({taskId:'existing_face_task'}).expect(200);
+  await until(()=>f.app.store.job(job.id),j=>j.status==='completed'); expect(f.calls.creates).toHaveLength(1);
+});
+it('takes new output framing from Image1 and keeps the single-image route free of Image2 instructions', async () => {
+  const f=await fixture(); await f.saveKey(); const draft=await f.inputs();
+  const wide=(await request(f.app.app).post('/api/assets/image').attach('file',faceReference).expect(201)).body;
+  const job=await f.start({...draft,referenceId:wide.id});
+  await until(()=>f.app.store.job(job.id),j=>j.status==='completed');
+  expect(f.calls.creates[0]?.aspect_ratio).toBe('4:3'); expect(f.calls.creates[0]?.reference_image_urls).toHaveLength(1);
+  expect(f.calls.creates[0]?.prompt).not.toContain('Image2'); expect(f.calls.creates[0]?.prompt).toContain('camera framing come from Image1');
+});
+it('retains a legacy frozen draft and prompt exactly when an unsubmitted v1 job resumes', async () => {
+  const f=await fixture(); await f.saveKey(); const draft=await f.inputs(); delete draft.faceReferenceId;
+  const job=await f.app.jobs.create(draft,randomUUID());
+  const file=path.join(f.root,'jobs',job.id,'kie-inputs.json'), frozen=JSON.parse(await readFile(file,'utf8'));
+  const fullPrompt='Legacy source-clothing prompt; keep every original word.';
+  const fingerprint=createHash('sha256').update(JSON.stringify({draft,fullPrompt,sourceOriginalSHA256:frozen.sourceOriginalSHA256,referenceOriginalSHA256:frozen.referenceOriginalSHA256})).digest('hex');
+  job.kie!.version='kie-wan3-v1'; job.kie!.settings=draft; job.kie!.prompt=fullPrompt; job.kie!.requestFingerprint=fingerprint;
+  f.app.store.saveJob(job,false); await writeFile(file,JSON.stringify({...frozen,draft,fingerprint})); const before=await readFile(file);
+  await f.app.jobs.kick(); expect(f.app.store.job(job.id)?.status).toBe('completed');
+  expect(f.calls.creates[0]?.prompt).toBe(fullPrompt); expect(f.calls.creates[0]?.reference_image_urls).toHaveLength(1);
+  expect(await readFile(file)).toEqual(before); expect(f.app.store.job(job.id)?.kie?.settings).not.toHaveProperty('faceReferenceId');
 });

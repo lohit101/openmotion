@@ -4,7 +4,7 @@ This branch was requested on 4 November 2026 as an alternative to renting a GPU.
 
 ## API contract
 
-The application submits `wan/3-0-video` to `POST https://api.kie.ai/api/v1/jobs/createTask`. It uses reference mode: one motion video in `reference_video_urls` and one character image in `reference_image_urls`. The prompt identifies them as `Video1` and `Image1`. It does not combine reference mode with first/last-frame fields.
+The application submits `wan/3-0-video` to `POST https://api.kie.ai/api/v1/jobs/createTask`. It uses reference mode: one motion video in `reference_video_urls` and an ordered character image plus optional facial reference in `reference_image_urls`. The prompt identifies these as `Video1`, `Image1` and `Image2`; array order is preserved. It does not combine reference mode with first/last-frame fields.
 
 The quality field is always explicit: `480P` by default, with `720P` and `1080P` available. This matters because the provider's documented default is 1080P. The app accepts whole-second 2–15-second selections so reference plus requested output remains within the provider's 30-second combined limit. Start positions may be frame-aligned fractions.
 
@@ -13,6 +13,16 @@ Provider media constraints are checked before paid submission: reference videos 
 Uploads use the documented multipart endpoint `https://kieai.redpandaai.co/api/file-stream-upload`. Account verification reads `GET https://api.kie.ai/api/v1/chat/credit`. API errors may arrive with HTTP 200 and a non-200 body `code`, so HTTP status alone never establishes success.
 
 Tasks are followed through `GET /api/v1/jobs/recordInfo?taskId=…`. States include waiting, queuing, generating, success and fail. `resultJson` contains the returned media URLs. Local polling is appropriate because the app binds only to loopback and does not expose a public webhook. Reads may retry with backoff; a paid create request with an ambiguous outcome is not automatically repeated.
+
+## Character and facial-reference mapping (v2)
+
+The 5 November update follows the user's supplied prompt. New runs use `kie-wan3-v2`: Image1 supplies outfit/accessories, hair/body, background/lighting and camera framing; optional Image2 supplies the same character's facial identity, lips and teeth. Video1 supplies movement, hand motion, head turns, gaze, expressions and lip performance. The prompt requests stable identity from the first frame onward and exact lip timing; these are instructions to the generative model, not measured guarantees. Garment colors and scene objects from the example prompt are not hardcoded. Without a face image, the prompt consistently refers to Image1 for identity.
+
+Image2 is a separate upload, never a collage silently merged into Image1. Both images are independently validated against the existing provider image limits and flattened to opaque PNGs for upload. Distinct anonymous filenames prevent an Image2 upload from overwriting Image1. New requests choose output aspect ratio from Image1 because that image now supplies framing. Source trim, duration/quality options, original-audio handling and generation count are unchanged.
+
+The original face hash is included in the request fingerprint and frozen-input receipt. Prepared face bytes have a separate saved SHA-256; cached retries reject altered original/prepared face files before uploading or submitting. Provider input arrays are checked in order during recovery, including manual attachment of an unknown task. Completed run receipts save the face ID and hash. Library details display all supplied references, and Reuse restores the optional face input.
+
+The optional draft property has no schema-level default, so historical frozen settings retain their exact shape. Existing v1 jobs keep their saved literal prompt, image list, aspect ratio, task ID and receipt version on resume. No paid job is migrated or resampled. New explicit Generate uses the new mapping; existing custom instructions remain user-controlled.
 
 ## Data and lifecycle
 

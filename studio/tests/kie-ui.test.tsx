@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { defaults, type Bootstrap, type Job } from '../shared/types';
-import { kieDefaults, kiePrompt, kieResolutions, type KiePhase } from '../shared/kie';
+import { kieDefaults, kiePrompt, kieResolutions, kieDraftSchema, type KiePhase } from '../shared/kie';
 import { emptyModels } from '../shared/models';
 import { ActivityAlertTracker } from '../shared/alerts';
 import { limitedClip, trimLimitedClip } from '../shared/clip-limits';
@@ -57,6 +57,15 @@ describe('Kie character-swap UI', () => {
     const preview = renderToStaticMarkup(<KieMobilePanels pane="preview" select={() => {}} processing />);
     expect(preview).toContain('id="kie-preview-tab" role="tab" tabindex="0" aria-selected="true"');
     expect(preview).toContain('Video processing');
+  });
+
+  it('maps the face, outfit, scene and motion references without hardcoding the sample outfit', () => {
+    const face = kiePrompt('Keep the silver necklace.', true);
+    for (const text of ['face from Image2', 'outfit and accessories are exactly those from Image1', 'camera framing come from Image1', 'From Video1, take the body movement', 'LIP SYNC:', 'lips themselves, teeth and facial identity stay those of Image2', 'Keep the silver necklace.']) expect(face).toContain(text);
+    expect(face).not.toContain('red lace bikini'); expect(face).not.toContain('wooden door');
+    const single = kiePrompt(''); expect(single).not.toContain('Image2'); expect(single).toContain('face from Image1');
+    const legacy = {...kieDefaults}; delete legacy.faceReferenceId;
+    expect(kieDraftSchema.parse(legacy)).toEqual(legacy); expect(kieDraftSchema.parse(legacy)).not.toHaveProperty('faceReferenceId');
   });
 
   it('offers a password-only key entry and API connection settings without GPU/model controls', () => {

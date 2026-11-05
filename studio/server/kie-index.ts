@@ -65,7 +65,7 @@ export async function createKieApplication(options: { dataRoot?: string; fronten
   app.get('/api/kie/draft', (_req, res) => res.json(draft()));
   app.put('/api/kie/draft', (req, res) => {
     const value = kieDraftSchema.parse(req.body);
-    if (value.sourceId && store.asset(value.sourceId)?.kind !== 'video' || value.referenceId && store.asset(value.referenceId)?.kind !== 'image') throw new Error('One of the selected inputs no longer exists. Upload it again.');
+    if (value.sourceId && store.asset(value.sourceId)?.kind !== 'video' || value.referenceId && store.asset(value.referenceId)?.kind !== 'image' || value.faceReferenceId && store.asset(value.faceReferenceId)?.kind !== 'image') throw new Error('One of the selected inputs no longer exists. Upload it again.');
     store.set('kie-draft', value); store.emit('event', { type: 'kie-draft', data: value }); res.json(value);
   });
   const upload = multer({ dest: path.join(root, 'uploads'), limits: { files: 1, fileSize: 512 * 1024 ** 2, fields: 0 } });

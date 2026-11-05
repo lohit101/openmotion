@@ -60,6 +60,15 @@ describe('Kie authenticated API', () => {
     expect(await client.createTask(key, { ...input, audio: true, aspect_ratio: '16:9', first_frame_url: 'not sent', nsfw_checker: true } as KieVideoInput)).toEqual({ taskId: 'task_wan_12345' });
     expect(transport).toHaveBeenCalledTimes(1);
   });
+  it('keeps character then facial reference ordering in the provider payload', async () => {
+    const reference_image_urls = [...input.reference_image_urls, 'https://tempfile.redpandaai.co/face-reference.png'];
+    const transport=vi.fn<KieTransport>(async request => {
+      expect(JSON.parse((await body(request)).toString()).input.reference_image_urls).toEqual(reference_image_urls);
+      return response(200,{code:200,data:{taskId:'two_reference_task'}});
+    });
+    await new KieClient({transport,lookup,sleep}).createTask(key,{...input,reference_image_urls});
+    expect(transport).toHaveBeenCalledOnce();
+  });
   it.each([
     ['socket', async () => { throw new Error('socket closed after accepting bytes'); }, 'ambiguous'],
     ['unreadable', async () => response(200, 'broken JSON'), 'ambiguous'],
@@ -146,6 +155,19 @@ describe('Kie file upload', () => {
       expect(observed.body).toContain('recast/00000000-0000-0000-0000-000000000001'); expect(observed.body).toContain('filename="source.mp4"');
       expect(observed.body).not.toContain('private-person-holiday'); expect(observed.body).toContain('video-fixture');
     } finally { server.close(); await once(server, 'close'); }
+  }));
+  it('uses distinct anonymous names for the two image roles in the same job', async () => temporary(async directory => {
+    const original=path.join(directory,'private-person-face.png'); await writeFile(original,'image-fixture');
+    const names:string[]=[];
+    const transport=vi.fn<KieTransport>(async request=>{
+      const bytes=(await body(request)).toString(); expect(bytes).not.toContain('private-person-face');
+      const name=bytes.match(/name="fileName"\r\n\r\n([^\r]+)/)?.[1]; names.push(name!);
+      return response(200,{code:200,success:true,data:{downloadUrl:`https://tempfile.redpandaai.co/${name}`}});
+    });
+    const client=new KieClient({transport,lookup,sleep}), jobId='00000000-0000-0000-0000-000000000001';
+    await client.uploadFile(original,key,'image',undefined,{jobId});
+    await client.uploadFile(original,key,'image',undefined,{jobId,imageRole:'face'});
+    expect(names).toEqual(['reference.png','face-reference.png']);
   }));
   it('rejects oversized files and symlinks before an upload POST', async () => temporary(async directory => {
     const file = path.join(directory, 'oversize.mp4'), linked = path.join(directory, 'linked.mp4');

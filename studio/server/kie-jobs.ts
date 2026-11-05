@@ -16,9 +16,9 @@ const hashText = (value: unknown) => createHash('sha256').update(JSON.stringify(
 export async function kieFileHash(file: string) { const hash = createHash('sha256'); for await (const chunk of createReadStream(file)) hash.update(chunk); return hash.digest('hex'); }
 async function json(file: string, value: unknown) { const temporary = file + '.tmp'; await writeFile(temporary, JSON.stringify(value) + '\n'); await rename(temporary, file); }
 async function readJSON<T>(file: string): Promise<T | null> { try { return JSON.parse(await readFile(file, 'utf8')); } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null; throw new Error('A saved Kie task receipt is unreadable. Keep its files and restore the receipt before recovery.'); } }
-interface Frozen { version: 1; draft: KieDraft; fingerprint: string; sourceOriginalSHA256: string; referenceOriginalSHA256: string; }
-interface Prepared { fingerprint: string; sourceSHA256: string; referenceSHA256: string; duration: number; hasAudio: boolean; }
-interface Uploads { source?: { url: string; expiresAt?: string | number }; reference?: { url: string; expiresAt?: string | number }; }
+interface Frozen { version: 1; draft: KieDraft; fingerprint: string; sourceOriginalSHA256: string; referenceOriginalSHA256: string; faceOriginalSHA256?: string; }
+interface Prepared { fingerprint: string; sourceSHA256: string; referenceSHA256: string; faceReferenceSHA256?: string; duration: number; hasAudio: boolean; }
+interface Uploads { source?: { url: string; expiresAt?: string | number }; reference?: { url: string; expiresAt?: string | number }; face?: { url: string; expiresAt?: string | number }; }
 interface Intent { fingerprint: string; input: KieVideoInput; attemptedAt: string; state: 'not-submitted' | 'submitting' | 'submitted' | 'unknown' | 'rejected'; taskId?: string; }
 const same = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
 export class KieJobs {
@@ -62,24 +62,28 @@ export class KieJobs {
     this.account.key();
     const source = this.store.asset(draft.sourceId || ''), reference = this.store.asset(draft.referenceId || '');
     if (!source || source.kind !== 'video' || !reference || reference.kind !== 'image') throw new Error('Upload a source video and one character image first.');
-    const fullPrompt = kiePrompt(draft.prompt); if (fullPrompt.length > 20000) throw new Error('The complete prompt exceeds Kie.ai’s 20,000-character limit. Shorten the additional instructions.');
+    const face = draft.faceReferenceId ? this.store.asset(draft.faceReferenceId) : null;
+    if (draft.faceReferenceId && (!face || face.kind !== 'image')) throw new Error('Upload a valid facial reference image, or remove the optional face reference.');
+    const fullPrompt = kiePrompt(draft.prompt, !!face); if (fullPrompt.length > 20000) throw new Error('The complete prompt exceeds Kie.ai’s 20,000-character limit. Shorten the additional instructions.');
     const meta = await probe(source.path), image = await probe(reference.path);
     this.dimensions(meta, 'video', 4096); this.dimensions(image, 'image', 8000);
     if (draft.start + draft.seconds > meta.duration + 1e-6) throw new Error('The selection extends beyond the available video. Choose a whole 2–15 second interval inside the source video.');
     if ((await stat(reference.path)).size > 20_000_000) throw new Error('The character image must be at most 20 MB.');
+    if (face) { this.dimensions(await probe(face.path), 'facial reference', 8000); if ((await stat(face.path)).size > 20_000_000) throw new Error('The facial reference must be at most 20 MB.'); }
     const [sourceOriginalSHA256, referenceOriginalSHA256] = await Promise.all([kieFileHash(source.path), kieFileHash(reference.path)]);
-    const fingerprint = hashText({ draft, fullPrompt, sourceOriginalSHA256, referenceOriginalSHA256 });
+    const faceBinding = face ? { faceOriginalSHA256: await kieFileHash(face.path) } : {};
+    const fingerprint = hashText({ draft, fullPrompt, sourceOriginalSHA256, referenceOriginalSHA256, ...faceBinding });
     const unresolved = this.store.jobs().find(job => job.kie?.requestFingerprint === fingerprint && (active.includes(job.status) || ['submitting', 'unknown'].includes(job.kie.submission) || job.kie.taskId && job.status !== 'cancelled' && !['complete', 'failed'].includes(job.kie.phase)));
     if (unresolved) throw new Error(`This same request already has saved work (${unresolved.id}). Open it in My library and choose Check & resume. No duplicate task was submitted.`);
     const space = await statfs(this.store.root); if (space.bavail * space.bsize < 1024 ** 3) throw new Error('Free at least 1 GB of local storage before generating.');
     const duplicate = this.store.byKey(key); if (duplicate) return duplicate;
     const id = randomUUID(), createdAt = new Date().toISOString(), folder = path.join(this.store.root, 'jobs', id); await mkdir(folder, { recursive: true });
-    const frozen: Frozen = { version: 1, draft, fingerprint, sourceOriginalSHA256, referenceOriginalSHA256 }; await json(path.join(folder, 'kie-inputs.json'), frozen);
+    const frozen: Frozen = { version: 1, draft, fingerprint, sourceOriginalSHA256, referenceOriginalSHA256, ...faceBinding }; await json(path.join(folder, 'kie-inputs.json'), frozen);
     const job: Job = { id, title: source.name.replace(/\.[^.]+$/, '').slice(0, 95) + ' / character swap', status: 'queued', sourceId: source.id, referenceId: reference.id, createdAt, favorite: false, deleted: false,
-      width: source.width, height: source.height, segments: [], context: '', pendingPrompt: null, uploads: null, error: null, output: null, poster: null, cancelRequested: false, elapsedSeconds: null, origin: 'api', workflow: null,
+      width: reference.width, height: reference.height, segments: [], context: '', pendingPrompt: null, uploads: null, error: null, output: null, poster: null, cancelRequested: false, elapsedSeconds: null, origin: 'api', workflow: null,
       // Legacy storage container only. It is never compiled or shown as a GPU workflow.
       settings: { ...defaults, engine: 'scail2', prompt: fullPrompt, seconds: draft.seconds, start: draft.start, seed: draft.seed || 0, randomSeed: draft.seed === null, resolution: draft.resolution === '480P' ? '480' : '720', facialConsistency: 'off', facialOcclusionTracking: false, imagenRepaintEnabled: false },
-      kie: { aspectRatio: this.aspect(meta.width, meta.height), version: 'kie-wan3-v1', provider: 'kie.ai', model: KIE_MODEL, settings: draft, prompt: fullPrompt, phase: 'preparing', submission: 'not-submitted', requestFingerprint: fingerprint, sourceAudio: meta.hasAudio, warnings: [] },
+      kie: { aspectRatio: this.aspect(image.width, image.height), version: 'kie-wan3-v2', provider: 'kie.ai', model: KIE_MODEL, settings: draft, prompt: fullPrompt, phase: 'preparing', submission: 'not-submitted', requestFingerprint: fingerprint, sourceAudio: meta.hasAudio, warnings: [] },
       progress: { stage: 'Queued for Kie.ai', node: null, value: null, max: null, unit: 'items', segment: 1, segments: 1, completedFrames: 0, targetFrames: 0, updatedAt: Date.now() } };
     const raced = this.store.jobs().find(item => item.kie?.requestFingerprint === fingerprint && (active.includes(item.status) || ['submitting', 'unknown'].includes(item.kie.submission)));
     if (raced) throw new Error(`This same request is already saved (${raced.id}). Open its existing run instead of submitting another task.`);
@@ -112,10 +116,14 @@ export class KieJobs {
     if (!frozen || frozen.fingerprint !== job.kie!.requestFingerprint || !same(frozen.draft, job.kie!.settings)) throw new Error('The frozen Kie input settings changed. No new task was submitted.');
     const source = this.store.asset(job.sourceId), reference = this.store.asset(job.referenceId);
     if (!source || !reference || await kieFileHash(source.path) !== frozen.sourceOriginalSHA256 || await kieFileHash(reference.path) !== frozen.referenceOriginalSHA256) throw new Error('An original input changed or is missing. Restore it before resuming; existing task IDs remain saved.');
+    const face = frozen.draft.faceReferenceId ? this.store.asset(frozen.draft.faceReferenceId) : null;
+    if (frozen.draft.faceReferenceId && (!face || face.kind !== 'image' || !frozen.faceOriginalSHA256 || await kieFileHash(face.path) !== frozen.faceOriginalSHA256)) throw new Error('The original facial reference changed or is missing. Restore it before resuming; existing task IDs remain saved.');
     const clip = path.join(folder, 'prepared-source.mp4'), ref = path.join(folder, 'prepared-reference.png'), receipt = path.join(folder, 'kie-prepared.json');
+    const faceFile = path.join(folder, 'prepared-face-reference.png');
     const saved = await readJSON<Prepared>(receipt);
     if (saved) {
       if (saved.fingerprint !== frozen.fingerprint || !existsSync(clip) || !existsSync(ref) || await kieFileHash(clip) !== saved.sourceSHA256 || await kieFileHash(ref) !== saved.referenceSHA256) throw new Error('A prepared Kie input changed. Keep its receipt and restore the saved media.');
+      if (face && (!saved.faceReferenceSHA256 || !existsSync(faceFile) || await kieFileHash(faceFile) !== saved.faceReferenceSHA256)) throw new Error('The prepared facial reference changed. Restore it before resuming.');
       return saved;
     }
     this.stage(job, 'preparing', 'Preparing the selected source clip'); const draft = frozen.draft;
@@ -131,7 +139,11 @@ export class KieJobs {
     // retaining the original image separately and recording this preparation.
     await command('ffmpeg', ['-v', 'error', '-nostdin', '-y', '-threads', '2', '-f', 'lavfi', '-i', `color=c=white:s=${reference.width}x${reference.height}`, '-i', reference.path, '-filter_complex', '[0:v][1:v]overlay=shortest=1,format=rgb24', '-frames:v', '1', '-threads', '2', ref], signal, 45000);
     if ((await stat(ref)).size > 20_000_000) throw new Error('The opaque prepared character image exceeds Kie.ai’s 20 MB limit. Resize the reference image and try a new request.');
-    const prepared: Prepared = { fingerprint: frozen.fingerprint, sourceSHA256: await kieFileHash(clip), referenceSHA256: await kieFileHash(ref), duration: video.duration, hasAudio: video.hasAudio };
+    if (face) {
+      await command('ffmpeg', ['-v', 'error', '-nostdin', '-y', '-threads', '2', '-f', 'lavfi', '-i', `color=c=white:s=${face.width}x${face.height}`, '-i', face.path, '-filter_complex', '[0:v][1:v]overlay=shortest=1,format=rgb24', '-frames:v', '1', '-threads', '2', faceFile], signal, 45000);
+      if ((await stat(faceFile)).size > 20_000_000) throw new Error('The opaque prepared facial reference exceeds Kie.ai’s 20 MB limit. Resize it and try a new request.');
+    }
+    const prepared: Prepared = { fingerprint: frozen.fingerprint, sourceSHA256: await kieFileHash(clip), referenceSHA256: await kieFileHash(ref), ...(face ? { faceReferenceSHA256: await kieFileHash(faceFile) } : {}), duration: video.duration, hasAudio: video.hasAudio };
     await json(receipt, prepared); return prepared;
   }
   private async run(job: Job, signal: AbortSignal) {
@@ -146,15 +158,19 @@ export class KieJobs {
       if (!run.taskId && (run.submission === 'unknown' || intent && ['submitting', 'unknown'].includes(intent.state))) throw new Error('Submission outcome is unknown. Check your Kie.ai task history and attach the existing task ID. Automatic resubmission is blocked to avoid another charge.');
       if (!run.taskId) {
         const balance = await this.account.refresh(); if (!(balance.credits! > 0)) throw new Error('Your Kie.ai credit balance is empty. Add credits before generating.');
-        const prepared = await this.prepare(job, signal); run.sourceSHA256 = prepared.sourceSHA256; run.referenceSHA256 = prepared.referenceSHA256; run.sourceDuration = prepared.duration; run.sourceAudio = prepared.hasAudio; this.store.saveJob(job);
+        const prepared = await this.prepare(job, signal); run.sourceSHA256 = prepared.sourceSHA256; run.referenceSHA256 = prepared.referenceSHA256; if (prepared.faceReferenceSHA256) run.faceReferenceSHA256 = prepared.faceReferenceSHA256; run.sourceDuration = prepared.duration; run.sourceAudio = prepared.hasAudio; this.store.saveJob(job);
         const uploadsFile = path.join(folder, 'kie-uploads.json'), uploads = await readJSON<Uploads>(uploadsFile) || {};
         const usable = (entry?: Uploads['source']) => entry && (!entry.expiresAt || (typeof entry.expiresAt === 'number' ? entry.expiresAt : Date.parse(entry.expiresAt)) > Date.now() + 60000);
         this.stage(job, 'uploading', 'Uploading selected video to Kie.ai');
         if (!usable(uploads.source)) { uploads.source = await this.client.uploadFile(path.join(folder, 'prepared-source.mp4'), key, 'video', signal, { jobId: job.id }); await json(uploadsFile, uploads); }
         this.stage(job, 'uploading', 'Uploading character reference to Kie.ai');
         if (!usable(uploads.reference)) { uploads.reference = await this.client.uploadFile(path.join(folder, 'prepared-reference.png'), key, 'image', signal, { jobId: job.id }); await json(uploadsFile, uploads); }
+        if (run.settings.faceReferenceId) {
+          this.stage(job, 'uploading', 'Uploading facial identity reference to Kie.ai');
+          if (!usable(uploads.face)) { uploads.face = await this.client.uploadFile(path.join(folder, 'prepared-face-reference.png'), key, 'image', signal, { jobId: job.id, imageRole: 'face' }); await json(uploadsFile, uploads); }
+        }
         signal.throwIfAborted();
-        const input: KieVideoInput = { prompt: run.prompt, reference_video_urls: [uploads.source!.url], reference_image_urls: [uploads.reference!.url], resolution: run.settings.resolution, duration: run.settings.seconds, aspect_ratio: run.aspectRatio || 'adaptive', audio: !run.settings.keepSourceAudio, ...(run.settings.seed === null ? {} : { seed: run.settings.seed }) };
+        const input: KieVideoInput = { prompt: run.prompt, reference_video_urls: [uploads.source!.url], reference_image_urls: [uploads.reference!.url, ...(run.settings.faceReferenceId ? [uploads.face!.url] : [])], resolution: run.settings.resolution, duration: run.settings.seconds, aspect_ratio: run.aspectRatio || 'adaptive', audio: !run.settings.keepSourceAudio, ...(run.settings.seed === null ? {} : { seed: run.settings.seed }) };
         intent = { fingerprint: run.requestFingerprint, input, attemptedAt: new Date().toISOString(), state: 'submitting' };
         await json(intentFile, intent); run.submission = 'submitting'; run.accountFingerprint = this.account.fingerprint(); job.submitting = true; this.stage(job, 'submitting', 'Submitting one Kie.ai task');
         try {
@@ -245,7 +261,7 @@ export class KieJobs {
     run.output = { width: actual.width, height: actual.height, fps: actual.fps, duration: actual.duration, frames: actualClock.frames, sha256: await kieFileHash(output), audio: useAudio ? 'source' : generatedAudio ? 'generated' : 'none', warnings };
     run.warnings = warnings; run.phase = 'complete'; job.output = output; job.poster = thumbnail; job.outputSize = { width: actual.width, height: actual.height }; job.width = actual.width; job.height = actual.height;
     job.progress.targetFrames = actualClock.frames; job.progress.completedFrames = actualClock.frames; job.status = 'completed'; job.error = null; job.finishedAt = new Date().toISOString(); job.elapsedSeconds = (Date.parse(job.finishedAt) - Date.parse(job.startedAt || job.createdAt)) / 1000;
-    await json(path.join(folder, 'kie-receipt.json'), { version: 'kie-wan3-v1', taskId: run.taskId, provider: run.provider, model: run.model, settings: run.settings, prompt: run.prompt, inputSHA256: { source: run.sourceSHA256, reference: run.referenceSHA256 }, output: run.output, submittedAt: run.submittedAt, completedAt: job.finishedAt, submittedAspectRatio: run.aspectRatio, actualSourceDuration: run.sourceDuration, providerSeconds: run.providerSeconds ?? null, creditsConsumed: run.creditsConsumed ?? null });
+    await json(path.join(folder, 'kie-receipt.json'), { version: run.version, taskId: run.taskId, provider: run.provider, model: run.model, settings: run.settings, prompt: run.prompt, inputSHA256: { source: run.sourceSHA256, reference: run.referenceSHA256, ...(run.faceReferenceSHA256 ? { face: run.faceReferenceSHA256 } : {}) }, output: run.output, submittedAt: run.submittedAt, completedAt: job.finishedAt, submittedAspectRatio: run.aspectRatio, actualSourceDuration: run.sourceDuration, providerSeconds: run.providerSeconds ?? null, creditsConsumed: run.creditsConsumed ?? null });
     this.stage(job, 'complete', 'Your video is ready', 100, 100, 'percent');
   }
   async cancel(job: Job) {
