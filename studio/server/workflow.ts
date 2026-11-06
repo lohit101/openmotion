@@ -73,14 +73,19 @@ export function validateGraph(graph: Graph, catalog: Catalog) {
       if (!rule) {
         const [root, child, ...rest] = name.split('.'), growing = fields[root];
         if (!rest.length && growing?.[0] === 'COMFY_AUTOGROW_V3') {
-          const template = (growing[1] as { template?: { names?: string[]; input?: { required?: Record<string, typeof rule> } } } | undefined)?.template, definitions = Object.values(template?.input?.required || {});
-          if (template?.names?.includes(child) && definitions.length === 1) rule = definitions[0] as typeof rule;
+          const template = (growing[1] as { template?: { names?: string[]; prefix?: string; max?: number; input?: { required?: Record<string, typeof rule> } } } | undefined)?.template, definitions = Object.values(template?.input?.required || {});
+          const suffix = template?.prefix && child?.startsWith(template.prefix) ? child.slice(template.prefix.length) : '';
+          const numbered = /^(0|[1-9]\d*)$/.test(suffix) && Number.isSafeInteger(Number(suffix)) && typeof template?.max === 'number' && Number(suffix) < template.max;
+          if ((template?.names?.includes(child) || numbered) && definitions.length === 1) rule = definitions[0] as typeof rule;
         }
       }
       if (!rule) { if (node.class_type !== 'VHS_VideoCombine') issues.push(`Unsupported input ${id}.${name}.`); continue; }
       const linked = Array.isArray(value) && value.length === 2 && typeof value[0] === 'string' && typeof value[1] === 'number';
       if (linked) { const parent = graph[value[0] as string]; if (!parent || !catalog[parent.class_type]?.output[value[1] as number]) issues.push(`Broken workflow connection at ${id}.${name}.`); }
-      else if (Array.isArray(rule[0]) && !(rule[0] as unknown[]).includes(value)) issues.push(`Unavailable ${name}: ${String(value)}.`);
+      else {
+        const choices = Array.isArray(rule[0]) ? rule[0] : rule[0] === 'COMBO' ? (rule[1] as { options?: unknown[] } | undefined)?.options : undefined;
+        if (Array.isArray(choices) && !choices.includes(value)) issues.push(`Unavailable ${name}: ${String(value)}.`);
+      }
     }
   }
   return issues;

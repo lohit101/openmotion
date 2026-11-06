@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import inspect
 from pathlib import Path
 
 import vast
@@ -44,6 +45,36 @@ def register_download_paths(config, files):
         # Cached engines may predate a newly added extra-model-path category.
         # An owned file alias is discoverable immediately by the native loader.
         vast.remote(config, ['python3', '-c', MODEL_PATCH_PATHS, config['remote_root'], json.dumps(patches)])
+    native = json.loads((Path(__file__).resolve().parents[1] / 'config/openjutsu-models.lock.json').read_text())
+    owned = {f['destination'] for f in native['files']} | set(native['shared'])
+    destinations = [f['destination'] for f in files if f['destination'] in owned]
+    if destinations:
+        from gpu_files import active_comfy_root
+        code = inspect.getsource(active_comfy_root) + '''
+import sys,json
+from pathlib import Path
+root=Path(sys.argv[1]);engine=active_comfy_root(root)
+if engine is None:
+    engine=Path(json.loads((root/'state/install.json').read_text())['comfy_root'])
+for name in json.loads(sys.argv[2]):
+    relative=Path(name)
+    if relative.is_absolute() or '..' in relative.parts or len(relative.parts)<2:raise ValueError('Invalid model destination')
+    source=root/'models'/relative;alias=engine/'models'/relative
+    if source.is_symlink() or not source.is_file():raise ValueError('The downloaded model is unavailable')
+    if alias==source:continue
+    parent=engine/'models'
+    if parent.is_symlink():raise ValueError('Refusing a linked model directory')
+    for part in relative.parts[:-1]:
+        parent=parent/part
+        if parent.is_symlink():raise ValueError('Refusing a linked model category')
+    alias.parent.mkdir(parents=True,exist_ok=True)
+    if alias.exists() or alias.is_symlink():
+        if alias.is_symlink() and alias.resolve()==source.resolve():continue
+        if alias.is_file() and alias.stat().st_size==source.stat().st_size:continue
+        raise ValueError('An existing model has the same name; it was kept')
+    alias.symlink_to(source)
+'''
+        vast.remote(config, ['python3', '-c', code, config['remote_root'], json.dumps(destinations)])
 
 
 def check_connection(config, instance_id):
@@ -96,15 +127,29 @@ def main():
                     ' except FileNotFoundError:continue\n'
                     ' if (str(root.parent/"facial-runtime/scripts/facial_worker.py").encode() in args and b"prepare" in args) or (str(root.parent).encode() in args and b"worker" in args and any(a.endswith(b"/model_setup_worker.py") for a in args)):result["facialPreparing"]=True;break\n'
                     'print("RECAST_MODEL_STORAGE "+json.dumps(result))')
+            # The user's working OpenJutsu installation may already own these
+            # weights outside the older managed directory. Inspect its actual
+            # files rather than downloading another copy based on a stale root.
+            from gpu_files import active_comfy_root
+            extra = ('\nengine=active_comfy_root(root.parent)\n'
+                     'if engine is not None:\n'
+                     ' for f in json.loads(sys.argv[14]):\n'
+                     '  p=engine/"models"/f["destination"]\n'
+                     '  if p.is_file() and p.stat().st_size==f["size"]:result["files"].append({"id":f["destination"],"size":p.stat().st_size})\n'
+                     ' result["loras"] += [f for f in inventory(engine/"models")["loras"] if f["name"] not in {x["name"] for x in result["loras"]}]\n')
+            code = inspect.getsource(active_comfy_root) + '\n' + code.replace('print("RECAST_MODEL_STORAGE "+json.dumps(result))', extra + 'print("RECAST_MODEL_STORAGE "+json.dumps(result))')
             facial = __import__('managed_facial_consistency')
             geometry = {f'source-face-v{n}': facial.fingerprint(f'source-face-v{n}') for n in [6, 7, 8]}
             boundary = {f'source-face-v{n}': facial.fingerprint(f'source-face-v{n}') for n in [9, 10]}
             from facial_runtime import compatible_worker_hashes
-            vast.remote(config, ['python3', '-c', code, str(root / 'scripts'), str(root / 'models'), json.dumps(selected_manifest()['files']),json.dumps(face_files), facial.fingerprint('source-face-v2'), facial.digest(facial.ROOT / 'scripts/video_timing.py'), facial.fingerprint('source-face-v3'), json.dumps(compatible_worker_hashes()), facial.fingerprint('source-face-v4'), facial.fingerprint('source-face-v5'), json.dumps(geometry), json.dumps(boundary), facial.fingerprint('source-face-v11')])
+            native_files = json.loads((Path(__file__).resolve().parents[1] / 'config/openjutsu-models.lock.json').read_text())
+            native_ids = [f['destination'] for f in native_files['files']] + native_files['shared']
+            vast.remote(config, ['python3', '-c', code, str(root / 'scripts'), str(root / 'models'), json.dumps(selected_manifest()['files']),json.dumps(face_files), facial.fingerprint('source-face-v2'), facial.digest(facial.ROOT / 'scripts/video_timing.py'), facial.fingerprint('source-face-v3'), json.dumps(compatible_worker_hashes()), facial.fingerprint('source-face-v4'), facial.fingerprint('source-face-v5'), json.dumps(geometry), json.dumps(boundary), facial.fingerprint('source-face-v11'), json.dumps(selected_manifest(native_ids)['files'])])
             return
         # Execute the current small storage helper without reinstalling the
         # engine or relying on an older helper on a retained rental.
-        command = ['python3', '-c', Path(__file__).with_name('model_storage.py').read_text(), '--model-dir', str(root / 'models')]
+        from gpu_files import active_comfy_root
+        command = ['python3', '-c', inspect.getsource(active_comfy_root) + '\n' + Path(__file__).with_name('model_storage.py').read_text(), '--model-dir', str(root / 'models')]
         if args.action == 'delete':
             from model_storage import lora_parts, relative_parts
             if args.file is not None:
@@ -120,6 +165,8 @@ def main():
                         raise ValueError('Only catalog models and custom LoRAs can be deleted.')
                     lora_parts(args.file[6:])
                 command.extend(['--delete-file', args.file, '--allowed-files', json.dumps(allowed), '--face-dir', str(root / 'face-refinement-runtime/.local/facefusion-eval'), '--face-files', json.dumps(face_files)])
+                native = json.loads((Path(__file__).resolve().parents[1] / 'config/openjutsu-models.lock.json').read_text())
+                command.extend(['--native-workspace', str(root), '--native-files', json.dumps([f['destination'] for f in native['files']] + native['shared'])])
             else:
                 lora_parts(args.lora)
                 command.extend(['--delete-lora', args.lora])

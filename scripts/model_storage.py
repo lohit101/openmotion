@@ -110,7 +110,15 @@ def main():
     parser.add_argument('--allowed-files', default='[]')
     parser.add_argument('--face-dir', type=Path)
     parser.add_argument('--face-files', default='{}')
+    parser.add_argument('--native-workspace')
+    parser.add_argument('--native-files', default='[]')
     args = parser.parse_args()
+    if args.native_workspace and args.delete_file in json.loads(args.native_files) and not (args.model_dir / args.delete_file).exists():
+        if 'active_comfy_root' not in globals():
+            from gpu_files import active_comfy_root
+        engine = active_comfy_root(args.native_workspace)
+        if engine is not None and (engine / 'models' / args.delete_file).is_file():
+            args.model_dir = engine / 'models'
     if args.delete_file is not None:
         face_files = json.loads(args.face_files)
         if args.delete_file.startswith('face-refinement/'):

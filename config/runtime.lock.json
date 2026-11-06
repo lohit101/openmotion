@@ -1,6 +1,6 @@
 {
   "comfyui_repo": "https://github.com/Comfy-Org/ComfyUI.git",
-  "comfyui_commit": "fb3befd168731438f88bc96e0920a538e8649878",
+  "comfyui_commit": "63e5bf594339f676b4b15e072529873e3448409e",
   "video_helper_repo": "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git",
   "video_helper_commit": "4d907bee61e92c2e65af3bd6383a4e4d356126d1",
   "viggle_repo": "https://github.com/Saganaki22/ComfyUI-Viggle-Animate-H3.git",

@@ -1,0 +1,46 @@
+{
+  "total_bytes": 51162804168,
+  "files": [
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "revision": "54472221d27c695fca9621b0c3ed52f06c4af707",
+      "filename": "diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "destination": "diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "size": 20970379616,
+      "sha256": "9255f52b6677845ad238f20dfaafa94727053694127ab7f255c048f0f9365779",
+      "license": "other"
+    },
+    {
+      "repo": "Merserk/MiniMax-H3-INT4-ConvRot",
+      "revision": "3c167bc916cab6cf3b85b9e3769952757ebb2e5d",
+      "filename": "qwen3vl_32b_minimax_h3_int4_convrot.safetensors",
+      "destination": "text_encoders/qwen3vl_32b_minimax_h3_int4_convrot.safetensors",
+      "size": 14952506624,
+      "sha256": "4389571ab5db4180bcae33d13d07855319530f60a85ab0f1061379401a8ef66c",
+      "license": "other"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "revision": "54472221d27c695fca9621b0c3ed52f06c4af707",
+      "filename": "vae/minimax_h3_audio_vae_fp32.safetensors",
+      "destination": "vae/minimax_h3_audio_vae_fp32.safetensors",
+      "size": 605254808,
+      "sha256": "8e505d95dd1561d47abd43d4238fd40d9bb1ae9e147ed0a4cba778d76ae4db48",
+      "license": "other"
+    },
+    {
+      "repo": "Kijai/MiniMax-H3-experimental",
+      "revision": "f5c3b1d5a63e008a691fca1b6096fd57a5307536",
+      "filename": "loras/minimax_h3_DMAD_4step_full_lora_avg_rank_39_bf16.safetensors",
+      "destination": "loras/minimax_h3_DMAD_4step_full_lora_avg_rank_39_bf16.safetensors",
+      "size": 366647000,
+      "sha256": "ddfdd94f4c9a0f32bf3649bb8e98ca20db572e4db6bcd9cca546a5b33ea32d11",
+      "license": "See upstream model terms"
+    }
+  ],
+  "shared": [
+    "vae/minimax_h3_video_vae_int8_convrot.safetensors",
+    "checkpoints/sam3.1_multiplex_fp16.safetensors",
+    "text_encoders/qwen3vl_8b_int8_convrot.safetensors"
+  ]
+}

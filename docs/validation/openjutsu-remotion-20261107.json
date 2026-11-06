@@ -1,0 +1,103 @@
+{
+  "date": "2026-11-07",
+  "branch": "feat/openjutsu-remotion",
+  "base": "9e2d73f",
+  "storageFeatureParent": "b291b07",
+  "feature": "Native OpenJutsu Simple motion transfer in Remotion",
+  "evidence": {
+    "browserOriginConfirmedByUser": true,
+    "nativeCompletedGraphReceipts": 3,
+    "nativeGraphNodes": 59,
+    "graphParity": "All node classes/static inputs match after media-name, is_changed and resolved plan_json annotation normalization. Recast adds one unique run-name node on submission.",
+    "source": "User-requested Desktop OpenJutsu working tree; exact copied bytes in vendor provenance.",
+    "referenceSceneInRecoveredRuns": false
+  },
+  "preset": {
+    "resolution": "480p",
+    "steps": 6,
+    "adapter": "DMAD rank 39",
+    "adapterStrength": 1,
+    "motionLongEdge": 512,
+    "seed": 0,
+    "segmentSeconds": 15,
+    "selectionSeconds": 6,
+    "noLipSync": false,
+    "referenceScene": false,
+    "automaticFaceFinishing": false
+  },
+  "dependencies": {
+    "files": 7,
+    "bytes": 51162804168,
+    "newCatalogEntries": 4,
+    "sharedEntries": 3,
+    "runtimeManifest": "config/openjutsu-runtime.lock.json",
+    "modelManifest": "config/openjutsu-models.lock.json",
+    "copiedLicense": "MIT; model terms remain separate"
+  },
+  "validation": {
+    "studio": {
+      "passed": 685,
+      "files": 58
+    },
+    "python": {
+      "run": 360,
+      "skipped": 1,
+      "failed": 0
+    },
+    "typecheck": "passed",
+    "productionBuild": "passed",
+    "diffCheck": "passed",
+    "regressions": [
+      "Three actual native saved graphs and exact vendor hashes",
+      "Shared file deduplication and selected-only dependency plan",
+      "Prefix-based COMFY_AUTOGROW_V3, bounded names, broken links and native COMBO choices",
+      "Independent saved settings, idempotent creation, no implicit submission",
+      "Connection change during admission and before upload/submission",
+      "Native final-assembly images descriptor and saved-receipt download recovery",
+      "Byte-identical native video export and offline local completion",
+      "Lost submission acknowledgement never resubmits automatically",
+      "Tool input-interface readiness, read-only ready engines, busy/unknown queues and unresolved worker startup"
+    ],
+    "runningEngineReadOnly": {
+      "sourceSceneIssues": [],
+      "referenceSceneIssues": [],
+      "selectedFilesAvailable": 7,
+      "toolsReady": true,
+      "queueRunning": 0,
+      "queuePending": 0,
+      "generateSubmitted": false
+    },
+    "browser": {
+      "method": "Native Chrome through CUA; separate local preview",
+      "checked": [
+        "Input poster layout and filename containment",
+        "Native advanced values: 6 steps / 15 seconds / 512px / seed 0 / DMAD 1",
+        "Both explicit scene choices and restore imported preset",
+        "Downloads 7/7 ready and Generate enabled"
+      ],
+      "generateClicked": false,
+      "mobileReview": false
+    }
+  },
+  "scope": {
+    "modelDownloads": 0,
+    "remoteInstalls": 0,
+    "gpuInference": 0,
+    "computeResumeRentStop": 0,
+    "providerChanges": 0,
+    "userFilesDeleted": 0,
+    "originalOpenJutsuEdited": false,
+    "mainAppRestarted": false,
+    "kieAppRestarted": false,
+    "wanPrototypePreserved": true,
+    "previewDataIsIndependent": true,
+    "twoInputMediaAndPostersCopiedLocally": true
+  },
+  "limits": [
+    "Graph/schema parity is not a new GPU visual, speed, memory or identity benchmark.",
+    "Reference-scene variant is copied from the newer local source and was not used in the three recovered native runs.",
+    "Native H3 frame-grid duration rounding is retained; no output padding or retiming.",
+    "External-engine preview does not acquire managed-rental power controls.",
+    "Model/dependency terms are not covered by the application MIT licence; hosted commercial clearance and uncensored behavior are not asserted."
+  ]
+}

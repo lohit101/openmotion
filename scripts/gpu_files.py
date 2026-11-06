@@ -117,7 +117,7 @@ def assert_remote_idle(workspace):
     if queue['queue_running'] or queue['queue_pending']:
         raise ValueError('Finish the GPU render queue before deleting files.')
     names = (b'/model_download_worker.py', b'/model_setup_worker.py', b'/facial_worker.py', b'/upscale_worker.py',
-             b'/clarity_worker.py', b'/gpu_identity_worker.py', b'/video_face_worker.py', b'/video_identity.py')
+             b'/clarity_worker.py', b'/gpu_identity_worker.py', b'/video_face_worker.py', b'/video_identity.py', b'/managed_openjutsu_tools.py')
     for proc in Path('/proc').glob('[0-9]*'):
         if proc.name == str(os.getpid()):
             continue
@@ -127,6 +127,22 @@ def assert_remote_idle(workspace):
             continue
         if any(arg.endswith(names) for arg in args):
             raise ValueError('A GPU worker is still running. Finish its work before deleting files.')
+
+
+def active_comfy_root(workspace):
+    """Find the already-running loopback engine; never starts or imports it."""
+    from pathlib import Path
+    workspace = Path(workspace).parent.resolve()
+    for proc in Path('/proc').glob('[0-9]*'):
+        try:
+            args = (proc / 'cmdline').read_bytes().split(b'\0')
+            if not any(arg == b'main.py' or arg.endswith(b'/main.py') for arg in args): continue
+            if b'--port' in args and args[args.index(b'--port') + 1] != b'8188': continue
+            root = (proc / 'cwd').resolve(strict=True)
+            if workspace not in root.parents or not (root / 'main.py').is_file() or not (root / 'models').is_dir(): continue
+            return root
+        except (OSError, ValueError, IndexError): continue
+    return None
 
 
 def roots(workspace):
@@ -144,6 +160,8 @@ def roots(workspace):
             result['comfy'] = comfy
     except FileNotFoundError:
         pass
+    active = active_comfy_root(workspace)
+    if active is not None: result['comfy'] = active
     return result
 
 

@@ -43,6 +43,7 @@ import { canFinishFacialLocally, facialRuntimeReadyForSettings } from '../shared
 import { anchoredRun, canFinishAnchoredLocally, videoDirectionFrames } from '../shared/anchored-video';
 import { FaceRepairManager, registerFaceRepairRoutes, sendFaceRepairFile } from './face-repair';
 import { gpuFileDeleteSchema, gpuFileListSchema } from '../shared/gpu-files';
+import { registerOpenjutsuRoutes } from './openjutsu';
 
 const STUDIO = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const REPO = path.dirname(STUDIO);
@@ -76,7 +77,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   // Request activity is GPU work, not browsing or inventory refreshes. This also
   // invalidates idle probes when async request preflight has not queued work yet.
   app.use((req, res, next) => {
-    const work = req.method === 'POST' && (/^\/api\/upscale\/(?:prepare|jobs(?:\/[^/]+\/recover)?)$/.test(req.path) || /^\/api\/(?:jobs(?:\/[^/]+\/(?:resume|refine-face|face-repairs))?|images\/jobs|image-edit\/jobs|models\/(?:download|module|recover|delete)|gpu-files\/delete|video-identity\/gpu\/setup|facial-consistency\/prepare|connection\/connect)$/.test(req.path) ||
+    const work = req.method === 'POST' && (/^\/api\/upscale\/(?:prepare|jobs(?:\/[^/]+\/recover)?)$/.test(req.path) || /^\/api\/(?:jobs(?:\/[^/]+\/(?:resume|refine-face|face-repairs))?|images\/jobs|image-edit\/jobs|openjutsu\/jobs|models\/(?:download|module|recover|delete)|gpu-files\/delete|video-identity\/gpu\/setup|facial-consistency\/prepare|connection\/connect)$/.test(req.path) ||
       /^\/api\/cloud\/(?:launch|launches\/[^/]+\/continue|instances\/[^/]+\/(?:start|connect))$/.test(req.path));
     if (work) {
       if (idle.state.status === 'pausing') return void res.status(409).json({ error: 'GPU idle pause is in progress. Wait for its confirmed status, then start & connect before generating.' });
@@ -112,6 +113,9 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   registerFaceRepairRoutes(app, faceRepairs, store, () => { idle.touch(); void runner.kick(); });
   registerCharacterRoutes(app, store);
   registerImageEditRoutes(app, store, connection, runner, cloud, models);
+  registerOpenjutsuRoutes(app, store, connection, runner, models, () => {
+    if (idle.state.status === 'pausing' || cloud.state.busy || cloud.state.launches.some(launch => ['stopping', 'destroying'].includes(launch.phase) || launch.safetyStatus === 'unconfirmed') || models.state.busy || upscale.busy || videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork()) throw new Error('Finish GPU setup, downloads or unresolved processing before generating.');
+  });
   const bootstrap = () => ({ imageEditDraft: imageEditDraftSchema.parse(store.value('image-edit-draft', emptyImageEditDraft())), assets: store.assets().map(publicAsset), characters: store.characters(), capabilities: { imagenSegmentRepaint: true }, jobs: store.jobs().map(publicJob), draft: store.draft(), imageDraft: store.imageDraft(), connection: connection.status, cloud: cloud.state, models: models.state });
   app.get('/api/bootstrap', (_req, res) => res.json(bootstrap()));
   app.get('/api/events', (_req, res) => {
@@ -236,6 +240,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     if(upscale.busy || videoIdentity.gpuBusy)return void res.status(409).json({error:'Wait for GPU face setup or refinement to finish.'});
     if (cloud.state.busy || cloud.state.launches.some(l => ['stopping', 'destroying'].includes(l.phase) || (l.instanceId && l.safetyStatus === 'unconfirmed'))) return void res.status(503).json({ error: 'The GPU setup or stop status is not settled. Your draft is saved; check GPU cloud before generating.' });
     const value = z.object({ sourceId: z.string(), referenceId: z.string(), settings: settingsSchema, saveDiagnosticLatent: z.boolean().default(false) }).parse(req.body);
+    if (value.settings.engine === 'openjutsu') return void res.status(400).json({ error: 'Use the Remotion workspace to save and submit an OpenJutsu run.' });
     const issue = engineIssue(value.settings); if (issue) return void res.status(400).json({ error: issue });
     if (isViggle(value.settings) && value.saveDiagnosticLatent) return void res.status(400).json({ error: 'Viggle exports its conditioning frame and video; SCAIL latent diagnostics are not available.' });
     const key = req.get('Idempotency-Key'); if (!key || key.length > 120) return void res.status(400).json({ error: 'A request ID is required.' });

@@ -13,7 +13,7 @@ import type { AnchoredVideoRun, AnchorChild } from './anchored-video';
 import type { FaceRepairRun } from './face-repair';
 
 export const settingsSchema = z.object({
-  engine: z.enum(['scail2', 'viggle']).default('scail2'),
+  engine: z.enum(['scail2', 'viggle', 'openjutsu']).default('scail2'),
   referencePreparation: z.enum(['auto', 'prepared']).default('auto'),
   referenceTime: z.number().finite().nonnegative().nullable().default(null),
   viggleQuality: z.enum(['fast', 'balanced']).default('fast'),
@@ -65,6 +65,7 @@ export interface FramingCheck {
   status: 'matched' | 'warning' | 'unverified'; warnings: string[]; samples: Record<string, unknown>[];
 }
 export interface Job {
+  openjutsu?: import('./openjutsu').OpenjutsuRun;
   anchoredVideo?: AnchoredVideoRun;
   anchorChild?: AnchorChild;
   facialConsistency?: FacialConsistencyRun;

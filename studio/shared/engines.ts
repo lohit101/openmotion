@@ -12,7 +12,7 @@ export function referenceModeForRun(job: Pick<Job, 'settings' | 'viggleSegmentat
   if (job.viggleSegmentation === 'last-frame-v2' || job.viggleSegmentation === 'encoded-overlap-v3') return 'previous';
   return job.settings.viggleReferenceMode || 'previous';
 }
-export const engineLabel = (s: Pick<Settings, 'engine'>): string => isViggle(s) ? 'Viggle Animate · INT8' : 'SCAIL-2 · INT8';
+export const engineLabel = (s: Pick<Settings, 'engine'>): string => s.engine === 'openjutsu' ? 'OpenJutsu · MiniMax H3' : isViggle(s) ? 'Viggle Animate · INT8' : 'SCAIL-2 · INT8';
 export const vigglePasses = (s: Pick<Settings, 'viggleQuality'>): number => s.viggleQuality === 'balanced' ? 5 : 3;
 export const viggleSigmas = (s: Pick<Settings, 'viggleQuality'>): string => s.viggleQuality === 'balanced'
   ? '1.0, 0.9230769230769231, 0.8181818181818182, 0.6666666666666666, 0.42857142857142855, 0.0'

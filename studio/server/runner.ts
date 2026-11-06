@@ -21,6 +21,8 @@ import { AnchorWaitError, assertAnchorChild, projectAnchorChild, runAnchoredBran
 import { canFinishAnchoredLocally } from '../shared/anchored-video';
 import { canFinishRepairLocally } from '../shared/face-repair';
 import type { FaceRepairManager } from './face-repair';
+import { recoverOpenjutsuPending, resumeOpenjutsu, runOpenjutsu } from './openjutsu-runner';
+import { canFinishOpenjutsuLocally } from '../shared/openjutsu';
 
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 export class Runner {
@@ -67,7 +69,7 @@ export class Runner {
         // A failed detached facial worker can remain active after the last run.
         // Recheck between jobs, not only before entering the serialized queue.
         if (this.externalGpuBusy()) break;
-        const next = this.store.jobs().reverse().find(j => ['render', 'repair'].includes(j.origin) && !j.anchorChild && !j.deleted && ['queued', 'running', 'reconnecting'].includes(j.status) && (this.connection.status.state === 'online' || canFinishImageLocally(j) || canFinishFacialLocally(j) || canFinishAnchoredLocally(j) || canFinishRepairLocally(j)));
+        const next = this.store.jobs().reverse().find(j => ['render', 'repair'].includes(j.origin) && !j.anchorChild && !j.deleted && ['queued', 'running', 'reconnecting'].includes(j.status) && (this.connection.status.state === 'online' || canFinishOpenjutsuLocally(j) || canFinishImageLocally(j) || canFinishFacialLocally(j) || canFinishAnchoredLocally(j) || canFinishRepairLocally(j)));
         if (!next) break;
         this.active = next; this.abort = new AbortController(); await this.run(next, this.abort.signal); this.active = null;
       }
@@ -128,6 +130,7 @@ export class Runner {
     }
   }
   async recoverPending(job: Job) {
+    if (job.openjutsu) return recoverOpenjutsuPending(this, job);
     const client = this.connection.client(); const queue = await client.json('/queue'); const histories = await client.json('/history?max_items=100');
     const prefix = `recast/${job.id}/segment_${String(job.segments.length).padStart(4, '0')}`;
     const match = [...queue.queue_running, ...queue.queue_pending, ...Object.values(histories).map((h: any) => h.prompt)]
@@ -153,6 +156,7 @@ export class Runner {
     try { await task; } finally { this.resumes.delete(job.id); }
   }
   private async resumeChecked(job: Job, retryMissing: boolean) {
+    if (job.openjutsu) return resumeOpenjutsu(this, job, retryMissing);
     if (job.faceRepair) { if (!this.faceRepairs) throw new Error('Face repair tools are unavailable.'); await this.faceRepairs.resume(job); void this.kick(); return; }
     if (job.anchoredVideo) {
       const childId = job.anchoredVideo.activeChildId, child = childId ? this.store.job(childId) : null;
@@ -187,6 +191,7 @@ export class Runner {
     job.retryRequired = false; job.status = 'queued'; job.cancelRequested = false; job.cancellationConfirmed = false; job.error = null; this.store.saveJob(job, false); void this.kick();
   }
   async run(job: Job, signal: AbortSignal) {
+    if (job.openjutsu) return runOpenjutsu(this, job, signal);
     if (job.faceRepair) {
       if (!this.faceRepairs) { job.status = 'interrupted'; job.error = 'Face repair tools are unavailable.'; this.store.saveJob(job); return; }
       await this.faceRepairs.run(job, signal, (frame, frames, stage) => this.stage(job, stage, frame, frames, 'work units')); return;

@@ -1,0 +1,28 @@
+{
+  "packs": [
+    {
+      "repo": "https://github.com/D3voz/comfyui-h3-oneclick-swap.git",
+      "revision": "e44a56e92920000e675d14be484aea0d7498d63e",
+      "directory": "comfyui-h3-oneclick-swap"
+    },
+    {
+      "repo": "https://github.com/ethanfel/ComfyUI-MiniMaxH3-Context-Loop.git",
+      "revision": "43afeffcc570beb5f7382593e79e4b211c7e02f6",
+      "directory": "ComfyUI-MiniMaxH3-Context-Loop"
+    },
+    {
+      "repo": "https://github.com/Adudeguyman/ComfyUI-Fantastic-MiniMaxH3-PromptBuilder.git",
+      "revision": "22e719fe89336c628383363182a4da3cb58d4f9b",
+      "directory": "ComfyUI-Fantastic-MiniMaxH3-PromptBuilder"
+    },
+    {
+      "repo": "https://github.com/kijai/ComfyUI-KJNodes.git",
+      "revision": "ab72eda7ffad6280422d71ab7d54d3fb87c0ba18",
+      "directory": "ComfyUI-KJNodes"
+    }
+  ],
+  "comfyui": {
+    "repo": "https://github.com/Comfy-Org/ComfyUI.git",
+    "revision": "63e5bf594339f676b4b15e072529873e3448409e"
+  }
+}
