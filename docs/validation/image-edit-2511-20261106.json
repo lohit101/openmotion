@@ -110,7 +110,26 @@
     "inference": 0
   },
   "deployment": {
-    "status": "pending guarded local reload"
+    "status": "deployed",
+    "port": 3000,
+    "preservedJobs": 389,
+    "preservedAssets": 493,
+    "preservedCharacters": 1,
+    "mediaRecordsChanged": 0,
+    "originalDraftsUnchanged": true,
+    "runtimeMetadataKeysRefreshed": [
+      "cloud-launches",
+      "model-download-state-v1"
+    ],
+    "imageEditDraft": "independent default available",
+    "connection": "offline",
+    "downloadBusy": false,
+    "kieApp": {
+      "port": 3001,
+      "sameProcessRunning": true
+    },
+    "gpuActions": 0,
+    "nativeBrowser": "Safari: live navigation to Image Edit verified; no render submitted"
   },
   "limits": [
     "Not Kie private Qwen Image 2.0 weights or a quality/speed replica.",
