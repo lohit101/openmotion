@@ -232,7 +232,9 @@ export class Runner {
         this.stage(job, 'Preparing target and identity references');
         const prepared = await this.imageProcessor('prepare', job, this.store, this.repo, folder, signal) as { hasFace: boolean; warnings: string[] };
         job.image!.prepared = prepared; this.save(job); this.checkCancelled(job);
-        const files = job.image!.version === 'imagen-v1'
+        const files = job.image!.version === 'image-edit-2511-v1'
+          ? job.image!.edit!.references.map((_, i) => [['source', 'reference', 'face'][i], `edit-reference-${i + 1}.png`])
+          : job.image!.version === 'imagen-v1'
           ? job.image!.settings.workflow === 'text-to-image' ? [] : [['source', 'target.png'], ['reference', 'identity.png'], ...(job.image!.faceId ? [['face', 'face.png']] : []), ...(job.image!.clothingId ? [['clothing', 'clothing.png']] : [])]
           : [['source', 'target.png'], ['reference', 'identity.png'], ...(prepared.hasFace ? [['face', 'face.png']] : []), ...(job.image!.settings.protectBackground ? [['original', 'original.png'], ['mask', 'edit-mask.png']] : [])];
         const g = job.image!.geometry, nativeMask = g.width === g.outputWidth && g.height === g.outputHeight && g.x === 0 && g.y === 0;
@@ -361,7 +363,7 @@ export class Runner {
           }
           const event = history.status.messages?.find((m: any[]) => m[0] === 'execution_error');
           const text = event?.[1]?.exception_message || 'Generation failed on the GPU.';
-          throw new Error(/out of memory/i.test(text) ? 'The GPU ran out of memory. Try 480p or fewer frames per pass, then reuse these settings.' : String(text).slice(0, 1800));
+          throw new Error(/out of memory/i.test(text) ? job.image?.version === 'image-edit-2511-v1' ? 'The GPU ran out of memory. Use the 1 MP canvas with compact INT8, or a GPU with more VRAM. Reuse inputs to create a new run.' : 'The GPU ran out of memory. Try 480p or fewer frames per pass, then reuse these settings.' : String(text).slice(0, 1800));
         }
         if (isImageJob(job)) {
           const image = history.outputs?.['46']?.images?.find((file: any) => String(file.filename).endsWith('.png'));
@@ -419,11 +421,11 @@ export class Runner {
       }
       this.checkCancelled(job);
       if (isImageJob(job)) {
-        this.stage(job, job.image?.version === 'imagen-v1' ? 'Saving the native-resolution photograph' : 'Preserving scene pixels and preparing face review');
+        this.stage(job, ['imagen-v1', 'image-edit-2511-v1'].includes(job.image?.version || '') ? 'Saving the native-resolution photograph' : 'Preserving scene pixels and preparing face review');
         job.image!.review = await this.imageProcessor('finish', job, this.store, this.repo, folder, signal) as ImageReview;
-        job.output = path.join(folder, 'final.png'); job.poster = path.join(folder, 'poster.jpg'); await poster(job.output, job.poster);
+        job.output = path.join(folder, job.image?.edit?.settings.format === 'jpeg' ? 'final.jpg' : 'final.png'); job.poster = path.join(folder, 'poster.jpg'); await poster(job.output, job.poster);
         job.status = 'completed'; job.finishedAt = new Date().toISOString(); job.elapsedSeconds = (Date.parse(job.finishedAt) - Date.parse(job.startedAt!)) / 1000;
-        this.stage(job, 'Complete · review facial identity and framing'); return;
+        this.stage(job, job.image?.version === 'image-edit-2511-v1' ? 'Image ready' : 'Complete · review facial identity and framing'); return;
       }
       this.stage(job, 'Assembling final video');
       const assembly = { source: source.path, settings: { fps: job.settings.fps, start_seconds: Math.floor(job.settings.start * job.settings.fps) / job.settings.fps }, completed_frames: job.progress.completedFrames, segments: job.segments };

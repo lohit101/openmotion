@@ -57,6 +57,7 @@ export function registerImageRoutes(app: Express, store: Store, connection: Conn
     const value = imageDraftSchema.parse(req.body), key = req.get('Idempotency-Key');
     if (!key || key.length > 120) return void res.status(400).json({ error: 'An image request ID is required.' });
     const previous = store.byKey(key); if (previous) return void res.status(isImageJob(previous) ? 200 : 409).json(isImageJob(previous) ? publicJob(previous) : { error: 'This request ID was used for another workflow.' });
+    if (value.settings.model === 'qwen2511') return void res.status(409).json({ error: 'Open Image Edit for Qwen Image Edit 2511.' });
     if (value.settings.model === 'klein4b') return void res.status(409).json({ error: 'Klein is disabled for new Imagen runs. Choose Qwen Image 2.1.' });
     if (value.settings.workflow) {
       try { return void res.status(201).json(publicJob(await createImagenJob(store, connection, runner, cloud, models, value, key))); }

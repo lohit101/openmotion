@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { Asset, Job } from './types';
 import type { CharacterSnapshot } from './characters';
+import type { ImageEditRun } from './image-edit';
 import type { SourceHeadLayout } from './imagen-head-layout';
 
 export const legacyImagePrompt = `Replace the main person in IMAGE 1 (target photograph) with the person from IMAGE 2 (identity reference). Produce one photorealistic photograph, with no changes beyond the replacement.
@@ -86,7 +87,7 @@ export const imageSettingsSchema = z.object({
   workflow: z.enum(['text-to-image', 'body-only', 'character-outfit', 'clothing-only']).optional(),
   promptLanguage: z.enum(['en', 'zh']).optional(),
   outputAspect: z.enum(['1:1', '9:16', '16:9', '3:4', '4:3']).optional(),
-  model: z.enum(['klein4b', 'qwen21']).default(sourceFramePreset.model),
+  model: z.enum(['klein4b', 'qwen21', 'qwen2511']).default(sourceFramePreset.model),
   qwenRecipe: z.enum(['whole-person', 'source-anchored', 'native-masked', 'native-scene', 'identity-first', 'body-identity', 'body-only', 'clothing-only']).default(sourceFramePreset.qwenRecipe),
   qwenQuality: z.enum(['fast', 'quality']).default('fast'),
   bodyOnlyStrategy: z.enum(['native', 'staged', 'detail']).default('native'),
@@ -151,7 +152,8 @@ export const localFramingSchema = z.object({
   geometry: z.object({ headSizeRatio: z.number().finite().positive(), faceCenterOffsetPixels: z.array(z.number().finite()).length(2) }).nullable(),
 });
 export interface ImageRun {
-  version?: 'imagen-v1' | 'clothing-only-v1' | 'masked-latent-v2' | 'masked-latent-v3' | 'masked-latent-v4' | 'scene-anchor-v1' | 'scene-anchor-v2' | 'scene-anchor-v3' | 'scene-anchor-v4' | 'scene-anchor-v5' | 'scene-anchor-v6' | 'scene-anchor-v7' | 'scene-anchor-v8' | 'native-mask-v1' | 'native-scene-v1' | 'identity-first-v1' | 'identity-first-v2' | 'body-identity-v1' | 'body-identity-v2' | 'body-only-v1' | 'body-only-v2' | 'body-only-v3' | 'body-only-v4' | 'body-only-v5' | 'body-only-v6' | 'body-only-v7' | 'body-only-v8' | 'body-only-single-v1' | 'body-only-single-v2' | 'body-only-single-v3';
+  version?: 'image-edit-2511-v1' | 'imagen-v1' | 'clothing-only-v1' | 'masked-latent-v2' | 'masked-latent-v3' | 'masked-latent-v4' | 'scene-anchor-v1' | 'scene-anchor-v2' | 'scene-anchor-v3' | 'scene-anchor-v4' | 'scene-anchor-v5' | 'scene-anchor-v6' | 'scene-anchor-v7' | 'scene-anchor-v8' | 'native-mask-v1' | 'native-scene-v1' | 'identity-first-v1' | 'identity-first-v2' | 'body-identity-v1' | 'body-identity-v2' | 'body-only-v1' | 'body-only-v2' | 'body-only-v3' | 'body-only-v4' | 'body-only-v5' | 'body-only-v6' | 'body-only-v7' | 'body-only-v8' | 'body-only-single-v1' | 'body-only-single-v2' | 'body-only-single-v3';
+  edit?: ImageEditRun;
   clothingId?: string | null;
   character?: CharacterSnapshot;
   scopeMaskId?: string;

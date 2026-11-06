@@ -24,6 +24,8 @@ import { migrateDemoPrompt, PROMPT_VERSION } from '../shared/prompts';
 import { FRAMING_VERSION, type ReferenceGeometry } from './framing';
 import { engineIssue, isViggle } from '../shared/engines';
 import { viggleWindows } from '../shared/viggle-segments';
+import { registerImageEditRoutes } from './image-edit';
+import { emptyImageEditDraft, imageEditDraftSchema } from '../shared/image-edit';
 import { registerImageRoutes } from './image-routes';
 import { registerCharacterRoutes } from './characters';
 import { assertRepaintReady, resolveRepaintProfile } from './segment-repaint';
@@ -73,7 +75,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   // Request activity is GPU work, not browsing or inventory refreshes. This also
   // invalidates idle probes when async request preflight has not queued work yet.
   app.use((req, res, next) => {
-    const work = req.method === 'POST' && (/^\/api\/upscale\/(?:prepare|jobs(?:\/[^/]+\/recover)?)$/.test(req.path) || /^\/api\/(?:jobs(?:\/[^/]+\/(?:resume|refine-face|face-repairs))?|images\/jobs|models\/(?:download|module|recover|delete)|video-identity\/gpu\/setup|facial-consistency\/prepare|connection\/connect)$/.test(req.path) ||
+    const work = req.method === 'POST' && (/^\/api\/upscale\/(?:prepare|jobs(?:\/[^/]+\/recover)?)$/.test(req.path) || /^\/api\/(?:jobs(?:\/[^/]+\/(?:resume|refine-face|face-repairs))?|images\/jobs|image-edit\/jobs|models\/(?:download|module|recover|delete)|video-identity\/gpu\/setup|facial-consistency\/prepare|connection\/connect)$/.test(req.path) ||
       /^\/api\/cloud\/(?:launch|launches\/[^/]+\/continue|instances\/[^/]+\/(?:start|connect))$/.test(req.path));
     if (work) {
       if (idle.state.status === 'pausing') return void res.status(409).json({ error: 'GPU idle pause is in progress. Wait for its confirmed status, then start & connect before generating.' });
@@ -108,7 +110,8 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   observeRepairStops(); store.on('event', event => { if (event.type === 'cloud') observeRepairStops(); });
   registerFaceRepairRoutes(app, faceRepairs, store, () => { idle.touch(); void runner.kick(); });
   registerCharacterRoutes(app, store);
-  const bootstrap = () => ({ assets: store.assets().map(publicAsset), characters: store.characters(), capabilities: { imagenSegmentRepaint: true }, jobs: store.jobs().map(publicJob), draft: store.draft(), imageDraft: store.imageDraft(), connection: connection.status, cloud: cloud.state, models: models.state });
+  registerImageEditRoutes(app, store, connection, runner, cloud, models);
+  const bootstrap = () => ({ imageEditDraft: imageEditDraftSchema.parse(store.value('image-edit-draft', emptyImageEditDraft())), assets: store.assets().map(publicAsset), characters: store.characters(), capabilities: { imagenSegmentRepaint: true }, jobs: store.jobs().map(publicJob), draft: store.draft(), imageDraft: store.imageDraft(), connection: connection.status, cloud: cloud.state, models: models.state });
   app.get('/api/bootstrap', (_req, res) => res.json(bootstrap()));
   app.get('/api/events', (_req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
@@ -322,6 +325,16 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
       if (!existsSync(file)) return void res.sendStatus(404);
       res.attachment(`${job.title.replace(/[^a-zA-Z0-9 _-]/g, '').slice(0, 70) || 'recast-edit'}.mkv`);
       return void res.sendFile(file);
+    }
+    if (isImageJob(job) && ['output', 'image'].includes(String(req.params.type)) && job.output) {
+      if (!existsSync(job.output)) return void res.sendStatus(404);
+      if (req.query.download) res.attachment(`${job.title.replace(/[^a-zA-Z0-9 _-]/g, '').slice(0, 70)}${path.extname(job.output)}`);
+      return void res.sendFile(job.output);
+    }
+    if (job.image?.version === 'image-edit-2511-v1' && req.params.type === 'image-native') {
+      const native = path.join(store.root, 'jobs', job.id, 'gpu-result.png');
+      if (!existsSync(native)) return void res.sendStatus(404);
+      res.attachment(`recast-${job.id}-native.png`); return void res.sendFile(native);
     }
     if (isImageJob(job) && ['image', 'image-source', 'face-source', 'face-reference', 'face-output', 'image-mask', 'image-structure', 'image-body', 'image-body-raw', 'image-head-raw', 'image-lighting', 'image-prepared-reference', 'image-identity-anchor', 'image-integrated-base', 'image-body-input', 'image-face-input', 'image-outfit-raw', 'image-body-canvas'].includes(String(req.params.type))) {
       const name = { image: 'final.png', 'image-source': 'original.png', 'face-source': 'source-face.png', 'face-reference': 'reference-face.png', 'face-output': 'output-face.png', 'image-mask': 'edit-mask.png', 'image-structure': 'source-structure.png', 'image-body': 'body-stage.png', 'image-body-raw': 'body-raw.png', 'image-head-raw': 'head-raw.png', 'image-lighting': 'lighting-raw.png', 'image-prepared-reference': 'reference-normalized.png', 'image-identity-anchor': 'identity-anchored-target.png', 'image-integrated-base': 'integrated-base.png', 'image-body-input': 'identity.png', 'image-face-input': 'face.png', 'image-outfit-raw': 'outfit-raw.png', 'image-body-canvas': 'body-reference-canvas.png' }[String(req.params.type)];

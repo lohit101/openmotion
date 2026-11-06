@@ -1,0 +1,120 @@
+{
+  "date": "2026-11-06",
+  "feature": "Image Edit · Qwen Image Edit 2511",
+  "branch": "feat/image-edit-2511",
+  "recipe": "image-edit-2511-v1",
+  "contract": {
+    "references": [
+      1,
+      2,
+      3
+    ],
+    "maxReferenceBytes": 10000000,
+    "promptVerbatim": true,
+    "promptLimit": 5000,
+    "aspects": [
+      "source",
+      "1:1",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9",
+      "21:9"
+    ],
+    "nativeCanvasPixels": [
+      1048576,
+      4194304
+    ],
+    "format": [
+      "png",
+      "jpeg"
+    ],
+    "native": {
+      "steps": 40,
+      "cfg": 4
+    },
+    "optionalLightning": {
+      "steps": 4,
+      "cfg": 1
+    },
+    "precision": [
+      "int8",
+      "bf16"
+    ],
+    "separateDraft": true
+  },
+  "weights": {
+    "pinnedFiles": 5,
+    "officialMetadataRevisionsSizesHashesVerified": true,
+    "int8NativeBytes": 30137560750,
+    "bf16NativeBytes": 50499508486,
+    "lightningAdditionalBytes": 849608296
+  },
+  "checks": {
+    "studio": {
+      "passed": 662,
+      "files": 54
+    },
+    "python": {
+      "run": 345,
+      "skipped": 1,
+      "failed": 0,
+      "runtime": "existing local Comfy validation environment"
+    },
+    "finalFocused": {
+      "passed": 14
+    },
+    "typecheck": "passed",
+    "productionBuild": "passed",
+    "historicalImageGraphs": {
+      "matched": 134,
+      "unchangedRejections": 2,
+      "mismatches": 0
+    },
+    "nativeUi": {
+      "browser": "Safari",
+      "isolatedFixture": true,
+      "checks": [
+        "navigation",
+        "three complete references",
+        "library reference selection",
+        "reference order and dimension update",
+        "selected-only downloads",
+        "result preview",
+        "screen-filling image viewer"
+      ],
+      "modelQualityEvidence": false
+    },
+    "protocol": [
+      "one/two/three-image positive and negative conditioning",
+      "matching native/lightning files and parameters",
+      "no templates or face passes",
+      "input hashes/provenance",
+      "reference/recipe tampering rejection",
+      "wrong native size preserves paid output",
+      "PNG byte identity",
+      "JPEG dimensions/type/extension and native retention",
+      "idempotent retry after disconnection",
+      "idle-pause submission gate",
+      "separate drafts",
+      "same paid receipt / offline export retry / no second prompt"
+    ]
+  },
+  "paidActions": {
+    "gpuResume": 0,
+    "rentals": 0,
+    "modelWeightDownloads": 0,
+    "remoteInstalls": 0,
+    "inference": 0
+  },
+  "deployment": {
+    "status": "pending guarded local reload"
+  },
+  "limits": [
+    "Not Kie private Qwen Image 2.0 weights or a quality/speed replica.",
+    "GPU quality, identity, memory use, 2K fidelity and speed remain unmeasured.",
+    "Kie Wan API app and paused selective face repair are separate and unchanged."
+  ]
+}

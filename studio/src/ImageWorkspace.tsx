@@ -1,3 +1,4 @@
+import { isImageEditJob } from '../shared/image-edit';
 import { useCallback, useRef, useState } from 'react';
 import { ArrowCounterClockwise, ArrowRight, ArrowsOut, DownloadSimple, FilmStrip, Image as ImageIcon, Sparkle, TShirt, User, X } from '@phosphor-icons/react';
 import type { Asset, Bootstrap, Draft, Job } from '../shared/types';
@@ -37,7 +38,7 @@ export default function ImageWorkspace(props: ImageWorkspaceProps) {
   const characterMode = characterEdit && draft.referenceMode === 'character', character = data.characters?.find(c => c.id === draft.characterId);
   const characterIssue = characterMode && (!character || character.archived || character.revision !== draft.characterRevision || !settings.bodyReferenceView || !settings.faceReferenceView);
   const viewIssue = characterEdit && (referenceViewIssue(settings.bodyReferenceView, reference) || referenceViewIssue(settings.faceReferenceView, face));
-  const jobs = data.jobs.filter(j => isImageJob(j) && !j.deleted), selected = jobs.find(j => j.id === props.selectedId), current = jobs.find(j => active.includes(j.status));
+  const jobs = data.jobs.filter(j => isImageJob(j) && !isImageEditJob(j) && !j.deleted), selected = jobs.find(j => j.id === props.selectedId), current = jobs.find(j => active.includes(j.status));
   const online = data.connection.state === 'online', done = useOutputPresentation(selected);
   const [creating, setCreating] = useState(false), [extracting, setExtracting] = useState(false), [using, setUsing] = useState(false);
   const [compare, setCompare] = useState(false), [split, setSplit] = useState(50);

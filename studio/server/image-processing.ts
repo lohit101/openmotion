@@ -13,6 +13,13 @@ export async function processImage(action: 'prepare' | 'finish', job: Job, store
   await access(python).catch(() => { throw new Error('Local image preparation is not ready. Start Recast with bash scripts/studio.sh once. No new GPU job was submitted.'); });
   const file = path.join(folder, 'image-request.json');
   const assetPath = (id: string | null) => id ? store.asset(id)?.path || (() => { throw new Error('An image input no longer exists.'); })() : null;
+  if (job.image.version === 'image-edit-2511-v1') {
+    if (!job.image.edit) throw new Error('The frozen Image Edit recipe is missing.');
+    await writeFile(file, JSON.stringify({ version: job.image.version, settings: job.image.edit.settings, geometry: job.image.geometry,
+      references: job.image.edit.references.map(ref => ({ ...ref, path: assetPath(ref.id) })) }));
+    try { return JSON.parse(await command(python, [path.join(repo, 'scripts/image_edit.py'), action, '--request', file, '--folder', folder], signal, 90000)); }
+    catch (error) { if (action === 'finish' && !signal.aborted) throw new ImageFinalizationError('The native image is saved. Check & resume retries local export without generating again: ' + (error as Error).message); throw error; }
+  }
   if (job.image.version === 'imagen-v1') {
     await writeFile(file, JSON.stringify({ version: 'imagen-v1', settings: job.image.settings, geometry: job.image.geometry,
       source: assetPath(job.sourceId), reference: assetPath(job.referenceId), face: assetPath(job.image.faceId), clothing: assetPath(job.image.clothingId || null) }));

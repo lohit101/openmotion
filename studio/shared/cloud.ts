@@ -42,7 +42,7 @@ export const offerFiltersSchema = z.object({
   maxHourly:z.number().min(.01).max(10).default(GPU_COMPUTE_CEILING),
   maxDownloadPrice:z.number().min(0).max(DOWNLOAD_PRICE_CEILING).default(DOWNLOAD_PRICE_CEILING),
   minReliability:z.number().min(.9).max(1).default(.95),
-  workflow:z.enum(['remotion','imagen','clarity','all']).default('remotion'),
+  workflow:z.enum(['remotion','imagen','image-edit','clarity','all']).default('remotion'),
   sort: z.enum(['recommended','price', 'compute', 'setup','speed']).default('recommended'),
 });
 export type OfferFilters = z.infer<typeof offerFiltersSchema>;

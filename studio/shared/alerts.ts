@@ -15,7 +15,7 @@ export const alertPreferencesSchema = z.object({
 });
 export type AlertPreferences = z.infer<typeof alertPreferencesSchema>;
 export function readAlertPreferences(value: unknown): AlertPreferences { const parsed = alertPreferencesSchema.safeParse(value); return parsed.success ? parsed.data : alertPreferencesSchema.parse({}); }
-export interface AlertTarget { view: 'clarity' | 'gpu' | 'create' | 'image' | 'editor' | 'downloads' | 'alerts'; jobId?: string; repair?: boolean; }
+export interface AlertTarget { view: 'image-edit' | 'clarity' | 'gpu' | 'create' | 'image' | 'editor' | 'downloads' | 'alerts'; jobId?: string; repair?: boolean; }
 export interface ActivityAlert {
   id: string; category: AlertCategory; tone: 'success' | 'warning' | 'error'; title: string; body: string;
   detail?: string; target: AlertTarget; toast?: boolean;
@@ -62,7 +62,7 @@ export class ActivityAlertTracker {
       const old = this.jobs.get(job.id), changed = old?.status !== job.status;
       const recent = old || Date.parse(job.createdAt) >= this.startedAt;
       if (this.initialized && recent && !job.deleted && (job.origin === 'render' || !!job.upscale || !!job.faceRefinement || !!job.faceRepair)) {
-        const base = { id: `generation:${job.id}:${job.status}:${job.finishedAt || job.progress.updatedAt}`, category: 'generation' as const, target: { view: job.upscale ? 'clarity' as const : job.mediaType === 'image' ? 'image' as const : 'create' as const, jobId: job.id, ...(job.faceRepair ? { repair: true } : {}) } };
+        const base = { id: `generation:${job.id}:${job.status}:${job.finishedAt || job.progress.updatedAt}`, category: 'generation' as const, target: { view: job.image?.version === 'image-edit-2511-v1' ? 'image-edit' as const : job.upscale ? 'clarity' as const : job.mediaType === 'image' ? 'image' as const : 'create' as const, jobId: job.id, ...(job.faceRepair ? { repair: true } : {}) } };
         if (job.faceRepair?.state === 'review' && old?.repairState !== 'review') {
           alerts.push({ ...base, tone: 'success', title: 'Face repair is ready to compare', body: 'Review the candidates and both joins before accepting. Your original is preserved.' });
         }

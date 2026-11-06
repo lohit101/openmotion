@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { imageEditFiles, imageEditSettingsSchema, type ImageEditSettings } from './image-edit';
 import { settingsSchema, type Settings } from './types';
 import { imageSettingsSchema, type ImageSettings } from './image-replacement';
 import { facialVersionForSettings, usesFacialConsistency } from './facial-consistency';
@@ -7,21 +8,23 @@ import { imageFilesForSettings, modelDefinitions, modelFilesForSettings, upscale
 export const moduleDownloadRequestSchema=z.discriminatedUnion('module',[
   z.object({module:z.literal('remotion'),settings:settingsSchema}).strict(),
   z.object({module:z.literal('imagen'),settings:imageSettingsSchema}).strict(),
+  z.object({module:z.literal('image-edit'),settings:imageEditSettingsSchema}).strict(),
   z.object({module:z.literal('clarity')}).strict(),
 ]);
 export type ModuleDownloadRequest=z.infer<typeof moduleDownloadRequestSchema>;
-export const moduleNames:Record<DownloadModule,string>={remotion:'Remotion',imagen:'Imagen',clarity:'Clarity'};
+export const moduleNames:Record<DownloadModule,string>={remotion:'Remotion',imagen:'Imagen','image-edit':'Image Edit',clarity:'Clarity'};
 export function moduleDownloadPlan(module:'remotion',settings:Settings):ModuleDownloadPlan;
 export function moduleDownloadPlan(module:'imagen',settings:ImageSettings):ModuleDownloadPlan;
+export function moduleDownloadPlan(module:'image-edit',settings:ImageEditSettings):ModuleDownloadPlan;
 export function moduleDownloadPlan(module:'clarity'):ModuleDownloadPlan;
-export function moduleDownloadPlan(module:DownloadModule,settings?:Settings|ImageSettings):ModuleDownloadPlan{
-  const files=[...new Set(module==='remotion'?modelFilesForSettings(settings as Settings):module==='imagen'?imageFilesForSettings(settings as ImageSettings):upscaleModelFiles)];
+export function moduleDownloadPlan(module:DownloadModule,settings?:Settings|ImageSettings|ImageEditSettings):ModuleDownloadPlan{
+  const files=[...new Set(module==='remotion'?modelFilesForSettings(settings as Settings):module==='image-edit'?imageEditFiles(settings as ImageEditSettings):module==='imagen'?imageFilesForSettings(settings as ImageSettings):upscaleModelFiles)];
   const image=settings as ImageSettings;
   const runtimes=module==='remotion'?( (settings as Settings).engine==='viggle'?['viggle-tools',...(usesFacialConsistency(settings as Settings)?['facial:'+facialVersionForSettings(settings as Settings)]:[])]:[]):module==='clarity'?['clarity']:module==='imagen'&&!image.workflow&&image.qwenRecipe!=='clothing-only'?[...(image.localIdentity?['localIdentity']:[]),...(image.qwenRecipe==='body-identity'&&image.qwenBodyPose||image.qwenRecipe==='body-only'&&image.bodyOnlyStrategy==='staged'&&image.bodyOnlyPose?['localPose']:[])]:[];
   return {module,files,runtimes,key:JSON.stringify({module,files:[...files].sort(),runtimes})};
 }
 export function planFromRequest(request:ModuleDownloadRequest){
-  return request.module==='remotion'?moduleDownloadPlan('remotion',request.settings):request.module==='imagen'?moduleDownloadPlan('imagen',request.settings):moduleDownloadPlan('clarity');
+  return request.module==='image-edit'?moduleDownloadPlan('image-edit',request.settings):request.module==='remotion'?moduleDownloadPlan('remotion',request.settings):request.module==='imagen'?moduleDownloadPlan('imagen',request.settings):moduleDownloadPlan('clarity');
 }
 
 export function moduleDownloadProgress(plan:ModuleDownloadPlan,state:ModelsState,transferFiles?:string[]){
