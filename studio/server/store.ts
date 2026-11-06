@@ -5,6 +5,7 @@ import path from 'node:path';
 import type { Asset, Draft, Job } from '../shared/types';
 import { defaults } from '../shared/types';
 import { migrateDemoPrompt } from '../shared/prompts';
+import { migrateVigglePrompt } from '../shared/engines';
 import { defaultImagePrompt, emptyImageDraft, imageDraftSchema, legacyImagePrompt } from '../shared/image-replacement';
 import type { Character } from '../shared/characters';
 
@@ -55,7 +56,7 @@ export class Store extends EventEmitter {
   draft(): Draft {
     const draft = this.value<Draft>('draft', { sourceId: null, referenceId: null, settings: defaults });
     draft.settings = { ...defaults, ...draft.settings, facialOcclusionTracking: draft.settings.facialOcclusionTracking === true };
-    const prompt = migrateDemoPrompt(draft.settings.prompt, draft.settings.mode);
+    const prompt = migrateVigglePrompt(migrateDemoPrompt(draft.settings.prompt, draft.settings.mode));
     if (prompt !== draft.settings.prompt) { draft.settings.prompt = prompt; this.set('draft', draft); }
     return draft;
   }

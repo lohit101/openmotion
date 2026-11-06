@@ -22,7 +22,7 @@ import { defaults, geometry, renderGeometry, segmentCount, settingsSchema } from
 import type { Asset, Catalog, Graph, Job } from '../shared/types';
 import { migrateDemoPrompt, PROMPT_VERSION } from '../shared/prompts';
 import { FRAMING_VERSION, type ReferenceGeometry } from './framing';
-import { engineIssue, isViggle } from '../shared/engines';
+import { engineIssue, isViggle, migrateVigglePrompt } from '../shared/engines';
 import { viggleWindows } from '../shared/viggle-segments';
 import { registerImageEditRoutes } from './image-edit';
 import { emptyImageEditDraft, imageEditDraftSchema } from '../shared/image-edit';
@@ -189,7 +189,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   });
   app.post('/api/draft', async(req, res) => {
     const value = z.object({ sourceId: z.string().nullable(), referenceId: z.string().nullable(), settings: settingsSchema }).parse(req.body);
-    value.settings.prompt = migrateDemoPrompt(value.settings.prompt, value.settings.mode);
+    value.settings.prompt = migrateVigglePrompt(migrateDemoPrompt(value.settings.prompt, value.settings.mode));
     for (const id of [value.sourceId, value.referenceId]) if (id && !store.asset(id)) throw new Error('This input no longer exists. Upload it again.');
     if(value.sourceId)try{await refreshVideoDuration(store,store.asset(value.sourceId)!);}catch{/* Drafts stay editable offline; generation requires a readable source. */}
     store.set('draft', value); res.json(value);
@@ -254,7 +254,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     if (!facialRuntimeReadyForSettings(value.settings, models.state)) return void res.status(409).json({ error: 'Use Download Remotion to prepare the selected facial tools before generating. Nothing was queued.' });
     for (const name of [value.settings.loraA, value.settings.loraB]) if (name !== 'None' && !connection.status.loras.includes(name)) return void res.status(409).json({ error: 'Upload the selected custom LoRA before generating: ' + name });
     if (isViggle(value.settings) && value.settings.referencePreparation === 'prepared' && Math.abs((reference.width / reference.height) / (source.width / source.height) - 1) > 0.05) return void res.status(400).json({ error: 'An already edited source frame must keep the source video’s aspect ratio. Use automatic reference preparation for a standalone character photo.' });
-    const settings = { ...value.settings, prompt: migrateDemoPrompt(value.settings.prompt, value.settings.mode) }; if (settings.randomSeed) settings.seed = randomInt(0, 0xffffffff);
+    const settings = { ...value.settings, prompt: migrateVigglePrompt(migrateDemoPrompt(value.settings.prompt, value.settings.mode)) }; if (settings.randomSeed) settings.seed = randomInt(0, 0xffffffff);
     const [width, height] = renderGeometry(settings, source), [outputWidth, outputHeight] = geometry(settings, source), target = clipFrameCount(settings.seconds, settings.fps);
     const segmented = isViggle(settings) && videoDirectionFrames(settings, true).some(frames => frames > 124);
     if (isViggle(settings)) {

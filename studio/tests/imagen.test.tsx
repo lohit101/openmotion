@@ -71,9 +71,10 @@ describe('four-mode whole-image Imagen', () => {
     const job = await create(value); job.uploads = { source: 'target.png', reference: 'person.png', clothing: 'outfit.png' };
     const graph = compileWorkflow({}, job);
     expect(graph['108'].inputs['images.image_3']).toEqual(['6', 0]); expect(graph['108'].inputs['images.image_4']).toBeUndefined();
-    expect(job.image!.conditioningPrompt).toContain('Outfit and outfit accessories come only from <image3>');
+    expect(job.image!.conditioningPrompt).toContain('skin coverage come only from <image3>');
+    expect(job.image!.conditioningPrompt).toContain('Do not keep or restore garments from <image1>');
     value.clothingId = null; const two = await create(value);
-    expect(two.image!.conditioningPrompt).toContain('Outfit and outfit accessories come only from <image2>');
+    expect(two.image!.conditioningPrompt).toContain('skin coverage come only from <image2>');
     expect(two.image!.faceId).toBeNull();
   });
   it('freezes bilingual roles and preserves extra user directions verbatim', () => {

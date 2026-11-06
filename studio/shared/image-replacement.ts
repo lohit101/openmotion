@@ -66,7 +66,7 @@ export function conciseBodyConditioningPrompt(prompt: string, single = false): s
   const extra = prompt.trim();
   return base + (extra && ![bodyOnlyPrompt, bodyOnlyPromptV1, conciseBodyOnlyPrompt, defaultImagePrompt, legacyImagePrompt].includes(extra) ? '\nAdditional edit requirements: ' + extra : '');
 }
-export const conciseFaceRefreshPrompt = 'Replace only the visible face in <image1> with the exact facial identity from <image3>, the same person as <image2>. Keep <image1>\'s hair, body, clothes, accessories, expression, head rotation, gaze and lighting unchanged. Preserve foreground obstructions and background. Keep a covered or back-facing face hidden.';
+export const conciseFaceRefreshPrompt = 'Replace only the visible face in <image1> with the exact facial identity from <image3>, the same person as <image2>. Keep <image1>\'s hair, body, current clothing or uncovered skin, accessories, expression, head rotation, gaze and lighting unchanged. Do not add garments that are not already visible. Preserve foreground obstructions and background. Keep a covered or back-facing face hidden.';
 export function singleImageConditioningPrompt(prompt: string): string {
   return bodyOnlyConditioningPrompt(prompt).replace('Edit <image1>, the original scene photograph. <image2> shows the replacement person\'s physique and body proportions. <image3> shows that same person\'s facial identity and hair.', 'Edit <image1>, the original scene photograph. <image2> supplies the replacement person\'s facial identity, hair, physique and body proportions.').replaceAll('<image3>', '<image2>');
 }

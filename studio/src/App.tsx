@@ -12,7 +12,7 @@ import {gpuPowerTarget} from '../shared/gpu-power';
 import CloudStatusSync from './CloudStatusSync';
 import { setupNotice } from '../shared/cloud-status';
 import { framingNotice, FramingWarningTracker } from '../shared/framing-status';
-import { defaultVigglePrompt, engineIssue, isViggle, referenceModeForRun } from '../shared/engines';
+import { defaultVigglePrompt, engineIssue, isViggle, migrateVigglePrompt, referenceModeForRun } from '../shared/engines';
 import { emptyModels, IMAGE_IDENTITY, imageFilesForSettings, imageModelFiles, modelDefinitions, modelFilesForSettings, type ModelsState } from '../shared/models';
 import ModelsWorkspace, { DownloadSelect, modelSize, type DownloadControls } from './ModelDownloads';
 import ModuleAction from './ModuleAction';
@@ -27,6 +27,7 @@ import { clipFrameCount, normalizeClip, clampClipEnd, DEFAULT_CLIP_SECONDS, MAX_
 import { viggleWindows } from '../shared/viggle-segments';
 import { emptyImageEditDraft, imageEditDraftForJob, imageEditFiles, isImageEditJob, type ImageEditDraft } from '../shared/image-edit';
 import { emptyImageDraft, isImageJob, type ImageDraft } from '../shared/image-replacement';
+import { imagenSettings } from '../shared/imagen';
 import { useCharacterDraft, type Character } from '../shared/characters';
 import RemotionCharacterRefresh from './RemotionCharacterRefresh';
 import './characters.css';
@@ -121,7 +122,7 @@ export default function App() {
   useEffect(() => { document.documentElement.dataset.theme = theme; localStorage.setItem('recast-theme', theme); }, [theme]);
   const receiveBootstrap = useCallback((value: Bootstrap) => {
     setData(old=>old?{...value,cloud:newestCloudState(old.cloud,value.cloud)}:value);
-    if (!initialized.current) { initialized.current = true; const settings = { ...defaults, ...value.draft.settings, prompt: migrateDemoPrompt(value.draft.settings.prompt, value.draft.settings.mode) }; const source = value.assets.find(asset => asset.id === value.draft.sourceId); const clip = source ? clampClipEnd(settings, source.duration, settings.fps) : null; setDraft({ ...value.draft, settings: { ...settings, ...clip } }); setImageDraft(value.imageDraft || emptyImageDraft()); setImageEditDraft(value.imageEditDraft || emptyImageEditDraft()); }
+    if (!initialized.current) { initialized.current = true; const settings = { ...defaults, ...value.draft.settings, prompt: migrateVigglePrompt(migrateDemoPrompt(value.draft.settings.prompt, value.draft.settings.mode)) }; const source = value.assets.find(asset => asset.id === value.draft.sourceId); const clip = source ? clampClipEnd(settings, source.duration, settings.fps) : null; setDraft({ ...value.draft, settings: { ...settings, ...clip } }); setImageDraft(value.imageDraft || emptyImageDraft()); setImageEditDraft(value.imageEditDraft || emptyImageEditDraft()); }
   }, []);
   useEffect(() => {
     let disposed = false;
@@ -224,7 +225,7 @@ export default function App() {
   const changeEngine = (value: string) => {
     if (value !== 'viggle') return;
     const target = value as Settings['engine'];
-    const previousDefault = draft.settings.prompt === defaultPrompt(draft.settings.mode) || draft.settings.prompt === defaultVigglePrompt || !draft.settings.prompt.trim();
+    const previousDefault = draft.settings.prompt === defaultPrompt(draft.settings.mode) || migrateVigglePrompt(draft.settings.prompt) === defaultVigglePrompt || !draft.settings.prompt.trim();
     update({ engine: target, ...(target === 'viggle' ? { mode: 'swap', fps: 24, orientation: 'source', resolution: '480', loraA: 'None', loraB: 'None' } : {}), ...(previousDefault ? { prompt: target === 'viggle' ? defaultVigglePrompt : defaultPrompt(draft.settings.mode) } : {}) });
   };
   const selectAsset = (kind: 'video' | 'image', asset: Asset | null) => {
@@ -240,8 +241,9 @@ export default function App() {
     try {
       const frame = await api<Asset>('/images/source-frame', { sourceId: draft.sourceId, time: draft.settings.referenceTime ?? draft.settings.start });
       setData(old => old ? { ...old, assets: [frame, ...old.assets.filter(a => a.id !== frame.id)] } : old);
-      const next = useCharacterDraft({ ...emptyImageDraft(), sourceId: frame.id }, character); next.settings.bodyReferenceView = profile.bodyView; next.settings.faceReferenceView = profile.faceView;
-      setImageDraft(next); setSelectedId(null); setView('image'); toast.success('Reference frame ready in Imagen', { description: 'Paint the replacement area, generate your starting frame, then use it in Remotion.' });
+      const next = useCharacterDraft({ ...emptyImageDraft(), sourceId: frame.id }, character);
+      next.settings = imagenSettings({ ...next.settings, bodyReferenceView: profile.bodyView, faceReferenceView: profile.faceView }, 'character-outfit');
+      setImageDraft(next); setSelectedId(null); setView('image'); toast.success('Reference frame ready in Imagen', { description: 'Character + outfit uses the reference coverage. Generate the starting frame, then use it in Remotion.' });
     } catch (e) { setMessage((e as Error).message); } finally { setPreparingFrame(false); }
   };
   const patch = async (job: Job, changes: Partial<Job>) => { try { const updated = await api<Job>('/jobs/' + job.id, changes, 'PATCH'); setData(old => old ? { ...old, jobs: old.jobs.map(item => item.id === updated.id ? updated : item) } : old); } catch (e) { setMessage((e as Error).message); } };
@@ -283,7 +285,7 @@ export default function App() {
         {engine && <p className="editor-inline-note">Use one continuous shot with one main character.</p>}
       </EditorSection>
       {engine && <RemotionCharacterRefresh data={data} draft={draft} update={update} manage={() => setView('characters')} prepare={() => void prepareCharacterFrame()} preparing={preparingFrame} />}
-      {engine && draft.settings.referencePreparation === 'auto' && <PromptEditor id="prompt" inputRef={promptRef} label="Frame edit prompt" value={draft.settings.prompt} onChange={prompt => update({ prompt })} defaultValue={defaultVigglePrompt} help="Used only to prepare the starting frame. It does not prompt the video model." />}
+      {engine && draft.settings.referencePreparation === 'auto' && <PromptEditor id="prompt" inputRef={promptRef} label="Frame edit prompt" value={draft.settings.prompt} onChange={prompt => update({ prompt })} defaultValue={defaultVigglePrompt} help="Used only to prepare the starting frame. The reference character’s coverage replaces the source outfit. It does not prompt the video model." />}
       {engine && <EditorSection title="Output">
         <div className="settings-grid"><div className="download-field"><FieldLabel label="Quality" help="Fast runs three video passes; Balanced runs five. More passes can improve some shots but do not guarantee identity or motion accuracy." /><SmallSelect label="Viggle quality" value={draft.settings.viggleQuality} onChange={v => update({ viggleQuality: v as Settings['viggleQuality'] })} options={[{ value: 'fast', label: 'Fast · 3 video passes' }, { value: 'balanced', label: 'Balanced · 5 video passes' }]} /></div><div className="full-label compact-field"><FieldLabel label="Resolution" help="720p exports render slightly larger, then downsample the full frame. This takes more time and memory than 704p." /><SmallSelect label="Resolution" value={draft.settings.resolution} onChange={v => update({ resolution: v as Settings['resolution'] })} options={[{ value: '480', label: '480p' }, { value: '704', label: '704p' }, { value: '720', label: '720p / HD export' }]} /></div></div>
         <div className="native-frame-rate"><span>Frame rate</span><strong>24 fps <small>Native</small></strong></div>

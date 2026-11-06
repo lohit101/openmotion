@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { defaults, nextSegment, settingsSchema, type Catalog, type Graph, type Job } from '../shared/types';
-import { engineIssue, isViggle, planForJob, repaintPrompt, vigglePasses } from '../shared/engines';
+import { engineIssue, isViggle, migrateVigglePrompt, planForJob, repaintPrompt, vigglePasses } from '../shared/engines';
 import { modelBytes, modelFilesForSettings, pinnedModels } from '../shared/models';
 import { compileWorkflow, validateGraph } from '../server/workflow';
 import { compileViggleWorkflow, VIGGLE_DMD, VIGGLE_MODEL, VIGGLE_VAE } from '../server/viggle-workflow';
@@ -142,7 +142,9 @@ describe('Viggle source-aligned two-stage replacement', () => {
   it('saves a reproducible preparation prompt and hides local keyframe paths from browser JSON', () => {
     const job = fixture(); job.settings.prompt = '';
     expect(repaintPrompt(job.settings)).toContain('Edit image 1'); expect(repaintPrompt(job.settings)).toContain('camera distance');
-    expect(repaintPrompt(job.settings)).toContain('image 2');
+    expect(repaintPrompt(job.settings)).toContain('clothing coverage only from image 2');
+    expect(repaintPrompt(job.settings)).toContain('leave that skin uncovered');
+    expect(migrateVigglePrompt('Use the reference character’s face, hair and outfit. Preserve the person’s exact position, apparent size, pose and camera distance in the source video. Match the scene’s lighting and keep natural skin texture.')).toContain('do not keep or invent clothes');
     job.keyframe = '/private/job/keyframe.png'; expect(publicJob(job).keyframe).toBe('ready');
     job.saveDiagnosticLatent = true; expect(() => compileViggleWorkflow(job)).toThrow('diagnostics');
   });

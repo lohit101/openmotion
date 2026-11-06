@@ -32,7 +32,14 @@ export function engineIssue(s: Settings): string | null {
   return null;
 }
 
-export const defaultVigglePrompt = 'Use the reference character’s face, hair and outfit. Preserve the person’s exact position, apparent size, pose and camera distance in the source video. Match the scene’s lighting and keep natural skin texture.';
+const legacyVigglePrompts = new Set([
+  'Use the reference character’s face, hair and outfit. Preserve the person’s exact position, apparent size, pose and camera distance in the source video. Match the scene’s lighting and keep natural skin texture.',
+]);
+export const defaultVigglePrompt = 'Use the reference character’s face, hair, body appearance and clothing coverage. If the reference has no clothes, do not keep or invent clothes from the source video. Preserve the person’s exact position, apparent size, pose and camera distance in the source video. Match the scene’s lighting and keep natural skin texture.';
+export function migrateVigglePrompt(prompt: string): string {
+  const compact = prompt.trim().replace(/\s+/g, ' ');
+  return [...legacyVigglePrompts].some(item => item.trim().replace(/\s+/g, ' ') === compact) ? defaultVigglePrompt : prompt;
+}
 
 export function planForJob(s: Settings, completed: number, target: number, legacy: (completed: number, target: number, cap: number) => { skip: number; cap: number; overlap: number }, continuation?: Job['viggleSegmentation']) {
   if (!isViggle(s)) return legacy(completed, target, s.framesPerPass);
@@ -43,8 +50,9 @@ export function planForJob(s: Settings, completed: number, target: number, legac
 }
 
 export function repaintPrompt(s: Settings): string {
-  return 'Edit image 1, the source video frame. Replace only the main person with the adult character from image 2. '
-    + 'Take the exact facial identity, hair, clothing and visible accessories from image 2. '
+  return 'Edit image 1, the source video frame. Replace only the main adult person with the adult character from image 2. '
+    + 'Take facial identity, hair, body appearance and clothing coverage only from image 2. '
+    + 'Do not keep, restore or invent the source person’s garments. If image 2 shows uncovered skin, leave that skin uncovered. '
     + 'Keep the source person’s screen location, apparent height, head size, pose, body orientation, camera distance and framing from image 1. '
     + 'Preserve image 1’s background, objects, foreground occlusions, perspective and camera lens. '
     + 'Light the replacement with the same light direction, exposure, colour temperature, shadows and reflections as image 1. '
