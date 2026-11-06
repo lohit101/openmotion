@@ -1,0 +1,54 @@
+{
+  "date": "2026-11-07",
+  "branch": "feat/wan22-animate-baseline",
+  "status": "research baseline only; no Studio Wan engine or native quality test",
+  "baseCommit": "4a38f79",
+  "audit": {
+    "nativeConfigMatches": [
+      "sample_steps",
+      "sample_guide_scale",
+      "sample_shift",
+      "frame_num",
+      "sample_fps"
+    ],
+    "cliSampler": "unipc",
+    "denoiserMetadataMatches": 2,
+    "officialTemplateSHA256": "9a088c90b15a5bac80ac237d4d1fa2f46c479e606b9276a5d75f46f70439e9b9",
+    "officialTemplateAdapters": [
+      "WanAnimate_relight_lora_fp16.safetensors",
+      "lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors"
+    ],
+    "officialTemplateIsBare": false,
+    "nativeComfyWanAnimateSchemaPresentInExistingCatalog": true
+  },
+  "currentViggleSteps": [
+    3,
+    5
+  ],
+  "wanNativeSteps": 20,
+  "stepRatios": [
+    6.666666666666667,
+    4.0
+  ],
+  "wallTimeRatioMeasured": false,
+  "qualityComparisonRun": false,
+  "liveCodeChanged": false,
+  "modelWeightsDownloaded": 0,
+  "gpuResumes": 0,
+  "paidInference": 0,
+  "remoteInstalls": 0,
+  "newWanAnimate2": {
+    "repoRevision": "3ad2fef7d61d6200c9c653e0fe47be7616b323f3",
+    "documentedDefaultGPUs": "8 x A800",
+    "documented480pTestGPUs": "2 x A800",
+    "singleGpuFitMeasured": false
+  },
+  "primarySources": [
+    "https://arxiv.org/abs/2509.14055",
+    "https://github.com/Wan-Video/Wan2.2",
+    "https://docs.comfy.org/tutorials/video/wan/wan2-2-animate",
+    "https://github.com/kijai/ComfyUI-WanVideoWrapper/issues/1280",
+    "https://arxiv.org/abs/2608.06009",
+    "https://github.com/Wan-Video/Wan-Animate-2"
+  ]
+}

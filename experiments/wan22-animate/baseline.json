@@ -1,0 +1,72 @@
+{
+  "id": "wan22-animate-bare-v1",
+  "status": "research-profile-not-app-integrated-or-render-tested",
+  "model": "Wan-AI/Wan2.2-Animate-14B",
+  "task": "replacement",
+  "upstream": {
+    "repo": "https://github.com/Wan-Video/Wan2.2",
+    "revision": "1ea34ff48f87168174e12956e200b1d908b1c5ff",
+    "nativeConfig": "wan/configs/wan_animate_14B.py",
+    "comfyTemplateRepo": "https://github.com/Comfy-Org/workflow_templates",
+    "comfyTemplateRevision": "21d7cc4fb9afd983957f2d2d6b1d583860ccb40b",
+    "comfyTemplate": "templates/video_wan2_2_14B_animate.json",
+    "comfyTemplateSHA256": "9a088c90b15a5bac80ac237d4d1fa2f46c479e606b9276a5d75f46f70439e9b9"
+  },
+  "nativeSampling": {
+    "sample_steps": 20,
+    "sample_guide_scale": 1.0,
+    "sample_shift": 5.0,
+    "frame_num": 77,
+    "sample_fps": 30,
+    "refert_num": 1,
+    "sample_solver": "unipc",
+    "replace_flag": true,
+    "use_relighting_lora": false,
+    "base_seed": 42
+  },
+  "inputs": {
+    "characterImage": "Same single prepared reference as the Viggle control",
+    "drivingVideo": "Same source interval; one continuous shot",
+    "requiredPreprocessing": ["src_pose.mp4", "src_face.mp4", "src_bg.mp4", "src_mask.mp4"],
+    "poseRetargeting": false,
+    "imageEditing": false,
+    "manualTargetMaskReview": true,
+    "manualFaceControlReview": true
+  },
+  "excluded": ["MiniMax H3", "Viggle DMD", "LightX2V", "identity LoRAs", "relighting LoRA in first arm", "Imagen segment repaint", "PerformRecast", "FaceFusion", "ONNX identity swap", "Clarity"],
+  "weightCandidates": {
+    "repo": "Comfy-Org/Wan-2.2",
+    "revision": "ee6f4a40737a995bf5818954cfce6d59443b0f04",
+    "qualityReference": {
+      "filename": "split_files/diffusion_models/wan2.2_animate_14B_bf16.safetensors",
+      "bytes": 34549787368,
+      "sha256": "7d37cb0120488dec2a061135aa3018426925318a60838c3de935c829abc88667"
+    },
+    "memoryAlternative": {
+      "filename": "split_files/diffusion_models/wan2.2_animate_14B_int8_convrot.safetensors",
+      "bytes": 18413068672,
+      "sha256": "419aa0b3d9079a8a39126f2894c3cb2427c288189d2dc8342c61cf0663731cb3"
+    },
+    "auxiliaryWeights": "Text encoder, CLIP Vision, Wan2.1 VAE and preprocessing weights require an explicit audited selection. No provisioning manifest is registered."
+  },
+  "comparison": {
+    "firstIntervalSeconds": 5,
+    "controlA": "Bare current Viggle, without repaint/face finishing/upscale",
+    "candidateB": "This undistilled Wan Animate replacement baseline",
+    "contextFramesAreNotSourceSeconds": true,
+    "frameRateRule": "Use the same declared source/output clock or explicitly report each model's native frame count. Do not export 24-fps controls at the CLI default 30 fps.",
+    "durationRule": "Verify actual source timestamps and full output duration across every native window before evaluating lip sync.",
+    "measure": ["preprocessing", "cold load", "warm native sampling", "decode", "transfer/export", "total wall time", "peak GPU memory"],
+    "visualReview": ["identity and head proportions", "mouth closure and teeth", "eye movement/blinks", "jaw motion", "hands and other occlusion", "boundary flicker", "reference-window joins", "scene lighting"],
+    "laterIntervals": ["10-second head turn/reappearance", "10-second rapid speech/hand crossing"],
+    "noQualityOrSpeedPassEstablished": true
+  },
+  "execution": {
+    "enabled": false,
+    "appDefaultsChanged": false,
+    "downloadWeights": false,
+    "resumeCompute": false,
+    "paidTestBudget": null,
+    "blockers": ["Explicit new download/compute authorization and allowance", "Selected GPU and complete file inventory", "Guarded preprocessing and target review", "Native graph/runner with verified duration, clock and recovery"]
+  }
+}
