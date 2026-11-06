@@ -1,4 +1,12 @@
 .image-edit-references { display: grid; gap: 12px; }
+.image-edit-add-library { margin-top: 10px; }
+.image-edit-reference-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.image-edit-add-reference { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 14px; padding: 16px 12px; text-align: left; color: var(--text); background: var(--input); border: 1px dashed var(--line); border-radius: 10px; }
+.image-edit-add-reference:hover, .image-edit-add-reference.dragging, .image-edit-add-reference:focus-visible { border-color: var(--accent-text); background: color-mix(in srgb, var(--accent-text) 5%, var(--input)); }
+.image-edit-add-reference:disabled { cursor: progress; opacity: .75; }
+.image-edit-add-reference > svg { flex-shrink: 0; color: var(--accent-text); }
+.image-edit-add-reference strong { display: block; font-weight: 500; font-size: 12px; line-height: 1.6; }
+.image-edit-add-reference small { display: block; color: var(--muted); font-size: 10px; line-height: 1.6; margin-top: 3px; }
 .image-edit-reference { min-width: 0; }
 .image-edit-reference .field-heading { min-height: 36px; align-items: flex-start; margin-bottom: 6px; }
 .image-edit-reference .field-label { font-size: 11px; line-height: 1.5; }

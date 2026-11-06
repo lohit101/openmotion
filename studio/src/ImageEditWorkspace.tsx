@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { ArrowCounterClockwise, ArrowDown, ArrowUp, ArrowsOut, DownloadSimple, Image as ImageIcon, PencilSimple, Plus, X } from '@phosphor-icons/react';
 import { toast } from 'sonner';
@@ -13,6 +13,7 @@ import ModuleAction from './ModuleAction';
 import WorkspaceWelcome from './WorkspaceWelcome';
 import GenerationProgress from './GenerationProgress';
 import { useOutputPresentation } from './useGenerationProgress';
+import { uploadReferences, validateReferenceDrop } from './image-edit-upload';
 import './images.css';
 import './media-preview.css';
 import './image-edit.css';
@@ -25,9 +26,14 @@ export interface ImageEditWorkspaceProps {
 }
 export default function ImageEditWorkspace(props: ImageEditWorkspaceProps) {
   const { data, draft, setDraft, downloads, error } = props, s = draft.settings;
-  const [slots, setSlots] = useState(Math.max(1, draft.referenceIds.length));
+  const slotCount = Math.max(1, draft.referenceIds.length);
   const [creating, setCreating] = useState(false), [compare, setCompare] = useState(false), [split, setSplit] = useState(50), [expanded, setExpanded] = useState(false);
   const request = useRef<{ key: string; body: string } | null>(null);
+  const extraInput = useRef<HTMLInputElement>(null), uploadController = useRef<AbortController | null>(null);
+  const [dropActive, setDropActive] = useState(false), [uploadProgress, setUploadProgress] = useState<{ index: number; total: number; percent: number } | null>(null);
+  const [slotUploads, setSlotUploads] = useState<Record<number, boolean>>({});
+  const uploading = !!uploadProgress || Object.values(slotUploads).some(Boolean);
+  useEffect(() => () => uploadController.current?.abort(), []);
   const jobs = data.jobs.filter(j => isImageEditJob(j) && !j.deleted), selected = jobs.find(j => j.id === props.selectedId);
   const current = jobs.find(j => ['queued', 'running', 'reconnecting'].includes(j.status)), done = useOutputPresentation(selected);
   const images = data.assets.filter(a => a.kind === 'image' && !a.maskFor);
@@ -37,14 +43,27 @@ export default function ImageEditWorkspace(props: ImageEditWorkspaceProps) {
   const valid = !!s.prompt.trim() && !!first && refs.every(Boolean) && !issue;
   const update = (value: Partial<ImageEditSettings>) => setDraft(old => ({ ...old, settings: { ...old.settings, ...value } }));
   const choose = (index: number, asset: Asset | null) => {
+    if (uploadController.current) return;
     if (asset && asset.size > 10_000_000) { error('Use a PNG, JPEG or WebP image under 10 MB.'); return; }
     if (asset) props.asset(asset);
     setDraft(old => { const ids = [...old.referenceIds]; if (asset) ids[index] = asset.id; else ids.splice(index, 1); return { ...old, referenceIds: ids.filter(Boolean) }; });
-    if (!asset) setSlots(v => Math.max(1, v - 1));
   };
-  const move = (index: number, delta: number) => setDraft(old => { const ids = [...old.referenceIds]; [ids[index], ids[index + delta]] = [ids[index + delta], ids[index]]; return { ...old, referenceIds: ids }; });
+  const move = (index: number, delta: number) => setDraft(old => { if (uploadController.current) return old; const ids = [...old.referenceIds]; [ids[index], ids[index + delta]] = [ids[index + delta], ids[index]]; return { ...old, referenceIds: ids }; });
+  const addFiles = async (files: File[]) => {
+    setDropActive(false);
+    if (!files.length || uploading || uploadController.current) return;
+    try { validateReferenceDrop(files, draft.referenceIds.length); } catch (e) { error((e as Error).message); return; }
+    const controller = new AbortController();
+    uploadController.current = controller;
+    try {
+      await uploadReferences(files, controller.signal, asset => {
+        props.asset(asset); setDraft(old => ({ ...old, referenceIds: [...old.referenceIds, asset.id] }));
+      }, (index, total, percent) => setUploadProgress({ index, total, percent }));
+    } catch (e) { if (!controller.signal.aborted) error((e as Error).message); }
+    finally { if (!controller.signal.aborted) setUploadProgress(null); uploadController.current = null; }
+  };
   const generate = async () => {
-    if (creating || !valid) return;
+    if (creating || uploading || !valid) return;
     const body = JSON.stringify(draft);
     if (request.current?.body !== body) request.current = { key: crypto.randomUUID(), body };
     setCreating(true);
@@ -56,7 +75,7 @@ export default function ImageEditWorkspace(props: ImageEditWorkspaceProps) {
       toast.success('Image Edit queued');
     } catch (e) { error((e as Error).message); } finally { setCreating(false); }
   };
-  const reuse = (job: Job) => { const next = imageEditDraftForJob(job); setDraft(next); setSlots(next.referenceIds.length); request.current = null; toast.success('Inputs and settings loaded'); };
+  const reuse = (job: Job) => { if (uploading) return; const next = imageEditDraftForJob(job); setDraft(next); request.current = null; toast.success('Inputs and settings loaded'); };
   const action = async (name: 'cancel' | 'resume') => { if (!selected) return; try { await api(`/jobs/${selected.id}/${name}`, name === 'resume' ? { retryMissing: !!selected.retryRequired } : {}); } catch (e) { error((e as Error).message); } };
   const original = selected?.image?.edit?.references[0], [width, height] = selected ? outputDimensions(selected) : [1, 1];
   const frozen = selected?.image?.edit?.settings;
@@ -65,13 +84,19 @@ export default function ImageEditWorkspace(props: ImageEditWorkspaceProps) {
       <div className="editor-heading"><span className="section-icon"><PencilSimple size={19} /></span><h1>Image Edit</h1><span className="imagen-model-label">Qwen 2511</span></div>
       <p className="editor-description">Your images. Your instructions.</p>
       <EditorSection title="Reference images" help="One to three complete images, in the order used by your prompt. Refer to them as Image 1, Image 2 and Image 3. PNG, JPEG or WebP, up to 10 MB each. No automatic crop or character-swap template is applied.">
-        <div className="image-edit-references" style={{ gridTemplateColumns: `repeat(${Math.min(3, Math.max(slots, draft.referenceIds.length))}, minmax(0, 1fr))` }}>{Array.from({ length: Math.min(3, Math.max(slots, draft.referenceIds.length)) }, (_, i) => <div className="image-edit-reference" key={i}>
-          <AssetDrop kind="image" label={`Image ${i + 1}${i === 0 ? ' · target' : ' · reference'}`} emptyLabel={i === 0 ? 'Add the image to edit' : 'Add another reference'} asset={refs[i]} onAsset={a => choose(i, a)} onError={error} />
+        <fieldset className="image-edit-reference-fields" disabled={uploading}>
+        <div className="image-edit-references" style={{ gridTemplateColumns: `repeat(${slotCount}, minmax(0, 1fr))` }}>{Array.from({ length: slotCount }, (_, i) => <div className="image-edit-reference" key={i}>
+          <AssetDrop kind="image" label={`Image ${i + 1}${i === 0 ? ' · target' : ' · reference'}`} emptyLabel={i === 0 ? 'Add the image to edit' : 'Add another reference'} asset={refs[i]} onAsset={a => choose(i, a)} onError={error} disabled={uploading} onUploadStateChange={value => setSlotUploads(old => old[i] === value || !old[i] && !value ? old : { ...old, [i]: value })} />
           <div className="image-edit-reference-tools"><SmallSelect label={`Choose Image ${i + 1} from library`} value={refs[i]?.id || '__none__'} onChange={id => { const asset = images.find(a => a.id === id); if (asset) choose(i, asset); }} options={[{ value: '__none__', label: 'Choose from library…', disabled: true }, ...images.map(a => ({ value: a.id, label: a.name }))]} />
             {refs[i] && <div className="image-edit-order"><button type="button" aria-label={`Move Image ${i + 1} earlier`} disabled={i === 0} onClick={() => move(i, -1)}><ArrowUp size={14}/></button><button type="button" aria-label={`Move Image ${i + 1} later`} disabled={i >= draft.referenceIds.length - 1} onClick={() => move(i, 1)}><ArrowDown size={14}/></button></div>}
           </div>
         </div>)}</div>
-        {Math.max(slots, draft.referenceIds.length) < 3 && <button className="image-extract-button" disabled={!draft.referenceIds.length || slots > draft.referenceIds.length} onClick={() => setSlots(Math.max(slots, draft.referenceIds.length) + 1)}><Plus size={15}/>Add reference image</button>}
+        </fieldset>
+        <input ref={extraInput} type="file" multiple accept="image/png,image/jpeg,image/webp" aria-label="Add reference images" hidden disabled={uploading} onChange={event => { void addFiles(Array.from(event.target.files || [])); event.target.value = ''; }}/>
+        {(draft.referenceIds.length < 3 || !!uploadProgress) && <button type="button" className={`image-edit-add-reference ${dropActive ? 'dragging' : ''}`} disabled={uploading} aria-label="Add reference images" aria-busy={!!uploadProgress} onClick={() => extraInput.current?.click()}
+          onDragOver={event => { event.preventDefault(); if (!uploading) { event.dataTransfer.dropEffect = 'copy'; setDropActive(true); } }} onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropActive(false); }}
+          onDrop={event => { event.preventDefault(); void addFiles(Array.from(event.dataTransfer.files)); }}><Plus size={18}/><span><strong>{uploadProgress ? `Uploading ${uploadProgress.index} of ${uploadProgress.total} · ${uploadProgress.percent}%` : draft.referenceIds.length ? 'Drop extra images here, or choose files' : 'Drop images here, or choose files'}</strong><small>{uploadProgress ? 'Completed images stay in their reference slots.' : `Up to ${3 - draft.referenceIds.length} ${draft.referenceIds.length ? 'more ' : ''}image${draft.referenceIds.length === 2 ? '' : 's'} · PNG, JPEG or WebP · 10 MB each`}</small></span></button>}
+        {!!draft.referenceIds.length && draft.referenceIds.length < 3 && <div className="image-edit-add-library"><SmallSelect label="Add extra image from library" value="__none__" disabled={uploading} onChange={id => { const asset = images.find(a => a.id === id); if (asset) choose(draft.referenceIds.length, asset); }} options={[{ value: '__none__', label: 'Add extra image from library…', disabled: true }, ...images.map(a => ({ value: a.id, label: a.name }))]}/></div>}
       </EditorSection>
       <EditorSection title="Edit prompt" help="Your text is sent exactly as written, in any supported language. Describe which image supplies the scene, identity, body or outfit and what should stay unchanged.">
         <label className="image-edit-prompt-label" htmlFor="image-edit-prompt">What should change?</label>
@@ -91,7 +116,7 @@ export default function ImageEditWorkspace(props: ImageEditWorkspaceProps) {
         <label className="imagen-seed" htmlFor="image-edit-seed">Seed<input id="image-edit-seed" type="number" min={0} max={4294967295} step={1} disabled={s.randomSeed} value={s.seed} onChange={e => { const seed = Number(e.target.value); if (Number.isInteger(seed) && seed >= 0 && seed <= 4294967295) update({ seed }); }}/></label>
       </EditorDisclosure>
       {issue && <p role="alert" className="model-page-error">{issue}</p>}
-    </div><ModuleAction request={{ module: 'image-edit', settings: s }} controls={downloads} generateLabel="Generate image" generateDisabled={!valid || creating || data.cloud.busy} submitting={creating} onGenerate={() => void generate()} onConnect={props.openGPU} onManage={props.openDownloads} caption={valid ? `${imageEditSampling(s).steps} steps · Qwen Image Edit 2511` : 'Add a reference image and describe your edit.'}/></section>
+    </div><ModuleAction request={{ module: 'image-edit', settings: s }} controls={downloads} generateLabel="Generate image" generateDisabled={!valid || uploading || creating || data.cloud.busy} submitting={creating} onGenerate={() => void generate()} onConnect={props.openGPU} onManage={props.openDownloads} caption={uploading ? 'Uploading reference images…' : valid ? `${imageEditSampling(s).steps} steps · Qwen Image Edit 2511` : 'Add a reference image and describe your edit.'}/></section>
     <section className={`workspace image-workspace ${selected ? '' : 'workspace-idle'}`}><div className="workspace-header"><div><span className="workspace-overline">YOUR IMAGE EDIT WORKSPACE</span><h2>{selected?.title || 'Make it your own'}</h2></div>{selected && <button className="icon-button" aria-label="Close image preview" onClick={props.close}><X size={18}/></button>}</div>
       {!selected ? <WorkspaceWelcome kind="photo" library={props.library} openActive={current ? () => props.select(current.id) : undefined}/> : !done ? <GenerationProgress job={selected} kind="photo" online={downloads.online} onCancel={() => void action('cancel')} onResume={() => void action('resume')} onReuse={() => reuse(selected)}/> : <>
         <div className="image-preview-stage"><div className="preview-toolbar"><div className="preview-tabs"><button aria-pressed={!compare} onClick={() => setCompare(false)}>Result</button>{original && <button aria-pressed={compare} onClick={() => setCompare(true)}>Compare</button>}</div><button className="icon-button" aria-label="View image fullscreen" onClick={() => setExpanded(true)}><ArrowsOut size={17}/></button></div>
@@ -99,7 +124,7 @@ export default function ImageEditWorkspace(props: ImageEditWorkspaceProps) {
           {compare && <input className="image-compare-slider" aria-label="Compare original and result" type="range" min={0} max={100} value={split} onChange={e => setSplit(Number(e.target.value))}/>}
           <div className="image-result-caption"><span>{width} × {height} · {frozen?.format.toUpperCase()} · {selected.elapsedSeconds?.toFixed(1)}s</span><a href={`/api/jobs/${selected.id}/output?download=1`} download><DownloadSimple size={14}/>Save image</a></div>
         </div>
-        <div className="image-use-row"><button className="secondary-button" onClick={() => reuse(selected)}><ArrowCounterClockwise size={15}/>Reuse inputs</button></div>
+        <div className="image-use-row"><button className="secondary-button" disabled={uploading} onClick={() => reuse(selected)}><ArrowCounterClockwise size={15}/>Reuse inputs</button></div>
         <details className="image-run-details"><summary>Run details</summary><p>Qwen Image Edit 2511 · {frozen?.precision.toUpperCase()} · {frozen && imageEditSampling(frozen).steps} steps · Seed {frozen?.seed}</p><p className="image-edit-frozen-prompt">{frozen?.prompt}</p><ol>{selected.image?.edit?.references.map((ref, i) => <li key={i}>Image {i + 1}: {ref.name}</li>)}</ol><a href={`/api/jobs/${selected.id}/workflow`}><DownloadSimple size={13}/>Export ComfyUI graph</a><a href={`/api/jobs/${selected.id}/image-native`}><DownloadSimple size={13}/>Save native PNG</a></details>
         <Dialog.Root open={expanded} onOpenChange={setExpanded}><Dialog.Portal><Dialog.Overlay className="modal-overlay"/><Dialog.Content className="asset-preview-dialog photo-only image-edit-fullscreen"><header><div><Dialog.Title>{selected.title}</Dialog.Title><Dialog.Description className="visually-hidden">Full image preview, fitted to the available screen.</Dialog.Description></div><Dialog.Close className="icon-button" aria-label="Close fullscreen image"><X size={20}/></Dialog.Close></header><div className="asset-photo-stage"><img src={`/api/jobs/${selected.id}/output`} alt={selected.title}/></div></Dialog.Content></Dialog.Portal></Dialog.Root>
       </>}

@@ -25,17 +25,20 @@ export function Toggle({ label, checked, onChange, disabled = false, detail, det
 export function Modal({ open, onOpenChange, title, description, children, wide = false }: { open: boolean; onOpenChange: (v: boolean) => void; title: string; description: string; children: ReactNode; wide?: boolean }) {
   return <Dialog.Root open={open} onOpenChange={onOpenChange}><Dialog.Portal><Dialog.Overlay className="modal-overlay" /><Dialog.Content className={`modal ${wide ? 'modal-wide' : ''}`}><div className="modal-head"><div><Dialog.Title>{title}</Dialog.Title><Dialog.Description>{description}</Dialog.Description></div><Dialog.Close className="icon-button" aria-label="Close dialog"><X size={20} /></Dialog.Close></div>{children}</Dialog.Content></Dialog.Portal></Dialog.Root>;
 }
-export function AssetDrop({ kind, asset, onAsset, onError, label, emptyLabel, help, clip, clipFps = 24, onClip }: {
+export function AssetDrop({ kind, asset, onAsset, onError, label, emptyLabel, help, clip, clipFps = 24, onClip, onUploadStateChange, disabled = false }: {
   kind: 'video' | 'image'; asset?: Asset; onAsset: (a: Asset | null) => void; onError: (s: string) => void;
-  label?: string; emptyLabel?: string; help?: ReactNode; clip?: ClipSelection; clipFps?: number; onClip?: (selection: ClipSelection) => void;
+  label?: string; emptyLabel?: string; help?: ReactNode; clip?: ClipSelection; clipFps?: number; onClip?: (selection: ClipSelection) => void; onUploadStateChange?: (uploading: boolean) => void; disabled?: boolean;
 }) {
   const input = useRef<HTMLInputElement>(null), request = useRef<XMLHttpRequest | null>(null);
   const [dragging, setDragging] = useState(false), [uploading, setUploading] = useState(false), [percent, setPercent] = useState(0), [checking, setChecking] = useState(false);
   const [preview, setPreview] = useState<{ asset: Asset; pending: boolean } | null>(null);
+  const uploadObserver = useRef(onUploadStateChange); uploadObserver.current = onUploadStateChange;
+  useEffect(() => { uploadObserver.current?.(uploading); }, [uploading]);
+  useEffect(() => () => uploadObserver.current?.(false), []);
   const name = label || (kind === 'video' ? 'Motion video' : 'Character reference');
   useEffect(() => () => request.current?.abort(), []);
   const upload = (file?: File) => {
-    if (!file || uploading) return;
+    if (!file || uploading || disabled) return;
     if (file.size > (kind === 'image' ? 25 : 512) * 1024 ** 2) { onError(kind === 'image' ? 'Images can be up to 25 MB.' : 'Videos can be up to 512 MB.'); return; }
     setUploading(true); setPercent(0); setChecking(false);
     const xhr = new XMLHttpRequest(); request.current = xhr; xhr.open('POST', '/api/assets/' + kind);

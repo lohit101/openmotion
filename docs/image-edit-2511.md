@@ -8,7 +8,7 @@ This is an alternative implementation, not a reproduction of Kie's private Qwen 
 
 Start the GPU dashboard with `bash scripts/studio.sh`, then open `http://127.0.0.1:3000` and choose **Image Edit**. The Kie API checkout can continue independently on port 3001.
 
-1. Upload one to three PNG, JPEG or WebP images, or choose images already in this dashboard's library. Each file must be at most 10,000,000 bytes and 32 megapixels. The first image supplies the default output aspect ratio.
+1. Drop one or more PNG, JPEG or WebP files onto the reference drop area to fill the next slots in order, or choose files with the same button. Existing slots also accept individual drops; the extra-image library selector adds saved images without another upload. Each file must be at most 10,000,000 bytes and 32 megapixels. The first image supplies the default output aspect ratio.
 2. Refer to **Image 1**, **Image 2** and **Image 3** in the prompt. The arrows reorder those inputs; update image numbers in the prompt if their roles change. Complete character sheets are accepted as images, without automatically selecting or cropping a face.
 3. Choose aspect ratio, canvas and sampling. The default is a roughly one-megapixel canvas, native 40-step sampling and compact INT8 denoiser. Advanced settings offer a BF16 denoiser, PNG/JPEG and a reproducible seed. Both precisions use the matching FP8 vision-language encoder.
 4. Connect your managed GPU. The shared footer offers **Download Image Edit** when selected files are missing, with resumable per-file progress and space checks. Selecting settings never starts downloads or compute. Generation is a separate action once files are ready.

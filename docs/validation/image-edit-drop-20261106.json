@@ -1,0 +1,39 @@
+{
+  "date": "2026-11-06",
+  "feature": "Drag and drop extra Image Edit references",
+  "behavior": [
+    "Drop one or more files to append the next references in order, up to three total.",
+    "PNG/JPEG/WebP and 10 MB per file validated before batch upload.",
+    "Upload progress; completed references retained after a later failure.",
+    "Outstanding upload cancelled when leaving the module.",
+    "Reference changes and Generate wait until uploads finish.",
+    "Extra library selection remains available."
+  ],
+  "checks": {
+    "focusedTests": 43,
+    "uploadRegressions": 4,
+    "typecheck": "passed",
+    "productionBuild": "passed",
+    "nativeSafari": {
+      "isolatedFixture": true,
+      "actualMultiFileUpload": true,
+      "orderedReferences": [
+        "Test target.png",
+        "back.png",
+        "face.png"
+      ],
+      "jobsSubmitted": 0
+    }
+  },
+  "deployment": {
+    "frontendPublished": true,
+    "backendRestarted": false,
+    "oldAssetsRetained": true,
+    "originalJobsUnchanged": 389,
+    "originalAssetsUnchanged": 493,
+    "allThreeDraftsUnchanged": true,
+    "sameGpuAndKieServerProcesses": true,
+    "gpuActions": 0,
+    "backendBuildByteIdentical": true
+  }
+}
