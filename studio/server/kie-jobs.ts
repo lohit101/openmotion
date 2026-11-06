@@ -9,6 +9,7 @@ import { command, poster, probe, videoFrameInfo } from './media';
 import type { Store } from './store';
 import type { KieAccount } from './kie-account';
 import { KieApiError, type KieClient, type KieVideoInput } from './kie-client';
+import { validateCharacterSelection } from './kie-characters';
 
 export type KieClientLike = Pick<KieClient, 'getCredits' | 'uploadFile' | 'createTask' | 'getTask' | 'downloadResult'>;
 const active = ['queued', 'running', 'reconnecting'];
@@ -59,6 +60,7 @@ export class KieJobs {
     try { return await task; } finally { this.creating.delete(key); }
   }
   private async createChecked(draft: KieDraft, key: string) {
+    validateCharacterSelection(this.store, draft);
     this.account.key();
     const source = this.store.asset(draft.sourceId || ''), reference = this.store.asset(draft.referenceId || '');
     if (!source || source.kind !== 'video' || !reference || reference.kind !== 'image') throw new Error('Upload a source video and one character image first.');
@@ -69,7 +71,7 @@ export class KieJobs {
       const asset = this.store.asset(item.assetId); if (!asset || asset.kind !== 'image') throw new Error('An additional character view is missing. Upload it again or remove that reference.');
       this.dimensions(await probe(asset.path), 'additional reference', 8000); if ((await stat(asset.path)).size > 20_000_000) throw new Error('Each additional reference must be at most 20 MB.'); additional.push(asset);
     }
-    const fullPrompt = kiePrompt(draft.prompt, !!face, draft.additionalReferences); if (fullPrompt.length > 20000) throw new Error('The complete prompt exceeds Kie.ai’s 20,000-character limit. Shorten the additional instructions.');
+    const fullPrompt = kiePrompt(draft.prompt, !!face, draft.additionalReferences, draft.characterPack); if (fullPrompt.length > 20000) throw new Error('The complete prompt exceeds Kie.ai’s 20,000-character limit. Shorten the additional instructions.');
     const meta = await probe(source.path), image = await probe(reference.path);
     this.dimensions(meta, 'video', 4096); this.dimensions(image, 'image', 8000);
     if (draft.start + draft.seconds > meta.duration + 1e-6) throw new Error('The selection extends beyond the available video. Choose a whole 2–15 second interval inside the source video.');
@@ -77,6 +79,7 @@ export class KieJobs {
     if (face) { this.dimensions(await probe(face.path), 'facial reference', 8000); if ((await stat(face.path)).size > 20_000_000) throw new Error('The facial reference must be at most 20 MB.'); }
     const [sourceOriginalSHA256, referenceOriginalSHA256] = await Promise.all([kieFileHash(source.path), kieFileHash(reference.path)]);
     const faceBinding = { ...(face ? { faceOriginalSHA256: await kieFileHash(face.path) } : {}), ...(additional.length ? { additionalOriginalSHA256: await Promise.all(additional.map(asset => kieFileHash(asset.path))) } : {}) };
+    if (draft.characterPack && (draft.characterPack.face.sha256 !== faceBinding.faceOriginalSHA256 || draft.characterPack.references.some((ref, index) => ref.sha256 !== faceBinding.additionalOriginalSHA256?.[index]))) throw new Error('A saved character image changed on disk. Restore it or save a new character revision before generating.');
     const fingerprint = hashText({ draft, fullPrompt, sourceOriginalSHA256, referenceOriginalSHA256, ...faceBinding });
     const unresolved = this.store.jobs().find(job => job.kie?.requestFingerprint === fingerprint && (active.includes(job.status) || ['submitting', 'unknown'].includes(job.kie.submission) || job.kie.taskId && job.status !== 'cancelled' && !['complete', 'failed'].includes(job.kie.phase)));
     if (unresolved) throw new Error(`This same request already has saved work (${unresolved.id}). Open it in My library and choose Check & resume. No duplicate task was submitted.`);
@@ -88,7 +91,7 @@ export class KieJobs {
       width: reference.width, height: reference.height, segments: [], context: '', pendingPrompt: null, uploads: null, error: null, output: null, poster: null, cancelRequested: false, elapsedSeconds: null, origin: 'api', workflow: null,
       // Legacy storage container only. It is never compiled or shown as a GPU workflow.
       settings: { ...defaults, engine: 'scail2', prompt: fullPrompt, seconds: draft.seconds, start: draft.start, seed: draft.seed || 0, randomSeed: draft.seed === null, resolution: draft.resolution === '480P' ? '480' : '720', facialConsistency: 'off', facialOcclusionTracking: false, imagenRepaintEnabled: false },
-      kie: { aspectRatio: this.aspect(image.width, image.height), version: additional.length ? 'kie-wan3-v3' : 'kie-wan3-v2', provider: 'kie.ai', model: KIE_MODEL, settings: draft, prompt: fullPrompt, phase: 'preparing', submission: 'not-submitted', requestFingerprint: fingerprint, sourceAudio: meta.hasAudio, warnings: [] },
+      kie: { aspectRatio: this.aspect(image.width, image.height), version: draft.characterPack ? 'kie-wan3-v4' : additional.length ? 'kie-wan3-v3' : 'kie-wan3-v2', provider: 'kie.ai', model: KIE_MODEL, settings: draft, prompt: fullPrompt, phase: 'preparing', submission: 'not-submitted', requestFingerprint: fingerprint, sourceAudio: meta.hasAudio, warnings: [] },
       progress: { stage: 'Queued for Kie.ai', node: null, value: null, max: null, unit: 'items', segment: 1, segments: 1, completedFrames: 0, targetFrames: 0, updatedAt: Date.now() } };
     const raced = this.store.jobs().find(item => item.kie?.requestFingerprint === fingerprint && (active.includes(item.status) || ['submitting', 'unknown'].includes(item.kie.submission)));
     if (raced) throw new Error(`This same request is already saved (${raced.id}). Open its existing run instead of submitting another task.`);

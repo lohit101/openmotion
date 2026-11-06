@@ -67,3 +67,7 @@ Kie bills reference-video duration plus output duration. Pricing depends on reso
 - [Current pricing](https://kie.ai/pricing)
 
 Checked on 4 November 2026. Public OpenAPI Markdown snapshots are kept in the ignored local research folder for implementation review; no credentials or user media were downloaded for that research.
+
+## Reusable Character packs
+
+Remotion now also offers saved neutral facial anchors, individual angle/expression references and crops from whole sheets. Expand **Character → Manage characters** in Inputs. See [Character packs](kie-character-packs.md) for the researched approaches, exact image roles, saved revisions, selection limits and validation boundaries. This is reference preparation, not character-sheet image generation.

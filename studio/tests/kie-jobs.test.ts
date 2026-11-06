@@ -10,6 +10,7 @@ import { kieFileHash, type KieClientLike } from '../server/kie-jobs';
 import { KieApiError, type KieTask, type KieVideoInput } from '../server/kie-client';
 import { KIE_MODEL, kieDefaults, type KieDraft } from '../shared/kie';
 import type { Job } from '../shared/types';
+import { characterAdditionalReferences, characterSnapshot, type KieCharacterPack } from '../shared/kie-characters';
 
 vi.setConfig({ testTimeout: 20000 });
 const apps: Awaited<ReturnType<typeof createKieApplication>>[] = [], roots: string[] = [];
@@ -312,4 +313,39 @@ it('rejects changed additional original/prepared media and resumes a failed extr
     await request(f.app.app).post(`/api/kie/jobs/${job.id}/resume`).send({}).expect(200); const held=await until(()=>f.app.store.job(job.id),j=>j.status==='interrupted'); expect(held.error).toMatch(/additional reference changed/); expect(f.calls.creates).toHaveLength(0); expect(f.calls.uploads).toHaveLength(uploads); await writeFile(file,bytes);
   }
   await request(f.app.app).post(`/api/kie/jobs/${job.id}/resume`).send({}).expect(200); await until(()=>f.app.store.job(job.id),j=>j.status==='completed'); expect(f.calls.creates).toHaveLength(1); expect(f.calls.uploads).toEqual(['video','image','image','image']);
+});
+
+it('freezes a character revision and recovers its exact image roles/order after the pack is edited and archived', async () => {
+  const f = await fixture(); await f.saveKey(); const draft = await f.inputs();
+  const face = (await request(f.app.app).post('/api/assets/image').attach('file', faceReference).expect(201)).body;
+  const identity = {id:randomUUID(),assetId:face.id,role:'face',view:'front',expression:'neutral',label:'Neutral face',format:'single'};
+  const back = {...identity,id:randomUUID(),assetId:draft.referenceId,role:'body',view:'back',label:'Back'};
+  const smile = {...identity,id:randomUUID(),role:'expression',expression:'smile',label:'Smile'};
+  const input = {name:'Saved character',faceId:identity.id,references:[identity,back,smile]};
+  const pack = (await request(f.app.app).post('/api/kie/characters').send(input).expect(201)).body as KieCharacterPack;
+  const snapshot = characterSnapshot(pack,[back.id,smile.id]);
+  const settings: KieDraft = {...draft,faceReferenceId:face.id,additionalReferences:characterAdditionalReferences(snapshot),characterPack:snapshot};
+  f.mode('additional-upload-fail'); const job = await f.start(settings);
+  const held = await until(()=>f.app.store.job(job.id),j=>j.status==='interrupted'); expect(held.kie!.version).toBe('kie-wan3-v4'); expect(f.calls.creates).toHaveLength(0);
+  const folder = path.join(f.root,'jobs',job.id), before = await readFile(path.join(folder,'kie-inputs.json'),'utf8'), prompt = held.kie!.prompt;
+  await request(f.app.app).put(`/api/kie/characters/${pack.id}`).send({...input,name:'Updated pack',revision:1,references:[{...identity,label:'New label'},back,smile]}).expect(200);
+  await request(f.app.app).patch(`/api/kie/characters/${pack.id}`).send({revision:2,archived:true}).expect(200);
+  f.mode('success'); await request(f.app.app).post(`/api/kie/jobs/${job.id}/resume`).send({}).expect(200);
+  const done = await until(()=>f.app.store.job(job.id),j=>['completed','interrupted','failed'].includes(j.status));
+  expect(done.status).toBe('completed'); expect(done.error).toBeNull(); expect(done.kie!.settings).toEqual(settings); expect(done.kie!.prompt).toBe(prompt);
+  expect(await readFile(path.join(folder,'kie-inputs.json'),'utf8')).toBe(before); expect(f.calls.creates).toHaveLength(1);
+  const sent = f.calls.creates[0]!; expect(sent.prompt).toBe(prompt); expect(sent.reference_image_urls).toHaveLength(4);
+  expect(sent.reference_image_urls[0]).toContain(done.kie!.referenceSHA256!); expect(sent.reference_image_urls[1]).toContain(done.kie!.faceReferenceSHA256!);
+  expect(sent.reference_image_urls.slice(2)).toEqual(done.kie!.additionalReferenceSHA256!.map(sha=>`https://media.example.test/image/${sha}`));
+  const receipt = JSON.parse(await readFile(path.join(folder,'kie-receipt.json'),'utf8')); expect(receipt.version).toBe('kie-wan3-v4'); expect(receipt.settings.characterPack).toEqual(snapshot);
+});
+it('rejects changed saved-character bytes or forged roles before any provider upload or submission',async () => {
+  const f=await fixture(); await f.saveKey(); const draft=await f.inputs();
+  const ref={id:randomUUID(),assetId:draft.referenceId,role:'face',view:'front',expression:'neutral',label:'Face',format:'single'};
+  const pack=(await request(f.app.app).post('/api/kie/characters').send({name:'Test',faceId:ref.id,references:[ref]}).expect(201)).body as KieCharacterPack;
+  const snapshot=characterSnapshot(pack,[]), settings={...draft,faceReferenceId:draft.referenceId,additionalReferences:characterAdditionalReferences(snapshot),characterPack:snapshot};
+  await expect(f.app.jobs.create({...settings,characterPack:{...snapshot,name:'Forged'}},randomUUID())).rejects.toThrow(/changed/);
+  await copyFile(faceReference,f.app.store.asset(draft.referenceId!)!.path);
+  await expect(f.app.jobs.create(settings,randomUUID())).rejects.toThrow(/changed on disk/);
+  expect(f.calls.uploads).toEqual([]); expect(f.calls.creates).toEqual([]); expect(f.app.store.jobs()).toEqual([]);
 });

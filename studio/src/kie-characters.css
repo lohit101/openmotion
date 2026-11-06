@@ -1,0 +1,58 @@
+.kie-character-selector { margin: 0 0 22px; }
+.kie-character-selector-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.kie-character-selector-heading > span { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 550; }
+.kie-character-selector-heading > button { color: var(--accent-text); font-size: 11px; min-height: 36px; }
+.kie-character-selector > .select-trigger { width: 100%; }
+.kie-character-selector > .select-trigger > span:first-child, .kie-character-role-fields .select-trigger > span:first-child, .kie-character-manager-toolbar > .select-trigger > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kie-character-selection { margin-top: 14px; }
+.kie-character-selection-summary { display: grid; gap: 5px; font-size: 12px; }
+.kie-character-selection-summary > span, .kie-character-note { font-size: 11px; color: var(--muted); line-height: 1.6; }
+.kie-character-anchor { display: flex; align-items: center; gap: 12px; margin: 14px 0; }
+.kie-character-anchor img { width: 54px; height: 60px; border-radius: 6px; object-fit: contain; background: var(--raised); }
+.kie-character-anchor > span { display: grid; gap: 6px; font-size: 11px; }
+.kie-character-anchor small, .kie-character-choice small { color: var(--muted); font-size: 10px; }
+.kie-character-presets { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
+.kie-character-presets button { border: 1px solid var(--border); padding: 8px 10px; border-radius: 6px; font-size: 10px; color: var(--muted); min-height: 36px; }
+.kie-character-presets button:hover { border-color: var(--accent-text); color: var(--accent-text); }
+.kie-character-choices { display: grid; gap: 6px; max-height: 330px; overflow-y: auto; padding: 2px; }
+.kie-character-choice { display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); border-radius: 7px; padding: 8px; cursor: pointer; }
+.kie-character-choice.selected { border-color: var(--accent-text); }
+.kie-character-choice img { width: 40px; height: 44px; object-fit: contain; background: var(--raised); border-radius: 3px; }
+.kie-character-choice > span { display: grid; gap: 5px; flex: 1; min-width: 0; }
+.kie-character-choice strong { font-size: 11px; overflow-wrap: anywhere; font-weight: 500; }
+.kie-character-choice input, .kie-character-anchor-choice input, .kie-character-archived input { accent-color: var(--accent-text); width: 16px; height: 16px; flex-shrink: 0; }
+.kie-character-order { padding: 0; list-style: none; margin: 10px 0; }
+.kie-character-order li { display: flex; align-items: center; font-size: 11px; min-height: 36px; gap: 4px; }
+.kie-character-order li > span { flex: 1; }
+.kie-character-notice { background: var(--raised); padding: 12px; border-radius: 6px; font-size: 12px; line-height: 1.5; margin: 12px 0; }
+.kie-character-notice > button { margin-right: 8px; text-decoration: underline; }
+.kie-character-manager { min-width: 0; }
+.kie-character-manager-toolbar { display: flex; gap: 14px; align-items: center; margin-bottom: 20px; }
+.kie-character-manager-toolbar > .select-trigger { flex: 1; min-width: 0; }
+.kie-character-archived { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--muted); }
+.kie-character-manager fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.kie-character-manager .full-label { margin-bottom: 12px; }
+.kie-character-import { padding: 18px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.kie-character-import > .asset-field { max-width: 260px; margin: auto auto 14px; }
+.kie-character-import > .select-trigger { width: 100%; margin-bottom: 14px; }
+.kie-character-import .asset-drop { height: 140px; min-height: 140px; }
+.kie-character-role-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 10px 0; }
+.kie-character-role-fields .select-trigger { min-width: 0; width: 100%; font-size: 11px; }
+.kie-character-import-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.kie-character-reference-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin: 22px 0 14px; }
+.kie-character-reference-heading h3 { font-size: 13px; margin: 0; }
+.kie-character-reference-heading > span { font-size: 11px; color: var(--muted); }
+.kie-character-reference-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.kie-character-reference-card { min-width: 0; border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+.kie-character-card-image { position: relative; height: 140px; background: var(--raised); border-radius: 5px; margin-bottom: 10px; }
+.kie-character-card-image > img { width: 100%; height: 100%; object-fit: contain; }
+.kie-character-card-image > button { position: absolute; top: 4px; right: 4px; background: var(--surface); border: 1px solid var(--border); }
+.kie-character-anchor-choice { display: flex; align-items: center; gap: 8px; font-size: 11px; min-height: 36px; }
+.kie-character-empty { text-align: center; padding: 20px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.kie-character-save { display: flex; align-items: center; gap: 10px; position: sticky; bottom: -1px; padding: 18px 0 0; margin-top: 18px; background: var(--surface); border-top: 1px solid var(--border); }
+.kie-character-save > span { font-size: 11px; color: var(--muted); margin-right: auto; }
+.kie-input-preview-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.kie-input-preview-grid figure { margin: 0; min-width: 0; }
+.kie-input-preview-grid img { width: 100%; height: 100px; object-fit: contain; background: var(--raised); border-radius: 5px; }
+.kie-input-preview-grid figcaption { font-size: 11px; line-height: 1.5; margin-top: 6px; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .kie-character-reference-grid { grid-template-columns: minmax(0, 1fr); } .kie-character-manager-toolbar { flex-wrap: wrap; } .kie-character-manager-toolbar > .select-trigger { flex-basis: 100%; } .kie-character-presets button, .kie-character-selector-heading > button { min-height: 44px; } .kie-character-order .icon-button { min-width: 44px; min-height: 44px; } .kie-character-role-fields .select-trigger { min-height: 44px; } .kie-character-anchor-choice { min-height: 44px; } .kie-character-save { flex-wrap: wrap; } .kie-character-save > span { flex-basis: 100%; } .kie-input-preview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

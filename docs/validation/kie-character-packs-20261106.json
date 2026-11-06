@@ -1,0 +1,58 @@
+{
+  "date": "2026-11-06",
+  "branch": "feat/kie-character-swap",
+  "scope": "Approved reusable local Character reference packs for Kie Wan 3.0",
+  "paidKieTests": 0,
+  "gpuActions": 0,
+  "modelDownloads": 0,
+  "checks": {
+    "typecheck": "passed",
+    "viteProductionBuild": "passed",
+    "serverBundle": "passed",
+    "fullSuite": {"tests": 730, "files": 57, "passed": true},
+    "finalFocusedSuite": {"tests": 52, "files": 4, "passed": true, "includesAdditionalJpegRegressionAfterFullSuite": true},
+    "legacyPromptComparisons": 54,
+    "existingFrozenDraftShapes": 15,
+    "existingFrozenFingerprints": 15,
+    "legacyCompatibility": "all unchanged"
+  },
+  "covered": [
+    "Local pack create/update with post-hash revision compare-and-swap",
+    "Reversible archive and historical revision retention",
+    "Neutral identity anchor, valid image assets and selected-reference limits",
+    "Exact selected roles/order and original-byte validation before upload",
+    "Run recovery after editing/archiving a pack, with the same literal prompt and one mock task submission",
+    "Reject forged pack metadata and changed reference bytes before provider uploads",
+    "Native panel PNG equality, original-sheet preservation and crop provenance",
+    "Uniform resizing of small crops to the 240-pixel API minimum",
+    "Out-of-bounds, negative, undersized and overly wide crop rejection",
+    "Odd JPEG crops in decoded RGB space without subsampled-chroma displacement",
+    "Manual mode, historical selection, image numbering and complete prompt preview",
+    "Existing Kie task recovery, local editor and original GPU regression suite"
+  ],
+  "browser": {
+    "fixture": "Separate local server and synthetic media; all external provider methods disabled",
+    "chromeDesktop": ["Manual mode", "Saved character selector", "Angles plus expressions", "Reference numbering"],
+    "safariDesktop": ["Compact disclosure", "Manager reference roles", "Select existing sheet", "Drag panel crop", "Save revision", "Retain previous draft snapshot until explicit update"],
+    "safariNarrow": ["Setup/Preview layout", "Bottom navigation", "Ordered five-image preview"],
+    "physicalPhoneTested": false,
+    "liveGenerationQualityTested": false
+  },
+  "liveReload": {
+    "waitedForUserGeneration": true,
+    "generationAndEditorIdleRecheckedBeforeStop": true,
+    "verifiedExactPortAndCheckout": true,
+    "unchangedRawJobRecords": 15,
+    "unchangedRawAssetRecords": 18,
+    "draftBytesUnchanged": true,
+    "newFrontendAndCharacterRoutesVerified": true,
+    "originalGpuCheckoutClean": true
+  },
+  "limitations": [
+    "Reference roles are prompt guidance, not a trained multi-view identity embedding or expression rig",
+    "No paid sheet-versus-crop or expressions quality benchmark was run",
+    "No perfect identity, gaze, occlusion, lip-sync or latency guarantee",
+    "Characters and media remain local and do not travel with a Git pull",
+    "Image1 remains required as the scene-ready appearance reference"
+  ]
+}

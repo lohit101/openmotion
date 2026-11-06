@@ -22,7 +22,7 @@ export function ReferenceViewControl({ asset, view, kind, change }: { asset?: As
   </button>{open && <ReferenceViewPicker asset={asset} initial={valid ? view : null} kind={kind} close={() => setOpen(false)} save={value => { change(value); setOpen(false); }} />}</>;
 }
 
-function ReferenceViewPicker({ asset, initial, kind, close, save }: { asset: Asset; initial: ImageReferenceView | null; kind: 'body' | 'face'; close: () => void; save: (view: ImageReferenceView | null) => void }) {
+export function ReferenceViewPicker({ asset, initial, kind, close, save, minimum = 32, title, description }: { asset: Asset; initial: ImageReferenceView | null; kind: 'body' | 'face'; close: () => void; save: (view: ImageReferenceView | null) => void; minimum?: number; title?: string; description?: string }) {
   const whole = (): ImageReferenceView => ({ assetId: asset.id, x: 0, y: 0, width: asset.width, height: asset.height });
   const selection = useRef<ImageReferenceView>(initial || whole()), picked = useRef(!!initial), stage = useRef<HTMLDivElement>(null), box = useRef<HTMLDivElement>(null), size = useRef<HTMLSpanElement>(null), coordinates = useRef<HTMLDetailsElement>(null);
   const drag = useRef<{ start: [number, number]; mode: 'draw' | 'move' | 'nw' | 'ne' | 'sw' | 'se'; old: ImageReferenceView } | null>(null);
@@ -58,16 +58,16 @@ function ReferenceViewPicker({ asset, initial, kind, close, save }: { asset: Ass
     }
     selection.current = { assetId: asset.id, x: left, y: top, width: right - left, height: bottom - top }; paint();
   };
-  const finish = () => { if (!drag.current) return; drag.current = null; picked.current = true; setValid(selection.current.width >= 32 && selection.current.height >= 32); };
+  const finish = () => { if (!drag.current) return; drag.current = null; picked.current = true; setValid(selection.current.width >= minimum && selection.current.height >= minimum); };
   const numeric = (field: 'x' | 'y' | 'width' | 'height', value: number) => {
     if (!Number.isFinite(value)) return;
     const v = { ...selection.current, [field]: Math.round(value) };
-    v.x = Math.max(0, Math.min(asset.width - 32, v.x)); v.y = Math.max(0, Math.min(asset.height - 32, v.y));
-    v.width = Math.max(32, Math.min(asset.width - v.x, v.width)); v.height = Math.max(32, Math.min(asset.height - v.y, v.height));
+    v.x = Math.max(0, Math.min(asset.width - minimum, v.x)); v.y = Math.max(0, Math.min(asset.height - minimum, v.y));
+    v.width = Math.max(minimum, Math.min(asset.width - v.x, v.width)); v.height = Math.max(minimum, Math.min(asset.height - v.y, v.height));
     selection.current = v; picked.current = true; paint(); setValid(true);
   };
   const [editing, setEditing] = useState(false);
-  return <Modal open onOpenChange={value => { if (!value) close(); }} title={`Choose one ${kind} view`} description={kind === 'body' ? 'Draw around one full-body view, including the head and feet. The source photo still supplies clothing and pose.' : 'Draw around one clear head and hairstyle. Choose a viewing angle close to the target, with space around the hair.'} wide>
+  return <Modal open onOpenChange={value => { if (!value) close(); }} title={title || `Choose one ${kind} view`} description={description || (kind === 'body' ? 'Draw around one full-body view, including the head and feet. The source photo still supplies clothing and pose.' : 'Draw around one clear head and hairstyle. Choose a viewing angle close to the target, with space around the hair.')} wide>
     <div className="reference-view-stage" ref={stage} style={{ aspectRatio: `${asset.width}/${asset.height}`, maxWidth: `min(100%, ${54 * asset.width / asset.height}dvh)` } as CSSProperties} onPointerDown={event => begin(event, 'draw')} onPointerMove={move} onPointerUp={finish} onPointerCancel={finish}>
       <img src={`/api/assets/${asset.id}/original`} alt={`Original ${kind} reference sheet`} draggable={false} onLoad={() => setLoaded(true)} onError={() => setFailed(true)} />
       {failed ? <p>Reference preview could not load. Close and try again.</p> : <div ref={box} className="reference-view-box" onPointerDown={event => begin(event, 'move')}>
@@ -75,8 +75,8 @@ function ReferenceViewPicker({ asset, initial, kind, close, save }: { asset: Ass
       </div>}
     </div>
     <div className="reference-view-footer"><span ref={size} /><button className="secondary-button" onClick={() => { selection.current = whole(); picked.current = false; paint(); setValid(true); }}><ArrowCounterClockwise size={14} />Reset</button><button className="primary-button compact" disabled={!loaded || failed || !valid} onClick={() => save(selection.current)}><Check size={15} />Use this view</button></div>
-    {!valid && <p role="alert" className="reference-view-error">Select an area of at least 32 × 32 pixels.</p>}
-    <details ref={coordinates} className="reference-view-coordinates" onToggle={event => setEditing(event.currentTarget.open)}><summary>Exact selection</summary>{editing && <div>{(['x', 'y', 'width', 'height'] as const).map(field => <label key={field}>{field}<input type="number" data-field={field} min={field === 'x' || field === 'y' ? 0 : 32} max={field === 'x' || field === 'width' ? asset.width : asset.height} defaultValue={selection.current[field]} onChange={event => numeric(field, event.currentTarget.valueAsNumber)} /></label>)}</div>}</details>
+    {!valid && <p role="alert" className="reference-view-error">Select an area of at least {minimum} × {minimum} pixels.</p>}
+    <details ref={coordinates} className="reference-view-coordinates" onToggle={event => setEditing(event.currentTarget.open)}><summary>Exact selection</summary>{editing && <div>{(['x', 'y', 'width', 'height'] as const).map(field => <label key={field}>{field}<input type="number" data-field={field} min={field === 'x' || field === 'y' ? 0 : minimum} max={field === 'x' || field === 'width' ? asset.width : asset.height} defaultValue={selection.current[field]} onChange={event => numeric(field, event.currentTarget.valueAsNumber)} /></label>)}</div>}</details>
     <button className="reference-use-whole" type="button" disabled={!loaded || failed} onClick={() => save(null)}>Use the entire reference image</button>
   </Modal>;
 }

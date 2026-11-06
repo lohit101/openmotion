@@ -1,0 +1,104 @@
+import { randomUUID } from 'node:crypto';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import request from 'supertest';
+import { afterAll, afterEach, beforeAll, expect, it, vi } from 'vitest';
+import { createKieApplication } from '../server/kie-index';
+import { command, probe } from '../server/media';
+import { kieFileHash, type KieClientLike } from '../server/kie-jobs';
+import { validateCharacterSelection } from '../server/kie-characters';
+import { characterAdditionalReferences, characterPackInputSchema, characterSnapshot, type KieCharacterPack, type KieCharacterReferenceInput } from '../shared/kie-characters';
+import { kieDefaults, kieDraftSchema, kiePrompt } from '../shared/kie';
+
+vi.setConfig({ testTimeout: 20000 });
+let media: string, sheet: string;
+const apps: Awaited<ReturnType<typeof createKieApplication>>[] = [], roots: string[] = [];
+beforeAll(async () => { media = await mkdtemp(path.join(os.tmpdir(), 'kie-character-media-')); sheet = path.join(media, 'sheet.png'); await command('ffmpeg', ['-v','error','-y','-f','lavfi','-i','testsrc=size=960x480','-frames:v','1','-threads','1',sheet]); });
+afterEach(async () => { for (const app of apps.splice(0)) await app.shutdown(); for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true }); });
+afterAll(async () => { await rm(media, { recursive: true, force: true }); });
+async function fixture() {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'kie-character-app-')); roots.push(root);
+  const unexpected = vi.fn(async (): Promise<never> => { throw new Error('No provider operation is allowed in character management.'); });
+  const client = { getCredits: unexpected, uploadFile: unexpected, createTask: unexpected, getTask: unexpected, downloadResult: unexpected } satisfies KieClientLike;
+  const app = await createKieApplication({ dataRoot: root, apiClient: client }); apps.push(app);
+  const asset = (await request(app.app).post('/api/assets/image').attach('file',sheet).expect(201)).body;
+  const face: KieCharacterReferenceInput = { id: randomUUID(), assetId: asset.id, role: 'face', view:'front', expression:'neutral', label:'Neutral face',format:'single' };
+  const body: KieCharacterReferenceInput = { ...face,id:randomUUID(),role:'body',view:'back',label:'Back view' };
+  const input = { name:'Test character', faceId:face.id, references:[face,body] };
+  const create = async () => (await request(app.app).post('/api/kie/characters').send(input).expect(201)).body as KieCharacterPack;
+  return { app, root, asset, face, body, input, create, unexpected };
+}
+it('saves reusable local packs, revisions and reversible archive state without touching GPU characters or Kie',async () => {
+  const f = await fixture(), pack = await f.create();
+  expect(pack).toMatchObject({ name:'Test character', revision:1,archived:false,faceId:f.face.id });
+  expect(pack.references[0]?.sha256).toBe(await kieFileHash(sheet));
+  expect(f.app.store.characters()).toEqual([]);
+  const boot = (await request(f.app.app).get('/api/bootstrap').expect(200)).body;
+  expect(boot.kie.characters).toEqual([pack]); expect(JSON.stringify(boot)).not.toContain(f.root);
+  const renamed = (await request(f.app.app).put(`/api/kie/characters/${pack.id}`).send({...f.input,revision:1,name:'Renamed'}).expect(200)).body as KieCharacterPack;
+  expect(renamed.revision).toBe(2);
+  await request(f.app.app).put(`/api/kie/characters/${pack.id}`).send({...f.input,revision:1}).expect(400);
+  const archived = (await request(f.app.app).patch(`/api/kie/characters/${pack.id}`).send({ revision:2,archived:true }).expect(200)).body;
+  expect(archived).toMatchObject({revision:3,archived:true});
+  await request(f.app.app).patch(`/api/kie/characters/${pack.id}`).send({ revision:2,archived:false }).expect(400);
+  const restored = (await request(f.app.app).patch(`/api/kie/characters/${pack.id}`).send({ revision:3,archived:false }).expect(200)).body;
+  expect(restored).toMatchObject({revision:4,archived:false}); expect(f.unexpected).not.toHaveBeenCalled();
+});
+it('validates selected references against their historical revision and exact order, without mutating earlier snapshots',async () => {
+  const f = await fixture(), pack = await f.create(), snapshot = characterSnapshot(pack,[f.body.id]);
+  const draft = { ...kieDefaults, characterPack:snapshot,faceReferenceId:snapshot.face.assetId,additionalReferences:characterAdditionalReferences(snapshot) };
+  validateCharacterSelection(f.app.store,draft);
+  await request(f.app.app).put(`/api/kie/characters/${pack.id}`).send({...f.input,name:'New identity revision',revision:1,references:[{...f.face,label:'Updated face'},f.body]}).expect(200);
+  validateCharacterSelection(f.app.store,draft); expect(snapshot.face.label).toBe('Neutral face');
+  expect(() => validateCharacterSelection(f.app.store,{...draft,characterPack:{...snapshot,name:'Tampered'}})).toThrow(/changed/);
+  expect(() => validateCharacterSelection(f.app.store,{...draft,additionalReferences:[]})).toThrow(/changed/);
+  expect(() => validateCharacterSelection(f.app.store,{...draft,faceReferenceId:'other'})).toThrow(/changed/);
+  expect(() => validateCharacterSelection(f.app.store,{...draft,characterPack:{...snapshot,revision:99}})).toThrow(/unavailable/);
+  expect(f.unexpected).not.toHaveBeenCalled();
+});
+it('requires one neutral facial anchor, unique references and existing image assets',async () => {
+  const f = await fixture();
+  for (const input of [{...f.input,faceId:'missing'},{...f.input,references:[{...f.face,expression:'smile'},f.body]},{...f.input,references:[f.face,f.face]},{...f.input,references:[{...f.face,assetId:'missing'},f.body]}]) await request(f.app.app).post('/api/kie/characters').send(input).expect(response => expect(response.status).toBeGreaterThanOrEqual(400));
+  expect((await request(f.app.app).get('/api/kie/characters')).body).toEqual([]);
+  expect(characterPackInputSchema.safeParse({...f.input,references:Array.from({length:33},()=>({...f.face,id:randomUUID()}))}).success).toBe(false);
+  await request(f.app.app).post('/api/kie/characters').set('Origin','https://foreign.example').send(f.input).expect(403);
+  expect(f.unexpected).not.toHaveBeenCalled();
+});
+it('extracts an exact panel, preserves the original sheet, records crop provenance and resizes only small crops',async () => {
+  const f = await fixture(), originalSHA = await kieFileHash(sheet);
+  const cropped = (await request(f.app.app).post('/api/kie/characters/crop').send({assetId:f.asset.id,x:240,y:40,width:240,height:320}).expect(201)).body;
+  expect(cropped).toMatchObject({width:240,height:320,path:''});
+  const expected = path.join(media,`expected-${randomUUID()}.png`);
+  await command('ffmpeg',['-v','error','-y','-i',sheet,'-vf','crop=240:320:240:40:exact=1,format=rgba','-frames:v','1','-threads','1',expected]);
+  expect(await readFile(f.app.store.asset(cropped.id)!.path)).toEqual(await readFile(expected));
+  const input = {...f.input,references:[{...f.face,assetId:cropped.id},f.body]}, pack = (await request(f.app.app).post('/api/kie/characters').send(input).expect(201)).body;
+  expect(pack.references[0].crop).toEqual({sourceAssetId:f.asset.id,sourceSHA256:originalSHA,x:240,y:40,width:240,height:320});
+  expect(await kieFileHash(f.app.store.asset(f.asset.id)!.path)).toBe(originalSHA);
+  const small = (await request(f.app.app).post('/api/kie/characters/crop').send({assetId:f.asset.id,x:0,y:0,width:80,height:120}).expect(201)).body;
+  expect(await probe(f.app.store.asset(small.id)!.path)).toMatchObject({width:240,height:360});
+  for (const crop of [{x:900,y:0,width:240,height:240},{x:-1,y:0,width:240,height:240},{x:0,y:0,width:32,height:240},{x:0,y:0,width:960,height:64}]) await request(f.app.app).post('/api/kie/characters/crop').send({assetId:f.asset.id,...crop}).expect(response => expect(response.status).toBeGreaterThanOrEqual(400));
+  expect((await request(f.app.app).get('/api/kie/characters/status')).body.busy).toBe(false);
+  expect(f.unexpected).not.toHaveBeenCalled();
+});
+it('caps selected references, preserves old draft shapes and scopes appearance examples separately from source performance',async () => {
+  const f = await fixture(), pack = await f.create();
+  const expression = {...pack.references[0]!,id:randomUUID(),role:'expression' as const,expression:'smile' as const,label:'Smile',format:'single' as const};
+  pack.references.push(expression); const snapshot = characterSnapshot(pack,[f.body.id,expression.id]);
+  const prompt = kiePrompt('Keep the necklace.',true,characterAdditionalReferences(snapshot),snapshot);
+  for(const text of ['Image3: Back view','Image4: Smile','do not freeze its neutral expression','not timed keyframes','Video1 alone controls the timing','Image1 alone controls','Keep the necklace.']) expect(prompt).toContain(text);
+  expect(() => characterSnapshot(pack,[f.body.id,f.body.id])).toThrow(/different/);
+  expect(() => characterSnapshot(pack,[pack.faceId])).toThrow(/different/);
+  expect(() => characterSnapshot(pack,Array.from({length:9},()=>randomUUID()))).toThrow(/eight/);
+  const old = {sourceId:null,referenceId:null,start:0,seconds:5,resolution:'480P',prompt:'',seed:null,keepSourceAudio:true};
+  expect(kieDraftSchema.parse(old)).toEqual(old); expect(kieDraftSchema.parse({...old,faceReferenceId:null,additionalReferences:[]})).not.toHaveProperty('characterPack');
+});
+it('crops odd JPEG coordinates in decoded RGB space without shifting subsampled chroma',async()=>{
+  const f=await fixture(), jpeg=path.join(media,`sheet-${randomUUID()}.jpg`);
+  await command('ffmpeg',['-v','error','-y','-i',sheet,'-pix_fmt','yuvj420p','-q:v','3','-frames:v','1','-threads','1',jpeg]);
+  const image=(await request(f.app.app).post('/api/assets/image').attach('file',jpeg).expect(201)).body;
+  const crop=(await request(f.app.app).post('/api/kie/characters/crop').send({assetId:image.id,x:121,y:53,width:241,height:319}).expect(201)).body;
+  const expected=path.join(media,`jpeg-expected-${randomUUID()}.png`);
+  await command('ffmpeg',['-v','error','-y','-i',jpeg,'-vf','format=rgba,crop=241:319:121:53:exact=1','-frames:v','1','-threads','1',expected]);
+  expect(await readFile(f.app.store.asset(crop.id)!.path)).toEqual(await readFile(expected));expect(f.unexpected).not.toHaveBeenCalled();
+});

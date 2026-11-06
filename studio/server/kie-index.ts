@@ -17,6 +17,7 @@ import { KieAccount } from './kie-account';
 import { KieClient } from './kie-client';
 import { KieJobs, type KieClientLike } from './kie-jobs';
 import { registerClipEditorRoutes } from './clip-editor';
+import { kieCharacters, registerKieCharacterRoutes } from './kie-characters';
 
 const STUDIO = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const publicAsset = (asset: Asset) => ({ ...asset, path: '', poster: 'ready' });
@@ -49,7 +50,7 @@ export async function createKieApplication(options: { dataRoot?: string; fronten
   app.use(express.json({ limit: '128kb' }));
   const draft = () => kieDraftSchema.parse(store.value('kie-draft', kieDefaults));
   const bootstrap = (): Bootstrap => ({ assets: store.assets().map(publicAsset), jobs: store.jobs().map(publicJob),
-    kie: { provider: 'kie.ai', model: KIE_MODEL, draft: draft(), account: account.status() },
+    kie: { provider: 'kie.ai', model: KIE_MODEL, draft: draft(), account: account.status(), characters: kieCharacters(store) },
     // Inert compatibility data for existing local Library/player primitives.
     draft: { sourceId: null, referenceId: null, settings: defaults }, characters: [], capabilities: { imagenSegmentRepaint: false },
     connection: { state: 'offline', endpoint: '', gpu: null, loras: [], checkedAt: null, message: 'Kie.ai API workspace; local GPUs are not used.' },
@@ -59,6 +60,7 @@ export async function createKieApplication(options: { dataRoot?: string; fronten
   app.get('/api/bootstrap', (_req, res) => { res.setHeader('Cache-Control', 'no-store'); res.json(bootstrap()); });
   app.get('/api/events', (_req, res) => { res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' }); openEventStream(store, res, bootstrap()); });
   const clipEditor = registerClipEditorRoutes(app, store, { effects: true });
+  const characters = registerKieCharacterRoutes(app, store);
   app.get('/api/kie/account', async (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.json(req.query.refresh === '1' ? await account.refresh() : account.status()); });
   app.post('/api/kie/account', async (req, res) => {
     if (jobs.busy) return void res.status(409).json({ error: 'Stop following active tasks before replacing the API key. Saved task IDs are kept.' });
@@ -115,7 +117,7 @@ export async function createKieApplication(options: { dataRoot?: string; fronten
     const message = error instanceof z.ZodError ? error.issues.map(issue => `${issue.path.join('.')}: ${issue.message}`).join(' ') : error instanceof multer.MulterError ? 'The local upload is too large or incomplete.' : error.message || 'This action could not be completed.';
     res.status(error instanceof z.ZodError ? 422 : 400).json({ error: String(message).split(root).join('[local media]').slice(0, 1800) });
   });
-  return { app, store, account, jobs, clipEditor, bootstrap, shutdown: async () => { await clipEditor.shutdown(); await jobs.shutdown(); store.close(); } };
+  return { app, store, account, jobs, clipEditor, characters, bootstrap, shutdown: async () => { await characters.shutdown(); await clipEditor.shutdown(); await jobs.shutdown(); store.close(); } };
 }
 async function main() {
   const port = Number(process.env.RECAST_KIE_PORT || 3001);
