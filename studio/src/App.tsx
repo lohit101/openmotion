@@ -201,7 +201,7 @@ export default function App() {
   const nativeToolsMissing = isViggle(draft.settings) && modelState.viggleToolsReady !== true;
   const modelsReady = modelFilesReady &&
     (isViggle(draft.settings)||[draft.settings.loraA, draft.settings.loraB].every(name => name === 'None' || connection?.loras.includes(name))) && !nativeToolsMissing && facialRuntimeReadyForSettings(draft.settings, modelState);
-  const downloads: DownloadControls = { state: modelState, online, blocked: !!data?.cloud.busy || jobs.some(job => activeStates.includes(job.status)), settingUp: !!data?.cloud.busy, download: downloadModels, remove: removeModel,prepareModule,cancel:cancelDownloads,refresh:refreshModels,recover:recoverDownloads };
+  const downloads: DownloadControls = { state: modelState, online, blocked: !!data?.cloud.busy || jobs.some(job => activeStates.includes(job.status)), settingUp: !!data?.cloud.busy, download: downloadModels, remove: removeModel, updated: models => setData(old => old ? { ...old, models } : old), prepareModule,cancel:cancelDownloads,refresh:refreshModels,recover:recoverDownloads };
   const [width, height] = geometry(draft.settings, source || { width: 480, height: 832 });
   const repaintProfile = draft.settings.imagenRepaint;
   const startingPhoto = repaintProfile?.sourceImageJobId ? jobs.find(j => j.id === repaintProfile.sourceImageJobId) : null;

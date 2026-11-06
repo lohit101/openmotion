@@ -42,6 +42,7 @@ import { ManagedFacialConsistency, newFacialRun } from './facial-consistency';
 import { canFinishFacialLocally, facialRuntimeReadyForSettings } from '../shared/facial-consistency';
 import { anchoredRun, canFinishAnchoredLocally, videoDirectionFrames } from '../shared/anchored-video';
 import { FaceRepairManager, registerFaceRepairRoutes, sendFaceRepairFile } from './face-repair';
+import { gpuFileDeleteSchema, gpuFileListSchema } from '../shared/gpu-files';
 
 const STUDIO = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const REPO = path.dirname(STUDIO);
@@ -75,7 +76,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   // Request activity is GPU work, not browsing or inventory refreshes. This also
   // invalidates idle probes when async request preflight has not queued work yet.
   app.use((req, res, next) => {
-    const work = req.method === 'POST' && (/^\/api\/upscale\/(?:prepare|jobs(?:\/[^/]+\/recover)?)$/.test(req.path) || /^\/api\/(?:jobs(?:\/[^/]+\/(?:resume|refine-face|face-repairs))?|images\/jobs|image-edit\/jobs|models\/(?:download|module|recover|delete)|video-identity\/gpu\/setup|facial-consistency\/prepare|connection\/connect)$/.test(req.path) ||
+    const work = req.method === 'POST' && (/^\/api\/upscale\/(?:prepare|jobs(?:\/[^/]+\/recover)?)$/.test(req.path) || /^\/api\/(?:jobs(?:\/[^/]+\/(?:resume|refine-face|face-repairs))?|images\/jobs|image-edit\/jobs|models\/(?:download|module|recover|delete)|gpu-files\/delete|video-identity\/gpu\/setup|facial-consistency\/prepare|connection\/connect)$/.test(req.path) ||
       /^\/api\/cloud\/(?:launch|launches\/[^/]+\/continue|instances\/[^/]+\/(?:start|connect))$/.test(req.path));
     if (work) {
       if (idle.state.status === 'pausing') return void res.status(409).json({ error: 'GPU idle pause is in progress. Wait for its confirmed status, then start & connect before generating.' });
@@ -151,8 +152,14 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     res.json(await models.prepareFacialTools(value.version));
   });
   app.post('/api/models/cancel', async (_req, res) => res.json(await models.cancel()));
+  const assertStorageIdle = () => { if (upscale.busy || videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork() || cloud.state.busy || runner.busy || store.unsettledJobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status) || (job.facialConsistency?.remoteActive && job.facialConsistency.instanceId === store.value('cloud-connected-instance', null) || job.faceRepair?.remoteActive && job.faceRepair.instanceId === store.value('cloud-connected-instance', null)) || job.faceRefinement?.execution === 'remote CUDA' && job.status === 'interrupted' && job.cancellationConfirmed !== true)) throw new Error('Finish setup or rendering before deleting GPU files.'); };
+  app.post('/api/gpu-files/list', async (req, res) => res.json(await models.listGpuFiles(gpuFileListSchema.parse(req.body))));
+  app.post('/api/gpu-files/delete', async (req, res) => {
+    try { assertStorageIdle(); } catch (error) { return void res.status(409).json({ error: (error as Error).message }); }
+    res.json(await models.removeGpuFile(gpuFileDeleteSchema.parse(req.body), assertStorageIdle));
+  });
   app.post('/api/models/delete', async (req, res) => {
-    const assertIdle = () => { if (upscale.busy || videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork() || cloud.state.busy || runner.busy || store.unsettledJobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status) || (job.facialConsistency?.remoteActive && job.facialConsistency.instanceId === store.value('cloud-connected-instance', null) || job.faceRepair?.remoteActive && job.faceRepair.instanceId === store.value('cloud-connected-instance', null)) || job.faceRefinement?.execution === 'remote CUDA' && job.status === 'interrupted' && job.cancellationConfirmed !== true)) throw new Error('Finish setup or rendering before deleting model files.'); };
+    const assertIdle = assertStorageIdle;
     try { assertIdle(); } catch (error) { return void res.status(409).json({ error: (error as Error).message }); }
     const value = z.object({ name: z.string().min(1).max(300) }).parse(req.body);
     res.json(await models.remove(value.name, assertIdle));

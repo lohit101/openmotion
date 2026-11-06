@@ -9,6 +9,8 @@ import { command } from './media';
 import { facialCommand } from './facial-consistency';
 import type { FacialConsistencyRun } from '../shared/facial-consistency';
 import { isBoundaryFacialVersion, isGeometryFacialVersion, isEyeFinishedFacialVersion, isCalibratedFacialVersion, isCleanupFacialVersion, isOcclusionTrackedFacialVersion } from '../shared/facial-consistency';
+import { gpuFileDeleteSchema, gpuFileListSchema, type GpuFileDeleteRequest, type GpuFileListRequest } from '../shared/gpu-files';
+import { manageGpuFiles } from './gpu-files';
 const transferring=(file:ModelFileState)=>['queued','downloading','reconnecting'].includes(file.status);
 export class ModelDownloadError extends Error { remoteActive=false; }
 export interface ViggleToolsStatus { instanceId: number; ready: boolean; running: boolean; unknown: boolean; confirmedStopped: boolean; helperSHA256: string; state: string; error?: string; }
@@ -440,6 +442,40 @@ export class ModelManager {
     } finally { this.runtimeController=null;this.preparing--; this.syncBusy();this.emit(); }
   }
   async settle(){await this.work;}
+  private fileScope(instanceId: number) {
+    const same = () => this.connection.status.state === 'online' && this.connection.status.endpoint === 'http://127.0.0.1:8188' && this.store.value('cloud-connected-instance', null) === instanceId;
+    if (!same()) throw new Error('Reconnect the selected managed GPU before browsing or deleting its files.');
+    return () => { if (!same()) throw new Error('The GPU changed during this file operation. Refresh the selected GPU before retrying.'); };
+  }
+  async listGpuFiles(value: GpuFileListRequest, worker = manageGpuFiles) {
+    const request = gpuFileListSchema.parse(value), same = this.fileScope(request.instanceId);
+    const result = await worker(this.repo, request, 'list');
+    same(); return result;
+  }
+  async removeGpuFile(value: GpuFileDeleteRequest, assertIdle = () => {}, worker = manageGpuFiles) {
+    const request = gpuFileDeleteSchema.parse(value), same = this.fileScope(request.instanceId);
+    if (this.state.busy) throw new Error('Finish setup, transfers or other file operations before deleting files.');
+    assertIdle();
+    this.state.busy = true; this.state.deleting = request.path; this.emit();
+    try {
+      if (this.refreshing) await this.refreshing;
+      const queueIdle = async () => {
+        const queue = await this.connection.client().json('/queue', undefined, AbortSignal.timeout(5000));
+        if (!queue || !Array.isArray(queue.queue_running) || !Array.isArray(queue.queue_pending)) throw new Error('GPU activity could not be verified. No file was deleted.');
+        if (queue.queue_running.length || queue.queue_pending.length) throw new Error('Finish the GPU render queue before deleting files.');
+      };
+      await queueIdle(); same(); assertIdle();
+      await this.releaseCache(this.connection.status.endpoint);
+      await queueIdle(); same(); assertIdle();
+      const result = await worker(this.repo, request, 'delete');
+      same();
+      // Physical inventory wins over stale loader names. This also updates the
+      // existing module Download button without changing any saved render recipe.
+      await this.refresh(); same();
+      if (Number.isFinite(result.freeBytes)) this.state.diskFreeBytes = result.freeBytes;
+      return { ...result, models: this.state };
+    } finally { this.state.busy = false; this.state.deleting = null; this.emit(); }
+  }
   async remove(name: string, assertIdle = () => {}) {
     if (this.state.busy) throw new Error('Finish or cancel active transfers before deleting model files.');
     const id = deletableModelFile(name) ? name : 'loras/' + name;

@@ -1,0 +1,77 @@
+{
+  "date": "2026-11-07",
+  "branch": "feat/openjutsu-remotion",
+  "base": "9e2d73f",
+  "feature": "Explicit managed-GPU file browser and selected-only dependency restoration",
+  "validation": {
+    "studio": {
+      "passed": 673,
+      "files": 57
+    },
+    "python": {
+      "run": 355,
+      "skipped": 1,
+      "failed": 0
+    },
+    "typecheck": "passed",
+    "productionBuild": "passed",
+    "browser": {
+      "method": "Owned isolated headless Chrome, disposable local files and intercepted fixture responses only",
+      "checks": [
+        {
+          "desktop": true,
+          "horizontalOverflow": false
+        },
+        {
+          "customFileDeleted": true
+        },
+        {
+          "missingModelOffersDownloadRemotion": true
+        },
+        {
+          "mobile": true,
+          "horizontalOverflow": false
+        },
+        {
+          "offlineReadOnly": true,
+          "exactPathAndRestorationConfirmations": true
+        }
+      ],
+      "confirmationsReviewed": 2
+    },
+    "environment": "Existing test environments only; the isolated worktree geometry-venv link was required for the unchanged image-export regression."
+  },
+  "scope": {
+    "gpuActions": 0,
+    "paidInference": 0,
+    "remoteInstalls": 0,
+    "modelDownloads": 0,
+    "userFilesDeleted": 0,
+    "onlyDisposableLocalFilesDeleted": true,
+    "productionAppsRestarted": false,
+    "openjutsuRendererIntegrated": false,
+    "wanPrototypePreserved": true
+  },
+  "limits": [
+    "Managed workspace and recorded ComfyUI installation, not a general OS file manager",
+    "Only regular singly-linked files; directories, links, locks and special files are read-only",
+    "Automatic restoration applies only to downloadable catalog dependencies, not custom or arbitrary runtime files",
+    "GPU SSH deletion and re-download were validated with local transport fixtures, not a live rental"
+  ],
+  "sourceSHA256": {
+    "scripts/gpu_files.py": "55ed0b70bc9c425071ef3827875710254cf986c6308ec407b241c75233e07d37",
+    "scripts/managed_gpu_files.py": "77741121664a16b78ed1df7bd52a518cccfbf170c7d53f1b74b8aead86f22f82",
+    "studio/shared/gpu-files.ts": "afa971a07b19eb0c0e49e0e4e493473bbfebcf50b535b65a1cf070d4d81cbd35",
+    "studio/server/gpu-files.ts": "9b448a75f66a06979cd5caae1ac414077b8664659904a8c3774ac7d11ac3d128",
+    "studio/server/models.ts": "f2ac9487b3a75fed5d64cb9079c4426cee684b429ef00e88f6dbd120b744c1c8",
+    "studio/server/index.ts": "3c7e05907f6bcb4dabda809a60cb58f9ced11605800143d503c671b71d4cdb8b",
+    "studio/src/GpuFileBrowser.tsx": "21ec72616d57cbf5befd6aa56c16e70fba287e16c7e5664d091b7de23fa10529",
+    "studio/src/gpu-files.css": "b39b62f148c63de24245662f0c23804d4db8c6621782a0909a24a96c6d5f6837",
+    "studio/src/DownloadsWorkspace.tsx": "227cbdf41943bf44477f767dd788ee74aad6efa5a6cb3c493e90143b724cb724",
+    "studio/src/ModelDownloads.tsx": "d217353af61771b0f0878f0c0504b7775d55933d3d787720aa73170b577bce75",
+    "studio/src/App.tsx": "e15530fca3203a3b461ca67431011e89e413f18afdc3875e9858e22ef4f4c03f",
+    "tests/test_gpu_files.py": "076d5e5c5374043b19cc038c7ec52740fdd4c94ef7fa7b51dd3e63cce9c32926",
+    "studio/tests/gpu-files.test.tsx": "ce9352af0407b02ad813332913d68eb3aa063134172ea59b5a8666ea891b5865",
+    "studio/tests/gpu-files-api.test.ts": "fdbfbb1c4f8e00ae9eb15f1deace4fff0077f2b766f0993a645166f09bbd8302"
+  }
+}

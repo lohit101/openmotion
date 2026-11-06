@@ -6,6 +6,7 @@ import { moduleDownloadProgress } from '../shared/module-downloads';
 import { SmallSelect } from './components';
 import { DownloadButton, modelSize, type DownloadControls } from './ModelDownloads';
 import './downloads.css';
+import GpuFileBrowser from './GpuFileBrowser';
 
 const checkedTime = (value: string) => new Date(value).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 const states: Record<string, string> = { installed: 'Downloaded', unavailable: 'On disk; unavailable to ComfyUI', partial: 'Partial download', downloading: 'Downloading',reconnecting:'Reconnecting', queued: 'Queued', failed: 'Failed', missing: 'Not downloaded' };
@@ -48,6 +49,7 @@ export default function DownloadsWorkspace({ controls, required, refresh, cancel
       {inventories.length > 1 && <SmallSelect label="Inventory location" value={inventory?.key || ''} onChange={setLocation} options={inventories.map(item => ({ value: item.key, label: `${item.gpu || 'GPU'} · ${item.instanceId ? '#' + item.instanceId : item.endpoint}` }))} />}
     </div>
     {!live && <p className="downloads-offline">{inventory ? 'This is the last recorded inventory, not a live disk check. Files are kept on that rental; destroying its disk removes them.' : 'Your GPU can stay offline while you browse available files.'} <button onClick={setup}>Open GPU cloud</button></p>}
+    <GpuFileBrowser controls={controls} instanceId={liveInventory?.instanceId} />
     {controls.state.error && <p className="model-page-error" role="alert"><WarningCircle size={16} />{controls.state.error}</p>}
     {controls.state.busy && <div className="model-download-notice" role="status"><span>{controls.state.deleting ? 'Deleting the selected file…' : moduleActive ? controls.state.moduleSetup?.message : 'Downloading your selected files. Progress comes from the transfer.'}</span>{!controls.state.deleting&&!controls.state.moduleSetup?.activeRuntime && <button className="secondary-button" onClick={cancel}><Pause size={13} />Cancel downloads</button>}</div>}
     <div className="downloads-tools"><div className="downloads-filters" role="group" aria-label="Download status">
