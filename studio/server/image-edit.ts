@@ -1,7 +1,7 @@
 import { createHash, randomInt, randomUUID } from 'node:crypto';
 import { readFile, stat } from 'node:fs/promises';
 import type { Express } from 'express';
-import { imageEditDraftSchema, emptyImageEditDraft, imageEditFiles, imageEditGeometry, imageEditVersion, type ImageEditDraft, type ImageEditReference } from '../shared/image-edit';
+import { imageEditDraftSchema, emptyImageEditDraft, imageEditFiles, imageEditGeometry, imageEditVersion, isImageEditJob, type ImageEditDraft, type ImageEditReference } from '../shared/image-edit';
 import { imageDefaults } from '../shared/image-replacement';
 import { defaults, type Job } from '../shared/types';
 import { publicJob, type Store } from './store';
@@ -15,7 +15,7 @@ export class ImageEditRequestError extends Error {
 }
 function existingRequest(store: Store, key: string) {
   const old = store.byKey(key);
-  if (old && old.image?.version !== imageEditVersion) throw new ImageEditRequestError(409, 'This request ID belongs to another workflow.');
+  if (old && !isImageEditJob(old)) throw new ImageEditRequestError(409, 'This request ID belongs to another workflow.');
   return old;
 }
 export async function createImageEditJob(store: Store, connection: ConnectionManager, runner: Runner, cloud: CloudManager, models: ModelManager, draft: ImageEditDraft, key: string): Promise<Job> {
@@ -49,7 +49,7 @@ export async function createImageEditJob(store: Store, connection: ConnectionMan
   const job: Job = {
     id: randomUUID(), title: refs[0].name + ' / Image Edit', mediaType: 'image', status: 'queued', sourceId: refs[0].id, referenceId: refs[1]?.id || refs[0].id,
     settings: { ...defaults, prompt: settings.prompt, seed: settings.seed, randomSeed: settings.randomSeed },
-    image: { version: imageEditVersion, settings: { ...imageDefaults, model: 'qwen2511', prompt: settings.prompt, seed: settings.seed, randomSeed: settings.randomSeed, protectBackground: false, faceDetail: false, identityRefine: false, localIdentity: false, qwenHeadRefine: false, qwenQuality: settings.quality === 'lightning' ? 'fast' : 'quality' }, edit: { settings, references: refs }, geometry, faceId: null, maskId: null },
+    image: { version: imageEditVersion, settings: { ...imageDefaults, model: 'qwen21', prompt: settings.prompt, seed: settings.seed, randomSeed: settings.randomSeed, protectBackground: false, faceDetail: false, identityRefine: false, localIdentity: false, qwenHeadRefine: false, qwenQuality: settings.quality === 'turbo' ? 'fast' : 'quality' }, edit: { settings, references: refs }, geometry, faceId: null, maskId: null },
     width: geometry.width, height: geometry.height, outputSize: { width: geometry.width, height: geometry.height }, createdAt: new Date().toISOString(), favorite: false, deleted: false,
     progress: { stage: 'Queued for Image Edit', node: null, value: null, max: null, unit: 'steps', segment: 1, segments: 1, completedFrames: 0, targetFrames: 1, updatedAt: Date.now() },
     segments: [], context: '', pendingPrompt: null, uploads: null, error: null, output: null, poster: null, cancelRequested: false, elapsedSeconds: null, origin: 'render', workflow: null,

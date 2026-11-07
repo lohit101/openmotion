@@ -1,3 +1,4 @@
+import { isImageEditJob } from '../shared/image-edit';
 import type { Graph, Job } from '../shared/types';
 import { imagePrompt, isImageJob } from '../shared/image-replacement';
 import { IMAGE_IDENTITY } from '../shared/models';
@@ -7,7 +8,7 @@ import { compileImagenWorkflow } from './imagen-workflow';
 
 export function compileImageWorkflow(job: Job): Graph {
   if (!isImageJob(job) || !job.image || !job.uploads) throw new Error('Image inputs have not been prepared.');
-  if (job.image.version === 'image-edit-2511-v1') return compileImageEditWorkflow(job);
+  if (isImageEditJob(job)) return compileImageEditWorkflow(job);
   if (job.image.version === 'imagen-v1') return compileImagenWorkflow(job);
   if (job.image.settings.model === 'qwen21') return compileQwenImageWorkflow(job);
   const { settings: s, geometry: g } = job.image, graph: Graph = {};

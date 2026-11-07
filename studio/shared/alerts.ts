@@ -1,3 +1,4 @@
+import { isImageEditJob } from './image-edit';
 import { z } from 'zod';
 import type { Bootstrap, Connection, Job } from './types';
 import type { ModelsState } from './models';
@@ -62,7 +63,7 @@ export class ActivityAlertTracker {
       const old = this.jobs.get(job.id), changed = old?.status !== job.status;
       const recent = old || Date.parse(job.createdAt) >= this.startedAt;
       if (this.initialized && recent && !job.deleted && (job.origin === 'render' || !!job.upscale || !!job.faceRefinement || !!job.faceRepair)) {
-        const base = { id: `generation:${job.id}:${job.status}:${job.finishedAt || job.progress.updatedAt}`, category: 'generation' as const, target: { view: job.image?.version === 'image-edit-2511-v1' ? 'image-edit' as const : job.upscale ? 'clarity' as const : job.mediaType === 'image' ? 'image' as const : 'create' as const, jobId: job.id, ...(job.faceRepair ? { repair: true } : {}) } };
+        const base = { id: `generation:${job.id}:${job.status}:${job.finishedAt || job.progress.updatedAt}`, category: 'generation' as const, target: { view: isImageEditJob(job) ? 'image-edit' as const : job.upscale ? 'clarity' as const : job.mediaType === 'image' ? 'image' as const : 'create' as const, jobId: job.id, ...(job.faceRepair ? { repair: true } : {}) } };
         if (job.faceRepair?.state === 'review' && old?.repairState !== 'review') {
           alerts.push({ ...base, tone: 'success', title: 'Face repair is ready to compare', body: 'Review the candidates and both joins before accepting. Your original is preserved.' });
         }

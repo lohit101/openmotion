@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { createApplication } from '../server/index';
-import { emptyImageEditDraft } from '../shared/image-edit';
+import { emptyImageEditDraft, imageEditVersion } from '../shared/image-edit';
 import { imageDefaults } from '../shared/image-replacement';
 import { defaults, type Asset, type Job } from '../shared/types';
 
@@ -41,4 +41,19 @@ it('blocks submission during GPU idle pause and returns the real JPEG download t
   const file = await request(app).get('/api/jobs/saved-edit/output?download=1').expect(200);
   expect(file.headers['content-type']).toMatch(/^image\/jpeg/); expect(file.headers['content-disposition']).toContain('Saved image.jpg');
   const image = await request(app).get('/api/jobs/saved-edit/image').expect(200); expect(image.headers['content-type']).toMatch(/^image\/jpeg/);
+});
+
+it('migrates only the editable draft and serves the new native PNG without changing paid 2511 runs', async () => {
+  const { app, store } = await fixture();
+  const settings = { prompt: '  exact\n提示词 ', quality: 'lightning', precision: 'bf16', aspect: '9:16', resolution: '2k', format: 'jpeg', seed: 15, randomSeed: false };
+  store.set('image-edit-draft', { referenceIds: ['photo'], settings });
+  const migrated = await request(app).get('/api/image-edit/draft').expect(200);
+  expect(migrated.body.settings).toEqual({ ...settings, quality: 'turbo', precision: 'int8', bfs: true, consistency: true });
+  expect(store.value('image-edit-draft', null)).toEqual({ referenceIds: ['photo'], settings });
+  const job = { id: 'new-edit-native', mediaType: 'image', image: { version: imageEditVersion }, settings: defaults } as Job;
+  store.addJob(job);
+  const folder = path.join(root, 'jobs', job.id); await mkdir(folder, { recursive: true });
+  const png = Buffer.from('unchanged native png fixture'); await writeFile(path.join(folder, 'gpu-result.png'), png);
+  const response = await request(app).get('/api/jobs/' + job.id + '/image-native').expect(200);
+  expect(response.headers['content-type']).toMatch(/^image\/png/); expect(response.body).toEqual(png);
 });

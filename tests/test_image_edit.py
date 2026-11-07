@@ -107,5 +107,44 @@ class ImageEditTests(unittest.TestCase):
         self.assertEqual(tuple(prepared[0, 0]), (255, 255, 255))
 
 
+class ImageEditQwen21Tests(ImageEditTests):
+    def setUp(self):
+        super().setUp()
+        self.request['version'] = 'image-edit-qwen21-v1'
+        self.request['settings'].update(consistency=True, bfs=True)
+
+    def test_complete_references_preserve_order_dimensions_pixels_and_prompt(self):
+        source_bytes = Path(self.refs[0]['path']).read_bytes()
+        process('prepare', self.request, self.folder)
+        first = cv2.imread(str(self.folder / 'edit-reference-1.png'))
+        self.assertEqual(first.shape, (96, 128, 3))
+        self.assertTrue(np.array_equal(first[:, 32:96], cv2.imread(self.refs[0]['path'])))
+        self.assertTrue(np.all(first[:, :32] == 255))
+        self.assertTrue(np.all(first[:, 96:] == 255))
+        self.assertEqual(Path(self.refs[0]['path']).read_bytes(), source_bytes)
+        for i, ref in enumerate(self.refs[1:], 2):
+            self.assertTrue(np.array_equal(cv2.imread(str(self.folder / f'edit-reference-{i}.png')), cv2.imread(ref['path'])))
+        receipt = json.loads((self.folder / 'image-edit-inputs.json').read_text())
+        self.assertEqual([r['id'] for r in receipt['references']], [r['id'] for r in self.refs])
+        self.assertEqual((receipt['references'][0]['width'], receipt['references'][0]['height']), (128, 96))
+        self.assertEqual(receipt['settings']['prompt'], self.request['settings']['prompt'])
+
+    def test_selected_native_canvas_resizes_the_complete_target_with_equal_axis_scale(self):
+        self.request['geometry'] = {'width': 128, 'height': 192}
+        process('prepare', self.request, self.folder)
+        first = cv2.imread(str(self.folder / 'edit-reference-1.png'))
+        self.assertEqual(first.shape, (192, 128, 3))
+        self.assertTrue(np.all(first == (0, 0, 255)))
+
+    def test_changed_lora_recipe_preserves_the_native_result(self):
+        process('prepare', self.request, self.folder)
+        self.native()
+        original = (self.folder / 'gpu-result.png').read_bytes()
+        self.request['settings']['bfs'] = False
+        with self.assertRaisesRegex(ValueError, 'changed'):
+            process('finish', self.request, self.folder)
+        self.assertEqual((self.folder / 'gpu-result.png').read_bytes(), original)
+
+
 if __name__ == '__main__':
     unittest.main()

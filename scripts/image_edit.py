@@ -1,4 +1,4 @@
-"""Hash-bound, full-image preparation/export for the independent 2511 editor.
+"""Hash-bound, full-image preparation/export for versioned Image Edit recipes.
 
 No face restoration, masking, compositing, prompt rewriting or model inference.
 The Comfy node performs its own native reference scaling; keep complete images.
@@ -25,7 +25,7 @@ def atomic_json(path, value):
 def process(action, request, folder):
     cv2, np = dependencies()
     folder = Path(folder)
-    if request.get('version') != 'image-edit-2511-v1':
+    if request.get('version') not in ('image-edit-2511-v1', 'image-edit-qwen21-v1'):
         raise ValueError('Unsupported Image Edit recipe')
     refs = request['references']
     if not 1 <= len(refs) <= 3:
@@ -57,6 +57,20 @@ def process(action, request, folder):
                 alpha = values[:, :, 3:4] / 255
                 photo = np.rint(values[:, :, :3] * alpha + 255 * (1 - alpha)).clip(0, 255).astype(np.uint8)
             output = folder / f'edit-reference-{index}.png'
+            if request['version'] == 'image-edit-qwen21-v1' and index == 1:
+                # Qwen 2.1 resolution=0 derives its sampling latent from Image 1.
+                # Fit the complete target to the selected canvas before encoding;
+                # an independent empty latent would reintroduce scale/zoom drift.
+                # Aspect changes use white letterboxing, never a crop or stretch.
+                old_height, old_width = photo.shape[:2]
+                scale = min(width / old_width, height / old_height)
+                fitted_width = min(width, max(1, round(old_width * scale)))
+                fitted_height = min(height, max(1, round(old_height * scale)))
+                resized = cv2.resize(photo, (fitted_width, fitted_height), interpolation=cv2.INTER_AREA if scale < 1 else cv2.INTER_LANCZOS4)
+                canvas = np.full((height, width, 3), 255, dtype=np.uint8)
+                x, y = (width - fitted_width) // 2, (height - fitted_height) // 2
+                canvas[y:y + fitted_height, x:x + fitted_width] = resized
+                photo = canvas
             atomic_png(output, photo)
             prepared.append({'id': ref['id'], 'sourceSHA256': ref['sha256'], 'preparedSHA256': sha(output), 'file': output.name, 'width': photo.shape[1], 'height': photo.shape[0]})
         atomic_json(receipt_file, {'version': request['version'], 'references': prepared, 'geometry': request['geometry'], 'settings': request['settings']})

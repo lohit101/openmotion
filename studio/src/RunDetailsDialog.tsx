@@ -1,3 +1,4 @@
+import { isImageEditJob } from '../shared/image-edit';
 import { useEffect, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { ArrowCounterClockwise, ArrowSquareOut, CaretLeft, CaretRight, DownloadSimple, Heart, Image as ImageIcon, FilmStrip, Scissors, Sparkle, WarningCircle, X } from '@phosphor-icons/react';
@@ -23,7 +24,7 @@ export default function RunDetailsDialog({ job, jobs, assets, open, close, patch
   useEffect(() => setRepairOpen(false), [job.id, open]);
   useEffect(() => { setCompare(false); setFailedMedia(false); }, [job.id]);
   useEffect(() => setName(job.title), [job.id, job.title]);
-  const imageEdit = job.image?.version === 'image-edit-2511-v1';
+  const imageEdit = isImageEditJob(job);
   const image = isImageJob(job), done = job.status === 'completed' && !!job.output;
   const settings = savedRunSettings(job), local = job.image?.localFraming;
   const workflowJob = local || job.faceRefinement || job.faceRepair ? jobs.find(item => item.id === (local?.parentJobId || job.faceRefinement?.parentJobId || job.faceRepair?.rootJobId)) : job;

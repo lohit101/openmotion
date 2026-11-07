@@ -1,5 +1,7 @@
 # Image Edit · Qwen Image Edit 2511
 
+On the OpenJutsu branch, new Image Edit runs now use [Qwen Image 2.1 INT8 with the requested adapters](image-edit-qwen21.md). This document records the retained historical 2511 recipe.
+
 Image Edit is a separate module in the local GPU dashboard, under **Edit → Image Edit**. It supplies a Kie-style prompt-and-references interface using the open Qwen Image Edit 2511 model. Existing Imagen recipes, Remotion videos and the separate Kie Wan API app are retained.
 
 This is an alternative implementation, not a reproduction of Kie's private Qwen Image 2.0 weights or serving stack. Matching input controls cannot establish identical outputs or latency. No GPU image-quality or speed comparison was run for this feature.

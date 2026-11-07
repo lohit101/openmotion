@@ -1,0 +1,14 @@
+{
+  "total_bytes": 318821008,
+  "files": [
+    {
+      "repo": "Alissonerdx/BFS-Best-Face-Swap",
+      "revision": "2209ae537ac5e883d6ec7db5b7bd6dccf1a0eba7",
+      "filename": "bfs_head_v1.1_alternative_qwen_2.1.safetensors",
+      "destination": "loras/bfs_head_v1.1_alternative_qwen_2.1.safetensors",
+      "size": 318821008,
+      "sha256": "c5332bbc2f826856e7a09bce9740e97d39514b849368212e1f2c3c2c2d81c217",
+      "license": "mit"
+    }
+  ]
+}

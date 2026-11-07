@@ -25,7 +25,7 @@ import { FRAMING_VERSION, type ReferenceGeometry } from './framing';
 import { engineIssue, isViggle, migrateVigglePrompt } from '../shared/engines';
 import { viggleWindows } from '../shared/viggle-segments';
 import { registerImageEditRoutes } from './image-edit';
-import { emptyImageEditDraft, imageEditDraftSchema } from '../shared/image-edit';
+import { emptyImageEditDraft, imageEditDraftSchema, isImageEditJob } from '../shared/image-edit';
 import { registerImageRoutes } from './image-routes';
 import { registerCharacterRoutes } from './characters';
 import { assertRepaintReady, resolveRepaintProfile } from './segment-repaint';
@@ -345,7 +345,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
       if (req.query.download) res.attachment(`${job.title.replace(/[^a-zA-Z0-9 _-]/g, '').slice(0, 70)}${path.extname(job.output)}`);
       return void res.sendFile(job.output);
     }
-    if (job.image?.version === 'image-edit-2511-v1' && req.params.type === 'image-native') {
+    if (isImageEditJob(job) && req.params.type === 'image-native') {
       const native = path.join(store.root, 'jobs', job.id, 'gpu-result.png');
       if (!existsSync(native)) return void res.sendStatus(404);
       res.attachment(`recast-${job.id}-native.png`); return void res.sendFile(native);

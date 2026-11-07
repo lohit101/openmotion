@@ -1,3 +1,4 @@
+import { isImageEditJob } from '../shared/image-edit';
 import path from 'node:path';
 import { access, writeFile } from 'node:fs/promises';
 import type { Job } from '../shared/types';
@@ -13,7 +14,7 @@ export async function processImage(action: 'prepare' | 'finish', job: Job, store
   await access(python).catch(() => { throw new Error('Local image preparation is not ready. Start Recast with bash scripts/studio.sh once. No new GPU job was submitted.'); });
   const file = path.join(folder, 'image-request.json');
   const assetPath = (id: string | null) => id ? store.asset(id)?.path || (() => { throw new Error('An image input no longer exists.'); })() : null;
-  if (job.image.version === 'image-edit-2511-v1') {
+  if (isImageEditJob(job)) {
     if (!job.image.edit) throw new Error('The frozen Image Edit recipe is missing.');
     await writeFile(file, JSON.stringify({ version: job.image.version, settings: job.image.edit.settings, geometry: job.image.geometry,
       references: job.image.edit.references.map(ref => ({ ...ref, path: assetPath(ref.id) })) }));
