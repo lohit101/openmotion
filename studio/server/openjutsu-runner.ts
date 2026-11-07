@@ -98,7 +98,7 @@ export async function runOpenjutsu(ctx: Runner, job: Job, signal: AbortSignal) {
         if (!job.uploads) {
           const sourceName = await client.upload(source.path, job.id + '-motion', signal), referenceName = await client.upload(reference.path, job.id + '-character', signal);
           job.uploads = { source: sourceName, reference: referenceName };
-          job.workflow!['5'].inputs.video = sourceName; job.workflow!['2'].inputs.image = referenceName;
+          job.workflow![run.face ? '1' : '5'].inputs.video = sourceName; job.workflow!['2'].inputs.image = referenceName;
           run.graphSHA256 = openjutsuGraphHash(job.workflow!); save();
         }
         assertScope(ctx, job);
@@ -129,7 +129,7 @@ export async function runOpenjutsu(ctx: Runner, job: Job, signal: AbortSignal) {
       const saved = { jobId: job.id, promptId: job.pendingPrompt, graphSHA256: run.graphSHA256, history };
       await writeFile(path.join(folder, 'openjutsu-history.json.part'), JSON.stringify(saved)); await rename(path.join(folder, 'openjutsu-history.json.part'), path.join(folder, 'openjutsu-history.json'));
       // Only the assembled final output, never a segment preview.
-      const result = history.outputs?.['67'];
+      const result = history.outputs?.[run.face ? '30' : '67'];
       const output = [...(result?.videos || []), ...(result?.gifs || []), ...(result?.images || [])].find(item => /\.(mp4|mov|webm|mkv)$/i.test(item.filename || ''));
       if (!output) throw new Error('The paid render is saved but its final assembled video was not listed. Check & resume to recover it.');
       stage('Saving your completed video'); const native = path.join(folder, 'native.mp4');

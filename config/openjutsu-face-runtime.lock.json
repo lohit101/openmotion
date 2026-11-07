@@ -1,0 +1,43 @@
+{
+  "packs": [
+    {
+      "repo": "https://github.com/D3voz/comfyui-h3-oneclick-swap.git",
+      "revision": "e44a56e92920000e675d14be484aea0d7498d63e",
+      "directory": "comfyui-h3-oneclick-swap"
+    },
+    {
+      "repo": "https://github.com/ethanfel/ComfyUI-MiniMaxH3-Context-Loop.git",
+      "revision": "43afeffcc570beb5f7382593e79e4b211c7e02f6",
+      "directory": "ComfyUI-MiniMaxH3-Context-Loop"
+    },
+    {
+      "repo": "https://github.com/Adudeguyman/ComfyUI-Fantastic-MiniMaxH3-PromptBuilder.git",
+      "revision": "22e719fe89336c628383363182a4da3cb58d4f9b",
+      "directory": "ComfyUI-Fantastic-MiniMaxH3-PromptBuilder"
+    },
+    {
+      "repo": "https://github.com/kijai/ComfyUI-KJNodes.git",
+      "revision": "ab72eda7ffad6280422d71ab7d54d3fb87c0ba18",
+      "directory": "ComfyUI-KJNodes"
+    },
+    {
+      "repo": "https://github.com/Carasibana/ComfyUI-H3-FaceRefine.git",
+      "revision": "d8521d14fe0d721d80cd9417fff5a559cbc21aba",
+      "directory": "ComfyUI-H3-FaceRefine"
+    },
+    {
+      "repo": "https://github.com/ltdrdata/ComfyUI-Impact-Pack.git",
+      "revision": "eace4a9059908330936c6514f35f5e0c84935394",
+      "directory": "ComfyUI-Impact-Pack"
+    },
+    {
+      "repo": "https://github.com/ltdrdata/ComfyUI-Impact-Subpack.git",
+      "revision": "50c7b71a6a224734cc9b21963c6d1926816a97f1",
+      "directory": "ComfyUI-Impact-Subpack"
+    }
+  ],
+  "comfyui": {
+    "repo": "https://github.com/Comfy-Org/ComfyUI.git",
+    "revision": "63e5bf594339f676b4b15e072529873e3448409e"
+  }
+}

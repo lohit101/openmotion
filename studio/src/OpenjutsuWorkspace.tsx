@@ -11,10 +11,12 @@ import ModuleAction from './ModuleAction';
 import GenerationProgress from './GenerationProgress';
 import WorkspaceWelcome from './WorkspaceWelcome';
 import { useOutputPresentation } from './useGenerationProgress';
+import OpenjutsuFaceWorkspace from './OpenjutsuFaceWorkspace';
 import './openjutsu.css';
 
 interface Props { data: Bootstrap; downloads: DownloadControls; selectedId: string | null; select: (id: string | null) => void; asset: (asset: Asset) => void; job: (job: Job) => void; openGPU: () => void; openDownloads: () => void; library: () => void; settingsChanged: (settings: OpenjutsuSettings) => void; }
 export default function OpenjutsuWorkspace({ data, downloads, selectedId, select, asset, job: added, openGPU, openDownloads, library, settingsChanged }: Props) {
+  const [faceMode, setFaceMode] = useState(false), [openingFace, setOpeningFace] = useState(false);
   const [draft, setDraft] = useState(emptyOpenjutsuDraft), [loaded, setLoaded] = useState(false), [submitting, setSubmitting] = useState(false), [uploads, setUploads] = useState({ video: false, image: false }), [error, setError] = useState('');
   const uploading = uploads.video || uploads.image;
   const [catalog, setCatalog] = useState<Catalog>({}); const writes = useRef(Promise.resolve()), alive = useRef(true);
@@ -26,6 +28,8 @@ export default function OpenjutsuWorkspace({ data, downloads, selectedId, select
   const s = draft.settings, source = data.assets.find(a => a.id === draft.sourceId), reference = data.assets.find(a => a.id === draft.referenceId);
   useEffect(() => { if (loaded) settingsChanged(s); }, [s, loaded, settingsChanged]);
   const selected = data.jobs.find(j => j.id === selectedId && !j.deleted), ready = useOutputPresentation(selected);
+  useEffect(() => { if (selected?.openjutsu?.face) setFaceMode(true); }, [selected?.id]);
+  const fixFaces = async () => { if (!selected || openingFace) return; setOpeningFace(true); try { const result = await api<{ asset: Asset }>('/openjutsu/face/use', { jobId: selected.id }); asset(result.asset); setFaceMode(true); } catch (e) { setError((e as Error).message); } finally { setOpeningFace(false); } };
   const recent = data.jobs.filter(j => j.openjutsu && !j.deleted).slice(0, 6), active = recent.find(j => ['queued', 'running', 'reconnecting'].includes(j.status));
   const update = (patch: Partial<OpenjutsuSettings>) => setDraft(old => ({ ...old, settings: { ...old.settings, ...patch } }));
   const setInput = (kind: 'video' | 'image', value: Asset | null) => { if (value) asset(value); setDraft(old => ({ ...old, [kind === 'video' ? 'sourceId' : 'referenceId']: value?.id || null, ...(kind === 'video' ? { start: 0, length: Math.min(6, value?.duration || 6) } : {}) })); };
@@ -42,10 +46,11 @@ export default function OpenjutsuWorkspace({ data, downloads, selectedId, select
   };
   const modelSelect = (label: string, field: 'model' | 'describer' | 'textEncoder' | 'videoVae' | 'audioVae', node: string, key: string) => <label className="oj-model-field"><span>{label}</span><SmallSelect label={label} value={s[field]} onChange={value => update({ [field]: value })} options={options(node, key, s[field], /minimax|qwen3vl/i)} /></label>;
   const sectionLength = source ? draft.length || source.duration - draft.start : 0;
+  if (faceMode) return <OpenjutsuFaceWorkspace data={data} downloads={downloads} selectedId={selectedId} select={select} asset={asset} job={added} back={() => setFaceMode(false)} openGPU={openGPU} openDownloads={openDownloads} library={library} />;
   return <main className="oj-workspace">
     <section className="editor oj-editor" aria-label="Remotion settings"><div className="oj-editor-scroll">
       <div className="editor-heading"><span className="section-icon"><FilmStrip size={19} /></span><h1>Remotion</h1></div>
-      <p className="editor-description">Simple motion transfer <span className="oj-engine">OpenJutsu · MiniMax H3</span></p>
+      <button className="secondary-button" onClick={() => setFaceMode(true)}>Post-processing · Fix Faces</button><p className="editor-description">Simple motion transfer <span className="oj-engine">OpenJutsu · MiniMax H3</span></p>
       <div className="oj-preset"><div><strong>Your OpenJutsu setup</strong><span>480p · 6 steps · DMAD · 512px motion</span></div><button className="icon-button" title="Restore imported OpenJutsu settings" aria-label="Restore imported OpenJutsu settings" onClick={() => update(structuredClone(openjutsuDefaults))}><ArrowCounterClockwise size={16} /></button></div>
       <section className="oj-section" aria-label="Inputs"><h2>Inputs</h2><div className="oj-inputs">
         <div><AssetDrop kind="video" label="Motion video" emptyLabel="Drop a video" asset={source} disabled={!loaded || submitting} onAsset={value => setInput('video', value)} onError={setError} onUploadStateChange={value => setUploads(old => ({ ...old, video: value }))} clip={source ? { start: draft.start, seconds: draft.length || source.duration - draft.start } : undefined} onClip={clip => setDraft(old => ({ ...old, start: clip.start, length: clip.seconds }))} help="The driving performance and original soundtrack. OpenJutsu samples motion at 24 fps." />
@@ -72,7 +77,7 @@ export default function OpenjutsuWorkspace({ data, downloads, selectedId, select
       </div></details>
       {error && <p className="model-page-error" role="alert">{error}</p>}
     </div><ModuleAction request={{ module: 'openjutsu', settings: s }} controls={downloads} runtimeReady={!!downloads.state.openjutsuToolsReady} runtimeNotes={['Native H3, SAM 3.1 and the copied OpenJutsu context-loop tools. No automatic face-refinement pass.']} generateDisabled={!loaded || !source || !reference || uploading || sectionLength < 2} submitting={submitting} onGenerate={() => void generate()} onConnect={openGPU} onManage={openDownloads} /></section>
-    <section className="workspace oj-preview"><header className="workspace-header"><div><span className="workspace-overline">YOUR WORKSPACE</span><h2>{selected?.title || 'Preview'}</h2></div><div className="workspace-actions">{selected?.openjutsu && <button className="icon-button" aria-label="Reuse OpenJutsu settings" onClick={reuse}><ArrowCounterClockwise size={17} /></button>}{ready && selected && <a className="secondary-button" href={`/api/jobs/${selected.id}/video?download=1`} download><DownloadSimple size={15} />Download</a>}{selected && <button className="icon-button" aria-label="Close video preview" onClick={() => select(null)}><X size={18} /></button>}</div></header>
+    <section className="workspace oj-preview"><header className="workspace-header"><div><span className="workspace-overline">YOUR WORKSPACE</span><h2>{selected?.title || 'Preview'}</h2></div><div className="workspace-actions">{ready && selected && !selected.image && <button className="secondary-button" disabled={openingFace} onClick={() => void fixFaces()}>{openingFace ? 'Opening…' : 'Fix Faces'}</button>}{selected?.openjutsu && <button className="icon-button" aria-label="Reuse OpenJutsu settings" onClick={reuse}><ArrowCounterClockwise size={17} /></button>}{ready && selected && <a className="secondary-button" href={`/api/jobs/${selected.id}/video?download=1`} download><DownloadSimple size={15} />Download</a>}{selected && <button className="icon-button" aria-label="Close video preview" onClick={() => select(null)}><X size={18} /></button>}</div></header>
       <div className={`main-preview ${ready ? 'has-result' : ''}`}>{selected ? ready ? <VideoPlayer job={selected} compare={false} /> : <GenerationProgress job={selected} kind="video" online={data.connection.state === 'online'} onCancel={() => action('cancel')} onResume={() => action('resume')} onReuse={reuse} /> : <WorkspaceWelcome kind="video" library={library} openActive={active ? () => select(active.id) : undefined} />}</div>
       {!!recent.length && <div className="oj-recent"><div><h3>Recent Remotion videos</h3><button onClick={library}>Open library</button></div><div>{recent.map(value => <button key={value.id} onClick={() => select(value.id)}><span>{value.poster ? <img src={`/api/jobs/${value.id}/poster`} alt="" /> : <FilmStrip size={24} />}</span><strong>{value.title}</strong><small>{value.status}</small></button>)}</div></div>}
     </section>

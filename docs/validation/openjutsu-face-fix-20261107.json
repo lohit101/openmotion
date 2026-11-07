@@ -1,0 +1,14 @@
+{
+  "date": "2026-11-07",
+  "branch": "feat/openjutsu-remotion",
+  "feature": "Original OpenJutsu Fix Faces post-processing",
+  "source": { "project": "Desktop OpenJutsu working tree", "copiedVerbatim": ["lib/face.ts", "workflows/face.api.json"], "hashes": "studio/vendor/openjutsu/provenance.json", "nativeDefaultGraphFixtures": "studio/tests/fixtures/openjutsu-face-graphs.json", "modes": ["photo", "mouth"], "default": "photo" },
+  "preservedNativeBehaviour": ["tracking/crop geometry and smoothing", "H3 sampler and shared model settings", "SAM masks", "one-second overlap/crossfade", "colour matching and feather8", "skip faces taller than 20% of the frame", "native H264 CRF16 export"],
+  "integration": ["completed Library video or uploaded video", "independent saved face draft", "separate output with immutable parent", "parent/input/graph hashes", "idempotent submission and native-history recovery", "byte-identical native output transfer without a new encode", "explicit selected-only downloads", "physical inventory for hidden recognition files", "existing deletion protections"],
+  "additionalWeights": { "files": 5, "bytes": 673203772, "manifest": "config/openjutsu-face-models.lock.json", "automaticDownloads": false },
+  "runtime": { "manifest": "config/openjutsu-face-runtime.lock.json", "addedPacks": ["ComfyUI-H3-FaceRefine", "ComfyUI-Impact-Pack", "ComfyUI-Impact-Subpack"], "pins": "Recorded Git revisions", "setupRequiresExplicitActionAndIdleQueue": true },
+  "validation": { "fullStudioBeforeFinalInventoryRegression": { "passed": 697, "files": 59 }, "finalFocusedStudio": { "passed": 36, "newFaceCases": 10 }, "python": { "run": 371, "skipped": 1, "failed": 0 }, "typecheckAndBuild": "passed", "graphParity": "both native face modes match", "browser": "Computer-use session was blocked for its current browser URL; no final visual pass is claimed." },
+  "deployment": { "port": 3003, "normalApplicationEntryPoint": true, "existingJobsPreserved": 8, "existingAssetsPreserved": 10, "motionImageAndImageEditDraftsPreserved": true, "mainAndKieProcessesUnchanged": true, "gpuPausedAtReload": true },
+  "agentGpuActions": { "inference": 0, "weightDownloads": 0, "remoteInstalls": 0, "rentals": 0, "computeResumes": 0, "computeStops": 0 },
+  "limitations": ["GPU face quality/speed are not newly benchmarked.", "The original small-face skip and expression/likeness tradeoff remain.", "Full OpenJutsu UI and other post-processing modes are outside this focused release.", "Model and dependency terms are separate; no commercial hosted-service clearance is asserted."]
+}

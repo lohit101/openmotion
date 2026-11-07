@@ -11,7 +11,7 @@ export function modelUsage(id: string): { workflow: string; detail: string }[] {
   if(id.startsWith('face-refinement/'))return [{workflow:'GPU face refinement',detail:'Separate CUDA Hyperswap pass after video generation; also includes detection and occlusion.'}];
   const file = modelDefinitions.find(item => item.id === id);
   if(openjutsuModels.shared.includes(id))return [{ workflow:'Remotion · OpenJutsu',detail:'Shared native motion-transfer component.' }, ...(id.startsWith('text_encoders/')?[{workflow:'Qwen images',detail:'Shared visual encoder.'}]:id.startsWith('vae/')?[{workflow:'Viggle video',detail:'Shared H3 video VAE.'}]:[])];
-  if (file?.engine === 'openjutsu') return [{ workflow: 'Remotion · OpenJutsu', detail: 'Native MiniMax H3 Simple motion transfer. Only selected model components are required.' }];
+  if (file?.engine === 'openjutsu') return [{ workflow: 'Remotion · OpenJutsu', detail: 'Native OpenJutsu motion transfer and optional Fix Faces. Only selected components are required.' }];
   if (!file) return [{ workflow: 'Custom LoRA', detail: 'LoRA slots; check compatibility with the selected model.' }];
   if (isRetiredModel(id)) return [{ workflow: 'Retired files', detail: 'SCAIL-2 / Wan · kept for saved runs. New creation and downloads are unavailable.' }];
   if (file.engine === 'image-edit') return [{ workflow: 'Image Edit · Qwen 2511', detail: 'Separate prompt-driven editor. Only the selected precision and optional Lightning adapter are required.' }];

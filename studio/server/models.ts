@@ -11,7 +11,7 @@ import type { FacialConsistencyRun } from '../shared/facial-consistency';
 import { isBoundaryFacialVersion, isGeometryFacialVersion, isEyeFinishedFacialVersion, isCalibratedFacialVersion, isCleanupFacialVersion, isOcclusionTrackedFacialVersion } from '../shared/facial-consistency';
 import { gpuFileDeleteSchema, gpuFileListSchema, type GpuFileDeleteRequest, type GpuFileListRequest } from '../shared/gpu-files';
 import { manageGpuFiles } from './gpu-files';
-import { hasOpenjutsuTools, manageOpenjutsuTools } from './openjutsu-tools';
+import { hasOpenjutsuTools, hasOpenjutsuFaceTools, manageOpenjutsuTools } from './openjutsu-tools';
 const transferring=(file:ModelFileState)=>['queued','downloading','reconnecting'].includes(file.status);
 export class ModelDownloadError extends Error { remoteActive=false; }
 export interface ViggleToolsStatus { instanceId: number; ready: boolean; running: boolean; unknown: boolean; confirmedStopped: boolean; helperSHA256: string; state: string; error?: string; }
@@ -211,13 +211,14 @@ export class ModelManager {
         delete state.runtimePercent;
         state.activeRuntime=runtime;this.emit();
         assertScope();
-        if(runtime==='openjutsu-tools'){
-          if(!this.state.openjutsuToolsReady){
+        if(runtime==='openjutsu-tools'||runtime==='openjutsu-face-tools'){
+          const face = runtime==='openjutsu-face-tools';
+          if(!(face ? this.state.openjutsuFaceToolsReady : this.state.openjutsuToolsReady)){
             state.message='Preparing OpenJutsu motion-transfer tools';this.emit();
-            let result=await manageOpenjutsuTools(this.repo,state.instanceId,recover?'status':'prepare');
+            let result=await manageOpenjutsuTools(this.repo,state.instanceId,recover?'status':'prepare',face);
             if(result.running||result.unknown)throw new Error('OpenJutsu tool preparation is still active. Reconnect to observe the same setup.');
             await this.refresh();assertScope();
-            if(!result.ready||!this.state.openjutsuToolsReady)throw new Error(result.error||'OpenJutsu tools are not ready: '+result.missing.join(', '));
+            if(!result.ready||!(face ? this.state.openjutsuFaceToolsReady : this.state.openjutsuToolsReady))throw new Error(result.error||'OpenJutsu tools are not ready: '+result.missing.join(', '));
           }
         }else if(runtime==='viggle-tools'){
           const installed=hasViggleTools(this.connection.catalog);
@@ -257,7 +258,7 @@ export class ModelManager {
       assertScope();Object.assign(state,{status:'complete',message:'Ready for these settings',error:null,updatedAt:Date.now()});
     }catch(error){
       let runtimeUnknown=!!state.activeRuntime&&this.connection.status.state!=='online';
-      if(state.activeRuntime==='openjutsu-tools'){try{const result=await manageOpenjutsuTools(this.repo,state.instanceId,'status');runtimeUnknown=result.running||result.unknown;}catch{runtimeUnknown=true;}}
+      if(state.activeRuntime==='openjutsu-tools'||state.activeRuntime==='openjutsu-face-tools'){try{const result=await manageOpenjutsuTools(this.repo,state.instanceId,'status',state.activeRuntime==='openjutsu-face-tools');runtimeUnknown=result.running||result.unknown;}catch{runtimeUnknown=true;}}
       if(state.activeRuntime==='viggle-tools'){try{const result=await this.viggleTools(state.instanceId,'status');runtimeUnknown=result.running||result.unknown||!result.confirmedStopped;}catch{runtimeUnknown=true;}}
       if(state.activeRuntime==='clarity'&&this.checkClarity){try{runtimeUnknown=(await this.checkClarity()).preparing;}catch{runtimeUnknown=true;}}
       if(state.activeRuntime?.startsWith('facial:')){await this.refresh();runtimeUnknown=!!this.state.error||!!this.state.facialPreparing;}
@@ -290,7 +291,7 @@ export class ModelManager {
         }
         if (this.connection.status.state !== 'online') {
           this.state.viggleToolsReady = false;
-          this.state.openjutsuToolsReady = false;
+          this.state.openjutsuToolsReady = false; this.state.openjutsuFaceToolsReady = false;
           for (const file of this.state.files) if (!transferring(file)) Object.assign(file, { status: 'unknown', percent: null });
           this.state.error = null; this.state.checkedAt = null; this.state.installedLoras = []; this.state.diskFreeBytes = undefined; return this.state;
         }
@@ -305,7 +306,7 @@ export class ModelManager {
         }
         this.connection.catalog = catalog;
         this.state.viggleToolsReady = hasViggleTools(catalog);
-        this.state.openjutsuToolsReady = hasOpenjutsuTools(catalog);
+        this.state.openjutsuToolsReady = hasOpenjutsuTools(catalog); this.state.openjutsuFaceToolsReady = hasOpenjutsuFaceTools(catalog);
         let inventory: Awaited<ReturnType<typeof manageModelStorage>> | undefined;
         if (instanceId && this.connection.status.endpoint === 'http://127.0.0.1:8188') {
           const result = await this.storage(this.repo, instanceId, 'inventory');
@@ -327,10 +328,10 @@ export class ModelManager {
               Object.assign(file, { status: 'missing', percent: null, downloaded: 0, message: '' });
             }
           }
-          for (const file of this.state.files.filter(item => (item.id.startsWith('face_consistency/') || item.id.startsWith('upscale/')))) {
+          for (const file of this.state.files.filter(item => (item.id.startsWith('face_consistency/') || item.id.startsWith('upscale/') || /^(ultralytics|sams|insightface)\//.test(item.id)))) {
             if (transferring(file)) continue;
             const present = result.files?.find(item => item.id === file.id);
-            if (present?.verified && present.size === pinnedModels.find(item => item.destination === file.id)?.size) Object.assign(file, { status: 'installed', percent: 100, error: null, message: 'Verified on this GPU' });
+            if (present && (present.verified || /^(ultralytics|sams|insightface)\//.test(file.id) && present.verified !== false) && present.size === pinnedModels.find(item => item.destination === file.id)?.size) Object.assign(file, { status: 'installed', percent: 100, error: null, message: /^(ultralytics|sams|insightface)\//.test(file.id) ? 'Available on this GPU' : 'Verified on this GPU' });
           }
           if (result.partials) for (const file of this.state.files) if (file.status!=='installed'&&!transferring(file)) {
             const size = result.partials.find(partial => partial.id === file.id)?.size || 0;

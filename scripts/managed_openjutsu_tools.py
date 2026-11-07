@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -99,6 +100,11 @@ def worker(root, request, attempt):
             queue_idle(root)
             subprocess.run(['git', '-C', str(comfy), 'checkout', '--detach', core['revision']], check=True)
             subprocess.run([str(python), '-m', 'pip', 'install', '--no-cache-dir', '-r', str(comfy / 'requirements.txt'), '-c', str(root / 'state/torch-constraints.txt')], check=True)
+        if request.get('face'):
+            if not shutil.which('c++'):
+                subprocess.run(['apt-get', 'update', '-qq'], check=True)
+                subprocess.run(['apt-get', 'install', '-y', '-qq', 'build-essential', 'python3-dev'], check=True)
+            subprocess.run([str(python), '-m', 'pip', 'install', '--no-cache-dir', 'Cython', 'setuptools', 'wheel', 'onnxruntime-gpu', '-c', str(root / 'state/torch-constraints.txt')], check=True)
         for pack in request['packs']:
             target = comfy / 'custom_nodes' / pack['directory']
             if target.is_symlink(): raise ValueError('Refusing a linked custom-node directory.')
@@ -113,7 +119,9 @@ def worker(root, request, attempt):
                 subprocess.run(['git', '-C', str(target), 'checkout', '--detach', pack['revision']], check=True)
             requirements = target / 'requirements.txt'
             if requirements.is_file():
-                subprocess.run([str(python), '-m', 'pip', 'install', '--no-cache-dir', '-r', str(requirements), '-c', str(root / 'state/torch-constraints.txt')], check=True)
+                subprocess.run([str(python), '-m', 'pip', 'install', '--no-cache-dir'] + (['--no-build-isolation'] if request.get('face') and pack['directory'] == 'ComfyUI-H3-FaceRefine' else []) + ['-r', str(requirements), '-c', str(root / 'state/torch-constraints.txt')], check=True)
+        if request.get('face'):
+            subprocess.run([str(python), '-c', 'import insightface, onnxruntime, segment_anything; assert onnxruntime.get_available_providers()'], check=True)
         queue_idle(root)
         subprocess.run([str(python), str(root / 'scripts/server.py'), 'restart'], check=True)
         for _ in range(90):

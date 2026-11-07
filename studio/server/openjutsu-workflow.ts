@@ -1,11 +1,23 @@
 import { createHash } from 'node:crypto';
 import graphSource from '../vendor/openjutsu/workflows/simple.api.json';
+import faceSource from '../vendor/openjutsu/workflows/face.api.json';
+import { pruneFace, applyDetectorPaths } from '../vendor/openjutsu/lib/face';
 import { NODES, pruneSimple, setSection, isLink, canvasSize, type ApiGraph } from '../vendor/openjutsu/lib/simple';
 import { applyModel, checkAcceleration } from '../vendor/openjutsu/lib/model';
-import { openjutsuSettingsSchema, type OpenjutsuSettings } from '../shared/openjutsu';
+import { openjutsuSettingsSchema, openjutsuFaceSettingsSchema, type OpenjutsuFaceSettings, type OpenjutsuSettings } from '../shared/openjutsu';
 import type { Asset, Graph } from '../shared/types';
 
 export const openjutsuGraphHash = (graph: Graph) => createHash('sha256').update(JSON.stringify(graph)).digest('hex');
+export function compileOpenjutsuFace(settings: OpenjutsuSettings, face: OpenjutsuFaceSettings, section = { start: 0, length: 0 }, names = { source: 'source.mp4', reference: 'reference.png' }, detectors = ['bbox/face_yolov8m.pt', 'segm/person_yolov8m-seg.pt']): Graph {
+  const s = openjutsuSettingsSchema.parse(settings), f = openjutsuFaceSettingsSchema.parse(face);
+  const graph = pruneFace(structuredClone(faceSource) as ApiGraph, { ...f, seed: s.seed });
+  // The same soundless-video adapter used by native loadGraph().
+  graph['1_soundtrack'] = { class_type: 'H3SoundtrackOrSilence', inputs: { audio: ['1', 2], video_info: ['1', 3] }, _meta: { title: 'Soundtrack (silence if none)' } };
+  for (const node of Object.values(graph)) for (const [field, value] of Object.entries(node.inputs)) if (node !== graph['1_soundtrack'] && isLink(value) && value[0] === '1' && value[1] === 2) node.inputs[field] = ['1_soundtrack', 0];
+  applyDetectorPaths(graph, detectors); applyModel(graph, s); setSection(graph, '1', section);
+  graph['1'].inputs.video = names.source; graph['2'].inputs.image = names.reference;
+  return graph as Graph;
+}
 export function compileOpenjutsu(settings: OpenjutsuSettings, section: { start: number; length: number }, names = { source: 'source.mp4', reference: 'reference.png' }, namespace?: string): Graph {
   const s = openjutsuSettingsSchema.parse(settings); checkAcceleration(s);
   const original = structuredClone(graphSource) as ApiGraph;

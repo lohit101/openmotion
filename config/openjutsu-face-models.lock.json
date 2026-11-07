@@ -1,0 +1,51 @@
+{
+  "total_bytes": 673203772,
+  "usage": "OpenJutsu Fix Faces. Shared H3 files are selected separately. Additional model/code terms apply; not cleared for hosted commercial use.",
+  "files": [
+    {
+      "repo": "Bingsu/adetailer",
+      "revision": "53cc19de382014514d9d4038601d261a7faa9b7b",
+      "filename": "face_yolov8m.pt",
+      "destination": "ultralytics/bbox/face_yolov8m.pt",
+      "size": 52026019,
+      "sha256": "717923c19b3f4bbf5250b728f1fa6b2cb72a33aed1d236ea9caf0e21ad943e5f",
+      "license": "AGPL-3.0 / upstream model terms"
+    },
+    {
+      "repo": "Bingsu/adetailer",
+      "revision": "53cc19de382014514d9d4038601d261a7faa9b7b",
+      "filename": "person_yolov8m-seg.pt",
+      "destination": "ultralytics/segm/person_yolov8m-seg.pt",
+      "size": 54827683,
+      "sha256": "c8ab26f517173b1fe8342d336a09f443eb61cb08dcbfc78d53fff4c2547ae81e",
+      "license": "AGPL-3.0 / upstream model terms"
+    },
+    {
+      "repo": "ybelkada/segment-anything",
+      "revision": "7790786db131bcdc639f24a915d9f2c331d843ee",
+      "filename": "checkpoints/sam_vit_b_01ec64.pth",
+      "destination": "sams/sam_vit_b_01ec64.pth",
+      "size": 375042383,
+      "sha256": "ec2df62732614e57411cdcf32a23ffdf28910380d03139ee0f4fcbe91eb8c912",
+      "license": "Apache-2.0"
+    },
+    {
+      "repo": "immich-app/buffalo_l",
+      "revision": "d09715916a0778919a770c343533641e250b8699",
+      "filename": "detection/model.onnx",
+      "destination": "insightface/models/buffalo_l/det_10g.onnx",
+      "size": 16923827,
+      "sha256": "5838f7fe053675b1c7a08b633df49e7af5495cee0493c7dcf6697200b85b5b91",
+      "license": "InsightFace pretrained models: non-commercial research"
+    },
+    {
+      "repo": "immich-app/buffalo_l",
+      "revision": "d09715916a0778919a770c343533641e250b8699",
+      "filename": "recognition/model.onnx",
+      "destination": "insightface/models/buffalo_l/w600k_r50.onnx",
+      "size": 174383860,
+      "sha256": "4c06341c33c2ca1f86781dab0e829f88ad5b64be9fba56e56bc9ebdefc619e43",
+      "license": "InsightFace pretrained models: non-commercial research"
+    }
+  ]
+}

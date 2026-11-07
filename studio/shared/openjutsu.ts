@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { DEFAULT_MODEL, DEFAULT_DESCRIBER } from '../vendor/openjutsu/lib/model';
 import manifest from '../../config/openjutsu-models.lock.json';
 import importedPreset from '../../config/openjutsu-preset.json';
+import faceManifest from '../../config/openjutsu-face-models.lock.json';
 
 const file = z.string().min(1).max(300).refine(value => !/[\\\x00-\x1f\x7f]/.test(value) && value.split('/').every(p => p && p !== '.' && p !== '..'), 'Choose an installed relative model filename.');
 export const openjutsuSettingsSchema = z.object({
@@ -20,11 +21,23 @@ export const openjutsuDefaults = openjutsuSettingsSchema.parse(importedPreset.se
 export const openjutsuDraftSchema = z.object({ sourceId: z.string().nullable(), referenceId: z.string().nullable(), start: z.number().min(0).default(0), length: z.number().min(0).max(3600).default(0), settings: openjutsuSettingsSchema }).strict();
 export type OpenjutsuDraft = z.infer<typeof openjutsuDraftSchema>;
 export const emptyOpenjutsuDraft = (): OpenjutsuDraft => ({ sourceId: null, referenceId: null, ...importedPreset.section, settings: structuredClone(openjutsuDefaults) });
-export interface OpenjutsuRun { version: 'openjutsu-simple-v1'; settings: OpenjutsuSettings; section: { start: number; length: number }; sourceSHA256: string; referenceSHA256: string; graphSHA256: string; instanceId: number | null; endpoint: string; nativeFile?: string; nativeSHA256?: string; actualFrames?: number; actualSeconds?: number; }
+export const openjutsuFaceSettingsSchema = z.object({ style: z.enum(['photo', 'mouth']).default('photo'), chunkSeconds: z.number().min(2.5).max(15).default(6.5) }).strict();
+export type OpenjutsuFaceSettings = z.infer<typeof openjutsuFaceSettingsSchema>;
+export const openjutsuFaceDraftSchema = openjutsuDraftSchema.extend({ face: openjutsuFaceSettingsSchema, parentId: z.string().uuid().nullable().default(null) });
+export type OpenjutsuFaceDraft = z.infer<typeof openjutsuFaceDraftSchema>;
+export const emptyOpenjutsuFaceDraft = (): OpenjutsuFaceDraft => ({ ...emptyOpenjutsuDraft(), start: 0, length: 0, face: openjutsuFaceSettingsSchema.parse({}), parentId: null });
+export interface OpenjutsuRun { version: 'openjutsu-simple-v1' | 'openjutsu-face-v1'; face?: OpenjutsuFaceSettings; parentId?: string; settings: OpenjutsuSettings; section: { start: number; length: number }; sourceSHA256: string; referenceSHA256: string; graphSHA256: string; instanceId: number | null; endpoint: string; nativeFile?: string; nativeSHA256?: string; actualFrames?: number; actualSeconds?: number; }
 export const openjutsuCatalogFiles = [...manifest.files.map(file => file.destination), ...manifest.shared];
 export function openjutsuFiles(s: OpenjutsuSettings): string[] {
   return [...new Set(['diffusion_models/' + s.model, 'text_encoders/' + s.describer, 'text_encoders/' + s.textEncoder,
     'vae/' + s.videoVae, 'vae/' + s.audioVae, 'checkpoints/sam3.1_multiplex_fp16.safetensors', ...s.loras.filter(l => l.enabled !== false && l.strength !== 0).map(l => 'loras/' + l.name)])];
+}
+export function openjutsuFaceFiles(s: OpenjutsuSettings): string[] {
+  return [...openjutsuFiles(s).filter(id => !id.startsWith('checkpoints/')), ...faceManifest.files.map((file: { destination: string }) => file.destination)];
+}
+export function openjutsuFaceDraftForJob(job: import('./types').Job): OpenjutsuFaceDraft {
+  if (!job.openjutsu?.face) throw new Error('This is not a Fix Faces result.');
+  return { sourceId: job.sourceId, referenceId: job.referenceId, start: job.openjutsu.section.start, length: job.openjutsu.section.length, settings: structuredClone(job.openjutsu.settings), face: structuredClone(job.openjutsu.face), parentId: job.openjutsu.parentId || null };
 }
 export function openjutsuDraftForJob(job: import('./types').Job): OpenjutsuDraft {
   if (!job.openjutsu) throw new Error('This video was made with the previous workflow. Select its media for a new OpenJutsu run.');

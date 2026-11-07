@@ -36,6 +36,8 @@ The saved preferences predate OpenJutsu's `referenceScene` setting. Importing th
 
 Global OpenJutsu face-style/detail/tone preferences are not part of its Simple graph. They are not silently attached here. New Remotion jobs have no automatic PerformRecast, FaceFusion, Imagen repaint or old Viggle finishing stage.
 
+The separate [Fix Faces post-processing workspace](openjutsu-face-fix.md) now copies OpenJutsu's original face graph and both face styles. Open a completed result and choose **Fix Faces**. It preserves the original and requires an explicit first-time download of the additional face tools/files. It does not automatically alter new motion-transfer runs.
+
 ## What is copied
 
 `studio/vendor/openjutsu/` contains the Simple API graph, `simple.ts`, `model.ts`, the imported utility dependency `advanced.ts`, the MIT licence and exact file hashes. The source was the user's requested Desktop working tree based on `7fe118b`, including local changes; it is not represented as a pristine upstream release. The original project was not edited.

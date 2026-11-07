@@ -39,13 +39,20 @@ print('Registered model patches without restarting ComfyUI.')
 '''
 
 
+def native_models():
+    root = Path(__file__).resolve().parents[1] / 'config'
+    motion = json.loads((root / 'openjutsu-models.lock.json').read_text())
+    face = json.loads((root / 'openjutsu-face-models.lock.json').read_text())
+    return {'files': motion['files'] + face['files'], 'shared': motion['shared']}
+
+
 def register_download_paths(config, files):
     patches = [item['destination'] for item in files if item['destination'].startswith('model_patches/')]
     if patches:
         # Cached engines may predate a newly added extra-model-path category.
         # An owned file alias is discoverable immediately by the native loader.
         vast.remote(config, ['python3', '-c', MODEL_PATCH_PATHS, config['remote_root'], json.dumps(patches)])
-    native = json.loads((Path(__file__).resolve().parents[1] / 'config/openjutsu-models.lock.json').read_text())
+    native = native_models()
     owned = {f['destination'] for f in native['files']} | set(native['shared'])
     destinations = [f['destination'] for f in files if f['destination'] in owned]
     if destinations:
@@ -142,7 +149,7 @@ def main():
             geometry = {f'source-face-v{n}': facial.fingerprint(f'source-face-v{n}') for n in [6, 7, 8]}
             boundary = {f'source-face-v{n}': facial.fingerprint(f'source-face-v{n}') for n in [9, 10]}
             from facial_runtime import compatible_worker_hashes
-            native_files = json.loads((Path(__file__).resolve().parents[1] / 'config/openjutsu-models.lock.json').read_text())
+            native_files = native_models()
             native_ids = [f['destination'] for f in native_files['files']] + native_files['shared']
             vast.remote(config, ['python3', '-c', code, str(root / 'scripts'), str(root / 'models'), json.dumps(selected_manifest()['files']),json.dumps(face_files), facial.fingerprint('source-face-v2'), facial.digest(facial.ROOT / 'scripts/video_timing.py'), facial.fingerprint('source-face-v3'), json.dumps(compatible_worker_hashes()), facial.fingerprint('source-face-v4'), facial.fingerprint('source-face-v5'), json.dumps(geometry), json.dumps(boundary), facial.fingerprint('source-face-v11'), json.dumps(selected_manifest(native_ids)['files'])])
             return
@@ -165,7 +172,7 @@ def main():
                         raise ValueError('Only catalog models and custom LoRAs can be deleted.')
                     lora_parts(args.file[6:])
                 command.extend(['--delete-file', args.file, '--allowed-files', json.dumps(allowed), '--face-dir', str(root / 'face-refinement-runtime/.local/facefusion-eval'), '--face-files', json.dumps(face_files)])
-                native = json.loads((Path(__file__).resolve().parents[1] / 'config/openjutsu-models.lock.json').read_text())
+                native = native_models()
                 command.extend(['--native-workspace', str(root), '--native-files', json.dumps([f['destination'] for f in native['files']] + native['shared'])])
             else:
                 lora_parts(args.lora)

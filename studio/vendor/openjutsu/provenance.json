@@ -7,6 +7,8 @@
     "lib/model.ts": "d68d526a870ccb4749301142c559016da064dc9d6a41067154fb3a48e29d91eb",
     "lib/advanced.ts": "4f11bfb8cafb5af6e69a5184096c7e4f45c9dfc61a193509f951e90a0cd5eba3",
     "workflows/simple.api.json": "24dc5b8ef45788c839beb96b617b404308ddfd8921e89cfd9008442ad29a666a",
-    "LICENSE": "114ead42f3d0b493d0f8182f92bb0b280a45e33a0add68cdd532843e3bf30275"
+    "LICENSE": "114ead42f3d0b493d0f8182f92bb0b280a45e33a0add68cdd532843e3bf30275",
+    "lib/face.ts": "29ce124e6a0a02a1a00b82f77ce6313041f3a7d1218ef35008efafff9a27f301",
+    "workflows/face.api.json": "6ebc74af833a352ec68e19ba2be6ef43fca132c426cb22c11bfd99d10548dd81"
   }
 }
