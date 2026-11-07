@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -39,6 +40,65 @@ class OpenJutsuToolsTests(unittest.TestCase):
             value = tools.remote(self.root, self.request, True)
         self.assertTrue(value['ready']); start.assert_not_called()
         self.assertEqual(list(self.root.iterdir()), [])
+
+    def managed_config(self, **changes):
+        config = self.root / 'config/server.json'; config.parent.mkdir(exist_ok=True)
+        config.write_text(json.dumps({'host': '127.0.0.1', 'port': 18189, **changes}))
+
+    def test_managed_engine_uses_its_registered_port_for_readiness_and_queue_guards(self):
+        self.managed_config()
+        calls = []
+        def fetch(url, **kwargs):
+            calls.append(url)
+            if url == 'http://127.0.0.1:18189/object_info': return response(self.registry)
+            if url == 'http://127.0.0.1:18189/queue': return response({'queue_running': [], 'queue_pending': []})
+            raise AssertionError('Wrong GPU endpoint: ' + url)
+        with patch.object(tools.urllib.request, 'urlopen', side_effect=fetch), patch.object(tools.subprocess, 'Popen') as start:
+            self.assertTrue(tools.remote(self.root, self.request, True)['ready'])
+            tools.queue_idle(self.root)
+        self.assertEqual(calls, ['http://127.0.0.1:18189/object_info', 'http://127.0.0.1:18189/queue'])
+        start.assert_not_called()
+
+    def test_changed_private_port_is_used_without_guessing_the_default(self):
+        self.managed_config(port=19191)
+        with patch.object(tools.urllib.request, 'urlopen', return_value=response(self.registry)) as fetch:
+            self.assertTrue(tools.status(self.root, self.request)['ready'])
+        fetch.assert_called_once_with('http://127.0.0.1:19191/object_info', timeout=8)
+
+    def test_busy_managed_queue_blocks_installation_at_the_same_endpoint(self):
+        self.managed_config()
+        def fetch(url, **kwargs):
+            self.assertTrue(url.startswith('http://127.0.0.1:18189/'))
+            return response({} if url.endswith('/object_info') else {'queue_running': [[1]], 'queue_pending': []})
+        with patch.object(tools.urllib.request, 'urlopen', side_effect=fetch), patch.object(tools.subprocess, 'Popen') as start:
+            with self.assertRaisesRegex(ValueError, 'active or unknown'): tools.remote(self.root, self.request, True)
+            start.assert_not_called()
+
+    def test_configured_endpoint_is_not_replaced_with_a_different_engine_on_connection_failure(self):
+        self.managed_config()
+        with patch.object(tools.urllib.request, 'urlopen', side_effect=OSError('Unavailable')) as fetch:
+            self.assertFalse(tools.status(self.root, self.request)['ready'])
+        fetch.assert_called_once_with('http://127.0.0.1:18189/object_info', timeout=8)
+
+    def test_invalid_or_public_managed_endpoints_are_rejected_before_network_access(self):
+        for changes in [{'port': True}, {'port': 0}, {'port': 65536}, {'port': '18189'}, {'host': '0.0.0.0'}, {'host': 'example.com'}]:
+            with self.subTest(changes=changes):
+                self.managed_config(**changes)
+                with patch.object(tools.urllib.request, 'urlopen') as fetch:
+                    with self.assertRaisesRegex(ValueError, 'loopback'): tools.queue_idle(self.root)
+                    fetch.assert_not_called()
+
+    def test_worker_restarts_the_managed_engine_with_its_installed_python_environment(self):
+        self.managed_config()
+        (self.root / 'state/openjutsu-tools').mkdir(parents=True)
+        (self.root / 'state/install.json').write_text(json.dumps({'comfy_root': str(self.root / 'comfy')}))
+        request = {**self.request, 'comfyui': {'revision': 'fixture', 'repo': 'fixture'}, 'packs': []}
+        with patch.dict(sys.modules, {'server': SimpleNamespace(running=lambda: {'pid': 123})}), patch.object(tools, 'queue_idle') as idle, patch.object(tools.subprocess, 'check_output', return_value='fixture\n'), patch.object(tools.subprocess, 'run') as run, patch.object(tools, 'status', return_value={'missing': []}):
+            tools.worker(self.root, request, 'fixture')
+        run.assert_called_once_with([str(self.root / '.venv/bin/python'), str(self.root / 'scripts/server.py'), 'restart'], check=True)
+        self.assertEqual(idle.call_count, 2)
+        self.assertTrue(all(call.args == (self.root,) for call in idle.call_args_list))
+        self.assertEqual(json.loads((self.root / 'state/openjutsu-tools/current.json').read_text())['state'], 'ready')
 
     def test_unknown_or_busy_queue_cannot_start_tool_installation(self):
         for queue in [{}, {'queue_running': [[1]], 'queue_pending': []}, {'queue_running': [], 'queue_pending': [[1]]}]:

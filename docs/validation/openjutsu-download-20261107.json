@@ -1,0 +1,46 @@
+{
+  "date": "2026-11-07",
+  "branch": "feat/openjutsu-remotion",
+  "reportedProblem": "Download Remotion failed even though all seven selected weights were installed.",
+  "causes": [
+    "The tool helper used remote port8188 while the managed engine was configured on18189; the first queue check failed before a worker was created.",
+    "After successful pack installation, restart invoked system Python rather than the installed environment and failed importing yaml."
+  ],
+  "fix": {
+    "endpoint": "Read config/server.json and require a valid loopback host/port for managed readiness and all queue guards.",
+    "externalCompatibility": "An external engine with no managed configuration retains its read-only standard endpoint; installation still requires an owned managed process.",
+    "restart": "Use the managed installation's .venv/bin/python.",
+    "errors": "Surface bounded setup errors instead of the full SSH command/request traceback."
+  },
+  "checks": {
+    "focusedPython": {"passed": 11, "newRegressionCases": 6},
+    "diffWhitespace": "passed",
+    "generationCodeAndGraphsChanged": false,
+    "localApplicationReloadRequired": false,
+    "liveCheckedAt": "2026-11-07T13:29:36.999Z",
+    "liveConnection": "online",
+    "liveOpenjutsuToolsReady": true,
+    "selectedWeightsReady": "7/7",
+    "modelTransferFiles": [],
+    "existingFiveJobRecordsUnchanged": true,
+    "existingAssetRecordsUnchanged": true,
+    "currentDraftUnchanged": true,
+    "laterUserGeneration": "A separate user-submitted OpenJutsu video was running at Sample Video + Audio; no further setup or restart was performed."
+  },
+  "operations": {
+    "explicitModuleRetry": true,
+    "pinnedNodePacksAndRuntimeRequirementsInstalled": true,
+    "managedEngineRestartAndRecovery": true,
+    "localBackendReloads": 0,
+    "modelWeightDownloads": 0,
+    "agentInference": 0,
+    "newRentals": 0,
+    "computeResumes": 0,
+    "computeStops": 0,
+    "idlePreferenceChanged": false
+  },
+  "limits": [
+    "No generation-quality or speed benchmark was requested or performed.",
+    "The earlier failed setup receipt remains historical; current physical/node readiness enables Generate. It was not retried again during the user's render."
+  ]
+}

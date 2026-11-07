@@ -19,8 +19,21 @@ def atomic(file, value):
     temporary = file.with_suffix('.tmp'); temporary.write_text(json.dumps(value)); temporary.replace(file)
 
 
-def queue_idle():
-    with urllib.request.urlopen('http://127.0.0.1:8188/queue', timeout=5) as response: queue = json.load(response)
+def engine_url(root):
+    config = Path(root) / 'config/server.json'
+    if not config.exists():
+        # A compatible external OpenJutsu engine uses its standard port. It is
+        # checked read-only; worker() still refuses to restart an external app.
+        return 'http://127.0.0.1:8188'
+    value = json.loads(config.read_text())
+    port = value.get('port')
+    if type(port) is not int or not 1 <= port <= 65535 or value.get('host') not in ['127.0.0.1', 'localhost']:
+        raise ValueError('The managed ComfyUI endpoint must use a valid loopback host and port in config/server.json.')
+    return 'http://127.0.0.1:%d' % port
+
+
+def queue_idle(root):
+    with urllib.request.urlopen(engine_url(root) + '/queue', timeout=5) as response: queue = json.load(response)
     if not all(isinstance(queue.get(k), list) for k in ['queue_running', 'queue_pending']) or queue['queue_running'] or queue['queue_pending']:
         raise ValueError('The GPU queue is active or unknown. No engine restart was performed.')
 
@@ -58,7 +71,7 @@ def status(root, request):
         except FileNotFoundError: pass
         except OSError: unknown = True
     try:
-        with urllib.request.urlopen('http://127.0.0.1:8188/object_info', timeout=8) as response: registry = json.load(response)
+        with urllib.request.urlopen(engine_url(root) + '/object_info', timeout=8) as response: registry = json.load(response)
         missing = missing_tools(registry, request)
     except (OSError, ValueError): missing = ['ComfyUI connection']
     return {'ready': not missing and not running and not unknown, 'running': running, 'unknown': unknown,
@@ -71,7 +84,7 @@ def worker(root, request, attempt):
     with (marker.parent / 'launch.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX); atomic(marker, record)
     try:
-        queue_idle()
+        queue_idle(root)
         install = json.loads((root / 'state/install.json').read_text()); comfy = Path(install['comfy_root'])
         # Only our already-managed process may be restarted. Existing external
         # OpenJutsu engines work directly when their nodes are already ready.
@@ -83,7 +96,7 @@ def worker(root, request, attempt):
             if subprocess.check_output(['git', '-C', str(comfy), 'status', '--porcelain'], text=True).strip():
                 raise ValueError('The existing ComfyUI tree contains local changes. It was kept; use the already-working OpenJutsu engine or a separate managed installation.')
             subprocess.run(['git', '-C', str(comfy), 'fetch', '--depth=1', core['repo'], core['revision']], check=True)
-            queue_idle()
+            queue_idle(root)
             subprocess.run(['git', '-C', str(comfy), 'checkout', '--detach', core['revision']], check=True)
             subprocess.run([str(python), '-m', 'pip', 'install', '--no-cache-dir', '-r', str(comfy / 'requirements.txt'), '-c', str(root / 'state/torch-constraints.txt')], check=True)
         for pack in request['packs']:
@@ -101,8 +114,8 @@ def worker(root, request, attempt):
             requirements = target / 'requirements.txt'
             if requirements.is_file():
                 subprocess.run([str(python), '-m', 'pip', 'install', '--no-cache-dir', '-r', str(requirements), '-c', str(root / 'state/torch-constraints.txt')], check=True)
-        queue_idle()
-        subprocess.run(['python3', str(root / 'scripts/server.py'), 'restart'], check=True)
+        queue_idle(root)
+        subprocess.run([str(python), str(root / 'scripts/server.py'), 'restart'], check=True)
         for _ in range(90):
             current = status(root, request)
             if not current['missing']: break
@@ -116,7 +129,7 @@ def worker(root, request, attempt):
 def remote(root, request, prepare):
     root = Path(root); current = status(root, request)
     if not prepare or current['ready'] or current['running'] or current['unknown']: return current
-    queue_idle()
+    queue_idle(root)
     attempt = str(uuid.uuid4()); folder = root / 'state/openjutsu-tools'; folder.mkdir(parents=True, exist_ok=True)
     marker = folder / 'current.json'
     with (folder / 'launch.lock').open('a') as lock:
@@ -159,4 +172,14 @@ def main():
         time.sleep(1)
 
 
-if __name__ == '__main__': main()
+if __name__ == '__main__':
+    try:
+        main()
+    except subprocess.CalledProcessError as error:
+        detail = error.stderr or error.stdout or 'Remote setup exited with status %s.' % error.returncode
+        if isinstance(detail, bytes): detail = detail.decode(errors='replace')
+        print('OpenJutsu tool preparation failed: ' + str(detail).strip()[-1800:], file=sys.stderr)
+        sys.exit(1)
+    except (OSError, ValueError) as error:
+        print('OpenJutsu tool preparation failed: ' + str(error).strip()[-1800:], file=sys.stderr)
+        sys.exit(1)
