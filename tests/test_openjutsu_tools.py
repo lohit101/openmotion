@@ -93,12 +93,44 @@ class OpenJutsuToolsTests(unittest.TestCase):
         (self.root / 'state/openjutsu-tools').mkdir(parents=True)
         (self.root / 'state/install.json').write_text(json.dumps({'comfy_root': str(self.root / 'comfy')}))
         request = {**self.request, 'comfyui': {'revision': 'fixture', 'repo': 'fixture'}, 'packs': []}
-        with patch.dict(sys.modules, {'server': SimpleNamespace(running=lambda: {'pid': 123})}), patch.object(tools, 'queue_idle') as idle, patch.object(tools.subprocess, 'check_output', return_value='fixture\n'), patch.object(tools.subprocess, 'run') as run, patch.object(tools, 'status', return_value={'missing': []}):
+        with patch.dict(sys.modules, {'server': SimpleNamespace(running=lambda: {'pid': 123})}), patch.object(tools, 'queue_idle') as idle, patch.object(tools.subprocess, 'check_output', return_value='fixture\n'), patch.object(tools.subprocess, 'run') as run, patch.object(tools, 'restart_managed_engine') as restart, patch.object(tools, 'status', return_value={'missing': []}):
             tools.worker(self.root, request, 'fixture')
-        run.assert_called_once_with([str(self.root / '.venv/bin/python'), str(self.root / 'scripts/server.py'), 'restart'], check=True)
+        run.assert_not_called()
+        restart.assert_called_once_with(self.root, self.root / '.venv/bin/python')
         self.assertEqual(idle.call_count, 2)
         self.assertTrue(all(call.args == (self.root,) for call in idle.call_args_list))
         self.assertEqual(json.loads((self.root / 'state/openjutsu-tools/current.json').read_text())['state'], 'ready')
+
+    def test_restart_waits_for_the_old_private_socket_to_close(self):
+        self.managed_config()
+        with patch.object(tools.subprocess, 'run') as run, patch.object(tools.socket, 'socket') as socket, patch.object(tools.time, 'sleep') as sleep:
+            socket.return_value.__enter__.return_value.connect_ex.side_effect = [0, 0, 111]
+            tools.restart_managed_engine(self.root, '/venv/python')
+        self.assertEqual([call.args[0][-1] for call in run.call_args_list], ['stop', 'start'])
+        self.assertEqual(sleep.call_count, 2)
+
+    def test_restart_keeps_the_unrelated_port_guard_when_the_socket_stays_open(self):
+        self.managed_config()
+        with patch.object(tools.subprocess, 'run') as run, patch.object(tools.socket, 'socket') as socket, patch.object(tools.time, 'sleep'):
+            socket.return_value.__enter__.return_value.connect_ex.return_value = 0
+            with self.assertRaisesRegex(ValueError, 'No replacement'):
+                tools.restart_managed_engine(self.root, '/venv/python')
+        self.assertEqual([call.args[0][-1] for call in run.call_args_list], ['stop'])
+
+    def test_face_requirements_reuse_existing_torch_without_sam2_cuda_build(self):
+        with patch.object(tools.subprocess, 'run') as run:
+            tools.install_requirements('/venv/python', '/nodes/Impact/requirements.txt', '/constraints.txt', True)
+        call = run.call_args
+        self.assertIn('--no-build-isolation', call.args[0])
+        self.assertEqual(call.args[0][-4:], ['-r', '/nodes/Impact/requirements.txt', '-c', '/constraints.txt'])
+        self.assertEqual(call.kwargs['env']['SAM2_BUILD_CUDA'], '0')
+        self.assertTrue(call.kwargs['check'])
+
+    def test_simple_requirements_keep_original_build_and_environment_policy(self):
+        with patch.dict(tools.os.environ, {'SAM2_BUILD_CUDA': 'custom'}), patch.object(tools.subprocess, 'run') as run:
+            tools.install_requirements('/venv/python', '/nodes/requirements.txt', '/constraints.txt', False)
+        self.assertNotIn('--no-build-isolation', run.call_args.args[0])
+        self.assertEqual(run.call_args.kwargs['env']['SAM2_BUILD_CUDA'], 'custom')
 
     def test_unknown_or_busy_queue_cannot_start_tool_installation(self):
         for queue in [{}, {'queue_running': [[1]], 'queue_pending': []}, {'queue_running': [], 'queue_pending': [[1]]}]:

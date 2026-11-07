@@ -1,0 +1,37 @@
+{
+  "date": "2026-11-07",
+  "branch": "feat/openjutsu-remotion",
+  "causes": [
+    "SAM2 PEP517 isolated build fetched duplicate unconstrained PyTorch build dependencies",
+    "Old managed engine command line disappeared before its listening socket closed; immediate restart falsely refused the private port"
+  ],
+  "fixes": [
+    "Face pack pip requirements reuse existing build environment and constrained torch",
+    "Skip only unused SAM2 CUDA extension build; native graph uses SAM1",
+    "Wait bounded 10 seconds for old private socket to close before safe managed start"
+  ],
+  "validation": {
+    "focusedPythonTests": 15,
+    "sameRental": 59570040,
+    "liveSetupStatus": "complete",
+    "liveFaceToolsReady": true,
+    "faceNodeCount": 7,
+    "samLoader": true,
+    "existingJobs": 9,
+    "activeJobsAtVerification": 0,
+    "modelsBusyAtVerification": false
+  },
+  "actions": {
+    "newInference": false,
+    "modelWeightRedownload": false,
+    "gpuResume": false,
+    "computeStop": false,
+    "newRental": false,
+    "appReload": false,
+    "existingManagedEngineStartedAfterFailedRestart": true
+  },
+  "limitations": [
+    "No new GPU face quality/speed test",
+    "Native browser review unavailable"
+  ]
+}

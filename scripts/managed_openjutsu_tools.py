@@ -7,6 +7,7 @@ import json
 import os
 import re
 import shutil
+import socket
 from pathlib import Path
 import subprocess
 import sys
@@ -58,6 +59,37 @@ def missing_tools(registry, request):
                 if len(definitions) == 1 and (child in template.get('names', []) or numbered): continue
             missing.append(name + '.' + field)
     return missing
+
+
+def install_requirements(python, requirements, constraints, face):
+    # FaceRefine/Impact's insightface and SAM2 builds must reuse our constrained
+    # PyTorch. PEP517 isolation otherwise downloads a second, unconstrained torch
+    # stack just to discover SAM2's build requirements. This workflow uses SAM1;
+    # SAM2's optional CUDA extension is neither needed nor used by its graph.
+    command = [str(python), '-m', 'pip', 'install', '--no-cache-dir']
+    if face:
+        command.append('--no-build-isolation')
+    command += ['-r', str(requirements), '-c', str(constraints)]
+    env = dict(os.environ)
+    if face:
+        env['SAM2_BUILD_CUDA'] = '0'
+    subprocess.run(command, check=True, env=env)
+
+
+def restart_managed_engine(root, python):
+    # The old process can lose its /proc command line before its listening
+    # socket closes. Keep the unrelated-port guard, but allow shutdown to finish.
+    subprocess.run([str(python), str(root / 'scripts/server.py'), 'stop'], check=True)
+    port = int(engine_url(root).rsplit(':', 1)[1])
+    for _ in range(40):
+        with socket.socket() as probe:
+            probe.settimeout(.25)
+            if probe.connect_ex(('127.0.0.1', port)) != 0:
+                break
+        time.sleep(.25)
+    else:
+        raise ValueError('The previous engine still holds its private port. No replacement was started.')
+    subprocess.run([str(python), str(root / 'scripts/server.py'), 'start'], check=True)
 
 
 def status(root, request):
@@ -119,11 +151,11 @@ def worker(root, request, attempt):
                 subprocess.run(['git', '-C', str(target), 'checkout', '--detach', pack['revision']], check=True)
             requirements = target / 'requirements.txt'
             if requirements.is_file():
-                subprocess.run([str(python), '-m', 'pip', 'install', '--no-cache-dir'] + (['--no-build-isolation'] if request.get('face') and pack['directory'] == 'ComfyUI-H3-FaceRefine' else []) + ['-r', str(requirements), '-c', str(root / 'state/torch-constraints.txt')], check=True)
+                install_requirements(python, requirements, root / 'state/torch-constraints.txt', request.get('face', False))
         if request.get('face'):
             subprocess.run([str(python), '-c', 'import insightface, onnxruntime, segment_anything; assert onnxruntime.get_available_providers()'], check=True)
         queue_idle(root)
-        subprocess.run([str(python), str(root / 'scripts/server.py'), 'restart'], check=True)
+        restart_managed_engine(root, python)
         for _ in range(90):
             current = status(root, request)
             if not current['missing']: break
