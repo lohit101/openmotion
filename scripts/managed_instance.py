@@ -46,7 +46,7 @@ def retry_ssh(operation, stage):
             time.sleep(min(3 * attempts, 15))
 
 
-def check_local(identity):
+def check_local(identity, native_motion=False):
     for tool in ('ssh', 'ssh-keygen', 'python3', 'ffmpeg', 'ffprobe'):
         if not shutil.which(tool):
             raise ValueError('Install %s on this Mac before renting a GPU.' % tool)
@@ -65,8 +65,10 @@ def check_local(identity):
             raise ValueError('Deployment package is incomplete: ' + name)
     for name in ('models.lock.json', 'optional-models.lock.json', 'natural-models.lock.json', 'extra-models.lock.json', 'setup-models.json', 'runtime.lock.json', 'server.json'):
         json.loads((vast.ROOT / 'config' / name).read_text())
-    # CPU-only dependency/model checks happen before any paid rental request.
-    subprocess.run([shutil.which('python3'), str(vast.ROOT / 'scripts/setup_local_geometry.py'), '--check'], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
+    # OpenJutsu consumes the original inputs on the GPU. Legacy reference
+    # preparation still needs its local geometry tool before paid setup.
+    if not native_motion:
+        subprocess.run([shutil.which('python3'), str(vast.ROOT / 'scripts/setup_local_geometry.py'), '--check'], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
     with socket.socket() as probe:
         occupied = probe.connect_ex(('127.0.0.1', 8188)) == 0
     if occupied:
@@ -83,9 +85,10 @@ def main():
     parser.add_argument('--identity', required=True, type=Path)
     parser.add_argument('--instance-id', type=int)
     parser.add_argument('--check-local', action='store_true')
+    parser.add_argument('--native-motion', action='store_true', help='OpenJutsu motion transfer; local reference framing is not used.')
     args = parser.parse_args()
     os.environ['RECAST_SSH_BATCH'] = '1'
-    result = check_local(args.identity)
+    result = check_local(args.identity, native_motion=args.native_motion)
     if args.check_local:
         print(json.dumps(result)); return
     if not args.host or not args.port or not args.instance_id or args.instance_id <= 0:

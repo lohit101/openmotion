@@ -44,6 +44,7 @@ import { anchoredRun, canFinishAnchoredLocally, videoDirectionFrames } from '../
 import { FaceRepairManager, registerFaceRepairRoutes, sendFaceRepairFile } from './face-repair';
 import { gpuFileDeleteSchema, gpuFileListSchema } from '../shared/gpu-files';
 import { registerOpenjutsuRoutes } from './openjutsu';
+import { canRecoverOpenjutsuLocally } from './openjutsu-runner';
 
 const STUDIO = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const REPO = path.dirname(STUDIO);
@@ -312,8 +313,9 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     if (job.faceRefinement) { await videoIdentity.resume(job); return void res.json(publicJob(store.job(job.id)!)); }
     if (idle.state.status === 'pausing') return void res.status(409).json({ error: 'Wait for the automatic GPU pause to settle before resuming.' });
     if (job.anchorChild) return void res.status(409).json({ error: 'Check and resume the parent video so its saved branches stay coordinated.' });
-    if ((upscale.busy || videoIdentity.gpuBusy) && !canFinishImageLocally(job) && !canFinishFacialLocally(job) && !canFinishAnchoredLocally(job)) return void res.status(409).json({error:'Finish GPU face refinement before resuming another render.'});
-    if (connection.status.state !== 'online' && !canFinishImageLocally(job) && !canFinishFacialLocally(job) && !canFinishAnchoredLocally(job)) return void res.status(503).json({ error: 'Reconnect your GPU first.' });
+    const locallyRecoverable = canFinishImageLocally(job) || canFinishFacialLocally(job) || canFinishAnchoredLocally(job) || await canRecoverOpenjutsuLocally(store, job);
+    if ((upscale.busy || videoIdentity.gpuBusy) && !locallyRecoverable) return void res.status(409).json({error:'Finish GPU face refinement before resuming another render.'});
+    if (connection.status.state !== 'online' && !locallyRecoverable) return void res.status(503).json({ error: 'Reconnect your GPU first.' });
     if (job.status !== 'interrupted') return void res.status(409).json({ error: 'Only an interrupted run can be resumed. Reuse settings to start another run.' });
     const value = z.object({ retryMissing: z.boolean().default(false) }).parse(req.body || {});
     await runner.resume(job, value.retryMissing); res.json(publicJob(store.job(job.id)!));

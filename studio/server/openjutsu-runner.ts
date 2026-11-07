@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import type { Runner } from './runner';
 import type { Job } from '../shared/types';
+import type { Store } from './store';
 import { applyProgress, OfflineError } from './comfy';
 import { validateGraph } from './workflow';
 import { poster, command } from './media';
@@ -18,11 +19,14 @@ function executionError(history: any) {
     ? 'The internal run name exceeded OpenJutsu’s limit. This is fixed for new runs. Reuse these settings and generate again.'
     : `OpenJutsu failed${failure?.node_type ? ' at ' + failure.node_type : ''}: ${reason.slice(0, 800)}`);
 }
-async function failedReceipt(ctx: Runner, job: Job) {
+async function failedReceipt(ctx: Pick<Runner, 'store'>, job: Job) {
   try {
     const value = JSON.parse(await readFile(path.join(ctx.store.root, 'jobs', job.id, 'openjutsu-failure.json'), 'utf8'));
     return value.jobId === job.id && value.graphSHA256 === job.openjutsu?.graphSHA256 && (!job.pendingPrompt || value.promptId === job.pendingPrompt) && value.history?.status?.status_str === 'error' ? value.history : null;
   } catch { return null; }
+}
+export async function canRecoverOpenjutsuLocally(store: Store, job: Job) {
+  return !!job.openjutsu && (!!job.openjutsu.nativeFile || !!await failedReceipt({ store }, job));
 }
 async function retainFailure(ctx: Runner, job: Job, history: any) {
   const folder = path.join(ctx.store.root, 'jobs', job.id); await mkdir(folder, { recursive: true });

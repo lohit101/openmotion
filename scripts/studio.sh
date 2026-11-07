@@ -12,7 +12,11 @@ for dependency in npm python3 ffmpeg ffprobe; do
     exit 1
   fi
 done
-python3 "$RECAST_REPO/scripts/setup_local_geometry.py"
+case "${1:-}" in
+  '') python3 "$RECAST_REPO/scripts/setup_local_geometry.py" ;;
+  --native-motion) ;; # OpenJutsu does not use local reference alignment.
+  *) echo 'Usage: bash scripts/studio.sh [--native-motion]' >&2; exit 2 ;;
+esac
 if [[ ! -d node_modules ]]; then npm ci --no-audit --no-fund; fi
 npm run build
 exec node dist-server/index.js

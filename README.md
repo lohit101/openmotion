@@ -3,10 +3,12 @@
 Recast is a local dashboard for character replacement, with NVIDIA inference on a rented Vast GPU and drafts, references, media and Library on your computer. On this branch, Remotion uses the copied OpenJutsu Simple motion-transfer workflow and its recovered working preset.
 
 ```bash
-bash scripts/studio.sh
+bash scripts/openjutsu-studio.sh
 ```
 
-Open **http://127.0.0.1:3000**. See [Studio setup and instance management](studio/README.md). Starting the app does not rent or resume a GPU. Keep `studio/data/` for private drafts/media and `.local/` for local connection/runtime state; neither belongs in Git.
+Open **http://127.0.0.1:3003** (tab title **Recast · OpenJutsu**). This starts the full app with GPU rental/setup, SSH reconnection, recovery and the normal idle-pause policy. It preserves an existing `studio/data/openjutsu-preview` library; new installations use `studio/data/openjutsu`. Set `PORT` or `RECAST_DATA` explicitly to override them. See [Studio setup and instance management](studio/README.md). Starting the app does not rent or resume a GPU. Keep `studio/data/` for private drafts/media and `.local/` for local connection/runtime state; neither belongs in Git.
+
+OpenJutsu does not use the old laptop reference-framing runtime. Its launcher and Remotion rental/setup checks skip that unused prerequisite while retaining SSH-key authentication, deployment-file, tunnel-port and quote checks. Other workflow profiles keep their existing framing prerequisite. A configuration check never creates a rental.
 
 For a new installation, open **GPU cloud → Set up Vast account**. Enter your own [Vast API key](https://cloud.vast.ai/manage-keys/) and choose **Create or reuse a Recast key**, or select an existing local private-key file. **Verify & save** checks your account without renting compute. The same controls are in **Settings → Connection → Account & SSH keys**. No Vast CLI installation or developer SSH key is required. [First-run setup and credential storage](docs/user-setup.md).
 

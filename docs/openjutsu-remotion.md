@@ -2,6 +2,18 @@
 
 The `feat/openjutsu-remotion` branch replaces the new Remotion creation screen with the user's Desktop OpenJutsu **Simple** motion-transfer workflow. It imports the real graph and its TypeScript graph builders, rather than approximating them with the old Viggle pipeline. Kie and the separate Wan prototype are unchanged.
 
+## Start the full app
+
+Run `bash scripts/openjutsu-studio.sh` from this worktree, then open **http://127.0.0.1:3003**. The tab is titled **Recast · OpenJutsu**. The launcher starts the normal application entry point, including SSH reconnection, managed GPU rental/setup, recovery, compute-stop monitoring and the saved five-minute idle policy. It preserves an existing `studio/data/openjutsu-preview` database and media; a fresh installation uses `studio/data/openjutsu`. Explicit `PORT` and `RECAST_DATA` values take precedence. The original app and Kie worktrees have separate processes and data.
+
+The old private preview harness disabled SSH restoration and background monitoring for its read-only integration review. It is not the rental launcher. Starting the normal app does not itself rent/resume compute or download weights.
+
+The first managed Remotion rental attempt was blocked before creation by the legacy local reference-framing prerequisite. OpenJutsu consumes the original media on the GPU, so this CPU geometry tool is unnecessary for its pipeline. The native profile now reaches the configuration check, initial rental, existing-rental setup retry and actual deployment worker. Local tools, SSH-key authentication, deployment manifests, loopback-port ownership and exact rental prices/fees remain checked. Other workflow selections retain their original geometry prerequisite. A failed preflight with no creation attempt has no instance to stop; select a fresh offer and deliberately launch it after checking configuration.
+
+Verified terminal native failure receipts can also be reconciled through the normal HTTP resume endpoint while offline. Their job, graph hash and prompt must match; unrelated receipts remain rejected. This records the existing failure without requesting GPU work. Saved native-file recovery retains its existing integrity checks.
+
+See the [rental repair receipt](validation/openjutsu-rental-20261107.json) for local regression checks, live preflight and preservation results. An actual new paid rental/setup is not part of this validation.
+
 ## Recovered configuration
 
 The requested browser origin supplied saved preferences and five recent-job entries. ComfyUI's current history was empty, so it was not used to infer defaults. Three completed MP4s still contained their native graph metadata. Those graphs corroborate the model, sampler, adapter, motion and seed settings below. The latest selection was 0–6 seconds with a 15-second segment limit; the earlier two runs used a six-second limit.

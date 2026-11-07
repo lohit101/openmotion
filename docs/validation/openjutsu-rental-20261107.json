@@ -1,0 +1,64 @@
+{
+  "date": "2026-11-07",
+  "branch": "feat/openjutsu-remotion",
+  "problem": "The managed OpenJutsu rental path required an unused legacy local reference-framing runtime and failed before requesting an instance.",
+  "changes": {
+    "nativeMotionProfile": ["configuration check", "initial rent preflight", "existing rental setup retry", "managed deployment worker", "local branch launcher"],
+    "legacyGeometryStillRequiredForOtherProfiles": true,
+    "retainedChecks": ["local tools", "SSH key authentication", "deployment files and manifests", "loopback tunnel ownership", "account public key", "exact rental ask and approved prices/fees"],
+    "normalApplicationEntryPoint": true,
+    "privatePreviewHarnessReplacedForLiveUse": true,
+    "defaultPort": 3003,
+    "preserveExistingPreviewLibrary": true,
+    "localRecovery": "Verified terminal failure receipts may reconcile offline through the HTTP resume API; unrelated receipts stay rejected and no prompt is submitted."
+  },
+  "checks": {
+    "focusedStudio": {"passed": 15},
+    "fullStudio": {"passed": 688, "files": 58},
+    "python": {"run": 365, "skipped": 1, "failed": 0, "newNativePreflightCases": 5},
+    "typecheck": "passed",
+    "productionBuild": "passed",
+    "launcherShellSyntax": "passed",
+    "liveHttpPreflight": {
+      "checkedAt": "2026-11-07T11:25:11.816Z",
+      "status": 200,
+      "ready": true,
+      "localToolsSshAndDeployment": "passed",
+      "existingAccountSshKey": "passed",
+      "exactAskHardwareAndPrices": "passed",
+      "rentalRequests": 0
+    },
+    "browser": "Native Chrome identified the branch and its rental panel. Final interaction had stale/inconsistent window state and could not establish a final screenshot pass; the live no-rental HTTP endpoint was verified instead."
+  },
+  "livePreservation": {
+    "checkedAt": "2026-11-07T11:25:09.302Z",
+    "jobs": 3,
+    "completedResults": 2,
+    "allExistingJobRecordsUnchangedAcrossFinalReload": true,
+    "assets": 5,
+    "allExistingAssetRecordsUnchanged": true,
+    "currentNativeDraftUnchanged": true,
+    "originalTerminalFailureReconciledLocallyBeforeFinalReload": true,
+    "normalBranchServerRunning": true,
+    "mainAndKieOriginalProcessesPreserved": true,
+    "connected": false,
+    "providerInstances": 0,
+    "cloudBusy": false,
+    "userFailedLaunch": {"phase": "failed", "instanceId": null, "creationAttempted": false},
+    "priorDeferredRollout": "applied; no observer remains armed"
+  },
+  "agentActions": {
+    "paidRentalRequests": 0,
+    "computeResumes": 0,
+    "computeStops": 0,
+    "gpuInference": 0,
+    "modelDownloads": 0,
+    "remoteInstalls": 0,
+    "legacyGeometryInstallation": 0
+  },
+  "limits": [
+    "A new paid rental and remote installation were not executed for validation.",
+    "The failed launch record is retained as history; fresh offers still need price and availability checks before a deliberate rental.",
+    "No native generation-quality, speed or identity claim is added by this rental fix."
+  ]
+}

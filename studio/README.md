@@ -5,10 +5,12 @@ A local dashboard for Viggle Animate video replacement (Remotion), Qwen Image 2.
 From the project root:
 
 ```bash
-bash scripts/studio.sh
+bash scripts/openjutsu-studio.sh
 ```
 
-Open **http://127.0.0.1:3000**. The launcher checks Node.js 24+, npm, Python 3, FFmpeg and FFprobe; prepares a small local CPU geometry environment and verified face detector; installs the locked Node dependencies if missing; builds the app; and starts it on loopback. It never rents, starts or bills a Vast instance. Existing dependencies, including the geometry tool, are already installed on this Mac.
+Open **http://127.0.0.1:3003** (**Recast · OpenJutsu**). The branch launcher checks Node.js 24+, npm, Python 3, FFmpeg and FFprobe; installs locked Node dependencies if missing; builds the app; and starts the normal server on loopback. It keeps the existing OpenJutsu preview library when present, otherwise uses `studio/data/openjutsu`. `PORT` and `RECAST_DATA` remain configurable. It never rents or starts a Vast instance.
+
+OpenJutsu sends the original inputs to the GPU and does not need local reference framing. Its launcher uses `scripts/studio.sh --native-motion`; Remotion's configuration check, rental, reconnect/setup retry and deployment worker use the same native profile. SSH-key authentication, deployment-file, tunnel-port and exact-offer checks still run. Other workflow profiles retain the legacy geometry requirement; `bash scripts/studio.sh` prepares that tool when needed. See [OpenJutsu setup and recovery](../docs/openjutsu-remotion.md).
 
 ## Working offline
 

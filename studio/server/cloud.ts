@@ -489,16 +489,16 @@ export class CloudManager {
     if (fresh.downloadPerGB > approved.download + 1e-9 || fresh.uploadPerGB > approved.upload + 1e-9) throw new PreflightError('Transfer fees increased. Review a fresh quote before renting.', 'transfer-changed');
     return fresh;
   }
-  private async localPreflight(identity: string) {
+  private async localPreflight(identity: string, workflow: OfferFilters['workflow'] = 'remotion') {
     if (this.options.preflight) await this.options.preflight(identity);
-    else await command('python3', [path.join(this.repo, 'scripts/managed_instance.py'), '--check-local', '--identity', identity], undefined, 20000);
+    else await command('python3', [path.join(this.repo, 'scripts/managed_instance.py'), '--check-local', '--identity', identity, ...(workflow === 'remotion' ? ['--native-motion'] : [])], undefined, 20000);
   }
   async checkConfiguration(quote: string) {
     const selected = this.quotes.get(quote); if (!selected || selected.offer.totalHourly === null) throw new Error('Refresh the marketplace and choose an offer first.');
     const checks: { name: string; ok: boolean; message: string }[] = [];
     const check = async (name: string, run: () => Promise<unknown>) => { try { const value = await run(); checks.push({ name, ok: true, message: typeof value === 'string' ? value : 'Passed' }); } catch (error) { checks.push({ name, ok: false, message: (error as Error).message }); } };
     const identity = this.sshIdentity();
-    await check('Local tools, SSH authentication and deployment files', () => this.localPreflight(identity));
+    await check('Local tools, SSH authentication and deployment files', () => this.localPreflight(identity, selected.filters.workflow));
     await check('Existing account SSH key', async () => {
       const publicKey = (await readFile(identity + '.pub', 'utf8')).trim();
       if (!hasRegisteredSshKey(await this.client.request('/api/v0/ssh/'), publicKey)) return 'This public key will be registered when you launch. No rental or key change was requested by this check.';
@@ -544,7 +544,7 @@ export class CloudManager {
       const existing = this.state.instances.find(i => i.managed && !i.computeStopped && i.id !== launch.instanceId);
       if (existing) throw new Error(`Instance #${existing.id} is still active. Stop or use it before renting another GPU.`);
       const identity = await this.ensureSshKey(launch);
-      await this.localPreflight(identity);
+      await this.localPreflight(identity, filters.workflow);
       const fresh = await this.verifyOffer(launch.offer, filters, ceiling, launch.approvedTransfer);
       if (this.closing || this.stopped.has(launch.id)) return;
       launch.offer = fresh; launch.failureCode = undefined; launch.lastFailure = undefined; launch.creationAttempted = true; this.change(launch, 'requesting', 'Creating your Vast instance. Billing begins when the rental starts.');
@@ -586,7 +586,7 @@ export class CloudManager {
     if (this.stopChecks.has(launch.id)) throw new Error('Wait for stop confirmation before restarting this rental.');
     this.statusEpoch++;this.stopped.delete(launch.id); launch.safetyStatus = 'disarmed'; launch.setupDeadline = null; launch.lastFailure = undefined; this.state.busy = true; this.activeLaunch = launch.id; this.change(launch, 'checking', 'Checking local prerequisites before resuming this existing rental.');
     this.activeTask = (async () => { try {
-      const identity = await this.ensureSshKey(launch); await this.localPreflight(identity);
+      const identity = await this.ensureSshKey(launch); await this.localPreflight(identity, launch.filters?.workflow);
       if (this.closing || this.stopped.has(launch.id)) return;
       const current = this.rawInstances.find(instance => instance.id === launch.instanceId);
       if (!current) throw new Error('The existing rental could not be confirmed. Refresh before reconnecting.');
@@ -768,7 +768,7 @@ export class CloudManager {
       launch.lastLogAt = launch.updatedAt = new Date().toISOString(); this.emitLogUpdate();
     };
     if (this.options.provision) await this.options.provision(instance, log, signal);
-    else await this.runProvision(instance, identity, log, signal);
+    else await this.runProvision(instance, identity, log, signal, launch.filters?.workflow);
     check();
     this.change(launch, 'connecting', 'Checking the actual CUDA ComfyUI server');
     await this.connection.connect('http://127.0.0.1:8188', false); check(); if (this.connection.status.state !== 'online') throw new Error(this.connection.status.message);
@@ -782,10 +782,10 @@ export class CloudManager {
       return matchesGpuProbe(instance, output);
     } catch { return false; }
   }
-  private runProvision(instance: any, identity: string, log: (line: string) => void, signal: AbortSignal) {
+  private runProvision(instance: any, identity: string, log: (line: string) => void, signal: AbortSignal, workflow: OfferFilters['workflow'] = 'remotion') {
     return new Promise<void>((resolve, reject) => {
       if (signal.aborted) return reject(signal.reason);
-      const child = spawn('python3', ['-u', path.join(this.repo, 'scripts/managed_instance.py'), '--host', String(instance.ssh_host), '--port', String(instance.ssh_port), '--identity', identity, '--instance-id', String(instance.id)], { stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32' });
+      const child = spawn('python3', ['-u', path.join(this.repo, 'scripts/managed_instance.py'), '--host', String(instance.ssh_host), '--port', String(instance.ssh_port), '--identity', identity, '--instance-id', String(instance.id), ...(workflow === 'remotion' ? ['--native-motion'] : [])], { stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32' });
       this.provision = child; let buffer = '', tail = ''; const abort = () => { if (this.provision === child) this.stopProvision(); }; signal.addEventListener('abort', abort, { once: true });
       const receive = (chunk: Buffer) => { buffer += chunk.toString(); const lines = buffer.split(/[\r\n]+/); buffer = (lines.pop() || '').slice(-8192); for (const line of lines) if (line.trim()) { log(line); tail = line.slice(-8192); } };
       child.stdout!.on('data', receive); child.stderr!.on('data', receive);

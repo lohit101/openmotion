@@ -17,6 +17,8 @@ import { command } from '../server/media';
 import receipts from './fixtures/openjutsu-recent-graphs.json';
 import provenance from '../vendor/openjutsu/provenance.json';
 import { validateGraph } from '../server/workflow';
+import request from 'supertest';
+import { createApplication } from '../server/index';
 
 const repo = path.resolve(import.meta.dirname, '../..');
 const catalogFor = (graph: Graph): Catalog => Object.fromEntries(Object.values(graph).map(n => [n.class_type, { input: { required: Object.fromEntries(Object.entries(n.inputs).map(([k, v]) => [k, [typeof v === 'number' ? 'FLOAT' : 'STRING']])) }, output: Array(20).fill('*') }]));
@@ -131,6 +133,22 @@ it('retains a terminal GPU failure and never treats it as a resumable paid reque
   f.connection.status.state = 'offline'; f.client.json.mockRejectedValue(new Error('No further GPU call expected')); vi.mocked(f.runner.kick).mockClear();
   await f.runner.resume(saved, true);
   expect(store!.job(job.id)?.status).toBe('failed'); expect(f.request).toHaveBeenCalledOnce(); expect(f.runner.kick).not.toHaveBeenCalled();
+});
+
+it('reconciles a verified native failure through the HTTP API offline, while rejecting an unrelated receipt', async () => {
+  const f = await fixture(), job = await f.create(); job.status = 'interrupted'; job.pendingPrompt = 'terminal-id'; store!.saveJob(job);
+  const directory = path.join(folder, 'jobs', job.id); await mkdir(directory, { recursive: true });
+  const receipt = { jobId: job.id, promptId: job.pendingPrompt, graphSHA256: 'unrelated', history: { status: { status_str: 'error', messages: [['execution_error', { exception_message: 'H3 run_name must be 1-96 characters' }]] } } };
+  const file = path.join(directory, 'openjutsu-failure.json'); await writeFile(file, JSON.stringify(receipt));
+  const local = await createApplication({ repo, dataRoot: folder, seed: false, allowSSH: false, cloudOptions: { backgroundSafety: false, fetcher: vi.fn().mockRejectedValue(new Error('No provider request expected')) } });
+  const gpu = vi.spyOn(local.connection, 'client').mockImplementation(() => { throw new Error('No GPU request expected'); });
+  try {
+    await request(local.app).post(`/api/jobs/${job.id}/resume`).send({}).expect(503);
+    await writeFile(file, JSON.stringify({ ...receipt, graphSHA256: job.openjutsu!.graphSHA256 }));
+    const result = await request(local.app).post(`/api/jobs/${job.id}/resume`).send({}).expect(200);
+    expect(result.body.status).toBe('failed'); expect(result.body.pendingPrompt).toBeNull(); expect(result.body.error).toContain('internal run name');
+    expect(gpu).not.toHaveBeenCalled(); expect(local.runner.active).toBeNull();
+  } finally { local.idle.dispose(); local.models.dispose(); local.cloud.dispose(); local.store.close(); }
 });
 
 it('rejects an engine change during admission without saving or submitting a run', async () => {
