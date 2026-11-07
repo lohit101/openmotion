@@ -10,6 +10,30 @@ import { poster, command } from './media';
 import { openjutsuGraphHash } from './openjutsu-workflow';
 
 export async function fileSHA256(file: string) { const hash = createHash('sha256'); for await (const chunk of createReadStream(file)) hash.update(chunk); return hash.digest('hex'); }
+class NativeExecutionError extends Error {}
+function executionError(history: any) {
+  const failure = history.status?.messages?.find((item: any[]) => item[0] === 'execution_error')?.[1];
+  const reason = String(failure?.exception_message || history.error || 'The GPU reported a terminal execution error.').trim();
+  return new NativeExecutionError(/H3 run_name must be 1-96 characters/.test(reason)
+    ? 'The internal run name exceeded OpenJutsu’s limit. This is fixed for new runs. Reuse these settings and generate again.'
+    : `OpenJutsu failed${failure?.node_type ? ' at ' + failure.node_type : ''}: ${reason.slice(0, 800)}`);
+}
+async function failedReceipt(ctx: Runner, job: Job) {
+  try {
+    const value = JSON.parse(await readFile(path.join(ctx.store.root, 'jobs', job.id, 'openjutsu-failure.json'), 'utf8'));
+    return value.jobId === job.id && value.graphSHA256 === job.openjutsu?.graphSHA256 && (!job.pendingPrompt || value.promptId === job.pendingPrompt) && value.history?.status?.status_str === 'error' ? value.history : null;
+  } catch { return null; }
+}
+async function retainFailure(ctx: Runner, job: Job, history: any) {
+  const folder = path.join(ctx.store.root, 'jobs', job.id); await mkdir(folder, { recursive: true });
+  const file = path.join(folder, 'openjutsu-failure.json');
+  await writeFile(file + '.part', JSON.stringify({ jobId: job.id, promptId: job.pendingPrompt, graphSHA256: job.openjutsu?.graphSHA256, history }));
+  await rename(file + '.part', file);
+}
+function markFailed(ctx: Runner, job: Job, error: NativeExecutionError) {
+  job.status = 'failed'; job.error = error.message; job.pendingPrompt = null; job.submitting = false; job.retryRequired = false;
+  job.finishedAt ||= new Date().toISOString(); ctx.stage(job, 'Generation failed');
+}
 const owned = (job: Job, entry: any[]) => entry?.[3]?.recast_openjutsu === job.id && entry?.[3]?.graph_sha256 === job.openjutsu?.graphSHA256;
 function assertScope(ctx: Runner, job: Job) {
   if (ctx.connection.status.state !== 'online' || ctx.connection.status.endpoint !== job.openjutsu?.endpoint || ctx.store.value('cloud-connected-instance', null) !== job.openjutsu.instanceId) throw new Error('Reconnect the original GPU for this saved OpenJutsu run. Nothing new was submitted.');
@@ -28,6 +52,8 @@ async function receipt(ctx: Runner, job: Job) {
   } catch { return null; }
 }
 export async function resumeOpenjutsu(ctx: Runner, job: Job, retryMissing: boolean) {
+  const failed = await failedReceipt(ctx, job);
+  if (failed) { markFailed(ctx, job, executionError(failed)); return; }
   if (job.openjutsu?.nativeFile) {
     if (!await stat(job.openjutsu.nativeFile).catch(() => null)) throw new Error('The saved video is missing. Reconnect to recover its existing render.');
   } else {
@@ -37,7 +63,9 @@ export async function resumeOpenjutsu(ctx: Runner, job: Job, retryMissing: boole
     const client = ctx.connection.client();
     if (job.pendingPrompt && !await receipt(ctx, job)) {
       const history = await client.json('/history/' + job.pendingPrompt), queue = await client.json('/queue');
-      if (history[job.pendingPrompt]?.status?.status_str === 'error') throw new Error('This GPU render failed. Reuse its settings for a corrected run.');
+      if (history[job.pendingPrompt]?.status?.status_str === 'error') {
+        const failed = history[job.pendingPrompt]; await retainFailure(ctx, job, failed); markFailed(ctx, job, executionError(failed)); return;
+      }
       if (!history[job.pendingPrompt] && ![...queue.queue_running, ...queue.queue_pending].some((entry: any[]) => entry[1] === job.pendingPrompt)) {
         if (!retryMissing) { job.retryRequired = true; job.status = 'interrupted'; job.error = 'The GPU no longer has this request. Rendering it again uses compute; no new request was submitted.'; ctx.save(job); return; }
         job.pendingPrompt = null; job.submitting = false;
@@ -53,6 +81,7 @@ export async function runOpenjutsu(ctx: Runner, job: Job, signal: AbortSignal) {
   const save = () => ctx.save(job), stage = (text: string) => ctx.stage(job, text);
   try {
     ctx.checkCancelled(job); job.status = 'running'; job.startedAt ||= new Date().toISOString(); save();
+    const failed = await failedReceipt(ctx, job); if (failed) throw executionError(failed);
     if (!run.nativeFile) {
       assertScope(ctx, job);
       const client = ctx.connection.client();
@@ -91,7 +120,8 @@ export async function runOpenjutsu(ctx: Runner, job: Job, signal: AbortSignal) {
         await new Promise<void>((resolve, reject) => { const done = () => { clearTimeout(timer); signal.removeEventListener('abort', abort); }; const abort = () => { done(); reject(signal.reason || new Error('Cancelled.')); }; const timer = setTimeout(() => { done(); resolve(); }, 1500); signal.addEventListener('abort', abort, { once: true }); });
       }
       socket?.close(); socket = undefined;
-      if (history.status?.status_str !== 'success') throw new Error('OpenJutsu generation failed: ' + JSON.stringify(history.status?.messages || history.error || '').slice(0, 1400));
+      if (history.status?.status_str === 'error') { await retainFailure(ctx, job, history); throw executionError(history); }
+      if (history.status?.status_str !== 'success') throw new Error('OpenJutsu did not return a completed execution status. Check & resume the existing request.');
       const saved = { jobId: job.id, promptId: job.pendingPrompt, graphSHA256: run.graphSHA256, history };
       await writeFile(path.join(folder, 'openjutsu-history.json.part'), JSON.stringify(saved)); await rename(path.join(folder, 'openjutsu-history.json.part'), path.join(folder, 'openjutsu-history.json'));
       // Only the assembled final output, never a segment preview.
@@ -113,6 +143,7 @@ export async function runOpenjutsu(ctx: Runner, job: Job, signal: AbortSignal) {
     job.pendingPrompt = null; job.status = 'completed'; job.finishedAt = new Date().toISOString(); job.elapsedSeconds = (Date.parse(job.finishedAt) - Date.parse(job.startedAt!)) / 1000; stage('Video ready');
   } catch (error) {
     const cancelled = !!ctx.store.job(job.id)?.cancelRequested;
+    if (!cancelled && error instanceof NativeExecutionError) { markFailed(ctx, job, error); return; }
     job.status = cancelled && job.cancellationConfirmed ? 'cancelled' : job.pendingPrompt || job.submitting || run.nativeFile ? 'interrupted' : 'failed';
     job.error = (error as Error).message; stage(job.status === 'cancelled' ? 'Cancelled' : job.status === 'interrupted' ? 'Generation needs attention · saved work kept' : 'Generation failed');
   } finally { socket?.close(); }

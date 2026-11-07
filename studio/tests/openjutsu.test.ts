@@ -24,6 +24,25 @@ let folder = '', store: Store | undefined;
 afterEach(async () => { store?.close(); store = undefined; if (folder) await rm(folder, { recursive: true, force: true }); folder = ''; });
 
 describe('copied OpenJutsu workflow', () => {
+  it('keeps actual chain/output names inside the upstream limit with scene, motion and model suffixes enabled', () => {
+    const resolve = (graph: Graph, value: unknown): string => {
+      if (typeof value === 'string') return value;
+      if (!Array.isArray(value)) throw new Error('Expected a string connection');
+      const node = graph[value[0]]; if (node.class_type !== 'StringConcatenate') throw new Error('Unexpected string producer');
+      return resolve(graph, node.inputs.string_a) + String(node.inputs.delimiter) + resolve(graph, node.inputs.string_b);
+    };
+    const names = [];
+    for (const referenceScene of [false, true]) for (const id of ['61779044-9815-4f63-a047-99f6e3b8a343', 'e4769bdf-aa7e-4d02-885f-d98911bfe24f']) {
+      const settings = { ...openjutsuDefaults, referenceScene, steps: 8, motion: 1376 as const, loras: [...openjutsuDefaults.loras, { name: 'solarrenderer_control_lora.safetensors', strength: 1 }] };
+      const graph = compileOpenjutsu(settings, { start: 0, length: 3 }, undefined, id);
+      const name = resolve(graph, graph['26'].inputs.run_name);
+      const normalized = name.trim().replace(/[^A-Za-z0-9._-]+/g, '_').replace(/^[._-]+|[._-]+$/g, '').slice(0, 96);
+      expect(name).toBe(normalized); expect(name.length).toBeLessThanOrEqual(96);
+      expect(resolve(graph, graph['67'].inputs.filename)).toBe(name); names.push(name);
+    }
+    expect(names[0]).not.toBe(names[1]);
+    expect(() => compileOpenjutsu(openjutsuDefaults, { start: 0, length: 3 }, undefined, 'a'.repeat(97))).toThrow('namespace');
+  });
   for (const [name, receipt] of Object.entries(receipts)) it('matches the native saved workflow of ' + name + ' after media/runtime-cache normalization', () => {
     const graph = compileOpenjutsu({ ...openjutsuDefaults, clipSeconds: receipt.clipSeconds }, receipt.section);
     expect(graph).toEqual(receipt.graph);
@@ -97,6 +116,21 @@ it('keeps a lost submission ambiguous and prevents an automatic paid retry', asy
   const f = await fixture(), job = await f.create(); f.request.mockRejectedValueOnce(new Error('Network lost after send'));
   await f.runner.run(job, new AbortController().signal); expect(store!.job(job.id)).toMatchObject({ status: 'interrupted', submitting: true, pendingPrompt: null });
   await f.runner.run(store!.job(job.id)!, new AbortController().signal); expect(f.request).toHaveBeenCalledOnce();
+});
+
+it('retains a terminal GPU failure and never treats it as a resumable paid request', async () => {
+  const f = await fixture(), job = await f.create();
+  const failed = { status: { status_str: 'error', messages: [['execution_start', {}], ['execution_error', { node_id: '26', node_type: 'MiniMaxH3ChainPlanModern', exception_message: 'H3 run_name must be 1-96 characters', traceback: ['private runtime stack'] }]] }, outputs: {} };
+  f.client.json.mockImplementation(async (route, body) => route === '/object_info' ? f.catalog : route === '/prompt' ? f.request(body) : route === '/history/paid-once' ? { 'paid-once': failed } : { queue_running: [], queue_pending: [] });
+  await f.runner.run(job, new AbortController().signal);
+  const saved = store!.job(job.id)!;
+  expect(saved).toMatchObject({ status: 'failed', pendingPrompt: null, submitting: false, retryRequired: false });
+  expect(saved.error).toContain('internal run name'); expect(saved.error).not.toContain('private runtime stack');
+  const receipt = JSON.parse(await readFile(path.join(folder, 'jobs', job.id, 'openjutsu-failure.json'), 'utf8'));
+  expect(receipt.promptId).toBe('paid-once'); expect(receipt.history).toEqual(failed);
+  f.connection.status.state = 'offline'; f.client.json.mockRejectedValue(new Error('No further GPU call expected')); vi.mocked(f.runner.kick).mockClear();
+  await f.runner.resume(saved, true);
+  expect(store!.job(job.id)?.status).toBe('failed'); expect(f.request).toHaveBeenCalledOnce(); expect(f.runner.kick).not.toHaveBeenCalled();
 });
 
 it('rejects an engine change during admission without saving or submitting a run', async () => {

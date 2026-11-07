@@ -18,9 +18,12 @@ export function compileOpenjutsu(settings: OpenjutsuSettings, section: { start: 
   const graph = pruneSimple(original, s); applyModel(graph, s); setSection(graph, NODES.video, section);
   graph[NODES.video].inputs.video = names.source; graph[NODES.picture].inputs.image = names.reference;
   if (namespace) {
-    if (!/^[a-zA-Z0-9-]+$/.test(namespace)) throw new Error('Invalid run namespace.');
+    if (!/^[a-zA-Z0-9-]+$/.test(namespace) || namespace.length > 64 || namespace.startsWith('-') || namespace.endsWith('-')) throw new Error('Invalid run namespace.');
     const plan = Object.values(graph).find(n => n.class_type === 'MiniMaxH3ChainPlanModern')!;
-    graph.recast_run_name = { class_type: 'StringConcatenate', inputs: { string_a: `recast-${namespace}-`, string_b: plan.inputs.run_name, delimiter: '' }, _meta: { title: 'Saved Recast run' } };
+    // A job already freezes its inputs/settings and has a unique ID. Appending
+    // OpenJutsu's picture/scene/model suffix chain can exceed its 96-char limit.
+    // Use that job identity alone for both the chain and the assembled output.
+    graph.recast_run_name = { class_type: 'StringConcatenate', inputs: { string_a: `recast-${namespace}`, string_b: '', delimiter: '' }, _meta: { title: 'Saved Recast run' } };
     plan.inputs.run_name = ['recast_run_name', 0];
     graph[NODES.final].inputs.filename = ['recast_run_name', 0];
   }

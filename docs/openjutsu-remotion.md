@@ -30,6 +30,8 @@ Global OpenJutsu face-style/detail/tone preferences are not part of its Simple g
 
 For all three recovered source-scene runs, the wrapper produces the same 59 nodes and input values after normalizing uploaded filenames, ComfyUI's `is_changed` cache fields and the planner's resolved-runtime annotation. The submitted Recast graph adds one string-concatenation node to give every job its own cache/output namespace. It leaves the model, prompts, sampler and context settings intact. The wrapper also preserves OpenJutsu's silent-video compatibility adapter and original section selection behavior.
 
+The first user run with reference-scene mode and an extra model adapter exposed a 103-character internal name, exceeding upstream's 96-character limit. New jobs use only a bounded Recast job identity for both the chain and assembled output; picture/scene/model suffixes are not appended to it. This changes file/cache identity, not conditioning or sampling. Terminal native errors retain their full failure receipt and become Failed with a concise cause, rather than appearing resumable. Reuse the saved settings to create a corrected job; the failed graph is preserved and is never silently resubmitted. See the [failure/fix receipt](validation/openjutsu-run-name-fix-20261107.json).
+
 The core and four required node packs are pinned to the revisions observed on the working host in `config/openjutsu-runtime.lock.json`. The branch's managed ComfyUI pin matches that core. Spectrum remains optional and is selectable only when its node is already available and speed LoRAs are disabled.
 
 ## Inputs, downloads and results

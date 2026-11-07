@@ -1,0 +1,51 @@
+{
+  "date": "2026-11-07",
+  "branch": "feat/openjutsu-remotion",
+  "base": "6c1a8d9",
+  "issue": "OpenJutsu reference-scene/model suffix chain exceeded the 96-character run-name limit",
+  "observed": {
+    "oldNameLength": 103,
+    "upstreamMaximum": 96,
+    "failedNode": "MiniMaxH3ChainPlanModern",
+    "videoSamplingReached": false,
+    "outputNodes": 0
+  },
+  "fix": {
+    "newNameLength": 43,
+    "maximumNewNameLength": 71,
+    "changedActualNativeNodes": [
+      "recast_run_name"
+    ],
+    "actualNativeGraphNodes": 61,
+    "actualUpstreamValidator": "passed",
+    "originalFailedGraphPreserved": true,
+    "terminalFailureReceiptSavedBeforeStateChange": true,
+    "knownFailuresCannotResubmitOnResume": true
+  },
+  "validation": {
+    "focusedStudio": 14,
+    "fullStudio": 687,
+    "studioFiles": 58,
+    "typecheck": "passed",
+    "productionBuild": "passed"
+  },
+  "scope": {
+    "agentInference": 0,
+    "modelDownloads": 0,
+    "remoteInstalls": 0,
+    "gpuResumeStopRental": 0,
+    "userSettingsChanged": false
+  },
+  "deployment": {
+    "state": "waiting",
+    "method": "One-shot local rollout waits for the application and native queues to empty, quiesces local admissions, preserves jobs/draft, reloads only the separate branch server and reconnects the existing engine without SSH fallback.",
+    "maximumWaitSeconds": 3600,
+    "providerMutation": false,
+    "rawJournal": ".local/openjutsu-failure-20261107/rollout-state.json"
+  },
+  "userWork": {
+    "shortRetryCompleted": true,
+    "shortRetryNativeFrames": 56,
+    "longerUserRenderPreservedWhileActive": true
+  }
+}
