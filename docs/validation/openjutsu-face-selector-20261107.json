@@ -1,0 +1,20 @@
+{
+  "date": "2026-11-07",
+  "cause": "Vendored native face JSON uses select=largest; pinned FaceRefine requires largest_face. This blocked preflight before submission.",
+  "change": "Normalize only the same largest-face selector in the Recast compatibility adapter. Vendored graph and builders remain byte-identical.",
+  "validation": {
+    "nativeGraphComparisons": "both styles equal native graph after this one enum normalization",
+    "focusedStudioChecks": 26,
+    "typecheck": "passed",
+    "liveGPURegistryValidation": {
+      "photo": [],
+      "mouth": [],
+      "excludedPlaceholders": [
+        "image",
+        "video"
+      ]
+    },
+    "gpuInference": false
+  },
+  "deployment": "Isolated HEAD build avoids publishing the in-progress Qwen engine switch. Idle local reload preserves nine jobs, twelve assets and all drafts; reconnects same GPU without restarting compute."
+}

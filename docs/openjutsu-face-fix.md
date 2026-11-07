@@ -15,3 +15,5 @@ Validation covers native graph parity, minimal downloads, immutable parents, sep
 ## Setup recovery, 2026-11-07
 
 The first live face setup exposed SAM2 build isolation pulling a duplicate PyTorch build environment. Face dependency installation now reuses the existing constrained PyTorch, Cython and build tools; SAM2’s optional CUDA extension is disabled because this graph uses SAM1. A separate closing-socket race made the completed setup’s immediate engine restart fail. Managed tool preparation now waits up to ten seconds for the old private port to close, preserving refusal to replace an unknown listener. The same rental was recovered and the explicit module retry reports Ready. All fifteen preparation regressions pass; no inference or model-weight redownload was needed.
+
+The pinned FaceRefine node names its largest-face selector `largest_face`; the upstream JSON still uses `largest`. The Recast adapter normalizes that enum without altering tracking parameters. Both styles have been checked against the live node registry (no inference), with the original vendor files retained unchanged.

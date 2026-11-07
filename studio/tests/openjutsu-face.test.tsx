@@ -5,6 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import request from 'supertest';
 import nativeGraphs from './fixtures/openjutsu-face-graphs.json';
+import { validateGraph } from '../server/workflow';
 import { compileOpenjutsuFace } from '../server/openjutsu-workflow';
 import { emptyOpenjutsuFaceDraft, openjutsuDefaults, openjutsuFaceFiles, openjutsuFiles } from '../shared/openjutsu';
 import { emptyModels, modelDefinitions } from '../shared/models';
@@ -23,7 +24,17 @@ const repo = path.resolve(import.meta.dirname, '../..');
 let folder = '', store: Store | undefined;
 afterEach(async () => { store?.close(); store = undefined; if (folder) await rm(folder, { recursive: true, force: true }); folder = ''; });
 for (const style of ['photo', 'mouth'] as const) it('matches the native Desktop Fix Faces graph: ' + style, () => {
-  expect(compileOpenjutsuFace(openjutsuDefaults, { style, chunkSeconds: 6.5 })).toEqual(nativeGraphs[style]);
+  const expected = structuredClone(nativeGraphs[style]);
+  for (const node of Object.values(expected)) if (node.class_type === 'H3FaceTrackCrop') node.inputs.select = 'largest_face';
+  expect(compileOpenjutsuFace(openjutsuDefaults, { style, chunkSeconds: 6.5 })).toEqual(expected);
+});
+it('uses the pinned FaceRefine largest-face enum without changing the upstream JSON', () => {
+  const graph = compileOpenjutsuFace(openjutsuDefaults, { style: 'mouth', chunkSeconds: 6.5 });
+  const tracks = Object.values(graph).filter(n => n.class_type === 'H3FaceTrackCrop');
+  expect(tracks.length).toBeGreaterThan(0);
+  const catalog = { H3FaceTrackCrop: { input: { required: { select: [['largest_face', 'smallest_face', 'left_most']] } }, output: [] } } as unknown as Catalog;
+  for (const track of tracks) expect(validateGraph({ track: { ...track, inputs: { select: track.inputs.select } } }, catalog)).toEqual([]);
+  expect(Object.values(nativeGraphs.mouth).filter(n => n.class_type === 'H3FaceTrackCrop').every(n => (n.inputs as Record<string, unknown>).select === 'largest')).toBe(true);
 });
 it('downloads only the face dependencies and shared H3 components', () => {
   const plan = moduleDownloadPlan('openjutsu-face', openjutsuDefaults);

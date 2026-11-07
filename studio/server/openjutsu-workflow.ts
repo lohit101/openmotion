@@ -15,6 +15,9 @@ export function compileOpenjutsuFace(settings: OpenjutsuSettings, face: Openjuts
   graph['1_soundtrack'] = { class_type: 'H3SoundtrackOrSilence', inputs: { audio: ['1', 2], video_info: ['1', 3] }, _meta: { title: 'Soundtrack (silence if none)' } };
   for (const node of Object.values(graph)) for (const [field, value] of Object.entries(node.inputs)) if (node !== graph['1_soundtrack'] && isLink(value) && value[0] === '1' && value[1] === 2) node.inputs[field] = ['1_soundtrack', 0];
   applyDetectorPaths(graph, detectors); applyModel(graph, s); setSection(graph, '1', section);
+  // Native JSON predates the pinned FaceRefine enum rename. This is the same
+  // largest-face selection, using the installed node's accepted identifier.
+  for (const node of Object.values(graph)) if (node.class_type === 'H3FaceTrackCrop' && node.inputs.select === 'largest') node.inputs.select = 'largest_face';
   graph['1'].inputs.video = names.source; graph['2'].inputs.image = names.reference;
   return graph as Graph;
 }
