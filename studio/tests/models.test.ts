@@ -264,6 +264,32 @@ describe('manual model queue', () => {
     expect(installed.has('text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors')).toBe(true);
     expect(installedModelIds({}).size).toBe(0);
   });
+  it('recognizes native COMBO/options model lists without counting defaults or arbitrary strings', () => {
+    const name = 'rife_v4.25.safetensors', id = 'frame_interpolation/' + name;
+    const live: Catalog = { FrameInterpolationModelLoader: { input: { required: { model_name: ['COMBO', { options: [name], multiselect: false }] } }, output: ['INTERP_MODEL'] } };
+    expect([...installedModelIds(live)]).toEqual([id]);
+    live.FrameInterpolationModelLoader.input.required!.model_name = ['COMBO', { options: [], default: name }];
+    expect(installedModelIds(live).has(id)).toBe(false);
+    live.FrameInterpolationModelLoader.input.required!.model_name = ['STRING', { options: [name], default: name }];
+    expect(installedModelIds(live).has(id)).toBe(false);
+    live.FrameInterpolationModelLoader.input.required!.model_name = ['COMBO', { options: name }];
+    expect(installedModelIds(live).has(id)).toBe(false);
+  });
+  it('keeps downloaded RIFE installed across refresh and does not download it again', async () => {
+    const { manager, connection, storage, worker } = await fixture(), id = 'frame_interpolation/rife_v4.25.safetensors';
+    const live: Catalog = { FrameInterpolationModelLoader: { input: { required: { model_name: ['COMBO', { options: ['rife_v4.25.safetensors'] }] } }, output: ['INTERP_MODEL'] } };
+    vi.spyOn(connection, 'client').mockReturnValue({ json: vi.fn(async () => live) });
+    let present = true;
+    storage.mockImplementation(async () => ({ loras: [], files: present ? [{ id, size: pinnedModels.find(f => f.destination === id)!.size, verified: true }] : [], freeBytes: 10 ** 12 }));
+    await manager.refresh();
+    expect(manager.state.files.find(f => f.id === id)?.status).toBe('installed');
+    await manager.start([id]); await manager.settle();
+    expect(manager.state.files.find(f => f.id === id)?.status).toBe('installed');
+    expect(worker).not.toHaveBeenCalled();
+    present = false; await manager.refresh();
+    expect(manager.state.files.find(f => f.id === id)?.status).toBe('missing');
+    expect(worker).not.toHaveBeenCalled();
+  });
   it('removes LoRAs, refreshes choices, and clears the current draft selection', async () => {
     const { manager, storage, choices, connection, worker } = await fixture();
     choices.push(SOCIAL_STYLE); const draft = store!.draft(); draft.settings.loraA = SOCIAL_STYLE; store!.set('draft', draft);

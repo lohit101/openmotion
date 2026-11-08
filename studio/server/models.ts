@@ -92,7 +92,10 @@ export function downloadPinnedModels(repo: string, instanceId: number | null, en
 export function installedModelIds(catalog: Catalog): Set<string> {
   const choices = new Set<string>();
   for (const node of Object.values(catalog)) for (const rule of Object.values({ ...node.input.required, ...node.input.optional })) {
-    if (Array.isArray(rule[0])) for (const value of rule[0]) if (typeof value === 'string') choices.add(value);
+    // Native V3 loaders publish COMBO/options, while older packs publish an
+    // array in the first slot. Both describe files actually seen by the loader.
+    const values = Array.isArray(rule[0]) ? rule[0] : rule[0] === 'COMBO' ? (rule[1] as { options?: unknown } | undefined)?.options : undefined;
+    if (Array.isArray(values)) for (const value of values) if (typeof value === 'string') choices.add(value);
   }
   return new Set(modelDefinitions.filter(file => choices.has(file.filename)).map(file => file.id));
 }

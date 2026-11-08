@@ -71,12 +71,21 @@ describe('module setup ownership and recovery',()=>{
     manager=new ModelManager(store,connection as unknown as ConnectionManager,path.resolve(import.meta.dirname,'../..'),worker,storage);
     const until=async(test:()=>boolean)=>{for(let i=0;i<200&&!test();i++)await new Promise(r=>setTimeout(r,5));expect(test()).toBe(true);};
     const complete=async()=>{await until(()=>controls.size>0);for(const c of controls.values())c.resolve();await until(()=>!manager.state.busy);};
-    return {worker,controls,connection,complete,until};
+    return {worker,controls,connection,complete,until,installed};
   }
   it('finishes only selected Imagen files without downloading other families or generating',async()=>{
     const f=await fixture(),plan=moduleDownloadPlan('imagen',photo);
     await manager.prepareModule(plan);await f.complete();expect(manager.state.moduleSetup?.status).toBe('complete');
     expect(f.worker.mock.calls.flatMap(c=>c[3]).sort()).toEqual([...plan.files].sort());expect(manager.state.moduleSetup?.runtimes).toEqual([]);
+  });
+  it('finishes Smooth Motion preparation with a native COMBO model list and reuses its downloaded weight',async()=>{
+    const f=await fixture(),plan=moduleDownloadPlan('smooth-motion');
+    for(const id of plan.files)f.installed.add(id);
+    const live:Catalog={FrameInterpolationModelLoader:{input:{required:{model_name:['COMBO',{options:['rife_v4.25.safetensors']}]}},output:['INTERP_MODEL']},RecastSmoothVideoV1:{input:{required:{}},output:[]}};
+    f.connection.client=()=>({json:async()=>live});
+    await manager.prepareModule(plan);await f.until(()=>!manager.state.busy);
+    expect(manager.state.moduleSetup?.status).toBe('complete');expect(manager.state.smoothMotionToolsReady).toBe(true);
+    expect(manager.state.files.find(file=>file.id===plan.files[0])?.status).toBe('installed');expect(f.worker).not.toHaveBeenCalled();
   });
   it('chains Clarity setup after verified files and keeps the whole operation busy',async()=>{
     const f=await fixture();let finish!:(value:{ready:boolean;preparing:boolean;missing:string[]})=>void;

@@ -1,0 +1,50 @@
+{
+  "date": "2026-11-09",
+  "rootCause": "Native ComfyUI FrameInterpolationModelLoader publishes COMBO/options; installedModelIds only read legacy array choices. Successful RIFE download was reset to missing before runtime preparation.",
+  "change": "Accept both actual legacy model lists and native COMBO/options. Ignore STRING defaults, empty or malformed options. Existing physical absence check remains authoritative.",
+  "validation": {
+    "focusedStudioTests": 73,
+    "focusedFiles": [
+      "models.test.ts",
+      "module-downloads.test.tsx",
+      "smooth-motion.test.tsx"
+    ],
+    "typecheck": "passed",
+    "serverBuild": "passed",
+    "diffCheck": "passed",
+    "rife": {
+      "id": "frame_interpolation/rife_v4.25.safetensors",
+      "status": "installed",
+      "message": "Available on this GPU"
+    },
+    "toolsReady": true,
+    "moduleStatus": "complete",
+    "transferFiles": [],
+    "fps": 30,
+    "connection": "online",
+    "activeJobs": []
+  },
+  "deployment": {
+    "applied": true,
+    "pid": 32184,
+    "jobsPreserved": 45,
+    "assetsPreserved": 47,
+    "protectedSettings": 5,
+    "connection": "online",
+    "otherAppsUnchanged": true,
+    "computeActions": 0,
+    "inference": 0
+  },
+  "paidActions": {
+    "newRental": false,
+    "computeResume": false,
+    "computeStop": false,
+    "newWeightDownload": false,
+    "inference": false,
+    "ownedIdleEngineRestart": true,
+    "action": "Retried user-selected Download Remotion after fixing model recognition; reused all eight installed weights."
+  },
+  "limits": [
+    "Installation and readiness verified; no new GPU speed or human-video quality benchmark."
+  ]
+}
