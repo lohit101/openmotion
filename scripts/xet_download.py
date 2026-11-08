@@ -61,11 +61,27 @@ def tune_xet():
         cpus = len(os.sched_getaffinity(0))
     except (AttributeError, OSError):
         cpus = os.cpu_count() or 2
+    ranges = min(32, max(4, cpus * 2), max(4, memory // (128 * 1024 ** 2)))
+    ranges = int(os.environ.get('HF_XET_NUM_CONCURRENT_RANGE_GETS', ranges))
+    maximum = int(os.environ.get('HF_XET_CLIENT_AC_MAX_DOWNLOAD_CONCURRENCY', ranges))
+    if ranges < 1 or maximum < 1:
+        raise ValueError('Xet download concurrency must be positive.')
+    # hf-xet 1.8's high-performance defaults also enlarge the GLOBAL buffer
+    # and adaptive request limit. A per-file buffer alone does not cap them.
+    buffer = min(128 * 1024 ** 2, max(32 * 1024 ** 2, memory // 128))
     values = {
         'HF_XET_HIGH_PERFORMANCE': '1',
         'HF_XET_CHUNK_CACHE_SIZE_BYTES': '0',
-        'HF_XET_NUM_CONCURRENT_RANGE_GETS': str(min(32, max(4, cpus * 2), max(4, memory // (128 * 1024 ** 2)))),
-        'HF_XET_RECONSTRUCTION_DOWNLOAD_BUFFER_PERFILE_SIZE': str(min(256 * 1024 ** 2, max(16 * 1024 ** 2, memory // 64))),
+        'HF_XET_NUM_CONCURRENT_RANGE_GETS': str(ranges),
+        'HF_XET_CLIENT_AC_MAX_DOWNLOAD_CONCURRENCY': str(ranges),
+        'HF_XET_CLIENT_AC_MIN_DOWNLOAD_CONCURRENCY': str(min(4, maximum)),
+        'HF_XET_CLIENT_AC_INITIAL_DOWNLOAD_CONCURRENCY': str(min(8, maximum)),
+        'HF_XET_RECONSTRUCTION_DOWNLOAD_BUFFER_SIZE': str(buffer),
+        'HF_XET_RECONSTRUCTION_DOWNLOAD_BUFFER_PERFILE_SIZE': str(buffer // 2),
+        'HF_XET_RECONSTRUCTION_DOWNLOAD_BUFFER_LIMIT': str(buffer + buffer // 2),
+        'HF_XET_RECONSTRUCTION_MIN_RECONSTRUCTION_FETCH_SIZE': str(16 * 1024 ** 2),
+        'HF_XET_RECONSTRUCTION_MAX_RECONSTRUCTION_FETCH_SIZE': str(64 * 1024 ** 2),
+        'HF_XET_RECONSTRUCTION_MIN_PREFETCH_BUFFER': str(64 * 1024 ** 2),
     }
     for name, value in values.items():
         os.environ.setdefault(name, value)

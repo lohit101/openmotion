@@ -160,6 +160,47 @@ class XetDownloadTests(unittest.TestCase):
             self.assertLessEqual(int(values['HF_XET_NUM_CONCURRENT_RANGE_GETS']),16)
         with patch.dict(os.environ,{'HF_XET_NUM_CONCURRENT_RANGE_GETS':'6'},clear=True):self.assertEqual(xet.tune_xet()['HF_XET_NUM_CONCURRENT_RANGE_GETS'],'6')
 
+    def test_high_performance_global_buffers_and_native_adaptive_concurrency_are_capped(self):
+        with patch.dict(os.environ,{},clear=True),patch.object(xet,'host_memory',return_value=1024**4), \
+             patch.object(xet.os,'sched_getaffinity',return_value=set(range(128)),create=True):
+            values=xet.tune_xet()
+        self.assertEqual(int(values['HF_XET_CLIENT_AC_MAX_DOWNLOAD_CONCURRENCY']),32)
+        self.assertLessEqual(int(values['HF_XET_CLIENT_AC_INITIAL_DOWNLOAD_CONCURRENCY']),32)
+        self.assertLessEqual(int(values['HF_XET_RECONSTRUCTION_DOWNLOAD_BUFFER_LIMIT']),192*1024**2)
+        self.assertLessEqual(int(values['HF_XET_RECONSTRUCTION_DOWNLOAD_BUFFER_SIZE'])+int(values['HF_XET_RECONSTRUCTION_DOWNLOAD_BUFFER_PERFILE_SIZE']),int(values['HF_XET_RECONSTRUCTION_DOWNLOAD_BUFFER_LIMIT']))
+        self.assertLessEqual(int(values['HF_XET_RECONSTRUCTION_MAX_RECONSTRUCTION_FETCH_SIZE']),64*1024**2)
+
+    def test_both_native_and_legacy_concurrency_overrides_remain_effective(self):
+        with patch.dict(os.environ,{'HF_XET_NUM_CONCURRENT_RANGE_GETS':'6'},clear=True):
+            self.assertEqual(xet.tune_xet()['HF_XET_CLIENT_AC_MAX_DOWNLOAD_CONCURRENCY'],'6')
+        with patch.dict(os.environ,{'HF_XET_CLIENT_AC_MAX_DOWNLOAD_CONCURRENCY':'2'},clear=True):
+            values=xet.tune_xet()
+            self.assertEqual(values['HF_XET_CLIENT_AC_MAX_DOWNLOAD_CONCURRENCY'],'2')
+            self.assertLessEqual(int(values['HF_XET_CLIENT_AC_INITIAL_DOWNLOAD_CONCURRENCY']),2)
+            self.assertLessEqual(int(values['HF_XET_CLIENT_AC_MIN_DOWNLOAD_CONCURRENCY']),2)
+
+    @unittest.skipUnless(os.environ.get('HF_XET_VALIDATION_PYTHON'),'Optional pinned native client validation environment is not configured.')
+    def test_pinned_native_client_reads_the_effective_limits_before_session_creation(self):
+        code='''
+import sys,json,os
+sys.path.insert(0,sys.argv[1])
+import xet_download as x
+x.host_memory=lambda:1024**4
+x.os.sched_getaffinity=lambda _pid:set(range(128))
+x.tune_xet()
+from hf_xet import XetConfig
+c=XetConfig()
+print(json.dumps({k:c.get(k) for k in ['reconstruction.download_buffer_size','reconstruction.download_buffer_perfile_size','reconstruction.download_buffer_limit','reconstruction.min_reconstruction_fetch_size','reconstruction.max_reconstruction_fetch_size','client.ac_max_download_concurrency','client.ac_initial_download_concurrency']}))
+'''
+        env={k:v for k,v in os.environ.items()if not k.startswith('HF_XET_')}
+        result=subprocess.run([os.environ['HF_XET_VALIDATION_PYTHON'],'-c',code,str(Path(xet.__file__).parent)],env=env,capture_output=True,text=True,check=True,timeout=20)
+        values=json.loads(result.stdout)
+        self.assertEqual(values['reconstruction.download_buffer_limit'],192*1024**2)
+        self.assertLessEqual(values['reconstruction.download_buffer_size']+values['reconstruction.download_buffer_perfile_size'],values['reconstruction.download_buffer_limit'])
+        self.assertEqual(values['reconstruction.max_reconstruction_fetch_size'],64*1024**2)
+        self.assertEqual(values['client.ac_max_download_concurrency'],32)
+        self.assertEqual(values['client.ac_initial_download_concurrency'],8)
+
     def test_custom_sources_and_invalid_pins_do_not_go_to_xet(self):
         self.assertTrue(xet.hf_source(self.item))
         for delta in [{'url':'https://example.com/file'},{'revision':'main'},{'repo':'../model'},{'filename':'../model.bin'}]:

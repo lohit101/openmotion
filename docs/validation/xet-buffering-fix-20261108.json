@@ -1,0 +1,51 @@
+{
+  "date": "2026-11-08",
+  "cause": {
+    "oldNativeMaxRequests": 124,
+    "oldNativeBaseBuffer": "11.976GB",
+    "effect": "Out-of-order prefetch held gigabytes in RAM while contiguous destination writes/progress stalled.",
+    "priorValidationGap": "Small-file native transfer and environment-variable assertions did not verify effective native global limits."
+  },
+  "fix": {
+    "defaultNativeMaxRequestsPerWorker": 32,
+    "maxGlobalReconstructionBufferPerWorker": 201326592,
+    "maxReconstructionFetchBytes": 67108864,
+    "prefetchFloorBytes": 67108864,
+    "parallelXetRetained": true,
+    "legacyOverrideMappedToNativeKey": true
+  },
+  "runtimeSHA256": "cb8fc2aeba89ee939bf1fb06b4b1d308054be19a0540bdced50f5c36c64f03ee",
+  "helperSHA256": "9e90d57a08152dbc18391b2b69ae933918d24a1b4a4bd0bb3e8de34fcb722643",
+  "validation": {
+    "pythonTests": 406,
+    "skipped": 1,
+    "failures": 0,
+    "effectiveNativeConfigTest": "passed under pinned hf_xet1.8.0, isolated interpreter with 1TiB simulated host",
+    "actualQueuedTransfer": {
+      "bytes": 366647000,
+      "nativeLimits": [
+        "Config: ac_max_download_concurrency = 32 (user set)",
+        "Config: max_reconstruction_fetch_size = 67.109MB (user set)",
+        "Config: download_buffer_size = 134.218MB (user set)",
+        "Config: download_buffer_perfile_size = 67.109MB (user set)",
+        "Config: download_buffer_limit = 201.327MB (user set)"
+      ],
+      "ready": true
+    },
+    "selectedFilesAllReady": true,
+    "selectedTotalBytes": 51162804168
+  },
+  "actions": {
+    "readOnlyRemoteInspection": true,
+    "activeTransferCancellation": false,
+    "activeTransferRestart": false,
+    "extraModelTestDownload": false,
+    "gpuResumeRentalStop": false,
+    "appReload": false,
+    "inference": false
+  },
+  "limits": [
+    "No matched large-file throughput benchmark or full-bandwidth guarantee.",
+    "Six existing transfers completed under the initial runtime; the naturally queued final adapter confirmed the corrected native resource limits."
+  ]
+}
