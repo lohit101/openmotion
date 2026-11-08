@@ -1,0 +1,72 @@
+{
+  "date": "2026-11-08",
+  "branch": "feat/openjutsu-remotion",
+  "feature": "xet-stream-v1",
+  "runtimeSHA256": "65ba9bf60ba46e1a5e5f10f8e38e09277621a7e0770988ce7ea8cd66479a720d",
+  "runtimeFiles": {
+    "scripts/download_models.py": "087dd676ce000098404cf27ace29a66931bbbfc6203b0d500f877756be10d5b2",
+    "scripts/model_download_worker.py": "b07fb6bb36ce5f3bd8e868bdf26c0d853dad3dfe68b99a56a6caeffa8dac88f4",
+    "scripts/model_setup_worker.py": "50f47b792bfe25cc821da4f37d5739b974dcb5b58c0f97410cefa11031f7b77d",
+    "scripts/xet_download.py": "7464de2ca3b5f4defc14cb7bcac7128433c24b943f23d54afae3cc224783447a",
+    "config/model-download-runtime.lock.json": "1705221882836ca8373eccd93ad00111ed60d0fdb66f5f6de3437a891d18345f"
+  },
+  "client": {
+    "huggingface_hub": "2.4.0",
+    "hf_xet": "1.8.0",
+    "isolatedFromComfyUI": true,
+    "noPersistentChunkCache": true,
+    "fileWorkers": 4,
+    "rangeRequestsPerFile": "4\u201332, CPU affinity/memory bounded"
+  },
+  "validation": {
+    "python": {
+      "run": 403,
+      "skipped": 1,
+      "failures": 0,
+      "newXetTests": 19
+    },
+    "studioFocused": {
+      "tests": 77,
+      "files": 5,
+      "failures": 0
+    },
+    "typecheck": "passed",
+    "nativeMacXet": {
+      "fixture": {
+        "repo": "hf-internal-testing/tiny-random-bert",
+        "revision": "f171d7baecaf37b5da5a3616d8833b9969753535",
+        "filename": "pytorch_model.bin",
+        "destination": "tiny.bin",
+        "size": 540217,
+        "sha256": "9922e8996d0c7e24c7f4e7a5d9c5b7303549f4ee94de0f1138b103014b51be13"
+      },
+      "fullFileSHA256": "9922e8996d0c7e24c7f4e7a5d9c5b7303549f4ee94de0f1138b103014b51be13",
+      "resumePrefixBytes": 12345,
+      "resumedFileSHA256": "9922e8996d0c7e24c7f4e7a5d9c5b7303549f4ee94de0f1138b103014b51be13",
+      "workerJournalAndReceipt": true
+    },
+    "linuxWheels": "Published binary wheels verified for x86_64 and aarch64; not executed on Linux"
+  },
+  "compatibility": {
+    "existingHTTPPartial": "appended at actual byte offset",
+    "historicalRecovery": "uses saved original runtime; no provisioning on observation",
+    "legacyFacialPackages": "unchanged dependency-free HTTP utility",
+    "selectedWeightsAndPins": "unchanged",
+    "verifiedExistingModel": "no Xet installation"
+  },
+  "rollout": {
+    "automaticOnNextExplicitDownload": true,
+    "localBackendReload": false,
+    "gpuResumeOrRental": false,
+    "remoteInstall": false,
+    "rentalModelDownload": false,
+    "gpuInference": false,
+    "speedBenchmark": false,
+    "browserReview": "not needed: no UI changes"
+  },
+  "limits": [
+    "No sustained bandwidth or GPU/Linux performance measurement.",
+    "Custom URLs, non-Xet objects and legacy standalone download paths retain HTTP.",
+    "No separate Xet token; public fixture passed without HF_TOKEN."
+  ]
+}

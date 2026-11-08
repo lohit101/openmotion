@@ -77,7 +77,7 @@ def fresh_resolve_url(url):
     return urllib.parse.urlunsplit(parsed._replace(query=urllib.parse.urlencode(query)))
 
 
-def download(item, model_dir, *, opener=None, base_url=None, rehash=False, retries=4):
+def download(item, model_dir, *, opener=None, base_url=None, rehash=False, retries=4, stream_download=None):
     relative = Path(item["destination"])
     if relative.is_absolute() or ".." in relative.parts:
         raise ValueError("Unsafe model destination")
@@ -96,10 +96,13 @@ def download(item, model_dir, *, opener=None, base_url=None, rehash=False, retri
         url = base_url or item.get("url") or "https://huggingface.co/%s/resolve/%s/%s?download=true" % (item["repo"], item["revision"], quoted)
         url = fresh_resolve_url(url)
         opener = opener or urllib.request.build_opener(SafeRedirect())
+        # Managed workers supply Xet explicitly. Standalone/historical facial
+        # packages keep this dependency-free HTTP path and the same file locks.
         for attempt in range(retries):
             try:
                 offset = part.stat().st_size if part.exists() else 0
-                if offset < item["size"]:
+                used_stream = stream_download is not None and offset < item['size'] and stream_download(item, part, report_transfer)
+                if offset < item["size"] and not used_stream:
                     headers = {"User-Agent": "character-swap-setup/1", "Accept-Encoding": "identity"}
                     token = os.environ.get("HF_TOKEN", "")
                     if token and urllib.parse.urlparse(url).hostname == "huggingface.co":

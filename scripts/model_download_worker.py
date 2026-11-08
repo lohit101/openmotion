@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Detached, resumable pinned transfers. No GPU, runtime installation or rentals."""
+"""Detached pinned transfers; may provision an isolated download client only."""
 import argparse
 import fcntl
 import hashlib
@@ -125,7 +125,21 @@ def run(root,folder):
             original_sleep(seconds)
         downloader.report_transfer=progress;downloader.time.sleep=retry_wait
         try:
-            downloader.download(item,root/'models')
+            # The re-exec keeps the worker PID/start identity and owned process
+            # group, so disconnect/cancel still observes precisely this attempt.
+            # File locks close on exec; the same owned worker reacquires them.
+            try:
+                import xet_download
+            except ImportError:
+                xet_download = None  # Read-only recovery of a historical runtime.
+            use_xet = xet_download is not None and xet_download.hf_source(item)
+            if use_xet and not verified(final,item):
+                progress(item, final.with_name(final.name+'.part').stat().st_size if final.with_name(final.name+'.part').exists() else 0, 'connecting')
+                python = xet_download.client_python(root)
+                if Path(sys.prefix).resolve() != python.parent.parent.resolve():
+                    os.execv(str(python), [str(python), str(Path(__file__).resolve()), *sys.argv[1:]])
+            options = {'stream_download': lambda current, part, report: xet_download.stream_download(current, part, report, required=True)} if use_xet else {}
+            downloader.download(item,root/'models', **options)
             atomic(folder/'receipt.json',{'complete':True,'manifestSHA256':folder.name,'sha256':item['sha256']})
         except Exception as error:
             old=read(folder/'progress.json');atomic(folder/'progress.json',{**old,'phase':'failed','error':str(error)[-1500:]});raise

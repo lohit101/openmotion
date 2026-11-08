@@ -12,7 +12,8 @@ import vast
 from model_download_worker import key_for
 
 ROOT=Path(__file__).resolve().parents[1]
-FILES=['scripts/download_models.py','scripts/model_download_worker.py','scripts/model_setup_worker.py']
+FILES=['scripts/download_models.py','scripts/model_download_worker.py','scripts/model_setup_worker.py',
+       'scripts/xet_download.py','config/model-download-runtime.lock.json']
 
 
 def runtime_path(config):

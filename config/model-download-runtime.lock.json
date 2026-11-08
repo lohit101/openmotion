@@ -1,0 +1,4 @@
+{
+  "version": "xet-stream-v1",
+  "requirements": ["huggingface_hub==2.4.0", "hf_xet==1.8.0"]
+}
