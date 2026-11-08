@@ -1,0 +1,115 @@
+{
+  "date": "2026-11-09",
+  "branch": "feat/openjutsu-remotion",
+  "feature": "Post-processing workspace and optional automatic Remotion frame-rate finishing",
+  "nativeGeneration": "Unchanged OpenJutsu/H3 graphs; 24fps remains the native generation clock and existing-draft default",
+  "model": {
+    "files": [
+      {
+        "repo": "Comfy-Org/Frame-Interpolation",
+        "revision": "aa7009be4d1471ea0bac91d6fe4d7e4b637cbbfc",
+        "filename": "frame_interpolation/rife_v4.25.safetensors",
+        "destination": "frame_interpolation/rife_v4.25.safetensors",
+        "size": 22674688,
+        "sha256": "1505884b9bdae956795430d2a70f7e2317b2abd8f130f8cfdb35a5759f909481"
+      }
+    ],
+    "total_bytes": 22674688
+  },
+  "nodeSourceSHA256": "6f3ef366341affffa313a00caee5fecbbf472330c64c93670902a838a905577d",
+  "validation": {
+    "studioTests": 724,
+    "studioFailures": 0,
+    "pythonTests": 419,
+    "pythonSkipped": 1,
+    "pythonFailures": 0,
+    "finalFocusedStudioTests": 47,
+    "typecheck": "passed",
+    "productionBuild": "passed",
+    "realModelCPU": {
+      "realRifeWeights": true,
+      "modelSHA256": "1505884b9bdae956795430d2a70f7e2317b2abd8f130f8cfdb35a5759f909481",
+      "comfyArchitecturePin": "63e5bf594339f676b4b15e072529873e3448409e",
+      "device": "CPU float32",
+      "deviceWrappersStubbed": true,
+      "results": [
+        {
+          "fps": 30,
+          "frames": 30,
+          "interpolated": 23,
+          "audioPacketsIdentical": true,
+          "receiptReuse": true,
+          "seconds": 0.3565533747896552,
+          "outputSHA256": "ba681e896ee005dbac75f541a97b20a1bad7c13e925ca5f900108395d879543a"
+        },
+        {
+          "fps": 48,
+          "frames": 48,
+          "interpolated": 23,
+          "audioPacketsIdentical": true,
+          "receiptReuse": true,
+          "seconds": 0.3424552090000361,
+          "outputSHA256": "00734e4b6e64a0336ca4d8043fd4de4b042c7baed5cc1460d3f7ec3b248278e9"
+        },
+        {
+          "fps": 60,
+          "frames": 60,
+          "interpolated": 46,
+          "audioPacketsIdentical": true,
+          "receiptReuse": true,
+          "seconds": 0.47732804203405976,
+          "outputSHA256": "216179fb05de3f8e819a13d6bcc26b68ed40d4a7c9334e9a1dec40b5d283afc2"
+        }
+      ],
+      "gpuContacted": false
+    },
+    "httpSmoke": {
+      "smooth-motion/draft": 200,
+      "openjutsu/draft": 200,
+      "openjutsu/face/draft": 200,
+      "original24Download": {
+        "status": 200,
+        "bytes": 5653213
+      }
+    },
+    "nativeGraphFixtures": "Existing OpenJutsu and Face graphs retain their expected native parity; paid records unchanged",
+    "coverage": [
+      "exact 24\u219230/48/60 timestamps and counts",
+      "AAC packet payload preservation",
+      "conservative cut veto at original cut time",
+      "portrait display rotation",
+      "downsampling without inference",
+      "decoder/encoder cancellation and truncated frames",
+      "explicit owned-node installation with local-edit and symlink protection",
+      "minimal selected dependencies and download-first UI",
+      "private paths/graphs omitted from public jobs",
+      "same-request acknowledgement and transfer recovery",
+      "explicit finishing-only retry after terminal failure",
+      "saved native H3 render reused without another H3 submission",
+      "responsive shared controls and server-rendered Post-processing tools"
+    ]
+  },
+  "rollout": {
+    "applied": true,
+    "jobsPreserved": 45,
+    "assetsPreserved": 45,
+    "protectedSettings": 5,
+    "connection": "offline",
+    "gpuActions": 0,
+    "inference": 0,
+    "otherAppsUnchanged": true
+  },
+  "limits": [
+    "No GPU/CUDA inference or throughput benchmark.",
+    "CPU native test used the exact pinned Comfy IFNet source and real RIFE weights, with device-allocation and node wrappers substituted; tiny synthetic footage is not human-video quality evidence.",
+    "No native browser visual pass under the existing computer-use restriction.",
+    "No claim that interpolation fixes identity, teeth or occlusion artifacts.",
+    "Output is H.264 CRF16, not lossless; unsupported MP4 audio codecs transcode to AAC.",
+    "Detected cuts are protected conservatively; not all shot changes can be guaranteed."
+  ],
+  "gpuActions": 0,
+  "rentalWeightsDownloaded": 0,
+  "remoteInstallations": 0,
+  "newRental": false,
+  "localValidationModelBytes": 22674688
+}

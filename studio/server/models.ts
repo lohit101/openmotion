@@ -11,7 +11,7 @@ import type { FacialConsistencyRun } from '../shared/facial-consistency';
 import { isBoundaryFacialVersion, isGeometryFacialVersion, isEyeFinishedFacialVersion, isCalibratedFacialVersion, isCleanupFacialVersion, isOcclusionTrackedFacialVersion } from '../shared/facial-consistency';
 import { gpuFileDeleteSchema, gpuFileListSchema, type GpuFileDeleteRequest, type GpuFileListRequest } from '../shared/gpu-files';
 import { manageGpuFiles } from './gpu-files';
-import { hasOpenjutsuTools, hasOpenjutsuFaceTools, manageOpenjutsuTools } from './openjutsu-tools';
+import { hasSmoothMotionTools, manageSmoothMotionTools, hasOpenjutsuTools, hasOpenjutsuFaceTools, manageOpenjutsuTools } from './openjutsu-tools';
 const transferring=(file:ModelFileState)=>['queued','downloading','reconnecting'].includes(file.status);
 export class ModelDownloadError extends Error { remoteActive=false; }
 export interface ViggleToolsStatus { instanceId: number; ready: boolean; running: boolean; unknown: boolean; confirmedStopped: boolean; helperSHA256: string; state: string; error?: string; }
@@ -159,6 +159,8 @@ export class ModelManager {
         let preparing=true;
         try{
           if(module.activeRuntime==='viggle-tools'){const result=await this.viggleTools(module.instanceId,'status');preparing=result.running||result.unknown||!result.confirmedStopped;}
+          else if(module.activeRuntime==='smooth-motion-tools'){const result=await manageSmoothMotionTools(this.repo,module.instanceId,'status');preparing=result.running||result.unknown;}
+          else if(module.activeRuntime==='openjutsu-tools'||module.activeRuntime==='openjutsu-face-tools'){const result=await manageOpenjutsuTools(this.repo,module.instanceId,'status',module.activeRuntime==='openjutsu-face-tools');preparing=result.running||result.unknown;}
           else if(module.activeRuntime==='clarity')preparing=(await this.checkClarity!()).preparing;
           else if(module.activeRuntime.startsWith('facial:')){await this.refresh();preparing=!!this.state.error||!!this.state.facialPreparing;}
           else preparing=JSON.parse(await command('python3',[path.join(this.repo,'scripts/prepare_local_models.py'),module.activeRuntime,'--status'],undefined,15000)).preparing===true;
@@ -211,7 +213,16 @@ export class ModelManager {
         delete state.runtimePercent;
         state.activeRuntime=runtime;this.emit();
         assertScope();
-        if(runtime==='openjutsu-tools'||runtime==='openjutsu-face-tools'){
+        if(runtime==='smooth-motion-tools'){
+          if(!this.state.smoothMotionToolsReady){
+            state.message='Preparing Smooth Motion tools';this.emit();
+            const result=await manageSmoothMotionTools(this.repo,state.instanceId,recover?'status':'prepare');
+            if(result.running||result.unknown)throw new Error('Smooth Motion preparation is still active. Reconnect to check this setup.');
+            if(result.ready && this.scopeMatches())await this.connection.connect(state.endpoint,false);
+            await this.refresh();assertScope();
+            if(!result.ready||!this.state.smoothMotionToolsReady)throw new Error(result.error||'Smooth Motion tools are not ready: '+result.missing.join(', '));
+          }
+        }else if(runtime==='openjutsu-tools'||runtime==='openjutsu-face-tools'){
           const face = runtime==='openjutsu-face-tools';
           if(!(face ? this.state.openjutsuFaceToolsReady : this.state.openjutsuToolsReady)){
             state.message='Preparing OpenJutsu motion-transfer tools';this.emit();
@@ -258,6 +269,7 @@ export class ModelManager {
       assertScope();Object.assign(state,{status:'complete',message:'Ready for these settings',error:null,updatedAt:Date.now()});
     }catch(error){
       let runtimeUnknown=!!state.activeRuntime&&this.connection.status.state!=='online';
+      if(state.activeRuntime==='smooth-motion-tools'){try{const result=await manageSmoothMotionTools(this.repo,state.instanceId,'status');runtimeUnknown=result.running||result.unknown;}catch{runtimeUnknown=true;}}
       if(state.activeRuntime==='openjutsu-tools'||state.activeRuntime==='openjutsu-face-tools'){try{const result=await manageOpenjutsuTools(this.repo,state.instanceId,'status',state.activeRuntime==='openjutsu-face-tools');runtimeUnknown=result.running||result.unknown;}catch{runtimeUnknown=true;}}
       if(state.activeRuntime==='viggle-tools'){try{const result=await this.viggleTools(state.instanceId,'status');runtimeUnknown=result.running||result.unknown||!result.confirmedStopped;}catch{runtimeUnknown=true;}}
       if(state.activeRuntime==='clarity'&&this.checkClarity){try{runtimeUnknown=(await this.checkClarity()).preparing;}catch{runtimeUnknown=true;}}
@@ -291,7 +303,7 @@ export class ModelManager {
         }
         if (this.connection.status.state !== 'online') {
           this.state.viggleToolsReady = false;
-          this.state.openjutsuToolsReady = false; this.state.openjutsuFaceToolsReady = false;
+          this.state.smoothMotionToolsReady = false; this.state.openjutsuToolsReady = false; this.state.openjutsuFaceToolsReady = false;
           for (const file of this.state.files) if (!transferring(file)) Object.assign(file, { status: 'unknown', percent: null });
           this.state.error = null; this.state.checkedAt = null; this.state.installedLoras = []; this.state.diskFreeBytes = undefined; return this.state;
         }
@@ -306,7 +318,7 @@ export class ModelManager {
         }
         this.connection.catalog = catalog;
         this.state.viggleToolsReady = hasViggleTools(catalog);
-        this.state.openjutsuToolsReady = hasOpenjutsuTools(catalog); this.state.openjutsuFaceToolsReady = hasOpenjutsuFaceTools(catalog);
+        this.state.smoothMotionToolsReady = hasSmoothMotionTools(catalog); this.state.openjutsuToolsReady = hasOpenjutsuTools(catalog); this.state.openjutsuFaceToolsReady = hasOpenjutsuFaceTools(catalog);
         let inventory: Awaited<ReturnType<typeof manageModelStorage>> | undefined;
         if (instanceId && this.connection.status.endpoint === 'http://127.0.0.1:8188') {
           const result = await this.storage(this.repo, instanceId, 'inventory');

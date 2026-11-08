@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { command } from './media';
 import { compileOpenjutsu, compileOpenjutsuFace } from './openjutsu-workflow';
 import { openjutsuDefaults } from '../shared/openjutsu';
@@ -24,4 +25,19 @@ export async function manageOpenjutsuTools(repo: string, instanceId: number, act
   const result = JSON.parse(line.slice('RECAST_OPENJUTSU_TOOLS '.length));
   if (result.key !== request.key || !['ready', 'running', 'unknown'].every(key => typeof result[key] === 'boolean')) throw new Error('The OpenJutsu setup status could not be verified.');
   return result as { ready: boolean; running: boolean; unknown: boolean; missing: string[]; error?: string };
+}
+
+export const hasSmoothMotionTools = (catalog: Catalog) => !!catalog.RecastSmoothVideoV1 && !!catalog.FrameInterpolationModelLoader;
+export async function manageSmoothMotionTools(repo: string, instanceId: number, action: 'status' | 'prepare') {
+  const files = Object.fromEntries(['__init__.py', 'motion.py'].map(name => {
+    const content = readFileSync(path.join(repo, 'custom_nodes/recast_post_processing', name), 'utf8');
+    return [name, { content, sha256: createHash('sha256').update(content).digest('hex') }];
+  }));
+  const request = { comfyui: runtime.comfyui, packs: [], classes: ['RecastSmoothVideoV1', 'FrameInterpolationModelLoader'], inputs: { RecastSmoothVideoV1: ['video', 'source_sha256', 'target_fps', 'run_id', 'model_name'] }, local_nodes: [{ directory: 'recast_post_processing', files }], key: createHash('sha256').update(JSON.stringify(files)).digest('hex') };
+  const output = await command('python3', ['-u', path.join(repo, 'scripts/managed_openjutsu_tools.py'), '--instance-id', String(instanceId), '--action', action, '--request', JSON.stringify(request)], undefined, action === 'prepare' ? 1800000 : 20000);
+  const line = output.split(/\r?\n/).findLast(line => line.startsWith('RECAST_OPENJUTSU_TOOLS '));
+  if (!line) throw new Error('The GPU returned no Smooth Motion tool status.');
+  const value = JSON.parse(line.slice('RECAST_OPENJUTSU_TOOLS '.length));
+  if (value.key !== request.key || !['ready', 'running', 'unknown'].every(k => typeof value[k] === 'boolean')) throw new Error('Smooth Motion tool status could not be verified.');
+  return value as { ready: boolean; running: boolean; unknown: boolean; missing: string[]; error?: string };
 }

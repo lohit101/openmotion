@@ -43,7 +43,7 @@ def native_models():
     root = Path(__file__).resolve().parents[1] / 'config'
     motion = json.loads((root / 'openjutsu-models.lock.json').read_text())
     face = json.loads((root / 'openjutsu-face-models.lock.json').read_text())
-    return {'files': motion['files'] + face['files'], 'shared': motion['shared']}
+    return {'files': motion['files'] + face['files'], 'shared': motion['shared'] + [f['destination'] for f in json.loads((root / 'smooth-motion-models.lock.json').read_text())['files']]}
 
 
 def register_download_paths(config, files):

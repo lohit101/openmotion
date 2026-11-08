@@ -101,6 +101,7 @@ export class ComfyClient {
   cancel(id: string) { return this.json('/api/jobs/' + encodeURIComponent(id) + '/cancel', {}); }
 }
 export function applyProgress(job: Job, event: any): boolean {
+  const graph = job.smoothMotion?.graph || job.workflow;
   const data = event?.data;
   if (!data || (data.prompt_id && job.pendingPrompt && data.prompt_id !== job.pendingPrompt)) return false;
   if (event.type === 'execution_start') { if (!job.pendingPrompt) job.pendingPrompt = data.prompt_id; job.progress.stage = 'Starting GPU job'; job.progress.updatedAt = Date.now(); return true; }
@@ -113,8 +114,8 @@ export function applyProgress(job: Job, event: any): boolean {
   }
   if (node === null) return false;
   const validCounter = value !== null && max !== null && Number.isFinite(value) && Number.isFinite(max) && max > 0;
-  job.progress = { ...job.progress, node, stage: job.workflow?.[node]?._meta?.title || stageNames[node] || 'Processing video', value: validCounter ? Math.min(max!, Math.max(0, value!)) : null,
-    max: validCounter ? max : null, unit: ['43', '118', '218'].includes(node) || ['KSampler', 'SamplerCustomAdvanced'].includes(job.workflow?.[node]?.class_type || '') ? 'steps' : ['9', '10'].includes(node) ? 'frames' : 'items', updatedAt: Date.now() };
+  job.progress = { ...job.progress, node, stage: graph?.[node]?._meta?.title || stageNames[node] || 'Processing video', value: validCounter ? Math.min(max!, Math.max(0, value!)) : null,
+    max: validCounter ? max : null, unit: graph?.[node]?.class_type === 'RecastSmoothVideoV1' ? 'frames' : ['43', '118', '218'].includes(node) || ['KSampler', 'SamplerCustomAdvanced'].includes(graph?.[node]?.class_type || '') ? 'steps' : ['9', '10'].includes(node) ? 'frames' : 'items', updatedAt: Date.now() };
   job.status = 'running'; return true;
 }
 export class ConnectionManager {

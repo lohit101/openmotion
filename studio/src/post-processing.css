@@ -1,0 +1,8 @@
+.post-layout{grid-column:2;grid-row:2;display:grid;grid-template-rows:auto minmax(0,1fr);min-width:0;min-height:0;height:calc(100dvh - 65px);overflow:hidden}
+.post-navigation{display:flex;align-items:center;justify-content:space-between;gap:1.25rem;padding:1.15rem 1.5rem;border-bottom:1px solid var(--line);background:var(--panel)}
+.post-navigation h1{font-size:1.15rem;letter-spacing:-.025em;margin:.3rem 0 0;font-weight:550}
+.post-navigation .workspace-overline{font-size:.65rem}
+.post-tool-tabs{display:flex;gap:.5rem;flex-wrap:wrap}
+.post-tool-tabs .selected{color:var(--accent);border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.post-layout>.oj-workspace{grid-column:1;grid-row:2;min-height:0;height:100%}
+@media(max-width:780px){.post-layout{overflow:auto;height:auto;min-height:100%}.post-navigation{align-items:flex-start;flex-direction:column;padding:1rem;gap:1rem}.post-tool-tabs{width:100%}.post-tool-tabs>button{flex:1}.post-layout>.oj-workspace{height:auto}}

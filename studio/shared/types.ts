@@ -66,6 +66,7 @@ export interface FramingCheck {
 }
 export interface Job {
   openjutsu?: import('./openjutsu').OpenjutsuRun;
+  smoothMotion?: import('./smooth-motion').SmoothMotionRun;
   anchoredVideo?: AnchoredVideoRun;
   anchorChild?: AnchorChild;
   facialConsistency?: FacialConsistencyRun;

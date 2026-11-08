@@ -1,3 +1,4 @@
+import { smoothOutputFPS } from '../shared/smooth-motion';
 import { jobDuration } from '../shared/library';
 import { useRef } from 'react';
 import * as Menu from '@radix-ui/react-dropdown-menu';
@@ -12,7 +13,7 @@ function PendingPreview({ job }: { job: Job }) {
   const overall = useOverallProgress(job);
   const active = ['queued', 'running', 'reconnecting'].includes(job.status);
   const percent = job.faceRefinement ? Math.min(99, Math.floor(98 * job.progress.completedFrames / Math.max(1, job.progress.targetFrames))) : overall;
-  const label = job.faceRepair?.state === 'review' ? 'Ready to compare' : job.status === 'queued' ? 'Queued' : job.status === 'reconnecting' ? 'Reconnecting' : job.status === 'running' ? job.faceRepair ? 'Repairing face' : job.faceRefinement ? 'Refining face' : 'Rendering' : job.status === 'failed' ? 'Failed' : job.status === 'cancelled' ? 'Cancelled' : 'Needs attention';
+  const label = job.faceRepair?.state === 'review' ? 'Ready to compare' : job.status === 'queued' ? 'Queued' : job.status === 'reconnecting' ? 'Reconnecting' : job.status === 'running' ? job.smoothMotion ? 'Smoothing motion' : job.faceRepair ? 'Repairing face' : job.faceRefinement ? 'Refining face' : 'Rendering' : job.status === 'failed' ? 'Failed' : job.status === 'cancelled' ? 'Cancelled' : 'Needs attention';
   const Icon = job.status === 'queued' ? Clock : job.status === 'failed' ? WarningCircle : active ? Sparkle : Pause;
   return <div className={`job-pending${active ? ' is-active' : ''}${job.status === 'failed' ? ' is-failed' : ''}`} title={job.error || job.progress.stage}>
     <span className="job-pending-label"><Icon size={14} /><span>{label}</span></span>

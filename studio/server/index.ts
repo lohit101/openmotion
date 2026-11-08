@@ -43,6 +43,7 @@ import { canFinishFacialLocally, facialRuntimeReadyForSettings } from '../shared
 import { anchoredRun, canFinishAnchoredLocally, videoDirectionFrames } from '../shared/anchored-video';
 import { FaceRepairManager, registerFaceRepairRoutes, sendFaceRepairFile } from './face-repair';
 import { gpuFileDeleteSchema, gpuFileListSchema } from '../shared/gpu-files';
+import { registerSmoothMotionRoutes } from './smooth-motion';
 import { registerOpenjutsuRoutes } from './openjutsu';
 import { canRecoverOpenjutsuLocally } from './openjutsu-runner';
 
@@ -78,7 +79,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   // Request activity is GPU work, not browsing or inventory refreshes. This also
   // invalidates idle probes when async request preflight has not queued work yet.
   app.use((req, res, next) => {
-    const work = req.method === 'POST' && (/^\/api\/upscale\/(?:prepare|jobs(?:\/[^/]+\/recover)?)$/.test(req.path) || /^\/api\/(?:jobs(?:\/[^/]+\/(?:resume|refine-face|face-repairs))?|images\/jobs|image-edit\/jobs|openjutsu\/(?:face\/)?jobs|models\/(?:download|module|recover|delete)|gpu-files\/delete|video-identity\/gpu\/setup|facial-consistency\/prepare|connection\/connect)$/.test(req.path) ||
+    const work = req.method === 'POST' && (/^\/api\/upscale\/(?:prepare|jobs(?:\/[^/]+\/recover)?)$/.test(req.path) || /^\/api\/(?:jobs(?:\/[^/]+\/(?:resume|refine-face|face-repairs))?|images\/jobs|image-edit\/jobs|openjutsu\/(?:face\/)?jobs|smooth-motion\/jobs|models\/(?:download|module|recover|delete)|gpu-files\/delete|video-identity\/gpu\/setup|facial-consistency\/prepare|connection\/connect)$/.test(req.path) ||
       /^\/api\/cloud\/(?:launch|launches\/[^/]+\/continue|instances\/[^/]+\/(?:start|connect))$/.test(req.path));
     if (work) {
       if (idle.state.status === 'pausing') return void res.status(409).json({ error: 'GPU idle pause is in progress. Wait for its confirmed status, then start & connect before generating.' });
@@ -114,9 +115,11 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   registerFaceRepairRoutes(app, faceRepairs, store, () => { idle.touch(); void runner.kick(); });
   registerCharacterRoutes(app, store);
   registerImageEditRoutes(app, store, connection, runner, cloud, models);
-  registerOpenjutsuRoutes(app, store, connection, runner, models, () => {
+  const assertNativeCreation = () => {
     if (idle.state.status === 'pausing' || cloud.state.busy || cloud.state.launches.some(launch => ['stopping', 'destroying'].includes(launch.phase) || launch.safetyStatus === 'unconfirmed') || models.state.busy || upscale.busy || videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork()) throw new Error('Finish GPU setup, downloads or unresolved processing before generating.');
-  });
+  };
+  registerOpenjutsuRoutes(app, store, connection, runner, models, assertNativeCreation);
+  registerSmoothMotionRoutes(app, store, connection, runner, models, assertNativeCreation);
   const bootstrap = () => ({ imageEditDraft: imageEditDraftSchema.parse(store.value('image-edit-draft', emptyImageEditDraft())), assets: store.assets().map(publicAsset), characters: store.characters(), capabilities: { imagenSegmentRepaint: true }, jobs: store.jobs().map(publicJob), draft: store.draft(), imageDraft: store.imageDraft(), connection: connection.status, cloud: cloud.state, models: models.state });
   app.get('/api/bootstrap', (_req, res) => res.json(bootstrap()));
   app.get('/api/events', (_req, res) => {
@@ -320,6 +323,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     const value = z.object({ retryMissing: z.boolean().default(false) }).parse(req.body || {});
     await runner.resume(job, value.retryMissing); res.json(publicJob(store.job(job.id)!));
   });
+  app.get('/api/jobs/:id/native-video', (req,res)=>{const job=store.job(req.params.id);if(!job?.openjutsu?.nativeFile||job.deleted)return void res.sendStatus(404);res.download(job.openjutsu.nativeFile,job.title.replace(/[^a-zA-Z0-9 _.-]/g,'_')+' - original 24fps.mp4');});
   app.get('/api/jobs/:id/:type', (req, res) => {
     const job = store.job(String(req.params.id)); if (!job) return void res.sendStatus(404);
     if (req.params.type === 'repair-master' && job.faceRepair?.acceptedCandidateId) {

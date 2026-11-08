@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { outputFPSSchema, smoothMotionFiles } from './smooth-motion';
 import { openjutsuFiles, openjutsuFaceFiles, openjutsuSettingsSchema, type OpenjutsuSettings } from './openjutsu';
 import { imageEditFiles, imageEditSettingsSchema, type ImageEditSettings } from './image-edit';
 import { settingsSchema, type Settings } from './types';
@@ -11,25 +12,26 @@ export const moduleDownloadRequestSchema=z.discriminatedUnion('module',[
   z.object({module:z.literal('imagen'),settings:imageSettingsSchema}).strict(),
   z.object({module:z.literal('image-edit'),settings:imageEditSettingsSchema}).strict(),
   z.object({module:z.literal('clarity')}).strict(),
-  z.object({module:z.literal('openjutsu'),settings:openjutsuSettingsSchema}).strict(),
+  z.object({module:z.literal('smooth-motion')}).strict(),
+  z.object({module:z.literal('openjutsu'),settings:openjutsuSettingsSchema,outputFPS:outputFPSSchema.optional()}).strict(),
   z.object({module:z.literal('openjutsu-face'),settings:openjutsuSettingsSchema}).strict(),
 ]);
 export type ModuleDownloadRequest=z.infer<typeof moduleDownloadRequestSchema>;
-export const moduleNames:Record<DownloadModule,string>={remotion:'Remotion',openjutsu:'Remotion','openjutsu-face':'Fix Faces',imagen:'Imagen','image-edit':'Image Edit',clarity:'Clarity'};
+export const moduleNames:Record<DownloadModule,string>={'smooth-motion':'Smooth Motion',remotion:'Remotion',openjutsu:'Remotion','openjutsu-face':'Fix Faces',imagen:'Imagen','image-edit':'Image Edit',clarity:'Clarity'};
 export function moduleDownloadPlan(module:'openjutsu-face',settings:OpenjutsuSettings):ModuleDownloadPlan;
-export function moduleDownloadPlan(module:'openjutsu',settings:OpenjutsuSettings):ModuleDownloadPlan;
+export function moduleDownloadPlan(module:'openjutsu',settings:OpenjutsuSettings,outputFPS?:number):ModuleDownloadPlan;
 export function moduleDownloadPlan(module:'remotion',settings:Settings):ModuleDownloadPlan;
 export function moduleDownloadPlan(module:'imagen',settings:ImageSettings):ModuleDownloadPlan;
 export function moduleDownloadPlan(module:'image-edit',settings:ImageEditSettings):ModuleDownloadPlan;
-export function moduleDownloadPlan(module:'clarity'):ModuleDownloadPlan;
-export function moduleDownloadPlan(module:DownloadModule,settings?:Settings|ImageSettings|ImageEditSettings|OpenjutsuSettings):ModuleDownloadPlan{
-  const files=[...new Set(module==='openjutsu-face'?openjutsuFaceFiles(settings as OpenjutsuSettings):module==='openjutsu'?openjutsuFiles(settings as OpenjutsuSettings):module==='remotion'?modelFilesForSettings(settings as Settings):module==='image-edit'?imageEditFiles(settings as ImageEditSettings):module==='imagen'?imageFilesForSettings(settings as ImageSettings):upscaleModelFiles)];
+export function moduleDownloadPlan(module:'clarity'|'smooth-motion'):ModuleDownloadPlan;
+export function moduleDownloadPlan(module:DownloadModule,settings?:Settings|ImageSettings|ImageEditSettings|OpenjutsuSettings,outputFPS=24):ModuleDownloadPlan{
+  const files=[...new Set(module==='smooth-motion'?smoothMotionFiles:module==='openjutsu-face'?openjutsuFaceFiles(settings as OpenjutsuSettings):module==='openjutsu'?[...openjutsuFiles(settings as OpenjutsuSettings),...(outputFPS!==24?smoothMotionFiles:[])]:module==='remotion'?modelFilesForSettings(settings as Settings):module==='image-edit'?imageEditFiles(settings as ImageEditSettings):module==='imagen'?imageFilesForSettings(settings as ImageSettings):upscaleModelFiles)];
   const image=settings as ImageSettings;
-  const runtimes=module==='openjutsu-face'?['openjutsu-face-tools']:module==='openjutsu'?['openjutsu-tools']:module==='remotion'?( (settings as Settings).engine==='viggle'?['viggle-tools',...(usesFacialConsistency(settings as Settings)?['facial:'+facialVersionForSettings(settings as Settings)]:[])]:[]):module==='clarity'?['clarity']:module==='imagen'&&!image.workflow&&image.qwenRecipe!=='clothing-only'?[...(image.localIdentity?['localIdentity']:[]),...(image.qwenRecipe==='body-identity'&&image.qwenBodyPose||image.qwenRecipe==='body-only'&&image.bodyOnlyStrategy==='staged'&&image.bodyOnlyPose?['localPose']:[])]:[];
+  const runtimes=module==='smooth-motion'?['smooth-motion-tools']:module==='openjutsu-face'?['openjutsu-face-tools']:module==='openjutsu'?['openjutsu-tools',...(outputFPS!==24?['smooth-motion-tools']:[])]:module==='remotion'?( (settings as Settings).engine==='viggle'?['viggle-tools',...(usesFacialConsistency(settings as Settings)?['facial:'+facialVersionForSettings(settings as Settings)]:[])]:[]):module==='clarity'?['clarity']:module==='imagen'&&!image.workflow&&image.qwenRecipe!=='clothing-only'?[...(image.localIdentity?['localIdentity']:[]),...(image.qwenRecipe==='body-identity'&&image.qwenBodyPose||image.qwenRecipe==='body-only'&&image.bodyOnlyStrategy==='staged'&&image.bodyOnlyPose?['localPose']:[])]:[];
   return {module,files,runtimes,key:JSON.stringify({module,files:[...files].sort(),runtimes})};
 }
 export function planFromRequest(request:ModuleDownloadRequest){
-  return request.module==='openjutsu-face'?moduleDownloadPlan('openjutsu-face',request.settings):request.module==='openjutsu'?moduleDownloadPlan('openjutsu',request.settings):request.module==='image-edit'?moduleDownloadPlan('image-edit',request.settings):request.module==='remotion'?moduleDownloadPlan('remotion',request.settings):request.module==='imagen'?moduleDownloadPlan('imagen',request.settings):moduleDownloadPlan('clarity');
+  return request.module==='openjutsu-face'?moduleDownloadPlan('openjutsu-face',request.settings):request.module==='openjutsu'?moduleDownloadPlan('openjutsu',request.settings,request.outputFPS):request.module==='image-edit'?moduleDownloadPlan('image-edit',request.settings):request.module==='remotion'?moduleDownloadPlan('remotion',request.settings):request.module==='imagen'?moduleDownloadPlan('imagen',request.settings):moduleDownloadPlan(request.module==='smooth-motion'?'smooth-motion':'clarity');
 }
 
 export function moduleDownloadProgress(plan:ModuleDownloadPlan,state:ModelsState,transferFiles?:string[]){

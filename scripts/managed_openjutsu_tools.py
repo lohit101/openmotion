@@ -61,6 +61,28 @@ def missing_tools(registry, request):
     return missing
 
 
+def install_local_nodes(comfy, request):
+    """Install only our explicit, hash-bound post-processing package."""
+    for package in request.get('local_nodes', []):
+        if package.get('directory') != 'recast_post_processing' or set(package.get('files', {})) != {'__init__.py', 'motion.py'}:
+            raise ValueError('Unknown local post-processing package.')
+        target = Path(comfy) / 'custom_nodes' / package['directory']
+        if target.is_symlink() or target.parent.is_symlink(): raise ValueError('Refusing a linked post-processing directory.')
+        marker = target / '.recast-files.json'
+        if marker.is_symlink(): raise ValueError('Refusing a linked post-processing marker.')
+        old = json.loads(marker.read_text()) if marker.is_file() else {}
+        for name, value in package['files'].items():
+            file = target / name; content = value['content'].encode()
+            if hashlib.sha256(content).hexdigest() != value['sha256']: raise ValueError('Post-processing source checksum differs.')
+            if file.is_symlink(): raise ValueError('Refusing a linked post-processing source.')
+            if file.exists() and file.read_bytes() != content and hashlib.sha256(file.read_bytes()).hexdigest() != old.get(name):
+                raise ValueError('The post-processing source was edited locally. It was kept.')
+        target.mkdir(parents=True, exist_ok=True)
+        for name, value in package['files'].items():
+            file = target / name; temp = file.with_suffix('.recast-tmp'); temp.write_text(value['content']); temp.replace(file)
+        atomic(marker, {name: value['sha256'] for name, value in package['files'].items()})
+
+
 def install_requirements(python, requirements, constraints, face):
     # FaceRefine/Impact's insightface and SAM2 builds must reuse our constrained
     # PyTorch. PEP517 isolation otherwise downloads a second, unconstrained torch
@@ -155,6 +177,7 @@ def worker(root, request, attempt):
         if request.get('face'):
             subprocess.run([str(python), '-c', 'import insightface, onnxruntime, segment_anything; assert onnxruntime.get_available_providers()'], check=True)
         queue_idle(root)
+        install_local_nodes(comfy, request)
         restart_managed_engine(root, python)
         for _ in range(90):
             current = status(root, request)

@@ -41,7 +41,7 @@ describe('module-specific download presentation',()=>{
     const download=vi.fn(),prepare=vi.fn();
     for(const request of requests){
       const html=renderToStaticMarkup(<ModuleAction request={request} controls={{state:emptyModels(),online:true,blocked:false,download,remove:()=>{},prepareModule:prepare}} generateDisabled onGenerate={()=>{}} onConnect={()=>{}} onManage={()=>{}}/>);
-      expect(html).toContain('generate-footer module-action');expect(html).toContain('aria-label="Download '+({remotion:'Remotion',openjutsu:'Remotion','openjutsu-face':'Fix Faces',imagen:'Imagen','image-edit':'Image Edit',clarity:'Clarity'}[request.module])+'"');
+      expect(html).toContain('generate-footer module-action');expect(html).toContain('aria-label="Download '+({'smooth-motion':'Smooth Motion',remotion:'Remotion',openjutsu:'Remotion','openjutsu-face':'Fix Faces',imagen:'Imagen','image-edit':'Image Edit',clarity:'Clarity'}[request.module])+'"');
       expect(html.match(/<button[^>]+class="primary-button generate module-primary-button"[^>]*>/)?.[0]).not.toContain('disabled');
     }
     expect(download).not.toHaveBeenCalled();expect(prepare).not.toHaveBeenCalled();

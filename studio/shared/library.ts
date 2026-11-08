@@ -1,3 +1,4 @@
+import { smoothOutputFPS } from './smooth-motion';
 import { isImageEditJob, imageEditSampling, imageEditModelLabel, imageEditSamplingLabel } from './image-edit';
 import { isImageJob } from './image-replacement';
 import { engineLabel } from './engines';
@@ -22,7 +23,8 @@ export function libraryJobs(jobs: Job[], collection: LibraryCollection, media: L
 }
 
 export function savedRunSettings(job: Job): Record<string, unknown> {
-  if(job.openjutsu)return { workflow:'OpenJutsu Simple motion transfer',...job.openjutsu.settings,section:job.openjutsu.section,graphSHA256:job.openjutsu.graphSHA256 };
+  if(job.smoothMotion&&!job.openjutsu)return {workflow:'Smooth Motion',model:'RIFE 4.25',outputFPS:job.smoothMotion.targetFPS,sourceSHA256:job.smoothMotion.sourceSHA256,parentId:job.smoothMotion.parentId,graphSHA256:job.smoothMotion.graphSHA256};
+  if(job.openjutsu)return { workflow:job.openjutsu.face?'OpenJutsu Fix Faces':'OpenJutsu Simple motion transfer',...job.openjutsu.settings,outputFPS:job.openjutsu.outputFPS||24,section:job.openjutsu.section,graphSHA256:job.openjutsu.graphSHA256 };
   if (isImageEditJob(job) && job.image?.edit) return { model: imageEditModelLabel(job.image.version), ...job.image.edit.settings, ...imageEditSampling(job.image.edit.settings, job.image.version), referenceOrder: job.image.edit.references.map(r => ({ id: r.id, name: r.name, sha256: r.sha256, sourceFrame: r.sourceFrame })) };
   if (job.faceRepair) return { processing: 'Selective face repair', parentJobId: job.faceRepair.parentJobId, originalJobId: job.faceRepair.rootJobId, recipe: job.faceRepair.version, goal: job.faceRepair.goal, ranges: job.faceRepair.ranges, fps: job.faceRepair.fps, frames: job.faceRepair.frames, state: job.faceRepair.state, acceptedCandidateId: job.faceRepair.acceptedCandidateId, candidates: job.faceRepair.candidates };
   if (job.upscale) return { model: job.upscale.model, ...job.upscale.settings, source: job.upscale.source, fps: job.upscale.fps, frames: job.upscale.frames, sourceSHA256: job.upscale.sourceSHA256, profileSHA256: job.upscale.profileSHA256, attention: job.upscale.attention, workerSeconds: job.upscale.workerSeconds, processingGeometry: job.upscale.processingGeometry, workerTotalSeconds: job.upscale.workerTotalSeconds, phaseSeconds: job.upscale.phaseSeconds, execution: job.upscale.execution };
@@ -30,9 +32,10 @@ export function savedRunSettings(job: Job): Record<string, unknown> {
   if (job.edit) return { exportMode: job.edit.mode, processing: job.edit.method, format: job.edit.format, videoCodec: job.edit.videoCodec, width: job.edit.width, height: job.edit.height, fps: job.edit.fps, frames: job.edit.frames, duration: job.edit.duration, sourceClips: job.edit.sources.length };
   return { ...(isImageJob(job) ? job.image?.settings || {} : job.settings) };
 }
-export const jobDuration = (job: Job): number => job.faceRepair ? job.faceRepair.frames / job.faceRepair.fps : job.edit?.duration ?? job.progress.targetFrames / job.settings.fps;
+export const jobDuration = (job: Job): number => job.faceRepair ? job.faceRepair.frames / job.faceRepair.fps : job.edit?.duration ?? job.progress.targetFrames / smoothOutputFPS(job);
 export function runSummary(job: Job): [string, string][] {
-  if(job.openjutsu){const s=job.openjutsu.settings;return [['Workflow','Remotion · OpenJutsu'],['Model',s.model],['Sampling',s.steps+' steps'],['Scene',s.referenceScene?'Reference image':'Source video'],['Motion reference',s.motion+'px'],['Output',job.width+' × '+job.height],['Frame rate','24 fps'],['Seed',String(s.seed)],['Status',job.status]];}
+  if(job.smoothMotion&&!job.openjutsu)return [['Workflow','Smooth Motion'],['Model','RIFE 4.25'],['Output',job.width+' × '+job.height],['Frame rate',job.smoothMotion.targetFPS+' fps'],['Duration',jobDuration(job).toFixed(2)+'s'],['Original','Preserved'],['Status',job.status]];
+  if(job.openjutsu){const s=job.openjutsu.settings;return [['Workflow',job.openjutsu.face?'Post-processing · Fix Faces':'Remotion · OpenJutsu'],['Model',s.model],['Sampling',s.steps+' steps'],['Scene',s.referenceScene?'Reference image':'Source video'],['Motion reference',s.motion+'px'],['Output',job.width+' × '+job.height],['Frame rate',smoothOutputFPS(job)+' fps'],['Seed',String(s.seed)],['Status',job.status]];}
   const [width, height] = outputDimensions(job);
   if (job.faceRepair) return [['Workflow', 'Remotion · Selective face repair'], ['Output', `${width} × ${height}`], ['Status', job.faceRepair.state === 'review' ? 'Ready to compare' : job.faceRepair.state], ['Duration', `${(job.faceRepair.frames / job.faceRepair.fps).toFixed(2)}s`], ['Frame rate', `${job.faceRepair.fps} fps`], ['Repair ranges', String(job.faceRepair.ranges.length)], ['Original', 'Preserved'], ['New video generation', 'None']];
   if (job.upscale) return [['Workflow', 'Clarity · Video upscaling'], ['Model', job.upscale.model], ['Processing', job.upscale.settings.processing==='fast1080'?'Fast 1080p · AI at 720p':'Native output resolution'], ['Output', `${width} × ${height}`], ['Status', job.status], ['Frame rate', `${job.upscale.fps} fps`], ['Frames', String(job.upscale.frames)], ['Original', 'Preserved'], ...(job.upscale.workerSeconds != null ? [['Upscaler processing', `${job.upscale.workerSeconds.toFixed(1)} seconds`] as [string,string]] : [])];

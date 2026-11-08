@@ -16,6 +16,7 @@ export function modelUsage(id: string): { workflow: string; detail: string }[] {
   if (isRetiredModel(id)) return [{ workflow: 'Retired files', detail: 'SCAIL-2 / Wan · kept for saved runs. New creation and downloads are unavailable.' }];
   if (file.engine === 'image-edit') return [{ workflow: 'Image Edit · Qwen 2511', detail: 'Separate prompt-driven editor. Only the selected precision and optional Lightning adapter are required.' }];
   if (file.engine === 'viggle') return [{ workflow: 'Viggle video', detail: 'Remotion · all Viggle quality presets' }];
+  if (file.engine === 'smooth-motion') return [{ workflow: 'Smooth Motion', detail: 'Optional 30/48/60fps finishing, standalone or after Remotion.' }];
   if (file.engine === 'upscale') return [{ workflow: 'Clarity', detail: 'Optional FlashVSR+ Turbo video upscaling. Separate runtime preparation required.' }];
   if (file.engine === 'facial') return [{ workflow: 'Remotion facial consistency', detail: 'Standard or Regional expression transfer followed by 60% ONNX identity correction' }];
   if (id === 'loras/' + IMAGE_IDENTITY) return [{ workflow: 'Klein images', detail: 'Optional separate identity pass' }];

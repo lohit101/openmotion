@@ -1,0 +1,11 @@
+{
+  "files": [{
+    "repo": "Comfy-Org/Frame-Interpolation",
+    "revision": "aa7009be4d1471ea0bac91d6fe4d7e4b637cbbfc",
+    "filename": "frame_interpolation/rife_v4.25.safetensors",
+    "destination": "frame_interpolation/rife_v4.25.safetensors",
+    "size": 22674688,
+    "sha256": "1505884b9bdae956795430d2a70f7e2317b2abd8f130f8cfdb35a5759f909481"
+  }],
+  "total_bytes": 22674688
+}

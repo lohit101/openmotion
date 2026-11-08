@@ -107,12 +107,18 @@ export function overallProgressEstimate(job: Job): number {
     if (/transferring/.test(stage)) return 2;
     return /checking|preparing/.test(stage) ? 1 : 0;
   }
+  if (job.smoothMotion) {
+    if (outputReady(job)) return 100;
+    if (job.status === 'queued' && !job.smoothMotion.automatic) return 0;
+    const stage=job.progress.stage.toLowerCase(), fraction=job.smoothMotion.nativeFile? .99 : /saving/.test(stage)? .95 : job.progress.node==='1' ? .05+.88*(nativeProgress(job)||0) : 0;
+    return job.smoothMotion.automatic ? 90+9*fraction : 99*fraction;
+  }
   if (job.upscale) return outputReady(job) ? 100 : Number.isFinite(job.upscale.progress) ? Math.min(99, Math.max(0, job.upscale.progress)) : 0;
   if (outputReady(job)) return 100;
   if (job.status === 'queued' && !job.segments.length && !job.anchoredVideo?.branches.some(b => b.progress > 0)) return 0;
   if (job.anchoredVideo && job.anchoredVideo.state !== 'assembled') return anchorProgress(job);
   const raw = job.mediaType === 'image' && job.image ? imageProgress(job) : videoProgress(job);
-  const estimate = job.facialConsistency && job.progress.completedFrames < job.progress.targetFrames ? raw * .82 : raw;
+  const estimate = job.openjutsu?.outputFPS && job.openjutsu.outputFPS !== 24 ? raw*.9 : job.facialConsistency && job.progress.completedFrames < job.progress.targetFrames ? raw * .82 : raw;
   return Number.isFinite(estimate) ? Math.min(99, Math.max(0, estimate)) : 0;
 }
 

@@ -1,3 +1,4 @@
+import { smoothMotionFiles } from '../shared/smooth-motion';
 import { randomUUID } from 'node:crypto';
 import type { Express } from 'express';
 import { openjutsuDraftSchema, emptyOpenjutsuDraft, openjutsuFaceDraftSchema, emptyOpenjutsuFaceDraft, openjutsuFaceFiles, type OpenjutsuFaceDraft, type OpenjutsuDraft } from '../shared/openjutsu';
@@ -28,6 +29,7 @@ export async function createOpenjutsuJob(store: Store, connection: ConnectionMan
   };
   const [sourceSHA256, referenceSHA256, catalog] = await Promise.all([fileSHA256(source.path), fileSHA256(reference.path), connection.client().json('/object_info')]);
   same();
+  if (draft.outputFPS !== 24 && (!models.state.smoothMotionToolsReady || smoothMotionFiles.some(id => models.state.files.find(f => f.id === id)?.status !== 'installed'))) throw new Error('Download Smooth Motion before generating at this output frame rate.');
   const detectors = catalog.H3FaceTrackCrop?.input.required?.detector?.[0];
   const graph = faceDraft ? compileOpenjutsuFace(draft.settings, faceDraft.face, { start: draft.start, length: draft.length }, undefined, Array.isArray(detectors) ? detectors : []) : compileOpenjutsu(draft.settings, { start: draft.start, length: draft.length });
   if (faceDraft) {
@@ -53,7 +55,7 @@ export async function createOpenjutsuJob(store: Store, connection: ConnectionMan
   const [width, height] = faceDraft ? [source.width, source.height] : openjutsuDimensions(draft.settings, source, reference), frames = Math.floor(seconds * 24);
   const job: Job = { id, title: source.name.replace(/\.[^.]+$/, '') + (faceDraft ? ' / Fix Faces' : ' / Remotion'), status: 'queued', sourceId: source.id, referenceId: reference.id,
     settings: { ...defaults, engine: 'openjutsu', referencePreparation: 'prepared', mode: 'motion', fps: 24, start: draft.start, seconds: Math.min(30, seconds), resolution: '480', randomSeed: false, seed: draft.settings.seed, facialConsistency: 'off', imagenRepaintEnabled: false },
-    openjutsu: { version: faceDraft ? 'openjutsu-face-v1' : 'openjutsu-simple-v1', ...(faceDraft ? { face: structuredClone(faceDraft.face), ...(faceDraft.parentId ? { parentId: faceDraft.parentId } : {}) } : {}), settings: structuredClone(draft.settings), section: { start: draft.start, length: draft.length }, sourceSHA256, referenceSHA256, graphSHA256: openjutsuGraphHash(frozen), instanceId, endpoint },
+    openjutsu: { version: faceDraft ? 'openjutsu-face-v1' : 'openjutsu-simple-v1', outputFPS: draft.outputFPS, ...(faceDraft ? { face: structuredClone(faceDraft.face), ...(faceDraft.parentId ? { parentId: faceDraft.parentId } : {}) } : {}), settings: structuredClone(draft.settings), section: { start: draft.start, length: draft.length }, sourceSHA256, referenceSHA256, graphSHA256: openjutsuGraphHash(frozen), instanceId, endpoint },
     width, height, createdAt: new Date().toISOString(), favorite: false, deleted: false,
     progress: { stage: 'Queued for Remotion', node: null, value: null, max: null, unit: 'steps', segment: 1, segments: 1, completedFrames: 0, targetFrames: frames, updatedAt: Date.now() },
     segments: [], context: '', pendingPrompt: null, uploads: null, error: null, output: null, poster: null, cancelRequested: false, elapsedSeconds: null, origin: 'render', workflow: frozen };
