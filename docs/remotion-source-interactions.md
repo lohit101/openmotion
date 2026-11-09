@@ -1,6 +1,6 @@
 # Incoming interactions in reference-scene Remotion
 
-Status on 2026-11-09: local evaluation implementation and bounded comparison inputs are ready; no new inference or visual improvement is established. Branch `feat/remotion-interactions` is separate from the immutable `prodv1` checkpoint. The running backend and normal draft remain unchanged.
+Status on 2026-11-09: eight bounded A6000 comparisons are complete and saved. Aligned guidance plus Motion Transfer is the strongest candidate on these two clips, but is not a production/default promotion or an all-situations quality pass. Branch `feat/remotion-interactions` is separate from the immutable `prodv1` checkpoint. Optional API admission/reuse notices are deployed; the normal draft and its generation graph remain unchanged.
 
 ## Why the current reference-scene path drops hands
 
@@ -24,7 +24,7 @@ The aligned profile is intentionally limited to one explicit section of at most 
 
 ## LoRA assessment
 
-[BFS Motion Transfer v1.0](https://huggingface.co/Alissonerdx/Minimax-H3-ComfyUI/blob/main/docs/motion-transfer.md) is the closest task match found. Its published examples support guide performances with people, objects and multiple explicitly assigned references. The pinned merged file includes training adapter V2; do not add that adapter again. It reuses our Ref2VA base and adds **184,840,504 bytes** (about 185 MB / 176 MiB). Metadata, revision and publisher LFS SHA256 are in `config/openjutsu-models.lock.json`; no weights were downloaded. Normal seven-file Remotion plans remain unchanged. Selection/Generate never download it implicitly.
+[BFS Motion Transfer v1.0](https://huggingface.co/Alissonerdx/Minimax-H3-ComfyUI/blob/main/docs/motion-transfer.md) is the closest task match found. Its published examples support guide performances with people, objects and multiple explicitly assigned references. The pinned merged file includes training adapter V2; do not add that adapter again. It reuses our Ref2VA base and adds **184,840,504 bytes** (about 185 MB / 176 MiB). Metadata, revision and publisher LFS SHA256 are in `config/openjutsu-models.lock.json`; the explicitly approved file was downloaded once and independently matched by size and SHA256 on the host. Normal seven-file Remotion plans remain unchanged. Selection/Generate never download it implicitly.
 
 The prepared comparison uses our existing compressed DMAD at six Euler/simple steps in all arms. The publisher's Guide Latents example uses DMD8/Euler/simple at eight steps, with different encoder/VAE precision. Our test is therefore a bounded compatibility/quality experiment, not a reproduction of the publisher recipe. An unsuccessful six-step test would not disprove that recipe. LoRA loading and guide encoding can add time, but neither candidate adds a second video diffusion pass; actual end-to-end speed is unmeasured.
 
@@ -54,6 +54,25 @@ Offline results: 60 focused Studio checks, 25 Python checks, typecheck and isola
 
 A generic npm build briefly replaced the local frontend assets before failing on an unsupported flag. The previous saved frontend index/assets were restored and verified over HTTP, without restarting the backend or changing jobs/settings. Subsequent builds use explicit isolated output paths. No intentional candidate deployment was performed.
 
-Provider refresh confirms the same A6000 is stopped, with the normal five-minute idle policy. The user subsequently approved a separate $0.20 cap and resumed this same A6000. GPU validation and the explicit task-weight download are now authorized but were not executed at this preparation checkpoint. No agent resume, rental, installation, model transfer or paid inference occurred during preparation. The earlier paused selective face-repair work remains paused.
+The user approved a separate $0.20 cap and resumed this same A6000. The eight comparison jobs ran serially with one explicit185MB task-weight download, no new rental, no agent compute resume and no remote runtime upgrade. The earlier paused selective face-repair work remains paused. Final independent provider refresh confirms the same host exited/stopped at11:27:30UTC with the normal five-minute idle preference enabled.
 
 See [the sanitized receipt](validation/remotion-source-interactions-20261109.json). Private research, source contacts, graph/request manifests and interface receipts are under ignored `.local/remotion-interactions-20261109/`.
+
+## Executed results and limits
+
+All eight native histories report success and match the corresponding frozen application graphs. All720 decoded frames are present at480×864/24fps. Within each cohort, every AAC payload hash and packet timestamp matches across all four arms (packet counts are in the receipt). Native MP4s and hash-bound histories remain in the Library; labelled review MP4s are separate local re-encodes.
+
+| Route | Arm crossing:73 frames | Cheek contact:107 frames | Observed result |
+| --- | ---: | ---: | --- |
+| Original guide |148.095s |135.360s |Keeps the reference appearance/scene, but loses the near-camera crossing hand; several cheek-driven mouth/eyelid shapes differ. |
+| Complete native reference |79.102s |115.481s |Restores interactions and several mouth shapes; the distinct-room clip returns to the source person/curtains. Rejected as the general replacement. |
+| Aligned control, no task adapter |83.151s |117.496s |Strong source motion, but returns substantially to the original performer/scene. Rejected. |
+| Aligned + Motion Transfer |80.973s |116.415s |Keeps the crossing hand and the reference room; more closely follows several cheek-driven puckers/eyelids while keeping more reference appearance than the aligned control. Strongest candidate, with residual identity/hair variation after turns. |
+
+Times are application preparation/native work/saving for one short job each, with model/cache differences; the first control includes cold preparation. They do not establish a2× speedup. In the two already-warm aligned pairs, adding the task adapter caused no material observed latency increase, but this is not a repeated performance benchmark. No upscaler or face finishing was part of these eight jobs. The user separately ran Fix Faces afterward; that output is not one of the comparison arms.
+
+Synchronized contacts, a consecutive17-frame hand-crossing detail strip and native-player comparison playback were reviewed. The arm-crossing comparison reached its end in QuickTime; cheek-contact playback opened and started, but a complete native-player pass of that comparison is not established. This is not an independent full-quality/identity/temporal pass on every frame. The new guide regenerates hands instead of preserving their exact original pixels. Foreground details can change, and prompts do not establish a visibility ceiling for every object. Neither a complete360-degree turn nor a full walk-by was tested. Longer aligned continuation remains deliberately blocked.
+
+A guarded idle backend reload preserved69 existing jobs/66 assets/five protected settings and unrelated app processes. Static assets retain previous versions. After the tests all69 original job records still match. The normal Remotion draft, idle preference and prodv1 graph/tag/branch remain unchanged. The separately used Fix Faces draft changed through ongoing application use and was preserved. A final notice clarifies the five-second experimental section limit.
+
+The test interval was1157.530s, with876.073s summed job-processing time. Its conservative allocation is about$0.12811 including the adapter's maximum permitted ingress and a small transfer reserve. A separate Fix Faces module setup and user Face Fix job began after the last comparison; the initial stop guard correctly refused to interrupt that work. After it completed, queues were rechecked empty and compute was stopped. Counting the entire1484.869-second connected interval, including that separate work, at the observed$0.38/hour plus a$0.02 transfer reserve gives a conservative **$0.17674 / $0.20** allocation. This is an estimate/reserve, not a provider invoice; retained disk billing continues separately after the confirmed stop. No test controller or automatic resume is armed. Further paid evaluation needs a new bounded authorization; do not restart under the small remaining reserve.
