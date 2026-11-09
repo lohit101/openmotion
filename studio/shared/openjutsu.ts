@@ -19,7 +19,7 @@ export const openjutsuSettingsSchema = z.object({
   // API-only evaluation until a matched video comparison qualifies it. Absent
   // on historical drafts/runs; selection does not provision any new files.
   sourceFaceGuide: z.enum(['source-face-guide-v1', 'source-face-detail-v1']).optional(),
-  interactionGuide: z.enum(['reference-interactions-v1', 'aligned-interactions-v1']).optional(),
+  interactionGuide: z.enum(['reference-interactions-v1', 'aligned-interactions-v1', 'aligned-interactions-v2']).optional(),
 }).strict().refine(s => !s.sourceFaceGuide || !s.noLipSync, 'Source facial guidance keeps audio enabled; disable No lip-sync for this comparison.')
   .refine(s => !s.interactionGuide || s.referenceScene && !s.noLipSync && !s.sourceFaceGuide, 'Interaction comparisons need Character image scene, audio enabled and the original facial guide.');
 export type OpenjutsuSettings = z.infer<typeof openjutsuSettingsSchema>;

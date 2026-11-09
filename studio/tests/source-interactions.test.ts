@@ -62,6 +62,21 @@ describe('source-interaction evaluation profiles', () => {
     expect(() => compileOpenjutsu({ ...settings, clipSeconds: 2.5, interactionGuide: 'aligned-interactions-v1' }, section)).toThrow('one explicit section');
     expect(() => compileOpenjutsu({ ...settings, interactionGuide: 'reference-interactions-v1' }, { start: 0, length: 10 })).not.toThrow();
   });
+  it('attaches the long-clip guide after protected context for every native window', () => {
+    const graph = compileOpenjutsu({ ...settings, interactionGuide: 'aligned-interactions-v2' }, { start: 1.25, length: 30 }, undefined, 'long-interactions');
+    expect(graph.recast_interaction_guide.inputs).toMatchObject({ positive: ['57', 0], latent: ['57', 3], image: ['34', 0], audio: ['29', 12], frame_idx: 0 });
+    expect(graph['57'].inputs.conditioning).toEqual(['30', 0]);
+    expect(graph['57'].inputs.latent).toEqual(['30', 1]);
+    expect(graph['58'].inputs.conditioning).toEqual(['recast_interaction_guide', 0]);
+    expect(graph['60'].inputs.latent_image).toEqual(['57', 3]);
+    expect(graph['25'].inputs.scene_continuity).toBe('Hard picture + protected audio');
+    const original = build();
+    for (const id of ['29', '32', '33', '34', '63', '64', '66', '67']) expect(graph[id]).toEqual(id === '67' ? { ...original[id], inputs: { ...original[id].inputs, filename: ['recast_run_name', 0] } } : original[id]);
+    expect(liveNodes(graph).has('41')).toBe(false);
+    expect([...liveNodes(graph)].filter(id => graph[id].class_type === 'SamplerCustomAdvanced')).toEqual(['60']);
+    const unsafe = build(); unsafe['25'].inputs.scene_continuity = 'Visual continuity';
+    expect(() => applySourceInteractions(unsafe, 'aligned-interactions-v2')).toThrow('protected native segment handoff');
+  });
   it('does not add a profile to existing settings or affect the native face-fix graph', () => {
     expect(openjutsuSettingsSchema.parse(settings)).not.toHaveProperty('interactionGuide');
     expect(compileOpenjutsuFace({ ...settings, interactionGuide: 'aligned-interactions-v1' }, { style: 'mouth', chunkSeconds: 6.5 }))

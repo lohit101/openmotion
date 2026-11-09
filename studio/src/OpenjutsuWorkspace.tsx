@@ -13,7 +13,7 @@ import WorkspaceWelcome from './WorkspaceWelcome';
 import { useOutputPresentation } from './useGenerationProgress';
 import OpenjutsuFaceWorkspace from './OpenjutsuFaceWorkspace';
 import MotionInteractions from './MotionInteractions';
-import { incomingInteractions, incomingInteractionIssue } from '../shared/motion-interactions';
+import { incomingInteractions, incomingInteractionIssue, upgradeIncomingDraft } from '../shared/motion-interactions';
 import './openjutsu.css';
 
 interface Props { outputChanged?: (fps: number) => void; postProcess?: (mode: 'face'|'motion') => void; data: Bootstrap; downloads: DownloadControls; selectedId: string | null; select: (id: string | null) => void; asset: (asset: Asset) => void; job: (job: Job) => void; openGPU: () => void; openDownloads: () => void; library: () => void; settingsChanged: (settings: OpenjutsuSettings) => void; }
@@ -23,7 +23,7 @@ export default function OpenjutsuWorkspace({ outputChanged, postProcess, data, d
   const uploading = uploads.video || uploads.image;
   const [catalog, setCatalog] = useState<Catalog>({}); const writes = useRef(Promise.resolve()), alive = useRef(true);
   const pendingRequest = useRef<{ body: string; key: string } | null>(null);
-  useEffect(() => { alive.current = true; void api<OpenjutsuDraft>('/openjutsu/draft').then(value => { if (alive.current) { setDraft(openjutsuDraftSchema.parse(value)); setLoaded(true); } }).catch(error => setError(error.message)); return () => { alive.current = false; }; }, []);
+  useEffect(() => { alive.current = true; void api<OpenjutsuDraft>('/openjutsu/draft').then(value => { if (alive.current) { setDraft(upgradeIncomingDraft(openjutsuDraftSchema.parse(value))); setLoaded(true); } }).catch(error => setError(error.message)); return () => { alive.current = false; }; }, []);
   useEffect(() => { const reuse = (event: Event) => setDraft(openjutsuDraftSchema.parse((event as CustomEvent).detail)); window.addEventListener('recast-openjutsu-reuse', reuse); return () => window.removeEventListener('recast-openjutsu-reuse', reuse); }, []);
   useEffect(() => { if (!loaded || !openjutsuDraftSchema.safeParse(draft).success) return; const snapshot = structuredClone(draft); const timer = setTimeout(() => { writes.current = writes.current.catch(() => {}).then(async () => { await api('/openjutsu/draft', snapshot); }).catch(error => { if (alive.current) setError(error.message); }); }, 300); return () => clearTimeout(timer); }, [draft, loaded]);
   useEffect(() => { if (data.connection.state !== 'online') { setCatalog({}); return; } void api<Catalog>('/openjutsu/catalog').then(setCatalog).catch(() => {}); }, [data.connection.state, data.models.checkedAt]);

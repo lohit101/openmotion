@@ -1,5 +1,7 @@
 # Incoming interactions in the live Remotion UI
 
+The subsequent [long-clip update](motion-interactions-long.md) adds V2 without the five-second selection cap. The V1 limits below describe this initial deployment and remain frozen for old jobs.
+
 On 2026-11-09 the user requested immediate UI integration of the tested incoming-hand/object candidate. Remotion now exposes **Keep incoming hands & objects** directly under Scene & output when the character image supplies the setting. Choosing Character image scene enables the aligned complete-performance guide and exactly one active Motion Transfer adapter at strength1. The source-scene path remains separate; historical graphs and frozen jobs are unchanged.
 
 The control uses the existing `aligned-interactions-v1` backend. It adds neither a detector nor a source-pixel paste. Model behavior and its known identity/hair/occlusion limits are those documented in [the eight-run comparison](remotion-source-interactions.md); this UI integration is not another GPU quality test.

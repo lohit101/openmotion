@@ -1,5 +1,7 @@
 # Incoming interactions in reference-scene Remotion
 
+Later updates expose [the guide in the live UI](motion-interactions-ui.md) and add [long-clip V2 support](motion-interactions-long.md). The initial test scope and results below remain unchanged; V2 long-video quality has not been GPU-validated.
+
 Status on 2026-11-09: eight bounded A6000 comparisons are complete and saved. Aligned guidance plus Motion Transfer is the strongest candidate on these two clips, but is not a production/default promotion or an all-situations quality pass. Branch `feat/remotion-interactions` is separate from the immutable `prodv1` checkpoint. Optional API admission/reuse notices are deployed; the normal draft and its generation graph remain unchanged.
 
 ## Why the current reference-scene path drops hands
