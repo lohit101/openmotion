@@ -1,0 +1,193 @@
+{
+  "date": "2026-11-09",
+  "scope": "Matched existing-model source facial-guide comparison; no default promotion.",
+  "instanceId": 59859991,
+  "inputs": {
+    "sourceSHA256": "50fcd5f120c0dab0040aefe24df6cd609bd4d02897dde0769165e20cc8874cac",
+    "referenceSHA256": "62d69413615f8902930c2b92df52ebe3b68599f7cb4890a1cf9ab641a954b320",
+    "start": 0,
+    "requestedSeconds": 5,
+    "seed": 1729,
+    "steps": 6,
+    "resolution": "480p",
+    "motion": 768,
+    "outputFPS": 24
+  },
+  "arms": [
+    {
+      "name": "control",
+      "sourceFaceGuide": null,
+      "graphSHA256": "c76acfa0cea7d7a6fcff92b73ca5f7b75209bd8ba8588a78bf2b8288cba42960",
+      "jobId": "563736b9-c0d6-4e46-8126-15fc9496421d",
+      "elapsedSeconds": 139.537,
+      "nativeSHA256": "217f75a5425fbed037f962dc220d4dc8e76f4024d9280e7c3e41c208e0211968",
+      "actualFrames": 107,
+      "actualSeconds": 4.458333
+    },
+    {
+      "name": "source-face-guide-v1",
+      "sourceFaceGuide": "source-face-guide-v1",
+      "graphSHA256": "9109ee5f87484a251408e20e81144e052fa6d607985aed544f230d907521c57f",
+      "jobId": "bb0634d1-297b-4f85-8174-8ca900eb7e1f",
+      "elapsedSeconds": 151.435,
+      "nativeSHA256": "20d3b17a226be93006f40050b9cc9f968a8ac976fe843070d33ebe1c6cb35c7a",
+      "actualFrames": 107,
+      "actualSeconds": 4.458333
+    },
+    {
+      "name": "source-face-detail-v1",
+      "sourceFaceGuide": "source-face-detail-v1",
+      "graphSHA256": "859db11d57bacffda6c8d730a67af2df7d7a0495731a974c8372ab28a6cb6117",
+      "jobId": "fba5c04a-ea98-4725-9af4-a0e49922b8e6",
+      "elapsedSeconds": 157.448,
+      "nativeSHA256": "ab53fa3b2a7746301b0491ddf2192a1918d6cb1ebb33fb52e1713faba094db9b",
+      "actualFrames": 107,
+      "actualSeconds": 4.458333
+    }
+  ],
+  "mediaChecks": {
+    "allFrames": 107,
+    "fps": 24,
+    "width": 480,
+    "height": 864,
+    "allAudioPacketsAndTimingIdentical": true,
+    "AACPacketCount": 193
+  },
+  "quality": {
+    "mouth": "Some opening/pucker shapes improve in B/C.",
+    "eyes": "Opening eye closure and later blink/gaze errors remain.",
+    "selection": "No candidate promoted.",
+    "limits": [
+      "One short source and one closed-eye photo.",
+      "No spoken-dialogue timing pass.",
+      "No independent archive of realized generated captions.",
+      "No native-player playback or general identity/occlusion/temporal pass."
+    ]
+  },
+  "allocation": {
+    "estimateUSD": 0.04733322222222222,
+    "totalHourly": 0.38,
+    "basis": "Saved application processing times for these renders only; excludes interleaved user work and is not a provider invoice."
+  },
+  "offlineChecks": {
+    "studioFocused": 44,
+    "library": 3,
+    "typecheck": "passed",
+    "builds": [
+      "server",
+      "frontend"
+    ],
+    "legacyGraphs": "three unchanged fixtures",
+    "nativeCPU": {
+      "checks": {
+        "no_input_mutation": true,
+        "unknown_face_falls_back_exactly": true,
+        "outside_computed_face_unchanged_native": true,
+        "outside_computed_face_unchanged_detail": true,
+        "outside_computed_person_unchanged": true,
+        "geometry_and_frame_count_preserved": true,
+        "finite_and_bounded": true,
+        "face_profile_changes_guide": true,
+        "detail_profile_changes_guide": true,
+        "guide_face_channels_remain_grey": true
+      },
+      "elapsedSeconds": 0.11899262480437756,
+      "nativeSourceSHA256": "d06dbbddb9fe514f273f5106a7300a22b30b8b19eadfa36f8a85484f39bc4bec",
+      "torch": "2.11.0",
+      "outputHashes": {
+        "control": "6bfa8a3420ca360bf96ace3e09d49dc31081d544cdb80dccc37c79705085a833",
+        "native": "dcb117089539f290519caeb1b9d4888c6b3f73a2df8adc2d51a2b388cc4a7b1e",
+        "detail": "6b0695571af5dfeb2da43611c3867eac9789f00590f8894b176d49669b395eb8"
+      },
+      "scope": "Actual pinned grey-guide math, synthetic inputs/masks and CPU device substitution. Not a detector, real-video identity, gaze, occlusion or GPU quality test.",
+      "normalizedSourceSHA256": "fc1f000c5352fba240b78d8c07a2ea5510ce8eac5640d15d23646f275dad43f8"
+    },
+    "schemaPreflight": {
+      "checkedAt": "2026-11-09T08:48:39.765Z",
+      "checks": [
+        {
+          "name": "control",
+          "requestMatches": true,
+          "graphMatches": true,
+          "liveSchemaIssues": []
+        },
+        {
+          "name": "source-face-guide-v1",
+          "requestMatches": true,
+          "graphMatches": true,
+          "liveSchemaIssues": []
+        },
+        {
+          "name": "source-face-detail-v1",
+          "requestMatches": true,
+          "graphMatches": true,
+          "liveSchemaIssues": []
+        }
+      ],
+      "gpuInference": 0
+    }
+  },
+  "deployment": {
+    "backend": {
+      "applied": true,
+      "pid": 60641,
+      "jobsPreserved": 65,
+      "assetsPreserved": 65,
+      "protectedSettings": 5,
+      "otherAppsUnchanged": true,
+      "connection": "online",
+      "gpuComputeActions": 0,
+      "inference": 0,
+      "defaultGuideChanged": false,
+      "scope": "Optional API-only candidate admission; no new runtime or frontend installation."
+    },
+    "frontend": {
+      "staticOnly": true,
+      "sameServerPID": 60641,
+      "jobsPreserved": 69,
+      "assetsPreserved": 66,
+      "currentDefaultGuideActive": false,
+      "oldAssetsRetained": true,
+      "computeActions": 0
+    }
+  },
+  "newWeights": 0,
+  "newRental": false,
+  "computeResume": false,
+  "remoteInstall": false,
+  "checkpoint": "prodv1 at 88cc90f excludes this experimental feature",
+  "artifacts": {
+    "reviewMP4SHA256": "968f664d529879dd4bbb3c669c9eea9d56647dce8d77f9266b802adfaefbc55f"
+  },
+  "finalState": {
+    "checkedAt": "2026-11-09T09:21:23.577Z",
+    "instances": [
+      {
+        "id": 59859991,
+        "state": "exited",
+        "intendedState": "stopped",
+        "computeStopped": true,
+        "connected": false,
+        "totalHourly": 0.033333333333333326
+      }
+    ],
+    "activeJobs": [],
+    "idle": {
+      "enabled": true,
+      "timeoutSeconds": 300,
+      "instanceId": null,
+      "idleSince": null,
+      "pauseAt": null,
+      "status": "paused",
+      "message": "Compute is paused. Model files are kept; storage is still billed.",
+      "lastPause": {
+        "id": "d0cc3f5e-b52e-4a0b-a0a7-a98e3592a36e",
+        "instanceId": 59859991,
+        "requestedAt": "2026-11-09T09:09:39.250Z",
+        "confirmedAt": "2026-11-09T09:09:53.710Z"
+      }
+    },
+    "modelsBusy": false,
+    "cloudBusy": false
+  }
+}

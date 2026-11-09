@@ -93,6 +93,18 @@ it('freezes an independent run, deduplicates retries, and does not rewrite the o
   expect(JSON.stringify([store!.draft(), store!.imageDraft()])).toBe(before);
   expect((await f.create()).id).toBe(job.id); expect(store!.jobs()).toHaveLength(1); expect(f.client.json).not.toHaveBeenCalledWith('/prompt');
 });
+for (const sourceFaceGuide of ['source-face-guide-v1', 'source-face-detail-v1'] as const) it('freezes the explicit experimental guide without editing the saved draft: ' + sourceFaceGuide, async () => {
+  const f = await fixture(), before = JSON.stringify([store!.draft(), store!.imageDraft()]);
+  f.draft.settings.sourceFaceGuide = sourceFaceGuide;
+  Object.assign(f.catalog, catalogFor(compileOpenjutsu(f.draft.settings, { start: 0, length: 6 })));
+  const job = await f.create();
+  expect(job.openjutsu?.settings.sourceFaceGuide).toBe(sourceFaceGuide);
+  expect(job.workflow?.['41'].inputs.faces).toEqual(['71', 0]);
+  expect(job.workflow?.['30'].inputs['ref_video_audios.ref_video_audio_0']).toEqual(['29', 12]);
+  expect(job.facialConsistency).toBeUndefined(); expect(job.smoothMotion).toBeUndefined();
+  expect(JSON.stringify([store!.draft(), store!.imageDraft()])).toBe(before);
+  expect(f.client.json).not.toHaveBeenCalledWith('/prompt');
+});
 it('persists a successful native receipt and finishes a failed download without submitting again', async () => {
   const f = await fixture(), job = await f.create(), native = path.join(folder, 'fixture.mp4');
   await command('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=c=blue:size=64x96:rate=24', '-frames:v', '5', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', native]);

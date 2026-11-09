@@ -6,6 +6,7 @@ import { NODES, pruneSimple, setSection, isLink, canvasSize, type ApiGraph } fro
 import { applyModel, checkAcceleration } from '../vendor/openjutsu/lib/model';
 import { openjutsuSettingsSchema, openjutsuFaceSettingsSchema, type OpenjutsuFaceSettings, type OpenjutsuSettings } from '../shared/openjutsu';
 import type { Asset, Graph } from '../shared/types';
+import { applySourceFaceGuide } from './source-face-guide';
 
 export const openjutsuGraphHash = (graph: Graph) => createHash('sha256').update(JSON.stringify(graph)).digest('hex');
 export function compileOpenjutsuFace(settings: OpenjutsuSettings, face: OpenjutsuFaceSettings, section = { start: 0, length: 0 }, names = { source: 'source.mp4', reference: 'reference.png' }, detectors = ['bbox/face_yolov8m.pt', 'segm/person_yolov8m-seg.pt']): Graph {
@@ -42,7 +43,7 @@ export function compileOpenjutsu(settings: OpenjutsuSettings, section: { start: 
     plan.inputs.run_name = ['recast_run_name', 0];
     graph[NODES.final].inputs.filename = ['recast_run_name', 0];
   }
-  return graph as Graph;
+  return s.sourceFaceGuide ? applySourceFaceGuide(graph as Graph, s.sourceFaceGuide) : graph as Graph;
 }
 export function openjutsuDimensions(settings: OpenjutsuSettings, source: Pick<Asset, 'width' | 'height'>, reference: Pick<Asset, 'width' | 'height'>): [number, number] {
   if (typeof settings.resolution !== 'string') return [settings.resolution.width, settings.resolution.height];

@@ -16,7 +16,10 @@ export const openjutsuSettingsSchema = z.object({
   loras: z.array(z.object({ name: file, strength: z.number().min(-4).max(4), enabled: z.boolean().optional(), speed: z.boolean().optional() }).strict()).max(4).default(DEFAULT_MODEL.loras),
   describer: file.default(DEFAULT_DESCRIBER), textEncoder: file.default(DEFAULT_MODEL.textEncoder), videoVae: file.default(DEFAULT_MODEL.videoVae), audioVae: file.default(DEFAULT_MODEL.audioVae),
   acceleration: z.enum(['none', 'spectrum']).default('none'),
-}).strict();
+  // API-only evaluation until a matched video comparison qualifies it. Absent
+  // on historical drafts/runs; selection does not provision any new files.
+  sourceFaceGuide: z.enum(['source-face-guide-v1', 'source-face-detail-v1']).optional(),
+}).strict().refine(s => !s.sourceFaceGuide || !s.noLipSync, 'Source facial guidance keeps audio enabled; disable No lip-sync for this comparison.');
 export type OpenjutsuSettings = z.infer<typeof openjutsuSettingsSchema>;
 export const openjutsuDefaults = openjutsuSettingsSchema.parse(importedPreset.settings);
 export const openjutsuDraftSchema = z.object({ sourceId: z.string().nullable(), referenceId: z.string().nullable(), start: z.number().min(0).default(0), length: z.number().min(0).max(3600).default(0), settings: openjutsuSettingsSchema, outputFPS: outputFPSSchema.default(24) }).strict();
