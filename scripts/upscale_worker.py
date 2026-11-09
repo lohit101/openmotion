@@ -114,6 +114,26 @@ def validate_source(path):
     return timing
 
 
+def audio_hash(file):
+    p=subprocess.run(['ffmpeg','-v','error','-i',str(file),'-map','0:a:0?','-c:a','copy','-f','data','-'],capture_output=True)
+    if p.returncode and b'does not contain any stream'not in p.stderr:
+        raise ValueError('Could not verify copied audio.')
+    return hashlib.sha256(p.stdout).hexdigest()
+
+
+def export_final(bridge, source, final, expected, geometry, target, *, threads=2):
+    from clarity_execution import export_filter
+    # The finite, verified bridge supplies the video EOF. An output -frames:v
+    # limit can terminate muxing before the last copied AAC packet is read.
+    # Let both inputs drain, then check the exact frame count independently.
+    subprocess.run(['ffmpeg','-v','error','-nostdin','-y','-threads',str(threads),'-i',str(bridge),'-i',str(source),'-map','0:v:0','-map','1:a:0?',
+        '-vf',export_filter(geometry,target),'-r',expected['fps'],'-fps_mode','cfr','-c:v','libx264','-crf','16','-preset','medium','-threads',str(threads),'-pix_fmt','yuv420p','-c:a','copy','-movflags','+faststart',str(final)],check=True)
+    if info(final)!={**expected,'width':target['outputWidth'],'height':target['outputHeight']}:
+        raise ValueError('Final upscale timing or geometry failed verification.')
+    if audio_hash(source)!=audio_hash(final):
+        raise ValueError('Original audio failed verification.')
+
+
 def running(folder):
     pid = state(folder/'pid.json').get('pid')
     try:
@@ -231,7 +251,7 @@ def progress(folder,value,stage,frames=None):
 
 def process(folder):
     import shutil
-    from clarity_execution import PhaseTimings, cpu_threads, streamed_input, DeviceColorCorrector, move_verified_bridge, processing_geometry, export_filter
+    from clarity_execution import PhaseTimings, cpu_threads, streamed_input, DeviceColorCorrector, move_verified_bridge, processing_geometry
     timings=PhaseTimings();overall_started=time.monotonic()
     request=state(folder/'request.json'); config=json.loads(PROFILE.read_text()); source=folder/'source.video'
     with timings.measure('sourceVerification'):
@@ -304,14 +324,7 @@ def process(folder):
     progress(folder,90,'Restoring original framing and audio')
     final=result/'final.part.mp4'
     with timings.measure('finalEncoding'):
-        subprocess.run(['ffmpeg','-v','error','-nostdin','-y','-threads',str(threads),'-i',str(result/'working.mkv'),'-i',str(source),'-map','0:v:0','-map','1:a:0?',
-            '-vf',export_filter(g,target),'-r',expected['fps'],'-fps_mode','cfr','-frames:v',str(expected['frames']),'-c:v','libx264','-crf','16','-preset','medium','-threads',str(threads),'-pix_fmt','yuv420p','-c:a','copy','-movflags','+faststart',str(final)],check=True)
-    if info(final)!={**expected,'width':target['outputWidth'],'height':target['outputHeight']}:raise ValueError('Final upscale timing or geometry failed verification.')
-    def audio_hash(file):
-        p=subprocess.run(['ffmpeg','-v','error','-i',str(file),'-map','0:a:0?','-c:a','copy','-f','data','-'],capture_output=True)
-        if p.returncode and b'does not contain any stream'not in p.stderr:raise ValueError('Could not verify copied audio.')
-        return hashlib.sha256(p.stdout).hexdigest()
-    if audio_hash(source)!=audio_hash(final):raise ValueError('Original audio failed verification.')
+        export_final(result/'working.mkv',source,final,expected,g,target,threads=threads)
     if sha(source)!=request['sourceSHA256']:raise ValueError('Source changed during upscaling.')
     final.replace(result/'final.mp4')
     receipt={'complete':True,'request':signature,'outputSHA256':sha(result/'final.mp4'),'frames':expected['frames'],'fps':expected['fps'],

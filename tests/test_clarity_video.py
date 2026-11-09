@@ -11,7 +11,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 from clarity_video import ClarityVideoWriter
-from upscale_worker import info, validate_source, profile_hash
+from upscale_worker import info, validate_source, profile_hash, export_final
 
 
 class ClarityMediaTests(unittest.TestCase):
@@ -72,6 +72,35 @@ class ClarityMediaTests(unittest.TestCase):
         def audio(file):
             return subprocess.check_output(['ffmpeg', '-v', 'error', '-i', str(file), '-map', '0:a:0', '-c:a', 'copy', '-f', 'data', '-'])
         self.assertEqual(audio(source), audio(final))
+
+    def test_final_export_drains_audio_after_the_last_video_frame(self):
+        # The reported failure has 345 frames and an AAC packet containing only
+        # 82 remaining samples. A video frame limit can drop that whole packet.
+        source = self.encode('tail.mp4', '-f', 'lavfi', '-i', 'testsrc2=s=64x96:r=24:d=14.375',
+                             '-f', 'lavfi', '-i', 'sine=r=44100:d=14.375', '-c:v', 'libx264', '-c:a', 'aac')
+        final = self.root / 'tail-export.mp4'
+        geometry = dict(outputWidth=64, outputHeight=96)
+        target = dict(outputWidth=128, outputHeight=192)
+        export_final(source, source, final, dict(frames=345, fps='24'), geometry, target)
+        self.assertEqual(info(final), dict(width=128, height=192, frames=345, fps='24'))
+
+        def packets(file):
+            return json.loads(subprocess.check_output(['ffprobe', '-v', 'error', '-select_streams', 'a:0',
+                '-show_packets', '-show_data_hash', 'sha256', '-show_entries',
+                'packet=pts,dts,duration,data_hash:packet_side_data', '-of', 'json', str(file)]))['packets']
+        original = packets(source)
+        self.assertEqual(original[-1]['duration'], 82)
+        self.assertEqual(packets(final), original)
+
+    def test_final_export_keeps_fractional_rate_and_rejects_wrong_frame_count(self):
+        source = self.encode('fractional.mkv', '-f', 'lavfi', '-i', 'testsrc2=s=64x96:r=30000/1001',
+                             '-frames:v', '7', '-c:v', 'ffv1')
+        geometry = dict(outputWidth=64, outputHeight=96)
+        final = self.root / 'fractional-export.mp4'
+        export_final(source, source, final, dict(frames=7, fps='30000/1001'), geometry, geometry)
+        self.assertEqual(info(final), dict(width=64, height=96, frames=7, fps='30000/1001'))
+        with self.assertRaisesRegex(ValueError, 'timing or geometry'):
+            export_final(source, source, final, dict(frames=8, fps='30000/1001'), geometry, geometry)
 
     def test_runtime_fingerprint_and_minimal_model_manifest(self):
         root = Path(__file__).resolve().parents[1]
