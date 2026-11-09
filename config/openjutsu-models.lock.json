@@ -1,5 +1,5 @@
 {
-  "total_bytes": 51347644672,
+  "total_bytes": 51502755464,
   "files": [
     {
       "repo": "Comfy-Org/MiniMax-H3",
@@ -45,6 +45,15 @@
       "size": 184840504,
       "sha256": "7512973749c3658e0fa2b398b5810dfc8666a32aba6262cf689d407e297076da",
       "license": "BFS Motion Transfer Community License 1.0; local/internal media creation allowed, hosted model services prohibited; base/merged training-adapter terms also apply"
+    },
+    {
+      "repo": "akatz-ai/MiniMax-H3-Character-Swap-LoRA",
+      "revision": "96ea3407b230b6f7df71c58c70e31df96bd7e533",
+      "filename": "h3_character_swap_v1.5.safetensors",
+      "destination": "loras/h3_character_swap_v1.5.safetensors",
+      "size": 155110792,
+      "sha256": "8f2c3c3eba161df8d0c6099598b4730f641f5ce01e04cd16d2427cff8a35218f",
+      "license": "MiniMax H3 Community License Agreement; upstream NOTICE and base-model terms apply"
     }
   ],
   "shared": [

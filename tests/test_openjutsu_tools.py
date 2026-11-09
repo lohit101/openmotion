@@ -150,7 +150,8 @@ class OpenJutsuToolsTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         config = json.loads((root / 'config/openjutsu-models.lock.json').read_text())
         optional = 'loras/minimax_h3_motion_transfer_v1.0_ref2va.safetensors'
-        selected = [f['destination'] for f in config['files'] if f['destination'] != optional] + config['shared']
+        character = 'loras/h3_character_swap_v1.5.safetensors'
+        selected = [f['destination'] for f in config['files'] if f['destination'] not in [optional, character]] + config['shared']
         files = selected_manifest(selected)['files']
         self.assertEqual(len(files), 7)
         self.assertEqual(len({f['destination'] for f in files}), 7)
@@ -162,6 +163,11 @@ class OpenJutsuToolsTests(unittest.TestCase):
         self.assertEqual(sum(f['size'] for f in candidate), 51347644672)
         self.assertEqual(next(f['sha256'] for f in candidate if f['destination'] == optional),
                          '7512973749c3658e0fa2b398b5810dfc8666a32aba6262cf689d407e297076da')
+        combined = selected_manifest(selected + [optional, character])['files']
+        self.assertEqual(len(combined), 9)
+        self.assertEqual(sum(f['size'] for f in combined), 51502755464)
+        self.assertEqual(next(f['sha256'] for f in combined if f['destination'] == character),
+                         '8f2c3c3eba161df8d0c6099598b4730f641f5ce01e04cd16d2427cff8a35218f')
 
 
 if __name__ == '__main__': unittest.main()

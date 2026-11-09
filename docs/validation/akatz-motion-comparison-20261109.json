@@ -1,0 +1,134 @@
+{
+  "version": "akatz-motion-comparison-preparation-v1",
+  "date": "2026-11-09",
+  "branch": "feat/akatz-motion-comparison",
+  "status": "Offline optional integration and matched-request preparation; no live activation or GPU work.",
+  "adapter": {
+    "repo": "akatz-ai/MiniMax-H3-Character-Swap-LoRA",
+    "revision": "96ea3407b230b6f7df71c58c70e31df96bd7e533",
+    "filename": "h3_character_swap_v1.5.safetensors",
+    "bytes": 155110792,
+    "publisherLFSSHA256": "8f2c3c3eba161df8d0c6099598b4730f641f5ce01e04cd16d2427cff8a35218f",
+    "releaseSummaryMatchesMetadata": true,
+    "weightsDownloaded": 0,
+    "rank": 16
+  },
+  "prepared": {
+    "singlePassArms": [
+      "motion-control",
+      "combined035",
+      "combined065",
+      "combined100",
+      "akatz-only"
+    ],
+    "paidBaselineReused": true,
+    "additionalSinglePassJobs": 4,
+    "conditionalOrders": [
+      "character-swap then motion/background",
+      "motion/background then character-swap"
+    ],
+    "additionalJobsForBothOrders": 3,
+    "nativeFrames": 73,
+    "secondStageRequiresVerifiedCompletedDerivative": true,
+    "newReferenceSheets": false
+  },
+  "controls": {
+    "currentRecipe": "Ref2VA INT8/currentDMAD/sixEuler-simple steps/same aligned guide, prompt templates, source/photo, seed and native dimensions",
+    "publisherRecipeNotReproduced": true,
+    "normalSelectedFiles": 7,
+    "defaultChanged": false,
+    "prodv1Unchanged": true,
+    "newRuntimePackages": 0,
+    "additionalAutomaticDownloads": 0
+  },
+  "validation": {
+    "studioTestsPassed": 57,
+    "pythonTestsPassed": 25,
+    "typecheck": true,
+    "isolatedServerBuild": true,
+    "isolatedFrontendBuild": true,
+    "savedRegistryPreflight": {
+      "schemaSource": "Saved same-host node registry; candidate filename allowlisted only for offline structural validation, not installed/readiness evidence",
+      "arms": [
+        {
+          "name": "motion-control",
+          "graphSHA256": "93a3618aefc4f3e307c2551e06a625107484defde405f8eb0d2710f8ce2a0d0d",
+          "issues": []
+        },
+        {
+          "name": "combined035",
+          "graphSHA256": "03843f501442485a8cb6d6bb1e07e9ee81711b44e03ba197cd848c6424298cad",
+          "issues": []
+        },
+        {
+          "name": "combined065",
+          "graphSHA256": "8218c4e98b1887abfff2f191f97a95bcdff354c273686a12b734fe5e02217169",
+          "issues": []
+        },
+        {
+          "name": "combined100",
+          "graphSHA256": "9b4a1ef0b75e4ee90d9451dd1a8d0ba386aec8cd8230190056954e926cfb7c0b",
+          "issues": []
+        },
+        {
+          "name": "akatz-only",
+          "graphSHA256": "926c1babf2c317db7a976108a07bf4c3c76b89d7721b7dbf121b515416a74556",
+          "issues": []
+        },
+        {
+          "name": "sequence-template-0",
+          "graphSHA256": "1742182b88f24972d022caea2812e68abb91f93c00d81780026406fd80dc3db3",
+          "issues": [],
+          "executionRequiresVerifiedDerivative": false
+        },
+        {
+          "name": "sequence-template-1",
+          "graphSHA256": "3665f44114390ac7b10ad8226ff093cc16ce509dcc4947c405613d7e339f316f",
+          "issues": [],
+          "executionRequiresVerifiedDerivative": true
+        },
+        {
+          "name": "sequence-template-2",
+          "graphSHA256": "2092228db5b85a74d51e89469751adc8e50247a8213818606c99a499513f30e4",
+          "issues": [],
+          "executionRequiresVerifiedDerivative": true
+        }
+      ],
+      "checkpoint": {
+        "remotion": {
+          "actual": "89e2831e15ba89100259ceaca9432ebdfbff10c611c40e6f99c417a24bfaab53",
+          "expected": "89e2831e15ba89100259ceaca9432ebdfbff10c611c40e6f99c417a24bfaab53",
+          "matches": true
+        },
+        "fixFaces": {
+          "actual": "d61209cd31a4e01aa7f035399db3b365df738e9de986863d958a76d8d2a0ecce",
+          "expected": "d61209cd31a4e01aa7f035399db3b365df738e9de986863d958a76d8d2a0ecce",
+          "matches": true
+        }
+      }
+    },
+    "gitDiffCheck": true
+  },
+  "gpuActions": {
+    "resume": 0,
+    "rental": 0,
+    "remoteInstall": 0,
+    "modelDownload": 0,
+    "inference": 0,
+    "observerArmed": false,
+    "serverReload": false,
+    "frontendDeployment": false
+  },
+  "budget": {
+    "previous20CentAllowanceClosed": true,
+    "additionalProposedCapUSD": 0.15,
+    "newPaidAuthorizationReceived": false
+  },
+  "limitations": [
+    "Only model-family/schema compatibility established, not actual weight merging or video quality",
+    "Current guide/sampler differs from the publisher-tested recipe",
+    "Combining task adapters may degrade motion or identity",
+    "Two passes can compound errors and add generation time",
+    "No production, identity, occlusion or long-continuation quality pass"
+  ]
+}

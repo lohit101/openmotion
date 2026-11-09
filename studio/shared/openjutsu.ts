@@ -24,8 +24,9 @@ export const openjutsuSettingsSchema = z.object({
   .refine(s => !s.interactionGuide || s.referenceScene && !s.noLipSync && !s.sourceFaceGuide, 'Interaction comparisons need Character image scene, audio enabled and the original facial guide.');
 export type OpenjutsuSettings = z.infer<typeof openjutsuSettingsSchema>;
 export const INTERACTION_MOTION_LORA = 'minimax_h3_motion_transfer_v1.0_ref2va.safetensors';
+export const AKATZ_CHARACTER_LORA = 'h3_character_swap_v1.5.safetensors';
 export function leaveInteractionComparison(settings: OpenjutsuSettings): Partial<OpenjutsuSettings> {
-  return { interactionGuide: undefined, ...(settings.interactionGuide ? { loras: settings.loras.filter(l => l.name !== INTERACTION_MOTION_LORA) } : {}) };
+  return { interactionGuide: undefined, ...(settings.interactionGuide ? { loras: settings.loras.filter(l => l.name !== INTERACTION_MOTION_LORA && l.name !== AKATZ_CHARACTER_LORA) } : {}) };
 }
 export const openjutsuDefaults = openjutsuSettingsSchema.parse(importedPreset.settings);
 export const openjutsuDraftSchema = z.object({ sourceId: z.string().nullable(), referenceId: z.string().nullable(), start: z.number().min(0).default(0), length: z.number().min(0).max(3600).default(0), settings: openjutsuSettingsSchema, outputFPS: outputFPSSchema.default(24) }).strict();
