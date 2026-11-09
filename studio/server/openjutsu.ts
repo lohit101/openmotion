@@ -1,7 +1,7 @@
 import { smoothMotionFiles } from '../shared/smooth-motion';
 import { randomUUID } from 'node:crypto';
 import type { Express } from 'express';
-import { openjutsuDraftSchema, emptyOpenjutsuDraft, openjutsuFaceDraftSchema, emptyOpenjutsuFaceDraft, openjutsuFaceFiles, type OpenjutsuFaceDraft, type OpenjutsuDraft } from '../shared/openjutsu';
+import { openjutsuDraftSchema, emptyOpenjutsuDraft, openjutsuFaceDraftSchema, emptyOpenjutsuFaceDraft, openjutsuFaceFiles, leaveInteractionComparison, type OpenjutsuFaceDraft, type OpenjutsuDraft } from '../shared/openjutsu';
 import { z } from 'zod';
 import { ingest } from './media';
 import { defaults, type Job } from '../shared/types';
@@ -16,7 +16,9 @@ import { validateGraph } from './workflow';
 export async function createOpenjutsuJob(store: Store, connection: ConnectionManager, runner: Runner, models: ModelManager, value: OpenjutsuDraft, key: string, assertIdle: () => void, faceDraft?: OpenjutsuFaceDraft) {
   const prior = store.byKey(key);
   if (prior) { if (!prior.openjutsu || !!prior.openjutsu.face !== !!faceDraft) throw new Error('This request ID belongs to another workflow.'); return prior; }
-  const draft = openjutsuDraftSchema.parse(value), source = store.asset(draft.sourceId || ''), reference = store.asset(draft.referenceId || '');
+  const draft = openjutsuDraftSchema.parse(value);
+  if (faceDraft && draft.settings.interactionGuide) Object.assign(draft.settings, leaveInteractionComparison(draft.settings));
+  const source = store.asset(draft.sourceId || ''), reference = store.asset(draft.referenceId || '');
   if (source?.kind !== 'video' || reference?.kind !== 'image' || reference.maskFor) throw new Error('Add a motion video and a character image.');
   const seconds = draft.length || source.duration - draft.start;
   if (!Number.isFinite(source.duration) || seconds < (faceDraft ? 1 / 24 : 2) || draft.start + seconds > source.duration + 1 / 24) throw new Error(faceDraft ? 'Choose a valid section inside the finished video.' : 'Choose at least two seconds inside the source video.');
@@ -73,7 +75,8 @@ export function registerOpenjutsuRoutes(app: Express, store: Store, connection: 
     if (!parent || parent.deleted || parent.status !== 'completed' || !parent.output || parent.image) return void res.status(400).json({ error: 'Choose a completed video.' });
     const previous = openjutsuFaceDraftSchema.parse(store.value('openjutsu-face-draft', emptyOpenjutsuFaceDraft()));
     const source = previous.parentId === jobId && store.asset(previous.sourceId || '') || await ingest(store, parent.output, 'video', parent.title + '.mp4', true);
-    const draft = openjutsuFaceDraftSchema.parse({ ...previous, sourceId: source.id, referenceId: store.asset(parent.referenceId)?.kind === 'image' ? parent.referenceId : previous.referenceId, parentId: jobId, start: 0, length: 0, settings: parent.openjutsu?.settings || previous.settings, face: parent.openjutsu?.face || previous.face });
+    const settings = parent.openjutsu?.settings || previous.settings;
+    const draft = openjutsuFaceDraftSchema.parse({ ...previous, sourceId: source.id, referenceId: store.asset(parent.referenceId)?.kind === 'image' ? parent.referenceId : previous.referenceId, parentId: jobId, start: 0, length: 0, settings: { ...settings, ...leaveInteractionComparison(settings) }, face: parent.openjutsu?.face || previous.face });
     store.set('openjutsu-face-draft', draft); res.json({ draft, asset: { ...source, path: '', poster: 'ready' } });
   });
   app.post('/api/openjutsu/face/jobs', async (req, res) => {

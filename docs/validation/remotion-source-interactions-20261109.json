@@ -1,0 +1,192 @@
+{
+  "version": "remotion-source-interactions-evaluation-preparation-v1",
+  "date": "2026-11-09",
+  "branch": "feat/remotion-interactions",
+  "status": "Offline implementation/preparation only; GPU comparison and production promotion pending.",
+  "controls": {
+    "prodv1TagUnchanged": true,
+    "prodv1BranchUnchanged": true,
+    "graphHashes": {
+      "remotion": {
+        "actual": "89e2831e15ba89100259ceaca9432ebdfbff10c611c40e6f99c417a24bfaab53",
+        "expected": "89e2831e15ba89100259ceaca9432ebdfbff10c611c40e6f99c417a24bfaab53",
+        "matches": true
+      },
+      "fixFaces": {
+        "actual": "d61209cd31a4e01aa7f035399db3b365df738e9de986863d958a76d8d2a0ecce",
+        "expected": "d61209cd31a4e01aa7f035399db3b365df738e9de986863d958a76d8d2a0ecce",
+        "matches": true
+      }
+    },
+    "allJobsPreserved": 69,
+    "allAssetsPreserved": 66,
+    "protectedSettingsUnchanged": 5,
+    "liveDraftUsesOriginalGuide": true,
+    "normalSelectedDownloadFiles": 7
+  },
+  "profiles": [
+    "reference-interactions-v1",
+    "aligned-interactions-v1"
+  ],
+  "scope": {
+    "oneDiffusionPass": true,
+    "finalSourcePixelComposite": false,
+    "newRuntimePackages": false,
+    "alignedSingleWindowMaxSeconds": 5,
+    "multiAngleReferenceUIAdded": false,
+    "cutsOr360DegreeOrWalkByValidation": false
+  },
+  "optionalAdapter": {
+    "repo": "Alissonerdx/Minimax-H3-ComfyUI",
+    "revision": "64244a4fdf226c8d37b8470d1893b6ba9ab54de1",
+    "destination": "loras/minimax_h3_motion_transfer_v1.0_ref2va.safetensors",
+    "bytes": 184840504,
+    "publisherLFSSHA256": "7512973749c3658e0fa2b398b5810dfc8666a32aba6262cf689d407e297076da",
+    "weightBytesDownloaded": 0,
+    "licensing": "Local/internal media creation allowed; hosted model functionality prohibited; attribution/base/training-adapter terms apply.",
+    "verifiedDocumentBlobs": [
+      {
+        "path": "docs/motion-transfer.md",
+        "gitBlobSHA1": "388d6b8c145557c6489098c95485c71ed5d2fade",
+        "sha256": "d3a9a77cde00c5bd6218a7d969d905035f4c6dc0279b34352599b0e18a4a8c68"
+      },
+      {
+        "path": "docs/vfx-edit.md",
+        "gitBlobSHA1": "9d3b933a84768173c8e66b4c0d172b2e431ea791",
+        "sha256": "a391a7a291f2172eeba4c65981d8e5eef873c552d536cb1d274f12389364de02"
+      },
+      {
+        "path": "LICENSE_MOTION_TRANSFER.md",
+        "gitBlobSHA1": "2afd0a5663dcca20c61b89c71b9c070ecc95ac55",
+        "sha256": "424c5bdb2b987caf674c9d410da9de1e172a5bbd64c3e5881cf7b05ad3c4e914"
+      }
+    ]
+  },
+  "checks": {
+    "focusedStudioTestsPassed": 60,
+    "pythonTestsPassed": 25,
+    "typecheck": true,
+    "isolatedServerBuild": true,
+    "isolatedFrontendBuild": true,
+    "savedNativeSchema": {
+      "schemaSource": "Actual earlier same-host object_info snapshot; not a new live GPU check",
+      "arms": [
+        {
+          "cohort": "arm-crossing",
+          "name": "control",
+          "frames": 73,
+          "graphSHA256": "df3ca55a78039c968b6f8f18dbd5a5f15fd7172c0be9ce031b051eb8478fca2b",
+          "issues": []
+        },
+        {
+          "cohort": "arm-crossing",
+          "name": "complete-reference",
+          "frames": 73,
+          "graphSHA256": "5bbe4d4b103d4261c88b06d2500a3c5d083e661f9f90414ecf8ebfe3d9770901",
+          "issues": []
+        },
+        {
+          "cohort": "arm-crossing",
+          "name": "aligned-control",
+          "frames": 73,
+          "graphSHA256": "7ee8ce7ef2eaac6e27447b20450612b29b33294da73b2ea338640ec964747e4d",
+          "issues": []
+        },
+        {
+          "cohort": "arm-crossing",
+          "name": "aligned-motion-lora",
+          "frames": 73,
+          "graphSHA256": "dbb477595275c51208cfbf1c80031d5c52aa1fbfd9bdd3c7dd04d5169b9af2f0",
+          "issues": []
+        },
+        {
+          "cohort": "face-contact",
+          "name": "control",
+          "frames": 107,
+          "graphSHA256": "9da15e7b5537e5755361f241ce46879016acdc5a9038c5bb74d9c603a93b287c",
+          "issues": []
+        },
+        {
+          "cohort": "face-contact",
+          "name": "complete-reference",
+          "frames": 107,
+          "graphSHA256": "a49e6031ae9dc870c99b221e2554326bd80d000268d27c40eaf18f1a0c4f7c9b",
+          "issues": []
+        },
+        {
+          "cohort": "face-contact",
+          "name": "aligned-control",
+          "frames": 107,
+          "graphSHA256": "577430e4eae4ecddcd51ff2feeadadc00cce77d423c5b59fdd6c0221c32db58b",
+          "issues": []
+        },
+        {
+          "cohort": "face-contact",
+          "name": "aligned-motion-lora",
+          "frames": 107,
+          "graphSHA256": "32c1f684775035ac429036f58f798cdaec5594d960f43ded69a9835b43a77e9f",
+          "issues": []
+        }
+      ],
+      "checkpoint": {
+        "remotion": {
+          "actual": "89e2831e15ba89100259ceaca9432ebdfbff10c611c40e6f99c417a24bfaab53",
+          "expected": "89e2831e15ba89100259ceaca9432ebdfbff10c611c40e6f99c417a24bfaab53",
+          "matches": true
+        },
+        "fixFaces": {
+          "actual": "d61209cd31a4e01aa7f035399db3b365df738e9de986863d958a76d8d2a0ecce",
+          "expected": "d61209cd31a4e01aa7f035399db3b365df738e9de986863d958a76d8d2a0ecce",
+          "matches": true
+        }
+      }
+    },
+    "cpuInterfaceProbe": {
+      "checks": {
+        "native_constants_loaded": true,
+        "source_guide_crops_only_native_tail": true,
+        "temporal_marker_preserved": true,
+        "incoming_green_region_reaches_encoder": true,
+        "blue_region_reaches_encoder": true,
+        "source_colour_is_not_neutralized": true,
+        "audio_bounded_to_same_target_clock": true,
+        "existing_reference_metadata_retained": true,
+        "original_conditioning_immutable": true,
+        "guide_anchors_at_zero": true,
+        "target_not_overwritten": true,
+        "out_of_bounds_refused": true,
+        "overlong_guide_refused": true
+      },
+      "nativeSourceSHA256": "75514fe9093c589da231938287ef0ceeb2dcf31179143a1de9a269fb2f7bb626",
+      "torch": "2.11.0",
+      "scope": "Actual pinned AddGuide execution, native frame constants, synthetic pixel/time markers. VAE/audio encoder and same-size resize/conditioning interfaces substituted. No learned inference, real hand segmentation, compositor, identity, CUDA speed or temporal video-quality pass."
+    },
+    "gitDiffCheck": true
+  },
+  "execution": {
+    "preparedCohorts": 2,
+    "preparedArmsPerCohort": 4,
+    "expectedFramesPerCohort": [
+      73,
+      107
+    ],
+    "newJobs": 0,
+    "GPUInference": 0,
+    "GPUResume": 0,
+    "rental": 0,
+    "modelDownloads": 0,
+    "remoteInstalls": 0,
+    "controllersArmed": 0,
+    "providerConfirmedStoppedAt": "2026-11-09T10:05:24.277Z",
+    "normalFiveMinuteIdleEnabled": true,
+    "candidateBackendDeployed": false,
+    "liveServerRestarted": false
+  },
+  "buildIncident": {
+    "defaultFrontendDirectoryBrieflyRebuilt": true,
+    "previousSavedFrontendRestoredAndHTTPVerified": true,
+    "jobsAssetsSettingsUnchanged": true,
+    "subsequentBuildsIsolated": true
+  },
+  "quality": "Guide delivery/schema/interface checks do not establish generated identity, hand protection, temporal fidelity, GPU speed or general video quality. No default promoted."
+}

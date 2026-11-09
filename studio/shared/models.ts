@@ -92,6 +92,7 @@ export function presetModelFiles(preset: Settings['preset'], mode: Settings['mod
 }
 
 const descriptions: Record<string, [string, string, 'core' | 'adapter' | 'feature']> = {
+  'minimax_h3_motion_transfer_v1.0_ref2va.safetensors': ['Motion Transfer · experimental', 'Full-performance interaction comparison; includes training adapter V2. No hosted model service.', 'adapter'],
   'rife_v4.25.safetensors': ['RIFE · Smooth Motion', 'Creates intermediate frames for 30, 48 or 60fps exports. Separate from video generation.', 'feature'],
   'codeformer.onnx': ['Eye detail restoration · beta', 'Optional 35% eye-interior restoration after calibrated facial finishing. Does not repaint hair, body or scene.', 'feature'],
   'face_landmarker.task': ['Source eye-position observer · beta', 'Optional bounded source-driven eye placement using the replacement character’s own pixels. Runs on the managed host CPU.', 'feature'],

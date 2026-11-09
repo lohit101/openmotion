@@ -149,11 +149,19 @@ class OpenJutsuToolsTests(unittest.TestCase):
         from model_manifest import selected_manifest
         root = Path(__file__).resolve().parents[1]
         config = json.loads((root / 'config/openjutsu-models.lock.json').read_text())
-        selected = [f['destination'] for f in config['files']] + config['shared']
+        optional = 'loras/minimax_h3_motion_transfer_v1.0_ref2va.safetensors'
+        selected = [f['destination'] for f in config['files'] if f['destination'] != optional] + config['shared']
         files = selected_manifest(selected)['files']
         self.assertEqual(len(files), 7)
         self.assertEqual(len({f['destination'] for f in files}), 7)
         self.assertEqual(sum(f['size'] for f in files), 51162804168)
+        # The experimental task adapter is available only when selected. It
+        # cannot inflate the user's existing seven-file Remotion download.
+        candidate = selected_manifest(selected + [optional])['files']
+        self.assertEqual(len(candidate), 8)
+        self.assertEqual(sum(f['size'] for f in candidate), 51347644672)
+        self.assertEqual(next(f['sha256'] for f in candidate if f['destination'] == optional),
+                         '7512973749c3658e0fa2b398b5810dfc8666a32aba6262cf689d407e297076da')
 
 
 if __name__ == '__main__': unittest.main()

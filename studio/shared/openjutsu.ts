@@ -19,8 +19,14 @@ export const openjutsuSettingsSchema = z.object({
   // API-only evaluation until a matched video comparison qualifies it. Absent
   // on historical drafts/runs; selection does not provision any new files.
   sourceFaceGuide: z.enum(['source-face-guide-v1', 'source-face-detail-v1']).optional(),
-}).strict().refine(s => !s.sourceFaceGuide || !s.noLipSync, 'Source facial guidance keeps audio enabled; disable No lip-sync for this comparison.');
+  interactionGuide: z.enum(['reference-interactions-v1', 'aligned-interactions-v1']).optional(),
+}).strict().refine(s => !s.sourceFaceGuide || !s.noLipSync, 'Source facial guidance keeps audio enabled; disable No lip-sync for this comparison.')
+  .refine(s => !s.interactionGuide || s.referenceScene && !s.noLipSync && !s.sourceFaceGuide, 'Interaction comparisons need Character image scene, audio enabled and the original facial guide.');
 export type OpenjutsuSettings = z.infer<typeof openjutsuSettingsSchema>;
+export const INTERACTION_MOTION_LORA = 'minimax_h3_motion_transfer_v1.0_ref2va.safetensors';
+export function leaveInteractionComparison(settings: OpenjutsuSettings): Partial<OpenjutsuSettings> {
+  return { interactionGuide: undefined, ...(settings.interactionGuide ? { loras: settings.loras.filter(l => l.name !== INTERACTION_MOTION_LORA) } : {}) };
+}
 export const openjutsuDefaults = openjutsuSettingsSchema.parse(importedPreset.settings);
 export const openjutsuDraftSchema = z.object({ sourceId: z.string().nullable(), referenceId: z.string().nullable(), start: z.number().min(0).default(0), length: z.number().min(0).max(3600).default(0), settings: openjutsuSettingsSchema, outputFPS: outputFPSSchema.default(24) }).strict();
 export type OpenjutsuDraft = z.infer<typeof openjutsuDraftSchema>;
@@ -37,7 +43,7 @@ export function openjutsuFiles(s: OpenjutsuSettings): string[] {
     'vae/' + s.videoVae, 'vae/' + s.audioVae, 'checkpoints/sam3.1_multiplex_fp16.safetensors', ...s.loras.filter(l => l.enabled !== false && l.strength !== 0).map(l => 'loras/' + l.name)])];
 }
 export function openjutsuFaceFiles(s: OpenjutsuSettings): string[] {
-  return [...openjutsuFiles(s).filter(id => !id.startsWith('checkpoints/')), ...faceManifest.files.map((file: { destination: string }) => file.destination)];
+  return [...openjutsuFiles({ ...s, ...leaveInteractionComparison(s) }).filter(id => !id.startsWith('checkpoints/')), ...faceManifest.files.map((file: { destination: string }) => file.destination)];
 }
 export function openjutsuFaceDraftForJob(job: import('./types').Job): OpenjutsuFaceDraft {
   if (!job.openjutsu?.face) throw new Error('This is not a Fix Faces result.');

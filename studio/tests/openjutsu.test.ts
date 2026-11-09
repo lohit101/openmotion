@@ -105,6 +105,19 @@ for (const sourceFaceGuide of ['source-face-guide-v1', 'source-face-detail-v1'] 
   expect(JSON.stringify([store!.draft(), store!.imageDraft()])).toBe(before);
   expect(f.client.json).not.toHaveBeenCalledWith('/prompt');
 });
+for (const interactionGuide of ['reference-interactions-v1', 'aligned-interactions-v1'] as const) it('freezes an explicit interaction comparison without editing saved drafts or submitting: ' + interactionGuide, async () => {
+  const f = await fixture(), before = JSON.stringify([store!.draft(), store!.imageDraft()]);
+  f.draft.length = 5; f.draft.settings.referenceScene = true; f.draft.settings.clipSeconds = 5;
+  f.draft.settings.interactionGuide = interactionGuide;
+  Object.assign(f.catalog, catalogFor(compileOpenjutsu(f.draft.settings, { start: 0, length: 5 })));
+  const job = await f.create();
+  expect(job.openjutsu?.settings.interactionGuide).toBe(interactionGuide);
+  expect(job.workflow?.['57'].inputs.latent).toEqual(['30', 1]);
+  expect(job.workflow?.['30'].inputs['ref_videos.ref_video_0']).toEqual(interactionGuide === 'reference-interactions-v1' ? ['34', 0] : undefined);
+  expect(job.openjutsu?.settings.loras).toEqual(openjutsuDefaults.loras);
+  expect(JSON.stringify([store!.draft(), store!.imageDraft()])).toBe(before);
+  expect(f.client.json).not.toHaveBeenCalledWith('/prompt');
+});
 it('persists a successful native receipt and finishes a failed download without submitting again', async () => {
   const f = await fixture(), job = await f.create(), native = path.join(folder, 'fixture.mp4');
   await command('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=c=blue:size=64x96:rate=24', '-frames:v', '5', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', native]);

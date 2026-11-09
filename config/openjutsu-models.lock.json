@@ -1,5 +1,5 @@
 {
-  "total_bytes": 51162804168,
+  "total_bytes": 51347644672,
   "files": [
     {
       "repo": "Comfy-Org/MiniMax-H3",
@@ -36,6 +36,15 @@
       "size": 366647000,
       "sha256": "ddfdd94f4c9a0f32bf3649bb8e98ca20db572e4db6bcd9cca546a5b33ea32d11",
       "license": "See upstream model terms"
+    },
+    {
+      "repo": "Alissonerdx/Minimax-H3-ComfyUI",
+      "revision": "64244a4fdf226c8d37b8470d1893b6ba9ab54de1",
+      "filename": "loras/minimax_h3_motion_transfer_v1.0_ref2va.safetensors",
+      "destination": "loras/minimax_h3_motion_transfer_v1.0_ref2va.safetensors",
+      "size": 184840504,
+      "sha256": "7512973749c3658e0fa2b398b5810dfc8666a32aba6262cf689d407e297076da",
+      "license": "BFS Motion Transfer Community License 1.0; local/internal media creation allowed, hosted model services prohibited; base/merged training-adapter terms also apply"
     }
   ],
   "shared": [
