@@ -15,6 +15,10 @@
 .oj-inputs .select-trigger { width: 100%; margin-top: 8px; }
 .oj-inputs .asset-drop { min-height: 160px; }
 .oj-scene-note { color: var(--quiet); font-size: 11px; line-height: 1.7; margin: 10px 0 20px; }
+.oj-interactions { padding: 14px 0; border-block: 1px solid var(--line-soft); margin: 16px 0; }
+.oj-interactions .oj-scene-note { margin-bottom: 0; }
+.oj-interaction-warning { margin-top: 12px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.oj-interaction-warning p { margin: 0 0 10px; }
 .oj-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 16px 0; }
 .oj-fields label, .oj-text-field, .oj-model-field { display: grid; gap: 9px; min-width: 0; font-size: 11px; color: var(--muted); }
 .oj-fields .select-trigger, .oj-model-field .select-trigger { width: 100%; }

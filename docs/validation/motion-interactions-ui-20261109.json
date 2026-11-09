@@ -1,0 +1,38 @@
+{
+  "date": "2026-11-09",
+  "status": "live-frontend-integrated",
+  "profile": "aligned-interactions-v1",
+  "control": "Keep incoming hands & objects",
+  "enabledOnReferenceSceneSelection": true,
+  "existingDraftsNotMigrated": true,
+  "explicitSectionCorrection": true,
+  "maximumSeconds": 5,
+  "taskAdapterStrength": 1,
+  "focusedStudioChecks": 52,
+  "newChecks": 7,
+  "workingAndLiveBuildTypecheck": true,
+  "frontendBuild": true,
+  "frontendHTTPVerified": true,
+  "nativeBrowserInteractionChecked": false,
+  "prodv1": {
+    "remotionSHA256": "89e2831e15ba89100259ceaca9432ebdfbff10c611c40e6f99c417a24bfaab53",
+    "fixFacesSHA256": "d61209cd31a4e01aa7f035399db3b365df738e9de986863d958a76d8d2a0ecce",
+    "matches": true
+  },
+  "deployment": {
+    "frontendOnly": true,
+    "liveBuildBase": "5572992",
+    "terminalJobsUnchanged": 93,
+    "draftsUnchanged": true,
+    "backendProcessUnchanged": true,
+    "otherAppsUnchanged": true,
+    "oldAssetsRetained": true,
+    "connection": "online",
+    "indexSHA256": "af661ebfc9d97f79990c7a1367986185f5ddb275e26c85cd1654ab4713afffc2",
+    "computeActions": 0,
+    "serverRestarts": 0,
+    "newInference": 0,
+    "modelDownloads": 0
+  },
+  "quality": "Reuses the previously tested candidate; does not establish longer continuation, perfect identity or exact foreground preservation."
+}
