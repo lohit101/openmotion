@@ -7,8 +7,8 @@ import { FieldLabel } from './InfoTip';
 import AlertSettings from './AlertSettings';
 import VastAccountSetup from './VastAccountSetup';
 
-export type SettingsTab = 'connection' | 'downloads' | 'extras' | 'alerts';
-const tabs: { id: SettingsTab; label: string }[] = [{ id: 'connection', label: 'Connection' }, { id: 'downloads', label: 'Downloads' }, { id: 'extras', label: 'Extras' }, { id: 'alerts', label: 'Alerts' }];
+export type SettingsTab = 'connection' | 'downloads' | 'alerts';
+const tabs: { id: SettingsTab; label: string }[] = [{ id: 'connection', label: 'Connection' }, { id: 'downloads', label: 'Downloads' }, { id: 'alerts', label: 'Alerts' }];
 
 function ConnectionSettings({ connection, cloud, setCloud, error, browse }: { connection: Connection; cloud: CloudState; setCloud: (state: CloudState) => void; error: (message: string) => void; browse: () => void }) {
   const [endpoint, setEndpoint] = useState(connection.endpoint), [ssh, setSSH] = useState(true);
@@ -40,8 +40,8 @@ function ConnectionSettings({ connection, cloud, setCloud, error, browse }: { co
   </section>;
 }
 
-export default function SettingsWorkspace({ tab, onTabChange, connection, cloud, setCloud, error, browse, models, downloads }: { tab: SettingsTab; onTabChange: (tab: SettingsTab) => void;
-  connection: Connection; cloud: CloudState; setCloud: (state: CloudState) => void; error: (message: string) => void; browse: () => void; models: ReactNode; downloads: ReactNode }) {
+export default function SettingsWorkspace({ tab, onTabChange, connection, cloud, setCloud, error, browse, downloads }: { tab: SettingsTab; onTabChange: (tab: SettingsTab) => void;
+  connection: Connection; cloud: CloudState; setCloud: (state: CloudState) => void; error: (message: string) => void; browse: () => void; downloads: ReactNode }) {
   return <main className="settings-workspace"><div className="settings-inner">
     <header className="settings-heading"><h1>Settings</h1><p>Manage your connection, model files and alerts.</p></header>
     <div className="settings-tabs" role="tablist" aria-label="Settings sections">{tabs.map(item => <button key={item.id} type="button" role="tab" id={`settings-${item.id}-tab`}
@@ -52,7 +52,7 @@ export default function SettingsWorkspace({ tab, onTabChange, connection, cloud,
         onTabChange(next.id); document.getElementById(`settings-${next.id}-tab`)?.focus();
       }}>{item.label}</button>)}</div>
     <div role="tabpanel" id={`settings-${tab}-panel`} aria-labelledby={`settings-${tab}-tab`} tabIndex={0}>
-      {tab === 'alerts' ? <AlertSettings /> : tab === 'extras' ? models : tab === 'downloads' ? downloads : <ConnectionSettings connection={connection} cloud={cloud} setCloud={setCloud} error={error} browse={browse} />}
+      {tab === 'alerts' ? <AlertSettings /> : tab === 'downloads' ? downloads : <ConnectionSettings connection={connection} cloud={cloud} setCloud={setCloud} error={error} browse={browse} />}
     </div>
   </div></main>;
 }

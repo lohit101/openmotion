@@ -1,0 +1,18 @@
+{
+  "date": "2026-11-11",
+  "feature": "Remove duplicate Extras settings tab",
+  "typecheck": true,
+  "isolatedFrontendBuild": true,
+  "serverRestart": false,
+  "allStoredRowsUnchanged": true,
+  "previousAssetsRetained": true,
+  "modelFilesChanged": false,
+  "gpuActions": 0,
+  "htmlSHA256": "2a1215494ea558d2067d5bcb74e5929a7955d9b4103836fd440ca52aa4180df9",
+  "nativeChromeTabs": [
+    "Connection",
+    "Downloads",
+    "Alerts"
+  ],
+  "newTestsAdded": false
+}
