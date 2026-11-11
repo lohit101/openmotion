@@ -14,7 +14,7 @@ import { Store } from '../server/store';
 import type { ConnectionManager } from '../server/comfy';
 
 vi.mock('node:child_process', () => ({ spawn: vi.fn() }));
-const ACTIVE_LORA = 'viggle_animate_dmd_lora.safetensors';
+const ACTIVE_LORA = 'minimax_h3_motion_transfer_v1.0_ref2va.safetensors';
 const ACTIVE_BYTES = pinnedModels.find(file => file.destination === 'loras/' + ACTIVE_LORA)!.size;
 const repo = path.resolve(import.meta.dirname, '../..');
 const template: Graph = JSON.parse(readFileSync(path.join(repo, 'workflows/api/scail2_int8_swap.json'), 'utf8'));
@@ -248,7 +248,7 @@ describe('manual model queue', () => {
   it('rejects an entire model plan before any paid transfer when disk space is insufficient', async () => {
     const { manager, storage, worker } = await fixture();
     storage.mockImplementation(async () => ({ loras: [], freeBytes: 6_000_000_000 }));
-    await expect(manager.start(['diffusion_models/minimax_h3_ref2va_viggle_pruned_int8_convrot.safetensors'])).rejects.toThrow('No new download was started');
+    await expect(manager.start(['diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors'])).rejects.toThrow('No new download was started');
     expect(worker).not.toHaveBeenCalled(); expect(manager.state.busy).toBe(false);
   });
   it('resumes a verified-size partial without demanding the already downloaded space again', async () => {

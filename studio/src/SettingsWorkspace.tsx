@@ -5,11 +5,10 @@ import type { CloudState } from '../shared/cloud';
 import { api, Toggle } from './components';
 import { FieldLabel } from './InfoTip';
 import AlertSettings from './AlertSettings';
-import ProcessingSettings from './ProcessingSettings';
 import VastAccountSetup from './VastAccountSetup';
 
-export type SettingsTab = 'connection' | 'processing' | 'downloads' | 'extras' | 'alerts';
-const tabs: { id: SettingsTab; label: string }[] = [{ id: 'connection', label: 'Connection' }, { id: 'processing', label: 'Processing' }, { id: 'downloads', label: 'Downloads' }, { id: 'extras', label: 'Extras' }, { id: 'alerts', label: 'Alerts' }];
+export type SettingsTab = 'connection' | 'downloads' | 'extras' | 'alerts';
+const tabs: { id: SettingsTab; label: string }[] = [{ id: 'connection', label: 'Connection' }, { id: 'downloads', label: 'Downloads' }, { id: 'extras', label: 'Extras' }, { id: 'alerts', label: 'Alerts' }];
 
 function ConnectionSettings({ connection, cloud, setCloud, error, browse }: { connection: Connection; cloud: CloudState; setCloud: (state: CloudState) => void; error: (message: string) => void; browse: () => void }) {
   const [endpoint, setEndpoint] = useState(connection.endpoint), [ssh, setSSH] = useState(true);
@@ -53,7 +52,7 @@ export default function SettingsWorkspace({ tab, onTabChange, connection, cloud,
         onTabChange(next.id); document.getElementById(`settings-${next.id}-tab`)?.focus();
       }}>{item.label}</button>)}</div>
     <div role="tabpanel" id={`settings-${tab}-panel`} aria-labelledby={`settings-${tab}-tab`} tabIndex={0}>
-      {tab === 'processing' ? <ProcessingSettings /> : tab === 'alerts' ? <AlertSettings /> : tab === 'extras' ? models : tab === 'downloads' ? downloads : <ConnectionSettings connection={connection} cloud={cloud} setCloud={setCloud} error={error} browse={browse} />}
+      {tab === 'alerts' ? <AlertSettings /> : tab === 'extras' ? models : tab === 'downloads' ? downloads : <ConnectionSettings connection={connection} cloud={cloud} setCloud={setCloud} error={error} browse={browse} />}
     </div>
   </div></main>;
 }

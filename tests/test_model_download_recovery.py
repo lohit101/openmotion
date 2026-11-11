@@ -35,7 +35,7 @@ class DownloadRecoveryTests(unittest.TestCase):
                 self.wfile.write(body[offset:])
             def log_message(self,*_args):pass
         self.server=ThreadingHTTPServer(('127.0.0.1',0),Handler);self.thread=threading.Thread(target=self.server.serve_forever,daemon=True);self.thread.start()
-        self.item={'destination':'loras/test.safetensors','filename':'test.safetensors','size':len(body),'sha256':hashlib.sha256(body).hexdigest(),'url':f'http://127.0.0.1:{self.server.server_port}/data'}
+        self.item={'destination':'loras/minimax_h3_motion_transfer_v1.0_ref2va.safetensors','filename':'test.safetensors','size':len(body),'sha256':hashlib.sha256(body).hexdigest(),'url':f'http://127.0.0.1:{self.server.server_port}/data'}
         self.manifest={'files':[self.item],'total_bytes':len(body)};self.key=worker.key_for(self.manifest)
         self.folder=self.root/'state/model-downloads'/self.key;self.folder.mkdir(parents=True)
         worker.atomic(self.folder/'manifest.json',self.manifest)
@@ -171,7 +171,8 @@ class DownloadRecoveryTests(unittest.TestCase):
     def test_cli_batch_selection_keeps_individual_transfer_identities(self):
         import managed_models
         from model_manifest import selected_manifest
-        ids=[item['destination']for item in selected_manifest()['files'][:2]]
+        from active_model_manifest import download_manifest
+        ids=[item['destination']for item in download_manifest()['files'][:2]]
         config={'instance_id':123,'local_port':8188,'remote_root':'/workspace/character-swap'}
         with patch.object(sys,'argv',['managed_models.py','--instance-id','123','--model-files',json.dumps(ids)]),patch.object(managed_models.vast,'load',return_value=config),patch.object(managed,'transfer',return_value=True)as transfer,patch.object(managed_models,'register_download_paths'):
             managed_models.main()

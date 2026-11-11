@@ -1,0 +1,180 @@
+{
+  "date": "2026-11-11",
+  "checkpoint": {
+    "tag": "prodv2",
+    "commit": "af25d146d2f24a2cfde8d347f46b7b86218facab",
+    "unchanged": true
+  },
+  "modules": {
+    "renamed": "Image Edit \u2192 Imagen",
+    "removed": [
+      "old Imagen",
+      "Characters",
+      "custom FaceFusion/ONNX refinement"
+    ],
+    "retained": [
+      "Remotion",
+      "OpenJutsu Fix Faces",
+      "Smooth Motion",
+      "Clarity",
+      "Clip editor",
+      "Library",
+      "GPU cloud",
+      "Settings"
+    ]
+  },
+  "downloads": {
+    "active": 22,
+    "activeBytes": 68383860897,
+    "retired": 41,
+    "policy": "config/active-models.json",
+    "automaticDeletion": false,
+    "historicalTransportBytesPreserved": true,
+    "standaloneEntry": "scripts/download_active_models.py"
+  },
+  "faceAudit": {
+    "jobs": 119,
+    "lastThreeCompleted": [
+      {
+        "id": "3aa88b57-959c-45f7-ad90-bf8e85429546",
+        "createdAt": "2026-11-11T10:48:53.698Z",
+        "nativeVersion": null,
+        "onnxRefinement": false,
+        "legacyFacialConsistency": false,
+        "sha256": "e127658f316c1dc594766c7159d05c99d084465f1cf3398f7fbd5be0b0ca6c73"
+      },
+      {
+        "id": "174f3e0e-7abc-4944-836d-47deb890394a",
+        "createdAt": "2026-11-11T10:41:47.011Z",
+        "nativeVersion": "openjutsu-simple-v1",
+        "onnxRefinement": false,
+        "legacyFacialConsistency": false,
+        "sha256": "29d7c79deb9c4097ea5a7e2c88520c1bcf454420fa42180c035cad42e1e89108"
+      },
+      {
+        "id": "4a364abf-c9d4-4fd2-bd5f-a6ea8539615a",
+        "createdAt": "2026-11-11T10:38:35.554Z",
+        "nativeVersion": "openjutsu-simple-v1",
+        "onnxRefinement": false,
+        "legacyFacialConsistency": false,
+        "sha256": "ce44a32c4f13daa39e4a7e8eddcdf7ab41adeaa56f4113dc24c7efd742d7d980"
+      }
+    ],
+    "latestAfterUserFixFaces": [
+      {
+        "id": "1105b5d3-f582-4d16-a294-1ecb3ac98f66",
+        "createdAt": "2026-11-11T11:00:15.792Z",
+        "nativeVersion": null,
+        "customFaceFusion": false,
+        "legacyFacialConsistency": false
+      },
+      {
+        "id": "3aa88b57-959c-45f7-ad90-bf8e85429546",
+        "createdAt": "2026-11-11T10:48:53.698Z",
+        "nativeVersion": null,
+        "customFaceFusion": false,
+        "legacyFacialConsistency": false
+      },
+      {
+        "id": "174f3e0e-7abc-4944-836d-47deb890394a",
+        "createdAt": "2026-11-11T10:41:47.011Z",
+        "nativeVersion": "openjutsu-simple-v1",
+        "customFaceFusion": false,
+        "legacyFacialConsistency": false
+      }
+    ],
+    "nativeFixFacesONNXKept": true
+  },
+  "validation": {
+    "studio": {
+      "passed": 750,
+      "files": 63
+    },
+    "python": {
+      "passed": 59
+    },
+    "focusedStudio": 129,
+    "typecheck": "pass",
+    "productionBuild": "pass",
+    "unchangedSources": [
+      {
+        "path": "studio/shared/openjutsu.ts",
+        "sha256": "6f471dcb3700540d1631630b445bd0a625c0d0a08bcf742cfd7c08ff6fbc9235"
+      },
+      {
+        "path": "studio/server/openjutsu-workflow.ts",
+        "sha256": "05ba87ce5e8ed687649c5e5c9dc66e1ce3a5ed4d7d859903ff0a1e40266e0fc7"
+      },
+      {
+        "path": "studio/server/openjutsu-runner.ts",
+        "sha256": "deb310975c94bde3615a5378f9fedb9bf0ffd26b1408d94e84ac66e3479c2eaf"
+      },
+      {
+        "path": "studio/server/openjutsu.ts",
+        "sha256": "30b7a39f92948da0ecce331bd700d8d8f954748648342ab32fe798c52282a503"
+      },
+      {
+        "path": "studio/src/OpenjutsuWorkspace.tsx",
+        "sha256": "90bcd808812b9edcee0fa5951b9f6830822383978a0ff5589661497d932e74c7"
+      },
+      {
+        "path": "studio/src/PostProcessingWorkspace.tsx",
+        "sha256": "35a35dde05a631986c08f95f97a0d81c1c72333a15de0b483ca14c91de5bbd75"
+      },
+      {
+        "path": "studio/src/ClarityWorkspace.tsx",
+        "sha256": "e00ed3863560a97e1a215d9eab22799a8a8c129ce17d33a808b19259f0590f74"
+      },
+      {
+        "path": "studio/src/ClipEditorWorkspace.tsx",
+        "sha256": "a2f401f7e75df66d4a17107ca06c228dfa8c227bc67dad707b1d1a170e7bd529"
+      },
+      {
+        "path": "studio/shared/image-edit.ts",
+        "sha256": "0f2869382e9c66d939ff74e865462d5a1500962ed06c5649115be2c760ebba47"
+      },
+      {
+        "path": "studio/server/image-edit-workflow.ts",
+        "sha256": "1b5c400f9eccd109bb0940054852d2542ff69b42e83ac7f7fd2e1b92d7b5f7ea"
+      },
+      {
+        "path": "scripts/clarity_video.py",
+        "sha256": "6c9182d61d59bc8447ca6fc0354032f0f9f5680bbf11f508b0c9c1798e0a6438"
+      }
+    ],
+    "nativeUI": "Chrome read-only preview: sidebar, Imagen, Post-processing and Settings",
+    "liveAPI": {
+      "removedRoutes": 410,
+      "retiredDownload": 400,
+      "submittedWork": false
+    }
+  },
+  "rollout": {
+    "oldPID": 72145,
+    "newPID": 38856,
+    "jobsPreserved": 120,
+    "assetsPreserved": 124,
+    "charactersRetainedInStorage": 0,
+    "protectedSettings": [
+      "openjutsu-draft",
+      "draft",
+      "image-draft",
+      "image-edit-draft",
+      "openjutsu-face-draft",
+      "smooth-motion-draft",
+      "gpu-idle-auto-pause"
+    ],
+    "connectionBefore": "offline",
+    "connectionAfter": "offline",
+    "gpuComputeAction": "none",
+    "modelsDownloaded": false,
+    "inferenceSubmitted": false,
+    "backendSHA256": "c97ee156fa952f497368ec6b4af13d9f068fd28be194448fd525976615012e80",
+    "htmlSHA256": "70bd223bb417bae5dfb7d909f9b2591b52a669466caadcb754708b59da6f8d00"
+  },
+  "limitations": [
+    "No GPU inference/quality/speed test needed or performed for this cleanup.",
+    "Existing obsolete weights are retained until explicit user deletion.",
+    "Frozen historical helpers remain for paid-job recovery; they are not exposed as current modules."
+  ]
+}

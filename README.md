@@ -12,13 +12,11 @@ OpenJutsu does not use the old laptop reference-framing runtime. Its launcher an
 
 For a new installation, open **GPU cloud → Set up Vast account**. Enter your own [Vast API key](https://cloud.vast.ai/manage-keys/) and choose **Create or reuse a Recast key**, or select an existing local private-key file. **Verify & save** checks your account without renting compute. The same controls are in **Settings → Connection → Account & SSH keys**. No Vast CLI installation or developer SSH key is required. [First-run setup and credential storage](docs/user-setup.md).
 
-- **Imagen** edits a photo or extracted video frame with native Qwen Image 2.1 INT8/Turbo. The current body-only recipe transfers character appearance while retaining source clothing, accessories, pose and scene. Select one body view and one facial view from a saved character, or use the two-image route. [Recipe, comparisons and remaining limits](docs/imagen-consistency-20261029.md).
-  New Imagen requests explicitly anchor head scale/direction and attached ears/hair to the source frame, with local pose cues and a saved geometry review. The tested update improves head direction and earring attachment; exact scale still needs review. [Head-layout comparison](docs/imagen-head-layout.md).
-- **Image Edit** uses Qwen Image 2.1 INT8 with optional consistency and BFS V1.1 alternative LoRAs, one to three ordered reference images, a direct prompt, native 40-step or eight-step Turbo sampling, aspect/size/seed controls and PNG/JPEG output. The LoRAs default on; existing 2511 runs and their recovery remain intact. [Setup, storage and recovery](docs/image-edit-qwen21.md).
-- **Characters** saves separate body/face sheets and selected views. Each run freezes its character revision and crop coordinates. [Character guide](docs/characters-and-imagen.md).
+- **Imagen** is the prompt-driven Qwen Image 2.1 INT8 editor, with one to three ordered reference images, optional consistency/BFS V1.1 alternative adapters, Native 40-step or Turbo eight-step sampling, aspect/size/seed controls and PNG/JPEG output. It replaces the older Imagen and separate Image Edit entries. [Current modules and download policy](docs/module-cleanup.md), [image workflow](docs/image-edit-qwen21.md).
 - **Clarity** is a separate, experimental video upscaler using FlashVSR+ Turbo. Upload a clip or choose a Library result, then create a 720p/1080p copy. Three optional weights total 7.02 GB; allow 25 GB extra disk for runtime and short-clip working space. Managed GPU quality/speed are not yet benchmarked. [Setup, storage and recovery](docs/clarity-upscaling.md).
 
 - **Remotion** uses OpenJutsu Simple with the general MiniMax H3 INT8 model, six steps, DMAD strength 1 and 512px motion guidance. The imported preset is 480p with source-video scenery; an explicit option takes the scene and outfit from the character image instead. The native video is saved without the old automatic face-finishing passes. [Imported settings, dependencies, recovery and validation](docs/openjutsu-remotion.md).
+- **Post-processing** keeps native OpenJutsu **Fix Faces** and RIFE **Smooth Motion**, including optional output-frame-rate finishing in Remotion. The older custom FaceFusion tool is retired. [Post-processing](docs/post-processing.md).
 - **Historical Viggle videos** retain their saved settings, graphs and recovery. The previous facial-consistency, later-frame and Imagen-boundary recipes are preserved for those runs; they are not added to a new OpenJutsu video.
 - **Library** keeps photos/videos, favourites, trash, search, saved settings and before/after inspection. The local **Clip editor** trims and joins uploaded or Library clips, with a lossless master and playable MP4 preview.
 
@@ -121,7 +119,7 @@ Run these commands on your Mac from this project directory. Python 3 and OpenSSH
 
 The browser address is **http://127.0.0.1:8188**. Traffic goes through SSH to a server listening only on the remote loopback interface. You do not need to expose port 8188 publicly or set up a cloud tunnel.
 
-Setup transfers the runtime packages. This standalone CLI path installs the runtime only. Studio GPU cloud also starts a blank engine. Download only the files for the current settings from Remotion; all LoRAs stay optional. For direct ComfyUI CLI use, request the base bundle on the host with `.venv/bin/python scripts/download_models.py --model-dir models`. Requested downloads resume from partial files and verified weights are reused. Kernel compilation and model staging can also make the first generation slower than later runs. If SSH drops during setup, rerun `setup` after reconnecting.
+Setup transfers the runtime packages. This standalone CLI path installs the runtime only. Studio GPU cloud also starts a blank engine. Download only the files for the current settings from Remotion; all LoRAs stay optional. For direct ComfyUI CLI use, request the current native Remotion bundle on the host with `.venv/bin/python scripts/download_active_models.py --model-dir models`. This entry point rejects retired weights; the older transport script remains only for frozen historical runtimes. Requested downloads resume from partial files and verified weights are reused. Kernel compilation and model staging can also make the first generation slower than later runs. If SSH drops during setup, rerun `setup` after reconnecting.
 
 If port 8188 is already used on your Mac, configure with `--local-port 8190`, then open the resulting address printed by the helper. The private remote port is 18189, separate from the Vast preset's ComfyUI service. If another application occupies that remote port, change `config/server.json` before deploying and reconfigure the local connection. When Vast's supervisor environment is available, this installation registers a private service with automatic restart. Bare CUDA images use an owned background process instead. Logs are saved in `state/comfyui.log`; process recovery checks the exact installation, port and input directory.
 
@@ -194,7 +192,8 @@ SCAIL-2 DPO and LightX2V are already in the main chain. The first GPU comparison
 On the GPU host, from `/workspace/character-swap`, the optional download command is:
 
 ```bash
-.venv/bin/python scripts/download_models.py --manifest config/optional-models.lock.json
+# Retired SCAIL metadata can be inspected; new Studio downloads are disabled.
+.venv/bin/python scripts/download_models.py --manifest config/optional-models.lock.json --list
 ```
 
 Select `wan2.1_SCAIL_2_relight_lora_bf16.safetensors` in slot A afterwards. It uses the same resumable, checksum-verified downloader as the base files.

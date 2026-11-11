@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "files": [
+    "checkpoints/sam3.1_multiplex_fp16.safetensors",
+    "diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+    "diffusion_models/qwen_image_2.1_int8_convrot.safetensors",
+    "frame_interpolation/rife_v4.25.safetensors",
+    "insightface/models/buffalo_l/det_10g.onnx",
+    "insightface/models/buffalo_l/w600k_r50.onnx",
+    "loras/bfs_head_v1.1_alternative_qwen_2.1.safetensors",
+    "loras/minimax_h3_DMAD_4step_full_lora_avg_rank_39_bf16.safetensors",
+    "loras/minimax_h3_motion_transfer_v1.0_ref2va.safetensors",
+    "loras/qwen-image-2.1-consistency.safetensors",
+    "loras/qwen_image_2.1_turbo_lora_avg_rank_178_bf16.safetensors",
+    "sams/sam_vit_b_01ec64.pth",
+    "text_encoders/qwen3vl_32b_minimax_h3_int4_convrot.safetensors",
+    "text_encoders/qwen3vl_8b_int8_convrot.safetensors",
+    "ultralytics/bbox/face_yolov8m.pt",
+    "ultralytics/segm/person_yolov8m-seg.pt",
+    "upscale/flashvsr-plus/TCDecoder.ckpt",
+    "upscale/flashvsr-plus/turbo/dit.safetensors",
+    "upscale/flashvsr-plus/turbo/lq_proj_in.safetensors",
+    "vae/minimax_h3_audio_vae_fp32.safetensors",
+    "vae/minimax_h3_video_vae_int8_convrot.safetensors",
+    "vae/qwen_image_2.1_vae_bf16.safetensors"
+  ]
+}

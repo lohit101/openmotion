@@ -148,7 +148,7 @@ export class ModelManager {
     if(this.disposed||this.recovering||this.work||this.moduleWork||this.preparing)return;
     const pending=this.state.files.filter(f=>transferring(f)||f.remoteActive);
     const module=this.state.moduleSetup;
-    if(module?.activeRuntime?.startsWith('local')&&this.cancelled){
+    if(module?.activeRuntime?.startsWith('local')&&(this.cancelled||['imagen','remotion'].includes(module.module))){
       try{const busy=JSON.parse(await command('python3',[path.join(this.repo,'scripts/prepare_local_models.py'),module.activeRuntime,'--status'],undefined,15000)).preparing===true;if(!busy){delete module.activeRuntime;module.status='cancelled';this.emit();}}catch{/* Keep an unknown local setup protected. */}return;
     }
     if(!this.scopeMatches())return;
@@ -158,7 +158,7 @@ export class ModelManager {
         if(!await this.connection.recoverTransport())return;
       }
       if(!this.scopeMatches())return;
-      if(module?.activeRuntime&&this.cancelled){
+      if(module?.activeRuntime&&(this.cancelled||['imagen','remotion'].includes(module.module))){
         let preparing=true;
         try{
           if(module.activeRuntime==='viggle-tools'){const result=await this.viggleTools(module.instanceId,'status');preparing=result.running||result.unknown||!result.confirmedStopped;}
@@ -187,6 +187,7 @@ export class ModelManager {
     this.emit();
   }
   async prepareModule(plan:ModuleDownloadPlan){
+    if (plan.module === 'imagen' || plan.module === 'remotion') throw new Error('This module has been retired. Use the current Imagen or Remotion workspace.');
     assertDownloadableModelFiles(plan.files);
     if(this.moduleWork){if(this.state.moduleSetup?.key===plan.key)return this.state;throw new Error('Finish or cancel the current module download first.');}
     if(this.state.busy)throw new Error('Finish or check the existing transfers first.');
@@ -208,6 +209,7 @@ export class ModelManager {
   private async runModule(state:ModuleDownloadState,recover:boolean){
     const assertScope=()=>{if(this.cancelled)throw new Error('Module download cancelled. Installed and partial files are kept.');if(!this.scopeMatches()||this.connection.status.state!=='online')throw new Error('Reconnect the original GPU to finish the selected module setup.');};
     try{
+      if (state.module === 'imagen' || state.module === 'remotion') throw new Error('This module has been retired. Installed files are kept; no replacement setup was started.');
       assertScope();await this.start(state.files,recover,true);await this.work;assertScope();
       const missing=state.files.filter(id=>this.state.files.find(f=>f.id===id)?.status!=='installed');
       if(missing.length)throw new Error(this.state.files.find(f=>missing.includes(f.id)&&f.error)?.error||'Some files are not ready. Retry downloads to resume partial files.');

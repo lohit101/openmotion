@@ -1,4 +1,4 @@
-import { IMAGE_IDENTITY, QWEN_HEAD, QWEN_STRUCTURE, isRetiredModel, modelDefinitions, qwenImageModelFiles, type ModelInventory, type ModelsState } from './models';
+import { isRetiredModel, modelDefinitions, type ModelInventory, type ModelsState } from './models';
 import openjutsuModels from '../../config/openjutsu-models.lock.json';
 import localFace from '../../config/local-identity.lock.json';
 import videoFace from '../../config/local-video-identity.lock.json';
@@ -8,26 +8,18 @@ export const deletableModelFile = (id: string) => !/[\\\x00-\x1f\x7f]/.test(id) 
   (modelDefinitions.some(file => file.id === id) || faceStorageFiles.includes(id) || id.startsWith('loras/') && id.endsWith('.safetensors'));
 
 export function modelUsage(id: string): { workflow: string; detail: string }[] {
-  if(id.startsWith('face-refinement/'))return [{workflow:'GPU face refinement',detail:'Separate CUDA Hyperswap pass after video generation; also includes detection and occlusion.'}];
+  if (isRetiredModel(id)) return [{ workflow: 'Retired files', detail: 'Stored for historical runs. New downloads are disabled; delete explicitly to free space.' }];
   const file = modelDefinitions.find(item => item.id === id);
-  if(openjutsuModels.shared.includes(id))return [{ workflow:'Remotion · OpenJutsu',detail:'Shared native motion-transfer component.' }, ...(id.startsWith('text_encoders/')?[{workflow:'Qwen images',detail:'Shared visual encoder.'}]:id.startsWith('vae/')?[{workflow:'Viggle video',detail:'Shared H3 video VAE.'}]:[])];
-  if (file?.engine === 'openjutsu') return [{ workflow: 'Remotion · OpenJutsu', detail: 'Native OpenJutsu motion transfer and optional Fix Faces. Only selected components are required.' }];
-  if (!file) return [{ workflow: 'Custom LoRA', detail: 'LoRA slots; check compatibility with the selected model.' }];
-  if (isRetiredModel(id)) return [{ workflow: 'Retired files', detail: 'SCAIL-2 / Wan · kept for saved runs. New creation and downloads are unavailable.' }];
-  if (file.engine === 'image-edit') return [{ workflow: 'Image Edit · Qwen 2511', detail: 'Separate prompt-driven editor. Only the selected precision and optional Lightning adapter are required.' }];
-  if (file.engine === 'viggle') return [{ workflow: 'Viggle video', detail: 'Remotion · all Viggle quality presets' }];
-  if (file.engine === 'smooth-motion') return [{ workflow: 'Smooth Motion', detail: 'Optional 30/48/60fps finishing, standalone or after Remotion.' }];
-  if (file.engine === 'upscale') return [{ workflow: 'Clarity', detail: 'Optional FlashVSR+ Turbo video upscaling. Separate runtime preparation required.' }];
-  if (file.engine === 'facial') return [{ workflow: 'Remotion facial consistency', detail: 'Standard or Regional expression transfer followed by 60% ONNX identity correction' }];
-  if (id === 'loras/' + IMAGE_IDENTITY) return [{ workflow: 'Klein images', detail: 'Optional separate identity pass' }];
-  if (/flux-2-klein|qwen_3_4b|flux2-vae/.test(file.filename)) return [
-    { workflow: 'Klein images', detail: 'Character and outfit replacement' },
-    { workflow: 'Viggle video', detail: 'Automatic source-frame preparation only' },
+  if (!file) return [{ workflow: 'Custom LoRA', detail: 'Check compatibility with the selected model.' }];
+  if (id === 'text_encoders/qwen3vl_8b_int8_convrot.safetensors') return [
+    { workflow: 'Remotion', detail: 'Native visual description encoder.' },
+    { workflow: 'Imagen', detail: 'Qwen Image 2.1 visual encoder, shared with Remotion.' },
   ];
-  if (id === QWEN_STRUCTURE) return [{ workflow: 'Qwen images', detail: 'Source geometry strength above zero' }];
-  if (file.filename === QWEN_HEAD) return [{ workflow: 'Qwen images', detail: 'Optional separate head identity pass' }];
-  if (file.engine === 'repaint') return [{ workflow: 'Qwen images', detail: file.filename.includes('turbo') ? 'Fast 8-step edits and legacy whole-person swap' : file.filename.includes('body_swap') ? 'Character and complete outfit transfer' : 'Shared by Qwen image replacement recipes' }, ...(qwenImageModelFiles.includes(id) ? [{ workflow: 'Viggle video', detail: 'Remotion · automatic Imagen segment repaints when enabled' }] : [])];
-  return [{ workflow: 'Retired files', detail: 'Kept for saved runs; unavailable for new creation.' }];
+  if (/^(ultralytics|sams|insightface)\//.test(id)) return [{ workflow: 'Fix Faces', detail: 'Native OpenJutsu face detection, tracking and masks.' }];
+  if (file.engine === 'openjutsu' || openjutsuModels.shared.includes(id)) return [{ workflow: 'Remotion', detail: 'Native OpenJutsu motion transfer. Only selected components are required.' }];
+  if (file.engine === 'smooth-motion') return [{ workflow: 'Smooth Motion', detail: 'Optional 30/48/60fps finishing, standalone or after Remotion.' }];
+  if (file.engine === 'upscale') return [{ workflow: 'Clarity', detail: 'FlashVSR+ Turbo video upscaling.' }];
+  return [{ workflow: 'Imagen', detail: file.filename.includes('turbo') ? 'Optional Turbo 8-step adapter.' : file.filename.includes('consistency') ? 'Optional image-consistency adapter.' : file.filename.includes('bfs_head') ? 'Optional BFS V1.1 alternative head-swap adapter.' : 'Qwen Image 2.1 image editing.' }];
 }
 
 export const inventoryKey = (instanceId: number | null, endpoint: string) => instanceId ? `vast:${instanceId}` : `endpoint:${endpoint}`;
@@ -36,7 +28,7 @@ export function downloadRows(state: ModelsState, inventory?: ModelInventory, liv
   const stored = new Map(inventory?.files.filter(file => !/(?:^|\/)nsfw_\d+\./.test(file.id)).map(file => [file.id, file]));
   const ids = new Set([...stored.keys(), ...(live ? state.installedLoras.map(file => 'loras/' + file.name) : [])]);
   const definitions = [...modelDefinitions, ...[...ids].filter(id => !modelDefinitions.some(file => file.id === id)).map(id => ({
-    id, filename: id.replace(/^loras\//, ''), label: id.split('/').at(-1)!, description: id.startsWith('face-refinement/')?'Pinned face-refinement dependency in the isolated GPU runtime. Prepare it beside Refine face in Library. This is not a video-generation LoRA.':'Uploaded custom LoRA', size: stored.get(id)?.size || state.installedLoras.find(file => 'loras/' + file.name === id)?.size || 0,
+    id, filename: id.replace(/^loras\//, ''), label: id.split('/').at(-1)!, description: id.startsWith('face-refinement/')?'Retired face-refinement file retained on disk. Delete explicitly to free space.':'Uploaded custom LoRA', size: stored.get(id)?.size || state.installedLoras.find(file => 'loras/' + file.name === id)?.size || 0,
     group: id.startsWith('face-refinement/')?'core':'adapter', included: false,
   }))];
   return definitions.map(file => {

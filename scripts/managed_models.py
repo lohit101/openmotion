@@ -8,6 +8,7 @@ from pathlib import Path
 
 import vast
 from model_manifest import is_content_filter_weight, selected_manifest
+from active_model_manifest import download_manifest
 
 
 MODEL_PATCH_PATHS = '''
@@ -181,7 +182,10 @@ def main():
         return
     if not args.model_files:
         raise ValueError('Choose model files to download.')
-    manifest = selected_manifest(json.loads(args.model_files))
+    selected = json.loads(args.model_files)
+    # Historical observers can inspect/cancel their exact old transfer. They
+    # cannot start a new retired download, even with a hand-crafted CLI request.
+    manifest = selected_manifest(selected) if args.recover or args.cancel_transfer else download_manifest(selected)
     from managed_model_download import transfer
     for item in manifest['files']:
         if not transfer(config,selected_manifest([item['destination']]),args.recover,args.cancel_transfer):return

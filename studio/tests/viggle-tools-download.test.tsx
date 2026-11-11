@@ -50,44 +50,11 @@ describe('explicit native video-tools preparation', () => {
     expect(plan.runtimes).toEqual(['viggle-tools']); expect(plan.files).toHaveLength(4);
   });
 
-  it('updates only after explicit module download and probes the existing engine without SSH setup', async () => {
-    const f = await fixture(); expect(f.tool).not.toHaveBeenCalled();
-    await manager.prepareModule(plan); await f.until(() => !manager.state.busy);
-    expect(f.tool).toHaveBeenCalledTimes(1); expect(f.tool.mock.calls[0].slice(0, 2)).toEqual([123, 'prepare']);
-    expect(f.connection.connect).toHaveBeenCalledWith('http://127.0.0.1:8188', false);
-    expect(manager.state.viggleToolsReady).toBe(true); expect(manager.state.moduleSetup?.status).toBe('complete');
-    expect(f.worker.mock.calls.flatMap(call => call[3]).sort()).toEqual([...plan.files].sort());
-  });
-
-  it('skips the updater if the actual connected catalog is already capable', async () => {
-    const f = await fixture(true); await manager.prepareModule(plan); await f.until(() => !manager.state.busy);
-    expect(f.tool).not.toHaveBeenCalled(); expect(f.connection.connect).not.toHaveBeenCalled();
-    expect(manager.state.viggleToolsReady).toBe(true);
-  });
-
-  it('reprobes the same running engine after its explicit idle service restart went offline', async () => {
+  it('declines retired native setup before downloading files, installing tools or connecting', async () => {
     const f = await fixture();
-    f.tool.mockImplementation(async () => { f.connection.status.state = 'offline'; return status(); });
-    await manager.prepareModule(plan); await f.until(() => !manager.state.busy);
-    expect(f.connection.connect).toHaveBeenCalledWith('http://127.0.0.1:8188', false);
-    expect(manager.state.moduleSetup?.status).toBe('complete'); expect(manager.state.viggleToolsReady).toBe(true);
-  });
-
-  it('keeps unknown setup busy and only observes it on recovery, never launching a replacement', async () => {
-    const f = await fixture(); let terminal = false;
-    const tool = vi.fn(async (_id: number, action: 'prepare' | 'status') => {
-      if (action === 'prepare') throw new Error('Synthetic transport loss after launch');
-      return terminal ? status({ ready: false, state: 'failed' }) : status({ ready: false, unknown: true, confirmedStopped: false, state: 'unknown' });
-    });
-    manager.viggleTools = tool;
-    await manager.prepareModule(plan); await f.until(() => manager.state.moduleSetup?.status === 'reconnecting');
-    expect(manager.state.busy).toBe(true); expect(manager.state.moduleSetup?.activeRuntime).toBe('viggle-tools');
-    await expect(manager.prepareModule(plan)).rejects.toThrow('existing transfers');
-    await manager.recoverPending(); expect(tool.mock.calls.filter(call => call[1] === 'prepare')).toHaveLength(1);
-    expect(manager.state.busy).toBe(true); terminal = true; await manager.recoverPending();
-    await f.until(() => !manager.state.busy);
-    expect(manager.state.moduleSetup?.status).toBe('failed'); expect(manager.state.moduleSetup?.activeRuntime).toBeUndefined();
-    expect(tool.mock.calls.filter(call => call[1] === 'prepare')).toHaveLength(1); expect(f.connection.connect).not.toHaveBeenCalled();
+    await expect(manager.prepareModule(plan)).rejects.toThrow('retired');
+    expect(f.worker).not.toHaveBeenCalled(); expect(f.tool).not.toHaveBeenCalled(); expect(f.connection.connect).not.toHaveBeenCalled();
+    expect(manager.state.busy).toBe(false);
   });
 
   it('keeps cancelled owned setup protected until its status confirms terminal', async () => {

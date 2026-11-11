@@ -26,8 +26,7 @@ import { engineIssue, isViggle, migrateVigglePrompt } from '../shared/engines';
 import { viggleWindows } from '../shared/viggle-segments';
 import { registerImageEditRoutes } from './image-edit';
 import { emptyImageEditDraft, imageEditDraftSchema, isImageEditJob } from '../shared/image-edit';
-import { registerImageRoutes } from './image-routes';
-import { registerCharacterRoutes } from './characters';
+import { registerSourceFrameRoute } from './source-frame';
 import { assertRepaintReady, resolveRepaintProfile } from './segment-repaint';
 import { clipFrameCount } from '../shared/clip';
 import { canFinishImageLocally, isImageJob } from '../shared/image-replacement';
@@ -46,6 +45,7 @@ import { gpuFileDeleteSchema, gpuFileListSchema } from '../shared/gpu-files';
 import { registerSmoothMotionRoutes } from './smooth-motion';
 import { registerOpenjutsuRoutes } from './openjutsu';
 import { canRecoverOpenjutsuLocally } from './openjutsu-runner';
+import { retiredFeatureRequest } from '../shared/retired-modules';
 
 const STUDIO = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const REPO = path.dirname(STUDIO);
@@ -75,6 +75,16 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Referrer-Policy', 'same-origin'); next();
   });
   app.use(express.json({ limit: '100kb' }));
+  app.use((req, res, next) => {
+    const retired = retiredFeatureRequest(req.method, req.path, req.body);
+    if (!retired) return next();
+    // A lost acknowledgement may still retrieve an already-created paid run.
+    if (req.method === 'POST' && ['/api/jobs', '/api/images/jobs'].includes(req.path)) {
+      const key = req.get('Idempotency-Key'), existing = key && store.byKey(key);
+      if (existing) return void res.json(publicJob(existing));
+    }
+    res.status(410).json({ error: retired });
+  });
   let idle: GpuIdleManager;
   // Request activity is GPU work, not browsing or inventory refreshes. This also
   // invalidates idle probes when async request preflight has not queued work yet.
@@ -113,14 +123,13 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   const observeRepairStops = () => { for (const launch of cloud.state.launches) if (launch.instanceId && ((launch.phase === 'stopped' && launch.safetyStatus === 'stopped') || (launch.phase === 'destroyed' && launch.safetyStatus === 'disarmed'))) faceRepairs.observeProviderStop(launch.instanceId, Date.parse(launch.updatedAt)); };
   observeRepairStops(); store.on('event', event => { if (event.type === 'cloud') observeRepairStops(); });
   registerFaceRepairRoutes(app, faceRepairs, store, () => { idle.touch(); void runner.kick(); });
-  registerCharacterRoutes(app, store);
   registerImageEditRoutes(app, store, connection, runner, cloud, models);
   const assertNativeCreation = () => {
     if (idle.state.status === 'pausing' || cloud.state.busy || cloud.state.launches.some(launch => ['stopping', 'destroying'].includes(launch.phase) || launch.safetyStatus === 'unconfirmed') || models.state.busy || upscale.busy || videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork()) throw new Error('Finish GPU setup, downloads or unresolved processing before generating.');
   };
   registerOpenjutsuRoutes(app, store, connection, runner, models, assertNativeCreation);
   registerSmoothMotionRoutes(app, store, connection, runner, models, assertNativeCreation);
-  const bootstrap = () => ({ imageEditDraft: imageEditDraftSchema.parse(store.value('image-edit-draft', emptyImageEditDraft())), assets: store.assets().map(publicAsset), characters: store.characters(), capabilities: { imagenSegmentRepaint: true }, jobs: store.jobs().map(publicJob), draft: store.draft(), imageDraft: store.imageDraft(), connection: connection.status, cloud: cloud.state, models: models.state });
+  const bootstrap = () => ({ imageEditDraft: imageEditDraftSchema.parse(store.value('image-edit-draft', emptyImageEditDraft())), assets: store.assets().map(publicAsset), characters: [], capabilities: { imagenSegmentRepaint: false }, jobs: store.jobs().map(publicJob), draft: store.draft(), imageDraft: store.imageDraft(), connection: connection.status, cloud: cloud.state, models: models.state });
   app.get('/api/bootstrap', (_req, res) => res.json(bootstrap()));
   app.get('/api/events', (_req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
@@ -209,7 +218,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     if(value.sourceId)try{await refreshVideoDuration(store,store.asset(value.sourceId)!);}catch{/* Drafts stay editable offline; generation requires a readable source. */}
     store.set('draft', value); res.json(value);
   });
-  registerImageRoutes(app, store, connection, runner, cloud, models, repo);
+  registerSourceFrameRoute(app, store);
   const upload = multer({ dest: path.join(store.root, 'uploads'), limits: { files: 1, fileSize: 512 * 1024 ** 2, fields: 0 } });
   app.post('/api/assets/:kind', upload.single('file'), async (req, res) => {
     if (!req.file) return void res.status(400).json({ error: 'Choose a file to upload.' });

@@ -12,6 +12,7 @@ import sys
 import time
 
 import download_models as downloader
+from model_policy import assert_downloadable
 
 
 def read(path):
@@ -80,6 +81,7 @@ def status(root,folder):
 
 
 def launch(root,folder,retry=False):
+    assert_downloadable([manifest_for(root,folder)[1]['destination']])
     folder.mkdir(parents=True,exist_ok=True)
     with(folder/'launch.lock').open('a')as lock:
         fcntl.flock(lock,fcntl.LOCK_EX)
@@ -112,6 +114,7 @@ def cancel(root,folder):
 
 def run(root,folder):
     manifest,item,final=manifest_for(root,folder)
+    assert_downloadable([item['destination']])
     with(folder/'worker.lock').open('a')as lock:
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         def progress(current,count,phase,bytes_per_second=None):

@@ -14,6 +14,7 @@ import openjutsuFaceModels from '../../config/openjutsu-face-models.lock.json';
 import smoothModels from '../../config/smooth-motion-models.lock.json';
 import imageControls from '../../config/image-controls.lock.json';
 import upscaleModels from '../../config/upscale-models.lock.json';
+import activeModels from '../../config/active-models.json';
 import facialModels from '../../config/facial-consistency-models.lock.json';
 import facialCleanupModels from '../../config/facial-consistency-cleanup-models.lock.json';
 import facialEyeFinishModels from '../../config/facial-consistency-eye-finish-models.lock.json';
@@ -141,12 +142,11 @@ export const modelDefinitions = pinnedModels.map(file => {
 });
 // Retain catalog metadata for inventories and immutable historical workflows.
 // Retirement only removes new provisioning and creation affordances.
-const currentModelIds = new Set([...openjutsuModels.shared.map(destination=>({destination})),...viggle.files, ...repaint.files, ...imageAdapters.files, ...qwenImage.files, ...imageControls.files, ...imageEditModels.files, ...imageEditQwen21.files, ...openjutsuModels.files, ...openjutsuFaceModels.files, ...smoothModels.files, ...facialModels.files, ...facialCleanupModels.files, ...facialEyeFinishModels.files, ...facialOcclusionModels.files, ...upscaleModels.files].map(file => file.destination));
-const retiredModelIds = new Set(scailModels.map(file => file.destination).filter(id => !currentModelIds.has(id)));
-export const isRetiredModel = (id: string) => retiredModelIds.has(id);
+export const activeModelIds = new Set(activeModels.files);
+export const isRetiredModel = (id: string) => id.startsWith('face-refinement/') || modelDefinitions.some(file => file.id === id) && !activeModelIds.has(id);
 export const downloadableModelDefinitions = modelDefinitions.filter(file => !isRetiredModel(file.id));
 export function assertDownloadableModelFiles(files: string[]) {
-  if (files.some(isRetiredModel)) throw new Error('SCAIL-2 / Wan is retired. Its existing files and saved runs are kept; new downloads are disabled.');
+  if (files.some(isRetiredModel)) throw new Error('This file belongs to a retired workflow. New downloads are disabled; installed files and saved runs are kept.');
 }
 export type ModelStatus = 'unknown' | 'missing' | 'queued' | 'downloading' | 'reconnecting' | 'installed' | 'failed';
 export interface ModelTransfer { downloaded: number; total: number; bytesPerSecond?: number; phase?: string; remoteActive?: boolean; }

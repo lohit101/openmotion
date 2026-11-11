@@ -25,7 +25,7 @@ describe('Downloads inventory view', () => {
       refresh={() => undefined} cancel={() => undefined} setup={() => undefined} />);
     expect(html).toContain('2.12 GB'); // Shared Klein file once, plus complete/partial custom LoRA.
     expect(html).toContain('Saved inventory'); expect(html).toContain('not a live disk check');
-    expect(html).toContain('Klein images'); expect(html).toContain('Automatic source-frame preparation only');
+    expect(html).toContain('Retired files'); expect(html).toContain('New downloads are disabled');
     expect(html.match(/<button[^>]*aria-label="Delete custom.safetensors from GPU"[^>]*>/)?.[0]).toContain('disabled');
   });
   it('starts an unrecorded offline inventory empty without claiming all models are downloaded', () => {

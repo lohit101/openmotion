@@ -16,7 +16,7 @@ describe('download inventory presentation', () => {
   it('counts CUDA face dependencies as core face files, with no custom-LoRA classification',()=>{
     const snapshot:ModelInventory={key:'vast:1',instanceId:1,endpoint:'http://127.0.0.1:8188',gpu:'RTX A6000',checkedAt:'2026-10-28',files:[{id:'face-refinement/hyperswap_1a_256.onnx',size:402742682,partialSize:0,measured:true}]};
     const row=downloadRows(emptyModels(),snapshot).find(item=>item.id.startsWith('face-refinement/'))!;
-    expect(row).toMatchObject({group:'core',onDisk:402742682,measured:true,usage:[{workflow:'GPU face refinement'}]});
+    expect(row).toMatchObject({group:'core',onDisk:402742682,measured:true,retired:true,usage:[{workflow:'Retired files'}]});
     expect(row.id.startsWith('loras/')).toBe(false);
     const hidden: ModelInventory = { ...snapshot, files: [...snapshot.files, { id: 'face_consistency/facefusion/nsfw_1.onnx', size: 80414194, partialSize: 0, measured: true }, { id: 'face-refinement/nsfw_2.onnx', size: 22489928, partialSize: 0, measured: true }] };
     expect(downloadRows(emptyModels(), hidden).some(item => /nsfw_\d+/.test(item.id))).toBe(false);
@@ -24,10 +24,10 @@ describe('download inventory presentation', () => {
   });
   it('maps every bundled file to its actual workflow, including shared image preparation', () => {
     for (const file of modelDefinitions) expect(modelUsage(file.id).length).toBeGreaterThan(0);
-    expect(modelUsage('diffusion_models/flux-2-klein-4b-fp8.safetensors').map(usage => usage.workflow)).toEqual(['Klein images', 'Viggle video']);
-    expect(modelUsage(QWEN_STRUCTURE)[0].detail).toContain('above zero');
+    expect(modelUsage('diffusion_models/flux-2-klein-4b-fp8.safetensors').map(usage => usage.workflow)).toEqual(['Retired files']);
+    expect(modelUsage(QWEN_STRUCTURE)[0].workflow).toBe('Retired files');
     expect(modelUsage('loras/user.safetensors')[0].workflow).toBe('Custom LoRA');
-    expect(modelUsage('diffusion_models/qwen_image_2.1_int8_convrot.safetensors').map(usage => usage.workflow)).toEqual(['Qwen images', 'Viggle video']);
+    expect(modelUsage('diffusion_models/qwen_image_2.1_int8_convrot.safetensors').map(usage => usage.workflow)).toEqual(['Imagen']);
   });
   it('permits catalog weights and runtime dependencies while rejecting arbitrary paths', () => {
     for (const file of modelDefinitions) expect(deletableModelFile(file.id)).toBe(true);

@@ -21,7 +21,7 @@ describe('idle pause settings and workload gate', () => {
   });
   it('blocks new GPU work during automatic pause while leaving drafts and manual stop controls reachable', async () => {
     const { app, idle, cloud } = await fixture(); idle.state.status = 'pausing';
-    for (const route of ['/api/jobs', '/api/images/jobs', '/api/jobs/example/resume', '/api/jobs/example/refine-face', '/api/models/download', '/api/models/delete', '/api/video-identity/gpu/setup', '/api/connection/connect', '/api/cloud/instances/777/start']) {
+    for (const route of ['/api/jobs', '/api/jobs/example/resume', '/api/models/download', '/api/models/delete', '/api/connection/connect', '/api/cloud/instances/777/start']) {
       const response = await request(app).post(route).send({}); expect(response.status).toBe(409); expect(response.body.error).toContain('idle pause');
     }
     const draft = await request(app).post('/api/draft').send({}); expect(draft.status).toBe(422);

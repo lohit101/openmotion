@@ -17,7 +17,7 @@ export const moduleDownloadRequestSchema=z.discriminatedUnion('module',[
   z.object({module:z.literal('openjutsu-face'),settings:openjutsuSettingsSchema}).strict(),
 ]);
 export type ModuleDownloadRequest=z.infer<typeof moduleDownloadRequestSchema>;
-export const moduleNames:Record<DownloadModule,string>={'smooth-motion':'Smooth Motion',remotion:'Remotion',openjutsu:'Remotion','openjutsu-face':'Fix Faces',imagen:'Imagen','image-edit':'Image Edit',clarity:'Clarity'};
+export const moduleNames:Record<DownloadModule,string>={'smooth-motion':'Smooth Motion',remotion:'Remotion',openjutsu:'Remotion','openjutsu-face':'Fix Faces',imagen:'Imagen','image-edit':'Imagen',clarity:'Clarity'};
 export function moduleDownloadPlan(module:'openjutsu-face',settings:OpenjutsuSettings):ModuleDownloadPlan;
 export function moduleDownloadPlan(module:'openjutsu',settings:OpenjutsuSettings,outputFPS?:number):ModuleDownloadPlan;
 export function moduleDownloadPlan(module:'remotion',settings:Settings):ModuleDownloadPlan;

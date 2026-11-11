@@ -10,10 +10,12 @@ import time
 
 import vast
 from model_download_worker import key_for
+from model_policy import assert_downloadable
 
 ROOT=Path(__file__).resolve().parents[1]
 FILES=['scripts/download_models.py','scripts/model_download_worker.py','scripts/model_setup_worker.py',
-       'scripts/xet_download.py','config/model-download-runtime.lock.json']
+       'scripts/xet_download.py','config/model-download-runtime.lock.json',
+       'scripts/model_policy.py','config/active-models.json']
 
 
 def runtime_path(config):
@@ -74,6 +76,7 @@ def call(config,script,action,key,manifest=None):
 
 def transfer(config,manifest,recover=False,cancel_requested=False,*,sleep=time.sleep):
     if len(manifest['files'])!=1:raise ValueError('A tracked transfer must contain exactly one file.')
+    if not recover and not cancel_requested:assert_downloadable([item['destination'] for item in manifest['files']])
     item=manifest['files'][0];key=key_for(manifest);cancelled=cancel_requested;script=None;last={'downloaded':0};failures=0;started=recover
     def cancel(_sig,_frame):
         nonlocal cancelled

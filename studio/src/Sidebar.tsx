@@ -1,8 +1,8 @@
 import type { ReactElement } from 'react';
 import * as Tooltip from '@radix-ui/react-tooltip';
-import { ArrowsOut, FilmSlate, GearSix, GraphicsCard, ImageSquare, Images, PencilSimple, Scissors, SidebarSimple, UsersThree, MagicWand } from '@phosphor-icons/react';
+import { ArrowsOut, FilmSlate, GearSix, GraphicsCard, ImageSquare, Images, Scissors, SidebarSimple, MagicWand } from '@phosphor-icons/react';
 
-export type WorkspaceView = 'create' | 'image-edit' | 'image' | 'characters' | 'clarity' | 'editor' | 'library' | 'gpu' | 'settings' | 'post';
+export type WorkspaceView = 'create' | 'image' | 'clarity' | 'editor' | 'library' | 'gpu' | 'settings' | 'post';
 
 export function initialSidebarCollapsed() {
   try {
@@ -43,10 +43,10 @@ export default function Sidebar({ view, select, collapsed, toggle, libraryCount 
     </div>
     <div className="rail-navigation" id="workspace-navigation">
       <nav className="rail-main" aria-labelledby="rail-create-label">
-        {link('create', 'Remotion', FilmSlate)}{link('image', 'Imagen', ImageSquare)}{link('characters', 'Characters', UsersThree)}
+        {link('create', 'Remotion', FilmSlate)}{link('image', 'Imagen', ImageSquare)}
       </nav>
       <nav className="rail-edit" aria-label="Edit"><span className="rail-section-label" aria-hidden="true">Edit</span>
-        {link('post', 'Post-processing', MagicWand)}{link('image-edit', 'Image Edit', PencilSimple)}{link('clarity', 'Clarity', ArrowsOut)}{link('editor', 'Clip editor', Scissors)}
+        {link('post', 'Post-processing', MagicWand)}{link('clarity', 'Clarity', ArrowsOut)}{link('editor', 'Clip editor', Scissors)}
       </nav>
       <div className="rail-bottom"><span className="rail-section-label" aria-hidden="true">Workspace</span>
         <nav className="rail-shortcuts" aria-label="Library and compute">

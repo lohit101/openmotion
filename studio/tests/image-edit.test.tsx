@@ -121,7 +121,7 @@ describe('independent Qwen Image 2.1 editor', () => {
     await expect(f.create()).rejects.toThrow('10 MB');
     await copyFile(f.inputs[1].path, f.inputs[0].path);
     f.state.files.find(x => x.id === imageEditFiles(f.draft.settings)[0])!.status = 'missing';
-    await expect(f.create()).rejects.toThrow('Download Image Edit');
+    await expect(f.create()).rejects.toThrow('Download Imagen');
     for (const x of f.state.files) x.status = 'installed';
     vi.mocked(f.models.refresh).mockImplementationOnce(async () => { store!.set('cloud-connected-instance', 43); return f.state; });
     await expect(f.create()).rejects.toThrow('readiness changed');
@@ -152,7 +152,7 @@ describe('independent Qwen Image 2.1 editor', () => {
   it('keeps download available before references are added and exposes only independent editing controls', () => {
     const state = emptyModels(), draft = emptyImageEditDraft();
     const html = renderToStaticMarkup(<ImageEditWorkspace data={{ assets: [], jobs: [], models: state, cloud: { busy: false }, connection: { state: 'online' } } as unknown as Bootstrap} draft={draft} setDraft={() => {}} downloads={{ state, online: true, blocked: false, download() {}, remove() {} }} selectedId={null} select={() => {}} close={() => {}} asset={() => {}} job={() => {}} error={() => {}} openDownloads={() => {}} openGPU={() => {}} library={() => {}}/>);
-    expect(html).toContain('Download Image Edit'); expect(html).toContain('Qwen 2.1 INT8'); expect(html).toContain('What should change?');
+    expect(html).toContain('Download Imagen'); expect(html).toContain('Qwen 2.1 INT8'); expect(html).toContain('What should change?');
     expect(html).not.toContain('Paint replacement'); expect(html).not.toContain('Character source'); expect(html).not.toContain('Face refinement');
     expect(html.match(/<button[^>]+class="primary-button generate module-primary-button"[^>]*>/)?.[0]).not.toContain('disabled');
   });

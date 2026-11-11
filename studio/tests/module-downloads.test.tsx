@@ -1,3 +1,4 @@
+import { emptyImageEditDraft } from '../shared/image-edit';
 import { afterEach,describe,expect,it,vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { mkdtemp,rm } from 'node:fs/promises';
@@ -74,7 +75,7 @@ describe('module setup ownership and recovery',()=>{
     return {worker,controls,connection,complete,until,installed};
   }
   it('finishes only selected Imagen files without downloading other families or generating',async()=>{
-    const f=await fixture(),plan=moduleDownloadPlan('imagen',photo);
+    const f=await fixture(),plan=moduleDownloadPlan('image-edit',{...emptyImageEditDraft().settings,consistency:false,bfs:false});
     await manager.prepareModule(plan);await f.complete();expect(manager.state.moduleSetup?.status).toBe('complete');
     expect(f.worker.mock.calls.flatMap(c=>c[3]).sort()).toEqual([...plan.files].sort());expect(manager.state.moduleSetup?.runtimes).toEqual([]);
   });

@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { renderToStaticMarkup } from 'react-dom/server';
 import { randomUUID } from 'node:crypto';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
@@ -17,7 +16,6 @@ import type { ConnectionManager } from '../server/comfy';
 import type { Runner } from '../server/runner';
 import type { ModelManager } from '../server/models';
 import type { CloudManager } from '../server/cloud';
-import ImageWorkspace from '../src/ImageWorkspace';
 
 const catalog: Catalog = JSON.parse(readFileSync(path.resolve(import.meta.dirname, '../../integration-snapshot/object-info.json'), 'utf8'));
 for (const node of Object.values(catalog)) for (const [name, rule] of Object.entries({ ...node.input.required, ...node.input.optional })) {
@@ -105,15 +103,5 @@ describe('four-mode whole-image Imagen', () => {
     const first = await create(value, key); const frozen = JSON.stringify(store!.job(first.id));
     await create({ ...value, settings: { ...value.settings, prompt: 'Different instruction' } }, key);
     expect(store!.jobs()).toHaveLength(1); expect(JSON.stringify(store!.job(first.id))).toBe(frozen); expect(runner.kick).toHaveBeenCalledOnce();
-  });
-  for (const mode of imagenWorkflows) it(`shows only the requested inputs and workflow settings for ${mode.label}`, () => {
-    const value = draft(mode.id), state = emptyModels();
-    const data = { assets: inputs, jobs: [], characters: [], connection: { state: 'offline' }, cloud: { busy: false }, models: state } as unknown as Bootstrap;
-    const html = renderToStaticMarkup(<ImageWorkspace data={data} draft={value} motionDraft={{ sourceId: null, referenceId: null, settings: defaults }} downloads={{ state, online: false, blocked: false, download() {}, remove() {} }}
-      selectedId={null} select={() => {}} close={() => {}} setDraft={() => {}} asset={() => {}} job={() => {}} error={() => {}} openCharacters={() => {}} openModels={() => {}} openGPU={() => {}} library={() => {}} motion={() => {}} />);
-    expect(html).toContain('Imagen workflow'); expect(html).not.toContain('PaintBrush'); expect(html).not.toContain('Paint replacement area'); expect(html).not.toContain('Klein 4B'); expect(html).not.toContain('Whole-person · legacy');
-    if (mode.id === 'text-to-image') { expect(html).toContain('Describe your image'); expect(html).not.toContain('Target photo'); }
-    if (mode.id === 'clothing-only') { expect(html).toContain('Clothing reference'); expect(html).not.toContain('Face reference · optional'); }
-    expect(html).toContain('aria-label="Quality"'); expect(html).toContain('aria-label="Native size"'); expect(html).toContain('2048');
   });
 });

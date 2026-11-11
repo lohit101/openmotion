@@ -36,7 +36,7 @@ export async function createImageEditJob(store: Store, connection: ConnectionMan
   const geometry = imageEditGeometry(s, refs[0]);
   const busy = () => cloud.state.busy || cloud.state.launches.some(l => ['stopping', 'destroying'].includes(l.phase) || l.instanceId && l.safetyStatus === 'unconfirmed');
   if (busy()) throw new ImageEditRequestError(503, 'Wait for GPU setup or instance actions to finish.');
-  if (connection.status.state !== 'online') throw new ImageEditRequestError(503, 'Connect the GPU before generating. Your Image Edit draft stays local.');
+  if (connection.status.state !== 'online') throw new ImageEditRequestError(503, 'Connect the GPU before generating. Your Imagen draft stays local.');
   if (models.state.busy || runner.externalGpuBusy()) throw new ImageEditRequestError(409, 'Wait for model downloads or facial processing to finish.');
   const instance = store.value('cloud-connected-instance', null), endpoint = connection.status.endpoint;
   await models.refresh();
@@ -44,14 +44,14 @@ export async function createImageEditJob(store: Store, connection: ConnectionMan
   if (busy() || models.state.busy || runner.externalGpuBusy() || connection.status.state !== 'online' || connection.status.endpoint !== endpoint || store.value('cloud-connected-instance', null) !== instance) throw new ImageEditRequestError(409, 'GPU readiness changed. Nothing was queued.');
   if (models.state.error) throw new ImageEditRequestError(503, models.state.error);
   const missing = imageEditFiles(s).filter(id => models.state.files.find(f => f.id === id)?.status !== 'installed');
-  if (missing.length) throw new ImageEditRequestError(409, 'Download Image Edit for these settings before generating. Nothing was queued.', missing);
+  if (missing.length) throw new ImageEditRequestError(409, 'Download Imagen for these settings before generating. Nothing was queued.', missing);
   const settings = { ...s, seed: s.randomSeed ? randomInt(0, 2 ** 32) : s.seed };
   const job: Job = {
-    id: randomUUID(), title: refs[0].name + ' / Image Edit', mediaType: 'image', status: 'queued', sourceId: refs[0].id, referenceId: refs[1]?.id || refs[0].id,
+    id: randomUUID(), title: refs[0].name + ' / Imagen', mediaType: 'image', status: 'queued', sourceId: refs[0].id, referenceId: refs[1]?.id || refs[0].id,
     settings: { ...defaults, prompt: settings.prompt, seed: settings.seed, randomSeed: settings.randomSeed },
     image: { version: imageEditVersion, settings: { ...imageDefaults, model: 'qwen21', prompt: settings.prompt, seed: settings.seed, randomSeed: settings.randomSeed, protectBackground: false, faceDetail: false, identityRefine: false, localIdentity: false, qwenHeadRefine: false, qwenQuality: settings.quality === 'turbo' ? 'fast' : 'quality' }, edit: { settings, references: refs }, geometry, faceId: null, maskId: null },
     width: geometry.width, height: geometry.height, outputSize: { width: geometry.width, height: geometry.height }, createdAt: new Date().toISOString(), favorite: false, deleted: false,
-    progress: { stage: 'Queued for Image Edit', node: null, value: null, max: null, unit: 'steps', segment: 1, segments: 1, completedFrames: 0, targetFrames: 1, updatedAt: Date.now() },
+    progress: { stage: 'Queued for Imagen', node: null, value: null, max: null, unit: 'steps', segment: 1, segments: 1, completedFrames: 0, targetFrames: 1, updatedAt: Date.now() },
     segments: [], context: '', pendingPrompt: null, uploads: null, error: null, output: null, poster: null, cancelRequested: false, elapsedSeconds: null, origin: 'render', workflow: null,
   };
   store.addJob(job, key); void runner.kick(); return job;

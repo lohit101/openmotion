@@ -1,3 +1,4 @@
+import { openjutsuDefaults, openjutsuFiles } from '../shared/openjutsu';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -8,14 +9,14 @@ import { ModelManager, type downloadPinnedModels } from '../server/models';
 import type { manageGpuFiles } from '../server/gpu-files';
 import type { ConnectionManager } from '../server/comfy';
 import { gpuFileDeleteSchema, gpuFileListSchema, gpuFileModelId, gpuFileRestorable, type GpuFileListing } from '../shared/gpu-files';
-import { defaults, type Catalog } from '../shared/types';
-import { modelDefinitions, modelFilesForSettings } from '../shared/models';
+import { type Catalog } from '../shared/types';
+import { modelDefinitions } from '../shared/models';
 import { moduleDownloadPlan, moduleDownloadProgress } from '../shared/module-downloads';
 import ModuleAction from '../src/ModuleAction';
 import { fileRemovalMessage } from '../src/GpuFileBrowser';
 
-const token = 'a'.repeat(64), selected = { ...defaults, engine: 'viggle' as const, referencePreparation: 'prepared' as const, facialConsistency: 'off' as const };
-const files = modelFilesForSettings(selected), id = files[0];
+const token = 'a'.repeat(64), selected = openjutsuDefaults;
+const files = openjutsuFiles(selected), id = files[0];
 let folder = '', store: Store | undefined, manager: ModelManager | undefined;
 afterEach(async () => { manager?.dispose(); store?.close(); if (folder) await rm(folder, { recursive: true, force: true }); });
 
@@ -51,12 +52,12 @@ describe('GPU file storage', () => {
   });
   it('invalidates a deleted model despite cached loader names, then downloads only that missing dependency', async () => {
     const f = await fixture(); await f.manager.refresh();
-    expect(moduleDownloadProgress(moduleDownloadPlan('remotion', selected), f.manager.state).missing).toEqual([]);
+    expect(moduleDownloadProgress(moduleDownloadPlan('openjutsu', selected), f.manager.state).missing).toEqual([]);
     const originals = JSON.stringify({ draft: store!.draft(), image: store!.imageDraft(), jobs: store!.jobs() });
     await f.manager.removeGpuFile(f.request, () => {}, f.remove);
-    const plan = moduleDownloadPlan('remotion', selected);
+    const plan = moduleDownloadPlan('openjutsu', selected);
     expect(moduleDownloadProgress(plan, f.manager.state).missing).toEqual([id]);
-    const html = renderToStaticMarkup(<ModuleAction request={{ module: 'remotion', settings: selected }} controls={{ state: f.manager.state, online: true, blocked: false, download: () => {}, remove: () => {} }} runtimeReady onGenerate={() => {}} onManage={() => {}} onConnect={() => {}} />);
+    const html = renderToStaticMarkup(<ModuleAction request={{ module: 'openjutsu', settings: selected }} controls={{ state: f.manager.state, online: true, blocked: false, download: () => {}, remove: () => {} }} runtimeReady onGenerate={() => {}} onManage={() => {}} onConnect={() => {}} />);
     expect(html).toContain('Download Remotion');
     expect(f.download).not.toHaveBeenCalled(); expect(f.release).toHaveBeenCalledOnce();
     expect(JSON.stringify({ draft: store!.draft(), image: store!.imageDraft(), jobs: store!.jobs() })).toBe(originals);

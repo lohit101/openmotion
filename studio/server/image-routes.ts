@@ -1,3 +1,4 @@
+import { registerSourceFrameRoute } from './source-frame';
 import type { Express } from 'express';
 import multer from 'multer';
 import { createHash, randomInt, randomUUID } from 'node:crypto';
@@ -40,19 +41,7 @@ export function registerImageRoutes(app: Express, store: Store, connection: Conn
       mask.maskFor = source.id; store.addAsset(mask); res.status(201).json(publicAsset(mask));
     } finally { await rm(req.file.path, { force: true }); }
   });
-  app.post('/api/images/source-frame', async (req, res) => {
-    const value = z.object({ sourceId: z.string(), time: z.number().finite().nonnegative() }).parse(req.body);
-    const source = store.asset(value.sourceId);
-    if (!source || source.kind !== 'video' || value.time >= source.duration) throw new Error('Choose a frame inside your motion video.');
-    const folder = path.join(store.root, 'uploads'); await mkdir(folder, { recursive: true });
-    const temporary = path.join(folder, randomUUID() + '.png');
-    const time = Math.floor(value.time * 24) / 24;
-    try {
-      await command('ffmpeg', ['-v', 'error', '-y', '-ss', String(time), '-i', source.path, '-frames:v', '1', temporary]);
-      const asset = await ingest(store, temporary, 'image', `${source.name.replace(/\.[^.]+$/, '')} · ${time.toFixed(2)}s.png`);
-      asset.sourceFrame = { videoId: source.id, time }; store.addAsset(asset); res.status(201).json(publicAsset(asset));
-    } finally { await rm(temporary, { force: true }); }
-  });
+  registerSourceFrameRoute(app, store);
   app.post('/api/images/jobs', async (req, res) => {
     const value = imageDraftSchema.parse(req.body), key = req.get('Idempotency-Key');
     if (!key || key.length > 120) return void res.status(400).json({ error: 'An image request ID is required.' });

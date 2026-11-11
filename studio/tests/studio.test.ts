@@ -10,6 +10,9 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { WebSocketServer, WebSocket } from 'ws';
 import { createApplication } from '../server/index';
+import { registerImageRoutes } from '../server/image-routes';
+import { registerCharacterRoutes } from '../server/characters';
+import { z } from 'zod';
 import { applyProgress, localEndpoint, OfflineError } from '../server/comfy';
 import { command, probe, prepareVideo } from '../server/media';
 import { compileWorkflow, validateGraph, RELIGHT, NATURAL_SPEED } from '../server/workflow';
@@ -198,7 +201,18 @@ describe('local app with the captured ComfyUI protocol', () => {
       }),
       check: vi.fn<ReferenceGeometry['check']>(async () => ({ status: 'matched', warnings: [], samples: [{ scaleRatio: 1, centerDistance: 0 }] })),
     };
-    local = await createApplication({ dataRoot: root, seed: false, allowSSH: false, repo, geometry }); return request(local.app);
+    local = await createApplication({ dataRoot: root, seed: false, allowSSH: false, repo, geometry });
+    // Retired creation routes are exercised only in this private protocol
+    // harness, so historical paid formats keep their recovery coverage. The
+    // real app declines these requests (covered by module-cleanup.test.tsx).
+    const archived = express(); archived.use(express.json());
+    registerCharacterRoutes(archived, local.store);
+    registerImageRoutes(archived, local.store, local.connection, local.runner, local.cloud, local.models, repo);
+    archived.use(local.app);
+    archived.use((error: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+      res.status(error instanceof z.ZodError ? 422 : 400).json({ error: error.message });
+    });
+    return request(archived);
   }
   async function inputs(agent: ReturnType<typeof request>) {
     const source = await agent.post('/api/assets/video').attach('file', video).expect(201); const ref = await agent.post('/api/assets/image').attach('file', image).expect(201);
