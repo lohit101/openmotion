@@ -10,7 +10,7 @@ import { legacyImageEditSettingsSchema, legacyImageEditSampling, legacyImageEdit
 import legacyHashes from './fixtures/image-edit-2511-hashes.json';
 import { imageDefaults } from '../shared/image-replacement';
 import type { Job } from '../shared/types';
-import { emptyModels, modelBytes, pinnedModels } from '../shared/models';
+import { downloadableModelDefinitions, emptyModels, modelBytes, pinnedModels } from '../shared/models';
 import { moduleDownloadPlan, moduleDownloadRequestSchema } from '../shared/module-downloads';
 import { runSummary, savedRunSettings } from '../shared/library';
 import { offerFiltersSchema } from '../shared/cloud';
@@ -137,17 +137,17 @@ describe('independent Qwen Image 2.1 editor', () => {
     expect(savedRunSettings(job)).toMatchObject({ model: 'Qwen Image 2.1', prompt: f.draft.settings.prompt, steps: 40 });
     expect(runSummary(job)).toContainEqual(['Workflow', 'Image Edit']);
   });
-  it('computes real native dimensions and selected-file marketplace requirements', async () => {
+  it('computes real native dimensions and keeps marketplace floors independent of image drafts', async () => {
     await fixture(); const s = emptyImageEditDraft().settings;
     for (const aspect of ['source', '1:1', '2:3', '3:2', '3:4', '4:3', '9:16', '16:9', '21:9'] as const) {
       const g = imageEditGeometry({ ...s, aspect, resolution: '2k' }, { width: 720, height: 1280 });
       expect(g.width % 32).toBe(0); expect(g.height % 32).toBe(0); expect(g.outputWidth).toBe(g.width); expect(g.width * g.height).toBeGreaterThan(4_000_000);
     }
     const compact = marketRequirements(store!, offerFiltersSchema.parse({ workflow: 'image-edit' })).requirements;
-    expect(compact.modelGB).toBeCloseTo(17.76135); expect(compact.minVram).toBe(24);
+    expect(compact.modelGB).toBe(downloadableModelDefinitions.reduce((sum,file)=>sum+file.size,0)/1e9); expect(compact.minVram).toBe(24);
     store!.set('image-edit-draft', { ...emptyImageEditDraft(), settings: { ...s, resolution: '2k' } });
     const full = marketRequirements(store!, offerFiltersSchema.parse({ workflow: 'image-edit' })).requirements;
-    expect(full.modelGB).toBeCloseTo(17.76135); expect(full.minVram).toBe(48); expect(full.minDisk).toBe(compact.minDisk);
+    expect(full).toEqual(compact);
   });
   it('keeps download available before references are added and exposes only independent editing controls', () => {
     const state = emptyModels(), draft = emptyImageEditDraft();

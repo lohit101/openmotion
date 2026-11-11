@@ -13,7 +13,7 @@ import { pinnedModels, setupModelFiles, SOCIAL_STYLE } from '../shared/models';
 const filters = offerFiltersSchema.parse({});
 const publicKey = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFixturePublicKeyOnly test-fixture';
 const rawOffer = () => ({ id: 123, ask_contract_id: 123, bundle_id: 987654321, machine_id: 99, gpu_name: 'RTX 3090', num_gpus: 1, gpu_ram: 24576, cpu_ram: 64000, cpu_cores_effective: 8,
-  cpu_name: 'Fixture CPU', geolocation: 'Fixture location', verification: 'verified', reliability2: .997, driver_version: '595.84', cuda_max_good: 13,
+  cpu_name: 'Fixture CPU', cpu_arch: 'amd64', geolocation: 'Fixture location', verification: 'verified', reliability2: .997, driver_version: '595.84', cuda_max_good: 13,
   disk_space: 500, disk_bw: 1400, inet_down: 1000, inet_up: 500, inet_down_cost: .001, inet_up_cost: .002, direct_port_count: 4, pcie_bw: 24,
   search: { gpuCostPerHour: .2, diskHour: .03, totalHour: .23 }, dph_total: .23, storage_total_cost: .03, storage_cost: .27, rentable: true, rented: false });
 async function until(predicate: () => boolean, timeout = 4000) { const start = Date.now(); while (!predicate()) { if (Date.now() - start > timeout) throw new Error('Cloud fixture timed out'); await new Promise(r => setTimeout(r, 10)); } }
@@ -375,7 +375,7 @@ describe('Vast marketplace, billing and lifecycle', () => {
     const { cloud, fixture, provision, connection } = await manager(); const { offers } = await cloud.offers(filters);
     const launch = cloud.launch(offers[0].quote, .23, 'rent-once'); expect(cloud.launch(offers[0].quote, .23, 'rent-once').id).toBe(launch.id); await until(() => !cloud.state.busy);
     expect(launch.phase).toBe('ready'); expect(fixture.createCount).toBe(1); expect(provision).toHaveBeenCalledTimes(1); expect(connection.connect).toHaveBeenCalledWith('http://127.0.0.1:8188', false);
-    expect(fixture.calls.find(c => c.url.pathname === '/api/v0/asks/123/')!.body).toMatchObject({ disk: 80, image: RENTAL_IMAGE, runtype: 'ssh_direct', cancel_unavail: true, onstart: SSH_ONSTART });
+    expect(fixture.calls.find(c => c.url.pathname === '/api/v0/asks/123/')!.body).toMatchObject({ disk: offers[0].disk, image: RENTAL_IMAGE, runtype: 'ssh_direct', cancel_unavail: true, onstart: SSH_ONSTART });
     await cloud.action(777, 'stop'); expect(launch.phase).toBe('stopped'); expect(cloud.state.instances[0].state).toBe('stopped');
     await expect(cloud.action(777, 'destroy', 'wrong-id')).rejects.toThrow('confirm'); expect(fixture.calls.filter(c => c.method === 'DELETE')).toHaveLength(0);
     await cloud.action(777, 'destroy', '777'); expect(launch.phase).toBe('destroyed'); expect(cloud.state.instances).toHaveLength(0);

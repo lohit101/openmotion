@@ -1,0 +1,85 @@
+{
+  "date": "2026-11-11",
+  "branch": "feat/gpu-cloud-simplify",
+  "scope": "GPU marketplace, rental review, instance presentation and provider-based ranking",
+  "tests": {
+    "allPassed": 778,
+    "failed": 0,
+    "testFiles": 65,
+    "finalFocusedPassed": 30,
+    "typecheck": true,
+    "isolatedFrontendBuild": true,
+    "isolatedServerBuild": true,
+    "compiledLayoutRulesChecked": true
+  },
+  "ranking": {
+    "version": "value-v2",
+    "points": {
+      "computePerDollar": 85,
+      "coldSetupAndWork": 10,
+      "reliability": 5
+    },
+    "sixTimesCheaperNearEquivalentWins": true,
+    "capacityBonus": 0,
+    "liveReadOnlyOffers": 88,
+    "complete": true,
+    "distinctRecommendedHosts": 3
+  },
+  "nativeUi": {
+    "browser": "Chrome",
+    "desktopCssWidth": 1470,
+    "phoneEmulationWidths": [
+      393,
+      320
+    ],
+    "smallPhoneHeight": 760,
+    "desktopRentPinnedWithExpandedHardware": true,
+    "phoneRentPinnedWithExpandedHardware": true,
+    "scoreHoverFocusTapTrigger": true,
+    "escapeReturnsToReviewButton": true,
+    "independentResultsScroll": true,
+    "pausedInstanceCardReviewed": true,
+    "liveMarketplaceReviewed": true,
+    "physicalPhoneOrSafariCertification": false,
+    "paidButtonsActivated": false
+  },
+  "publication": {
+    "url": "http://127.0.0.1:3003/",
+    "idleGuardedBackendReload": true,
+    "serverSHA256": "c5c05a2ba1bf55955a03dc69db115b5bde185fd91e12506ee3b317d3f4994076",
+    "htmlSHA256": "3fad1fd214b6abdf42c441991c21c4a3ad707efd5f7df0a480ef0dd9a688ba5e",
+    "priorFrontendAssetsRetained": true,
+    "counts": {
+      "jobs": 120,
+      "assets": 124,
+      "characters": 0,
+      "settings": 20
+    },
+    "allStoredRowsByteIdentical": true,
+    "protectedDraftsAndPreferencesUnchanged": true
+  },
+  "checkpoints": {
+    "prodv1": "88cc90f16ea83c7b884cd5438e7ad0c6ceac2a80",
+    "prodv2": "af25d146d2f24a2cfde8d347f46b7b86218facab"
+  },
+  "gpu": {
+    "inference": 0,
+    "rental": 0,
+    "resume": 0,
+    "stop": 0,
+    "modelDownloads": 0,
+    "modelDeletion": 0,
+    "currentProviderStates": [
+      {
+        "actual": "exited",
+        "intended": "stopped",
+        "connected": false
+      }
+    ]
+  },
+  "limitations": [
+    "Value uses provider DLPerf and bandwidth estimates, not measured workflow runtimes.",
+    "One common marketplace floor does not make all high-resolution settings fit every 24 GB GPU. Per-run memory and model checks remain.",
+    "Mobile review uses browser emulation. No GPU quality or speed claim."
+  ]
+}

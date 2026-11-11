@@ -49,14 +49,14 @@ describe('one Imagen workspace and current dependencies', () => {
     expect(downloadRows(emptyModels()).map(file => file.id).sort()).toEqual([...activeModelIds].sort());
     expect(() => assertDownloadableModelFiles([...activeModelIds, retired[0]])).toThrow('retired');
   });
-  it('uses the current editor for Imagen rental estimates and old Image Edit filter aliases', async () => {
+  it('sizes the common rental pool from retained files rather than editable image drafts', async () => {
     const { store } = await fixture(), settings = { ...emptyImageEditDraft().settings, resolution: '2k' as const, quality: 'turbo' as const };
     store.set('image-edit-draft', { referenceIds: [], settings });
     const before = store.imageDraft(), filters = offerFiltersSchema.parse({ workflow: 'imagen', disk: 64, minVram: 24 });
     const current = marketRequirements(store, filters), alias = marketRequirements(store, { ...filters, workflow: 'image-edit' });
-    const bytes = imageEditFiles(settings).reduce((sum, id) => sum + modelDefinitions.find(file => file.id === id)!.size, 0);
-    expect(current.requirements.modelGB).toBe(bytes / 1e9); expect(current.requirements.minVram).toBe(48);
-    expect(alias.requirements.modelGB).toBe(current.requirements.modelGB); expect(alias.requirements.minVram).toBe(48); expect(store.imageDraft()).toEqual(before);
+    const bytes = downloadableModelDefinitions.reduce((sum, file) => sum + file.size, 0);
+    expect(current.requirements.modelGB).toBe(bytes / 1e9); expect(current.requirements.minVram).toBe(24);
+    expect(alias.requirements).toEqual(current.requirements); expect(alias.filters.workflow).toBe('all'); expect(store.imageDraft()).toEqual(before);
   });
   it('rejects removed features before setup or inference, preserves stored drafts and serves current APIs', async () => {
     const app = await fixture(), kick = vi.spyOn(app.runner, 'kick'), start = vi.spyOn(app.models, 'start');

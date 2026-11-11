@@ -1,0 +1,187 @@
+/* GPU workspace owns its layout; shared workflow controls remain untouched. */
+html .workspace-content > main.gpu-cloud-v3 { width: 100%; height: 100%; min-height: 0; max-width: 100%; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; gap: 20px; padding: 22px 28px 24px; margin: 0; }
+.gpu-cloud-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex: 0 0 auto; }
+.gpu-cloud-heading h1 { margin: 0; font-size: 23px; font-weight: 600; letter-spacing: -.8px; line-height: 1.35; }
+.gpu-cloud-tabs { display: inline-flex; align-items: center; gap: 3px; padding: 3px; border: 1px solid var(--line-soft); border-radius: 5px; background: var(--surface); }
+.gpu-cloud-tabs button { display: flex; align-items: center; gap: 7px; padding: 7px 10px; border: 1px solid transparent; border-radius: 3px; font-size: 12px; font-weight: 500; color: var(--muted); white-space: nowrap; }
+.gpu-cloud-tabs button[aria-current] { color: var(--text); border-color: var(--line); background: var(--secondary); }
+.gpu-cloud-tabs button:not([aria-current]):hover { color: var(--text); background: var(--panel); }
+.gpu-cloud-tabs button > span { font-size: 10px; color: var(--quiet); font-variant-numeric: tabular-nums; }
+.gpu-marketplace-v3 { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; gap: 18px; }
+.gpu-filters-v3 { flex: 0 0 auto; border-bottom: 1px solid var(--line); padding-bottom: 12px; }
+.gpu-filter-grid { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 14px; }
+.gpu-filter-field { min-width: 0; position: relative; }
+.gpu-filter-field .field-label-row { display: flex; align-items: center; justify-content: flex-start; gap: 4px; min-height: 24px; margin-bottom: 4px; font-size: 11px; font-weight: 450; color: var(--muted); }
+html .gpu-filter-field .info-tip-trigger { height: 20px; width: 20px; flex-basis: 20px; }
+.gpu-filter-field .ui-input-group { display: flex; align-items: center; gap: 7px; height: 36px; padding: 0 9px; background: var(--input); border: 1px solid var(--line); border-radius: 4px; transition: border-color 140ms ease, box-shadow 140ms ease; }
+.gpu-filter-field .ui-input-group:focus-within { border-color: var(--ring); box-shadow: 0 0 0 2px color-mix(in srgb,var(--ring) 12%,transparent); }
+.gpu-filter-field .ui-input-addon { display: flex; align-items: center; flex: 0 0 auto; color: var(--quiet); font-size: 11px; white-space: nowrap; }
+html .gpu-filter-field .ui-input-group input { width: 100%; flex: 1; min-width: 0; height: 32px; padding: 0; font-size: 13px; border: none; border-radius: 0; background: transparent; box-shadow: none; outline: none; }
+.gpu-filter-field input::-webkit-inner-spin-button { margin-left: 0; }
+.gpu-filter-issue { display: block; font-size: 10px; color: var(--warning); margin-top: 4px; }
+.gpu-extra-filters { margin-top: 8px; }
+.gpu-extra-filters > summary { display: flex; align-items: center; gap: 6px; width: fit-content; min-height: 28px; padding: 2px 0; list-style: none; color: var(--muted); font-size: 11px; cursor: pointer; }
+.gpu-extra-filters > summary::-webkit-details-marker { display: none; }
+.gpu-extra-filters > summary:hover, .gpu-extra-filters[open] > summary { color: var(--text); }
+.gpu-filter-count { display: grid; place-items: center; height: 16px; min-width: 16px; font-size: 10px; border: 1px solid var(--line); border-radius: 3px; }
+.gpu-extra-filter-content { display: grid; grid-template-columns: 1fr 1fr 1.3fr auto; gap: 16px; align-items: end; padding: 6px 0 5px; }
+.gpu-verification-control { align-self: center; padding: 18px 0 0; }
+.gpu-verification-control .toggle-row { gap: 10px; }
+.gpu-verification-control .toggle-row > span { font-size: 11px; }
+.gpu-market-columns { display: grid; grid-template-columns: minmax(0,1fr) 330px; grid-template-rows: minmax(0,1fr); gap: 20px; flex: 1; min-height: 0; }
+.gpu-marketplace-v3 .market-results { min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--line) transparent; padding-right: 4px; }
+.gpu-marketplace-v3 .gpu-results-toolbar { display: flex; flex-wrap: nowrap; align-items: center; justify-content: space-between; gap: 12px; position: sticky; top: 0; z-index: 2; background: var(--bg); margin: 0 0 14px; padding-bottom: 4px; }
+.gpu-results-toolbar h2 { font-size: 13px; font-weight: 500; margin: 0; white-space: nowrap; }
+.gpu-results-toolbar .gpu-result-actions { display: flex; flex-basis: auto; align-items: center; gap: 6px; margin: 0; }
+html .gpu-result-actions .select-trigger { height: 30px; min-height: 30px; width: 166px; font-size: 11px; border-color: transparent; background: transparent; padding-left: 8px; }
+.gpu-results-section-label { margin: 16px 0 10px; font-size: 11px; font-weight: 450; color: var(--muted); }
+.gpu-recommendations .gpu-results-section-label { margin-top: 0; }
+.gpu-marketplace-v3 .gpu-recommendation-grid, .gpu-marketplace-v3 .gpu-offer-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.gpu-marketplace-v3 .gpu-recommendation-grid > :last-child:nth-child(odd) { grid-column: 1/-1; }
+html .gpu-cloud-v3 .gpu-offer-card { padding: 15px; border-radius: 5px; background: var(--surface); border: 1px solid var(--line); }
+html .gpu-cloud-v3 .gpu-offer-card.is-selected { border-color: var(--text); }
+html .gpu-cloud-v3 .gpu-offer-card:hover { border-color: var(--muted); }
+.gpu-cloud-v3 .gpu-card-eyebrow { display: flex; align-items: center; gap: 4px; color: var(--muted); font-size: 9px; font-weight: 450; letter-spacing: 0; text-transform: none; margin-bottom: 7px; }
+.gpu-cloud-v3 .gpu-offer-card h3 { margin: 0 0 5px; font-size: 14px; line-height: 1.4; letter-spacing: -.2px; }
+.gpu-cloud-v3 .gpu-offer-card header p { font-size: 10px; }
+.gpu-cloud-v3 .gpu-card-specs { padding-block: 15px; gap: 12px; }
+.gpu-cloud-v3 .gpu-card-specs dt { font-size: 10px; margin-bottom: 3px; }
+.gpu-cloud-v3 .gpu-card-specs dd { font-size: 12px; line-height: 1.4; }
+.gpu-cloud-v3 .gpu-card-transfer { padding-block: 10px; font-size: 10px; }
+.gpu-cloud-v3 .gpu-offer-card footer { padding-top: 12px; align-items: center; }
+.gpu-cloud-v3 .gpu-card-rate { gap: 3px; }
+.gpu-cloud-v3 .gpu-card-rate > strong { font-size: 19px; letter-spacing: -.6px; }
+.gpu-cloud-v3 .gpu-card-rate > span { font-size: 9px; }
+.gpu-more-results { margin: 16px auto; display: flex; }
+.gpu-value-score { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; padding: 4px 7px; border: 1px solid var(--line); border-radius: 4px; white-space: nowrap; }
+.gpu-value-score strong { color: var(--text); font-weight: 500; }
+.gpu-value-score small { color: var(--quiet); font-size: 9px; }
+.gpu-value-score:hover, .gpu-value-score[data-state='instant-open'], .gpu-value-score[data-state='delayed-open'] { background: var(--secondary); border-color: var(--muted); }
+.gpu-value-score.is-compact { flex-direction: column; gap: 1px; min-width: 44px; padding: 5px 6px; }
+.gpu-value-score.is-compact strong { font-size: 15px; line-height: 1.3; }
+.gpu-score-popover { z-index: 220; width: min(290px,calc(100vw - 24px)); background: var(--popover); color: var(--text); padding: 14px; border: 1px solid var(--line); border-radius: 5px; box-shadow: var(--shadow); animation: menu-in 120ms var(--ease-out); font-size: 11px; line-height: 1.6; }
+.gpu-score-popover-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; font-weight: 500; }
+.gpu-score-popover-title b { font-size: 11px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.gpu-score-popover dl { display: grid; gap: 9px; margin: 13px 0; }
+.gpu-score-popover dl > div { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; }
+.gpu-score-popover dt { color: var(--muted); }
+.gpu-score-popover dd { margin: 0; font-variant-numeric: tabular-nums; }
+.gpu-score-popover dd small { font-size: 10px; color: var(--quiet); }
+.gpu-score-meter { grid-column: 1/-1; height: 3px; background: var(--line); border-radius: 1px; overflow: hidden; }
+.gpu-score-meter i { display: block; height: 100%; background: var(--text); opacity: .8; }
+.gpu-score-popover p { margin: 10px 0 0; color: var(--muted); font-size: 10px; }
+.gpu-score-popover .gpu-score-disclaimer { padding-top: 9px; border-top: 1px solid var(--line-soft); color: var(--quiet); }
+.gpu-offer-details-v3 { min-height: 0; min-width: 0; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); overflow: hidden; }
+.gpu-review-heading { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; padding: 17px 16px; border-bottom: 1px solid var(--line-soft); }
+.gpu-review-heading > div:nth-child(2) { min-width: 0; flex: 1; }
+.gpu-review-gpu-icon { width: 34px; height: 34px; flex: 0 0 auto; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 4px; }
+.gpu-review-heading h2 { font-size: 15px; font-weight: 550; line-height: 1.4; letter-spacing: -.3px; margin: 0; overflow-wrap: anywhere; }
+.gpu-review-heading p { font-size: 10px; color: var(--muted); margin: 3px 0 0; }
+.gpu-review-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--line) transparent; padding: 0 16px; }
+.gpu-review-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 17px 14px; margin: 18px 0; }
+.gpu-review-summary dt { font-size: 10px; color: var(--quiet); margin-bottom: 4px; }
+.gpu-review-summary dd { font-size: 13px; margin: 0; font-weight: 500; font-variant-numeric: tabular-nums; }
+.gpu-review-assurance { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding-bottom: 16px; }
+.gpu-review-assurance > span { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--muted); }
+.gpu-review-price, .gpu-review-transfer { margin: 0; padding: 15px 0; border-top: 1px solid var(--line-soft); display: grid; gap: 10px; }
+.gpu-review-price > div, .gpu-review-transfer > div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 11px; }
+.gpu-review-price dt, .gpu-review-transfer dt { color: var(--muted); }
+.gpu-review-price dd, .gpu-review-transfer dd { margin: 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.gpu-review-price dd small { font-size: 10px; color: var(--quiet); }
+.gpu-review-price .gpu-review-total { margin-top: 3px; font-size: 13px; }
+.gpu-review-total dd { font-weight: 550; font-size: 21px; letter-spacing: -.5px; }
+.gpu-review-total dt { color: var(--text); }
+.gpu-review-transfer { gap: 9px; }
+.gpu-review-transfer > div { font-size: 10px; }
+.gpu-review-hardware { border-top: 1px solid var(--line-soft); }
+.gpu-review-hardware > summary { display: flex; align-items: center; gap: 7px; list-style: none; min-height: 44px; font-size: 11px; color: var(--muted); cursor: pointer; }
+.gpu-review-hardware > summary::-webkit-details-marker { display: none; }
+.gpu-review-hardware > summary > svg:last-child { margin-left: auto; transition: transform 140ms ease; }
+.gpu-review-hardware[open] > summary > svg:last-child { transform: rotate(180deg); }
+.gpu-review-hardware .gpu-hardware-details { font-size: 10px; gap: 12px; border-bottom: none; }
+.gpu-review-hardware .gpu-hardware-details dt { flex: 1; }
+.gpu-review-hardware .gpu-hardware-details dd { max-width: 57%; }
+.gpu-review-footer { flex: 0 0 auto; padding: 14px 16px; border-top: 1px solid var(--line); background: var(--surface); }
+html .gpu-review-footer .gpu-rent-button { display: flex; width: 100%; height: 38px; padding: 0 10px; gap: 6px; font-size: 12px; }
+.gpu-rent-button strong { margin-left: auto; font-size: 11px; font-weight: 550; }
+.gpu-review-footer > small { display: block; font-size: 9px; line-height: 1.6; color: var(--quiet); margin-top: 8px; }
+.gpu-review-empty { display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px dashed var(--line); border-radius: 5px; color: var(--quiet); font-size: 11px; }
+.gpu-review-empty > svg:last-child { display: none; }
+.gpu-review-overlay { z-index: 100; }
+.gpu-review-sheet { position: fixed; z-index: 101; bottom: 8px; left: 50%; transform: translateX(-50%); width: min(440px,calc(100vw - 16px)); max-height: calc(100dvh - 24px); outline: none; }
+.gpu-review-sheet .gpu-offer-details-v3 { max-height: calc(100dvh - 24px); border-radius: 7px; }
+.gpu-connect-empty { flex: 1; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 18px; color: var(--muted); }
+.gpu-connect-empty h2 { font-size: 16px; color: var(--text); font-weight: 500; margin: 0 0 6px; }
+.gpu-cloud-v3 > .setup-panel { flex: 0 0 auto; max-height: 32vh; overflow-y: auto; margin: 0; }
+.gpu-cloud-v3 > .cloud-error { flex: 0 0 auto; }
+.gpu-cloud-v3 .instances-view { flex: 1; min-height: 0; overflow-y: auto; max-width: none; scrollbar-width: thin; padding-right: 3px; }
+.gpu-cloud-v3 .instances-subhead { margin-bottom: 16px; }
+.gpu-cloud-v3 .instances-subhead h2 { font-size: 13px; margin-bottom: 5px; }
+.gpu-cloud-v3 .rental-instance { border-radius: 5px; }
+.gpu-cloud-v3 .rental-instance-header { padding: 18px 20px; }
+.gpu-cloud-v3 .rental-instance-title h3 { font-size: 17px; margin-bottom: 5px; }
+.gpu-cloud-v3 .instance-gpu-icon { width: 36px; height: 36px; border-radius: 4px; }
+.gpu-cloud-v3 .instance-metrics { padding: 0 20px 18px; }
+.gpu-cloud-v3 .instance-metrics dd { font-size: 23px; }
+.gpu-cloud-v3 .instance-performance { padding: 15px 20px; }
+.gpu-cloud-v3 .instance-hardware, .gpu-cloud-v3 .instance-inspect { padding: 14px 20px; }
+.gpu-cloud-v3 .instance-context { padding: 14px 20px 0; font-size: 10px; }
+.gpu-cloud-v3 .rental-instance-actions { padding: 14px 20px; }
+.gpu-cloud-v3 .instance-billing-note { font-size: 10px; margin-top: 16px; }
+@media(min-width:1360px) { .gpu-marketplace-v3 .gpu-recommendation-grid { grid-template-columns: repeat(3,minmax(0,1fr)); } .gpu-marketplace-v3 .gpu-recommendation-grid > :last-child:nth-child(odd) { grid-column: auto; } }
+@media(min-width:1600px) { .gpu-marketplace-v3 .gpu-offer-grid { grid-template-columns: repeat(3,minmax(0,1fr)); } }
+@media(max-width:1100px) { .gpu-market-columns { grid-template-columns: minmax(0,1fr); } .gpu-marketplace-v3 .gpu-recommendation-grid > :last-child:nth-child(odd) { grid-column: auto; } .gpu-marketplace-v3 .gpu-recommendation-grid { grid-template-columns: repeat(3,minmax(0,1fr)); } .gpu-extra-filter-content { grid-template-columns: 1fr 1fr; } .gpu-verification-control { padding-top: 0; } .gpu-extra-filter-content > .ui-button { justify-self: end; } }
+@media(max-width:768px) {
+  html .workspace-content > main.gpu-cloud-v3 { padding: 16px 14px 14px; gap: 15px; }
+  .gpu-cloud-heading { align-items: flex-start; flex-direction: column; gap: 13px; }
+  .gpu-cloud-heading h1 { font-size: 21px; }
+  .gpu-cloud-tabs { width: 100%; }
+  .gpu-cloud-tabs button { flex: 1; justify-content: center; height: 36px; padding-block: 6px; }
+  .gpu-marketplace-v3 { gap: 10px; }
+  .gpu-filter-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px 10px; }
+  .gpu-filter-grid > :last-child { grid-column: 1/-1; }
+  .gpu-filter-field .ui-input-group { height: 40px; }
+  html .gpu-filter-field .ui-input-group input { height: 36px; font-size: 16px; }
+  .gpu-filter-field .ui-input-addon { font-size: 11px; }
+  .gpu-filter-field .field-label-row { margin-bottom: 3px; min-height: 20px; }
+  .gpu-extra-filters { margin-top: 5px; }
+  .gpu-extra-filters > summary { min-height: 32px; }
+  .gpu-filters-v3 { padding-bottom: 6px; max-height: 53dvh; overflow-y: auto; }
+  .gpu-extra-filter-content { gap: 12px 10px; }
+  .gpu-verification-control { grid-column: 1/-1; }
+  .gpu-extra-filter-content > .ui-button { grid-column: 1/-1; justify-self: start; min-height: 36px; }
+  .gpu-marketplace-v3 .gpu-results-toolbar { margin-bottom: 10px; gap: 8px; }
+  .gpu-results-toolbar h2 { font-size: 12px; }
+  html .gpu-result-actions .select-trigger { font-size: 11px; width: 153px; height: 36px; }
+  .gpu-result-actions .ui-button { height: 36px; width: 36px; }
+  .gpu-marketplace-v3 .gpu-recommendation-grid, .gpu-marketplace-v3 .gpu-offer-grid { grid-template-columns: minmax(0,1fr); gap: 10px; }
+  .gpu-cloud-v3 .gpu-card-specs { grid-template-columns: repeat(2,minmax(0,1fr)); padding-block: 14px; }
+  .gpu-cloud-v3 .gpu-offer-card h3 { font-size: 15px; }
+  .gpu-cloud-v3 .gpu-offer-card footer .ui-button { height: 36px; padding-inline: 12px; font-size: 12px; }
+  .gpu-value-score.is-compact { min-width: 45px; min-height: 42px; }
+  .gpu-review-sheet { bottom: 0; left: 0; transform: none; width: 100%; max-height: calc(100dvh - 16px); }
+  .gpu-review-sheet .gpu-offer-details-v3 { max-height: calc(100dvh - 16px); border-radius: 10px 10px 0 0; border-bottom: none; }
+  .gpu-review-heading { padding: 18px 18px 15px; }
+  .gpu-review-heading .ui-button { height: 40px; width: 40px; }
+  .gpu-review-scroll { padding-inline: 18px; }
+  .gpu-review-summary dt, .gpu-review-price > div { font-size: 12px; }
+  .gpu-review-summary dd { font-size: 15px; }
+  .gpu-review-transfer > div, .gpu-review-hardware .gpu-hardware-details { font-size: 11px; }
+  .gpu-review-hardware > summary { min-height: 48px; font-size: 12px; }
+  .gpu-review-footer { padding: 14px 18px calc(14px + env(safe-area-inset-bottom)); }
+  html .gpu-review-footer .gpu-rent-button { height: 44px; font-size: 13px; }
+  .gpu-rent-button strong { font-size: 12px; }
+  .gpu-review-footer > small { font-size: 10px; }
+  .gpu-cloud-v3 .instances-subhead { gap: 12px; }
+  .gpu-cloud-v3 .instances-subhead h2 { display: none; }
+  .gpu-cloud-v3 .instances-subhead p { font-size: 10px; }
+  .gpu-cloud-v3 .rental-instance-header { padding: 16px 14px; gap: 10px; }
+  .gpu-cloud-v3 .rental-instance-title h3 { font-size: 15px; }
+  .gpu-cloud-v3 .instance-metrics { padding: 0 14px 16px; gap: 16px; }
+  .gpu-cloud-v3 .instance-metrics dd { font-size: 21px; }
+  .gpu-cloud-v3 .instance-metrics > div + div { padding-left: 0; }
+  .gpu-cloud-v3 .instance-performance { padding: 14px; }
+  .gpu-cloud-v3 .instance-hardware, .gpu-cloud-v3 .instance-inspect, .gpu-cloud-v3 .rental-instance-actions { padding: 14px; }
+  .gpu-cloud-v3 .instance-context { padding: 12px 14px 0; }
+}
+@media(prefers-reduced-motion:reduce) { .gpu-filter-field .ui-input-group, .gpu-review-hardware > summary > svg { transition: none; } .gpu-score-popover { animation: none; } }

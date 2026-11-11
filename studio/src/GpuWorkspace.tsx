@@ -1,74 +1,71 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { CheckCircle, CloudArrowUp, Cpu, HardDrives, Info, Lightning, Plug, ShieldCheck, Trash, WarningCircle, Star } from '@phosphor-icons/react';
-import type { CloudInstance, CloudLaunch, CloudState, GpuOffer, OfferFilters,MarketRequirements } from '../shared/cloud';
-import { DOWNLOAD_PRICE_CEILING, GPU_COMPUTE_CEILING, withinDownloadBudget, gpuDisplayName, isDgxSpark, isDgxGpu, isCmp170Hx } from '../shared/cloud';
-import GpuMarketplace,{RentalConfiguration} from './GpuMarketplace';
-import GpuHardwareDetails,{GpuScoreDetails} from './GpuHardwareDetails';
-import {offerFiltersSchema,offerMatchesFilters} from '../shared/cloud';
+import * as Dialog from '@radix-ui/react-dialog';
+import { ArrowRight, Cpu, HardDrives, GearSix, Trash, WarningCircle } from '@phosphor-icons/react';
+import type { CloudInstance, CloudLaunch, CloudState, GpuOffer, OfferFilters, MarketRequirements } from '../shared/cloud';
+import { marketplaceFilters, offerFiltersSchema, offerMatchesFilters, withinDownloadBudget } from '../shared/cloud';
+import GpuMarketplace from './GpuMarketplace';
+import GpuOfferDetails from './GpuOfferDetails';
 import { api, Modal } from './components';
-import './cloud.css';
-import VastAccountSetup from './VastAccountSetup';
 import InstancesView, { SetupTimeline, type InstanceAction } from './InstancesView';
+import { Button } from './ui/Button';
 import { toast } from 'sonner';
-import GpuFavourites, { type ToggleGpuFavourite } from './GpuFavourites';
+import './cloud.css';
+import './gpu-workspace.css';
 
-const money = (value: number | null, precision = 3) => value === null ? 'Unavailable' : '$' + value.toFixed(precision);
-const transferMoney = (value: number | null) => value === null ? 'Unavailable' : '$' + value.toLocaleString('en-US', { maximumSignificantDigits: 6 });
 const working = ['checking', 'requesting', 'waiting', 'installing', 'connecting'];
-function OfferDetails({ offer, busy, rent, saved, saving, onFavourite }: { offer: GpuOffer; busy: boolean; rent: () => void; saved: boolean; saving: boolean; onFavourite: () => void }) {
-  const [checking, setChecking] = useState(false), [receipt, setReceipt] = useState<{ ready: boolean; checks: { name: string; ok: boolean; message: string }[] } | null>(null), [checkError, setCheckError] = useState('');
-  const checkSerial = useRef(0);
-  useEffect(() => { checkSerial.current++; setChecking(false); setReceipt(null); setCheckError(''); }, [offer.quote]);
-  const preflight = async () => { const serial = ++checkSerial.current; setChecking(true); setCheckError(''); try { const result = await api<{ ready: boolean; checks: { name: string; ok: boolean; message: string }[] }>('/cloud/preflight', { quote: offer.quote }); if (serial === checkSerial.current) setReceipt(result); } catch (error) { if (serial === checkSerial.current) setCheckError((error as Error).message); } finally { if (serial === checkSerial.current) setChecking(false); } };
-  return <aside className="offer-details" id="selected-gpu-offer"><a className="gpu-back-results" href="#gpu-results">Back to offers</a><div className="offer-detail-title"><button className={`icon-button favourite-control${saved ? ' saved' : ''}`} disabled={saving} aria-pressed={saved} aria-label={saved ? 'Remove this host from favourites' : 'Save this host to favourites'} onClick={onFavourite}><Star size={18} weight={saved ? 'fill' : 'regular'} /></button><Cpu size={28} weight="light" /><span>{isDgxGpu(offer.gpu) || isCmp170Hx(offer.gpu) ? 'EXPERIMENTAL PLATFORM' : offer.gpu.includes('3090') ? 'TESTED MODEL FAMILY' : 'COMPATIBLE HARDWARE'}</span><h2>{gpuDisplayName(offer.gpu)}</h2><p>{offer.location} <span>Host #{offer.machineId}</span></p></div>
-    <div className="offer-spec-grid">{[...(isDgxSpark(offer.gpu) ? [['Shared memory', `${offer.vram.toFixed(0)} GB`], ['Architecture', 'ARM64']] : [['VRAM', `${offer.vram.toFixed(0)} GB`], ['System RAM', `${offer.ram.toFixed(0)} GB`]]), ['vCPUs', offer.cpus.toFixed(1)], ['Reliability', `${(offer.reliability * 100).toFixed(2)}%`]].map(([label, value]) => <div key={label}><small>{label}</small><strong>{value}</strong></div>)}</div>
-    <div className="compatibility"><ShieldCheck size={15} /><span>{isCmp170Hx(offer.gpu) ? 'Experimental GPU setup' : isDgxGpu(offer.gpu) ? 'Experimental datacenter setup' : 'Fits the pinned INT8 setup'}{offer.verified ? ' · Verified host' : ''}</span></div>
-    <GpuScoreDetails offer={offer}/><GpuHardwareDetails hardware={offer}/>
-    <div className="rental-price"><div><span>GPU compute</span><b>{money(offer.computeHourly)} / hr</b></div><div><span>Storage · {offer.disk} GB</span><b>{money(offer.storageHourly, 4)} / hr</b></div><div className="price-total"><span>Running total</span><strong>{money(offer.totalHourly)}<small> / hr</small></strong></div><p>Retaining this disk: {money(offer.storageMonthly, 2)} / month at the listed storage rate. Stopped billing may differ; the host sets the rate.</p></div>
-    <div className="download-cost-summary"><div><span>Downloads · per GB</span><b>{transferMoney(offer.downloadPerGB)}</b></div><div><span>Selected model files · {(offer.modelDownloadGB ?? 29.74).toFixed(1)} GB</span><b>≈ {money(offer.modelDownloadCost, 2)}</b></div><small>Charged when downloaded. Runtime and package traffic is additional.</small></div>
-    <div className="first-launch-cost"><CloudArrowUp size={16} /><div><strong>Blank engine first. Model weights stay on demand.</strong><p>Your selected recipe uses about {(offer.modelDownloadGB ?? 29.74).toFixed(1)} GB when requested. Estimated model transfer fee: {money(offer.modelDownloadCost, 2)}. At this host’s {Math.round(offer.downloadMbps)} Mbps rating, those weights alone need at least {Math.ceil((offer.modelDownloadGB ?? 29.74) * 8000 / Math.max(1, offer.downloadMbps) / 60)} minutes. Real transfers and installation can take longer.</p></div></div>
-    {offer.gpu.includes('5090') && <p className="field-hint">32 GB gives more VRAM headroom. Generation speed still needs a benchmark on this workflow.</p>}
-    <div className="setup-safety"><p><Info size={14} />Unresponsive hosts are cancelled and removed before installation. Slow image pulls and downloads keep running; installed files are preserved on setup failure.</p></div>
-    <button className="secondary-button preflight-button" disabled={checking || busy} onClick={() => void preflight()}><CheckCircle size={14} />{checking ? 'Checking configuration...' : 'Check configuration · no rental'}</button>
-    {(receipt || checkError) && <div className={`preflight-receipt ${receipt?.ready ? 'passed' : ''}`} role="status">{checkError || receipt?.checks.map(check => <div key={check.name}>{check.ok ? <CheckCircle size={13} /> : <WarningCircle size={13} />}<span>{check.name}{!check.ok && <small>{check.message}</small>}</span></div>)}</div>}
-    <button className="primary-button rent-button" disabled={busy || checking || !offer.compatible || !withinDownloadBudget(offer.downloadPerGB)} onClick={rent}><Lightning size={16} weight="fill" />Rent & launch <span>{money(offer.totalHourly)} / hr</span></button><small className="rental-footnote">Starts a paid rental. Prices are rechecked. Empty hosts with five minutes of confirmed silence are removed automatically and hidden for 24 hours. Keep Recast open for monitoring. Storage remains billed until deletion is confirmed.</small>
-  </aside>;
+function useNarrowGpuLayout() {
+  const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 1100px)').matches);
+  useEffect(() => { const query = window.matchMedia('(max-width: 1100px)'), update = () => setNarrow(query.matches); update(); query.addEventListener('change', update); return () => query.removeEventListener('change', update); }, []);
+  return narrow;
 }
-export default function GpuWorkspace({ cloud, setCloud, notify, onCreate }: { cloud: CloudState; setCloud: (value: CloudState) => void; notify: (message: string) => void; onCreate: () => void }) {
-  const [tab, setTab] = useState<'market' | 'favourites' | 'instances'>('market'), [filters, setFilters] = useState<OfferFilters>(()=>{try{return offerFiltersSchema.parse({...JSON.parse(localStorage.getItem('recast-gpu-search-v2')||'{}'),gpu:'all'});}catch{return offerFiltersSchema.parse({});}});
-  const [requirements,setRequirements]=useState<MarketRequirements>();
-  useEffect(()=>{localStorage.setItem('recast-gpu-search-v2',JSON.stringify(filters));},[filters]);
+
+export default function GpuWorkspace({ cloud, setCloud, notify, onCreate, openSettings }: { cloud: CloudState; setCloud: (value: CloudState) => void; notify: (message: string) => void; onCreate: () => void; openSettings: () => void }) {
+  const [tab, setTab] = useState<'market' | 'instances'>('market');
+  const [filters, setFilters] = useState<OfferFilters>(() => { try { return marketplaceFilters({ disk: 112, ...JSON.parse(localStorage.getItem('recast-gpu-search-v2') || '{}') }); } catch { return marketplaceFilters({ disk: 112 }); } });
+  const [requirements, setRequirements] = useState<MarketRequirements>();
   const [offers, setOffers] = useState<GpuOffer[]>([]), [selected, setSelected] = useState<string | null>(null), [searching, setSearching] = useState(false), [searched, setSearched] = useState(false), [searchError, setSearchError] = useState('');
-  const [destroy, setDestroy] = useState<CloudInstance | null>(null), [confirmation, setConfirmation] = useState(''), [actionBusy, setActionBusy] = useState(false), [searchedAt, setSearchedAt] = useState<string | null>(null);
-  const [favouriteBusy, setFavouriteBusy] = useState(false);
-  const [pending, setPending] = useState<InstanceAction>(null), [refreshing, setRefreshing] = useState(false);
-  const rentalKey = useRef<{ quote: string; key: string } | null>(null), searchSerial = useRef(0), cloudRef = useRef(cloud); cloudRef.current = cloud;
-  const refresh = useCallback(async () => { try { const value = await api<CloudState>('/cloud/refresh', {}); setCloud(value); } catch (e) { notify((e as Error).message); } }, [setCloud, notify]);
+  const [destroy, setDestroy] = useState<CloudInstance | null>(null), [confirmation, setConfirmation] = useState(''), [actionBusy, setActionBusy] = useState(false);
+  const [pending, setPending] = useState<InstanceAction>(null), [refreshing, setRefreshing] = useState(false), [reviewOpen, setReviewOpen] = useState(false);
+  const rentalKey = useRef<{ quote: string; key: string } | null>(null), searchSerial = useRef(0);
+  const narrow = useNarrowGpuLayout();
+  useEffect(() => { localStorage.setItem('recast-gpu-search-v2', JSON.stringify(filters)); }, [filters]);
+  const refresh = useCallback(async () => { try { setCloud(await api<CloudState>('/cloud/refresh', {})); } catch (e) { notify((e as Error).message); } }, [setCloud, notify]);
   useEffect(() => { if (cloud.configured) void refresh(); }, [cloud.configured, refresh]);
   const search = useCallback(async (value: OfferFilters) => {
-    const serial = ++searchSerial.current; setSearching(true); setSearchError(''); setOffers([]); setSelected(null);
-    try { const result = await api<{ offers: GpuOffer[]; searchedAt: string;filters:OfferFilters;requirements:MarketRequirements }>('/cloud/offers', value); if (serial === searchSerial.current) { const matching = result.offers.filter(offer => offer.downloadMbps >= value.minDownload && withinDownloadBudget(offer.downloadPerGB)); setOffers(matching);setRequirements(result.requirements);if(result.filters&&JSON.stringify(result.filters)!==JSON.stringify(value))setFilters(result.filters); setSelected(matching.find(offer=>offer.recommendation?.rank===1)?.quote||matching[0]?.quote || null); setSearchedAt(result.searchedAt); setSearched(true); } }
-    catch (e) { if (serial === searchSerial.current) setSearchError((e as Error).message); } finally { if (serial === searchSerial.current) setSearching(false); }
+    const serial = ++searchSerial.current; setSearching(true); setSearchError(''); setOffers([]); setSelected(null); setReviewOpen(false);
+    try {
+      const result = await api<{ offers: GpuOffer[]; filters: OfferFilters; requirements: MarketRequirements }>('/cloud/offers', value);
+      if (serial === searchSerial.current) {
+        const matching = result.offers.filter(offer => offerMatchesFilters(offer, result.filters || value) && withinDownloadBudget(offer.downloadPerGB));
+        setOffers(matching); setRequirements(result.requirements);
+        if (result.filters && JSON.stringify(result.filters) !== JSON.stringify(value)) setFilters(result.filters);
+        const best = (result.filters?.sort || value.sort) === 'recommended' ? matching.find(offer => offer.recommendation?.rank === 1) : matching[0];
+        setSelected(best?.quote || matching[0]?.quote || null); setSearched(true);
+      }
+    } catch (e) { if (serial === searchSerial.current) setSearchError((e as Error).message); }
+    finally { if (serial === searchSerial.current) setSearching(false); }
   }, []);
   useEffect(() => {
-    searchSerial.current++;setSelected(null); if (tab !== 'market') { setSearching(false); return; } setOffers([]);
-    if (!cloud.configured) { setSearching(false); return; }
-    if (!offerFiltersSchema.safeParse(filters).success) { setSearching(false); setSearchError('Choose a valid hourly cap, at least 24 GB VRAM, 48 GB RAM, 64 GB disk and 250 Mbps downloads.'); return; }
+    searchSerial.current++; setSelected(null); setReviewOpen(false);
+    if (tab !== 'market' || !cloud.configured) { setSearching(false); return; }
+    setOffers([]);
+    if (!offerFiltersSchema.safeParse(filters).success) { setSearching(false); setSearchError('Check your price and hardware limits.'); return; }
     setSearching(true); setSearchError(''); const timer = setTimeout(() => void search(filters), 450); return () => clearTimeout(timer);
   }, [cloud.configured, filters, search, tab]);
+  useEffect(() => () => { searchSerial.current++; }, []);
   const rent = async (offer: GpuOffer) => {
-    if(Date.parse(offer.expiresAt)<=Date.now()){if(tab==='market')void search(filters);else notify('Refresh favourite availability to get a fresh quote.');return;}
-    if(!offerMatchesFilters(offer,filters)){notify('This offer does not match your current filters. Refresh availability before renting.');return;}
+    if (Date.parse(offer.expiresAt) <= Date.now()) { notify('This quote expired. Refreshing GPU offers.'); void search(filters); return; }
+    if (!offerMatchesFilters(offer, filters)) { notify('This GPU no longer matches your filters. Refresh before renting.'); return; }
     if (actionBusy || cloud.busy) return; setActionBusy(true);
     if (rentalKey.current?.quote !== offer.quote) rentalKey.current = { quote: offer.quote, key: crypto.randomUUID() };
     try {
-      const response = await fetch('/api/cloud/launch', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Idempotency-Key': rentalKey.current!.key }, body: JSON.stringify({ quote: offer.quote, approvedHourly: Math.min(offer.totalHourly!,filters.maxHourly) }) });
-      const value = await response.json(); if (!response.ok) { rentalKey.current = null; throw new Error(value.error); } setTab('instances'); await refresh();
+      const response = await fetch('/api/cloud/launch', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Idempotency-Key': rentalKey.current.key }, body: JSON.stringify({ quote: offer.quote, approvedHourly: Math.min(offer.totalHourly!, filters.maxHourly) }) });
+      const value = await response.json(); if (!response.ok) { rentalKey.current = null; throw new Error(value.error); }
+      setReviewOpen(false); setTab('instances'); await refresh();
     } catch (e) { notify((e as Error).message); } finally { setActionBusy(false); }
   };
   const instanceAction = async (id: number, action: string) => {
-    if (actionBusy) return;
-    setActionBusy(true); setPending({ id, action });
+    if (actionBusy) return; setActionBusy(true); setPending({ id, action });
     try {
       await api(`/cloud/instances/${id}/${action}`, { ...(action === 'destroy' ? { confirmation } : {}) });
       if (action === 'destroy') { setDestroy(null); setConfirmation(''); }
@@ -78,23 +75,15 @@ export default function GpuWorkspace({ cloud, setCloud, notify, onCreate }: { cl
   };
   const refreshStatus = async () => { if (refreshing) return; setRefreshing(true); try { await refresh(); } finally { setRefreshing(false); } };
   const retry = async (launch: CloudLaunch) => { setActionBusy(true); try { await api(`/cloud/launches/${launch.id}/continue`, {}); await refresh(); } catch (e) { notify((e as Error).message); } finally { setActionBusy(false); } };
-  const toggleFavourite: ToggleGpuFavourite = async (machineId, gpu, source) => {
-    if (favouriteBusy) return; setFavouriteBusy(true);
-    const saved = cloudRef.current.favourites?.find(item => item.machineId === machineId && item.gpu === gpu);
-    try {
-      const value = saved ? await api<CloudState>(`/cloud/favourites/${saved.id}`, undefined, 'DELETE') : await api<CloudState>('/cloud/favourites', source);
-      setCloud(value); toast.success(saved ? 'Host removed from favourites' : 'Host saved to favourites');
-    } catch (error) { notify((error as Error).message); } finally { setFavouriteBusy(false); }
-  };
-  const chosen = (tab === 'favourites' ? (cloud.favourites || []).flatMap(item => item.status === 'available' && item.offer ? [item.offer] : []) : offers).find(o => o.quote === selected), latest = cloud.launches.find(l => l.phase !== 'destroyed' || l.autoCleanup), managed = cloud.instances.filter(i => i.managed);
-  const details = chosen ? <OfferDetails offer={chosen} busy={cloud.busy || actionBusy} rent={() => void rent(chosen)} saved={!!cloud.favourites?.some(item => item.machineId === chosen.machineId && item.gpu === chosen.gpu)} saving={favouriteBusy} onFavourite={() => void toggleFavourite(chosen.machineId, chosen.gpu, { quote: chosen.quote })} /> : <aside className="offer-detail-empty"><Cpu size={34} weight="light" /><p>Select an offer to review its hardware and full cost.</p></aside>;
-  return <main className="gpu-workspace"><div className="cloud-heading"><div><span className="workspace-overline">YOUR COMPUTE, IN ONE PLACE</span><h1>GPU cloud</h1><p>Up to ${GPU_COMPUTE_CEILING.toFixed(2)}/hr GPU compute · Downloads ≤ ${DOWNLOAD_PRICE_CEILING.toFixed(3)}/GB. Storage and uploads are separate.</p></div><div className="cloud-account"><span className={`status-dot ${cloud.configured ? 'account-connected' : ''}`} /><span>{cloud.configured ? 'Vast account connected' : 'Connect your Vast account'}</span><VastAccountSetup cloud={cloud} setCloud={setCloud} label="Account" onSaved={() => { void refresh(); if (tab === 'market') void search(filters); }} /></div></div>
-    <div className="cloud-tabs"><button className={tab === 'market' ? 'active' : ''} onClick={() => setTab('market')}>Marketplace</button><button className={tab === 'favourites' ? 'active' : ''} onClick={() => { setSelected(null); setTab('favourites'); }}>Favourites <span>{cloud.favourites?.length || 0}</span></button><button className={tab === 'instances' ? 'active' : ''} onClick={() => setTab('instances')}>My instances <span>{managed.length}</span></button>{tab === 'market' && cloud.refreshedAt && <small>Account refreshed {new Date(cloud.refreshedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>}</div>
-    {!cloud.configured ? <section className="cloud-onboarding"><div className="cloud-onboarding-icon"><Cpu size={38} weight="light" /></div><h2>Connect your Vast account</h2><p>Add your API key and choose an SSH key for this computer. Recast handles the connection when you launch a GPU.</p><VastAccountSetup cloud={cloud} setCloud={setCloud} label="Set up Vast account" primary onSaved={() => { void refresh(); void search(filters); }} /><div className="onboarding-facts"><span><ShieldCheck size={16} />Compatible hosts only</span><span><HardDrives size={16} />Choose disk before launch</span><span><Plug size={16} />Automatic setup & connection</span></div></section> : <>
-      {cloud.error && <div className="cloud-error" role="alert"><WarningCircle size={16} /><span>{cloud.error}</span><button onClick={() => void refresh()}>Retry</button></div>}
-      {latest && (tab === 'market' || !managed.some(instance => instance.id === latest.instanceId)) && (working.includes(latest.phase) || ['stopping', 'destroying', 'unknown', 'failed'].includes(latest.phase) || tab === 'instances' || latest.autoCleanup) && <SetupTimeline launch={latest} busy={cloud.busy || actionBusy} retry={() => void retry(latest)} manage={() => setTab('instances')} browse={() => { setTab('market'); void search(filters); }} cancel={() => { if (latest) void api(`/cloud/launches/${latest.id}/cancel`, {}).then(() => refresh()).catch(e => notify(e.message)); }} />}
-      {tab === 'market' ? <GpuMarketplace filters={filters} onChange={setFilters} requirements={requirements?.workflow===filters.workflow?requirements:undefined} offers={offers} selected={selected} select={quote=>{setSelected(quote);if(window.innerWidth<=1100)requestAnimationFrame(()=>document.getElementById('selected-gpu-offer')?.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'}));}} searching={searching} searched={searched} searchError={searchError} searchedAt={searchedAt} refresh={()=>void search(filters)} details={details}/> : tab === 'favourites' ? <><RentalConfiguration filters={filters} onChange={setFilters} requirements={requirements?.workflow===filters.workflow?requirements:undefined}/><div className="market-layout"><GpuFavourites cloud={cloud} filters={filters} setCloud={setCloud} notify={notify} select={offer=>setSelected(offer.quote)} selectedQuote={selected} toggle={toggleFavourite} saving={favouriteBusy}/>{details}</div></> : <InstancesView onFavourite={launch => void toggleFavourite(launch.offer.machineId, launch.offer.gpu, { launchId: launch.id })} cloud={cloud} busy={cloud.busy || actionBusy} pending={pending} refreshing={refreshing} refresh={() => void refreshStatus()} action={(id, action) => void instanceAction(id, action)} retry={launch => void retry(launch)} confirmDestroy={instance => { setDestroy(instance); setConfirmation(''); }} browse={() => setTab('market')} onCreate={onCreate} />}
+  const chosen = offers.find(offer => offer.quote === selected), latest = cloud.launches.find(launch => launch.phase !== 'destroyed' || launch.autoCleanup), managed = cloud.instances.filter(instance => instance.managed);
+  const review = chosen ? <GpuOfferDetails offer={chosen} busy={cloud.busy || actionBusy} rent={() => void rent(chosen)} /> : <aside className="gpu-review-empty"><Cpu size={25}/><p>Select a GPU to review</p><ArrowRight size={16}/></aside>;
+  return <main className="gpu-workspace gpu-cloud-v3"><header className="gpu-cloud-heading"><h1>GPU cloud</h1><nav className="gpu-cloud-tabs" aria-label="GPU cloud sections"><button aria-current={tab === 'market' ? 'page' : undefined} onClick={() => setTab('market')}>Marketplace</button><button aria-current={tab === 'instances' ? 'page' : undefined} onClick={() => setTab('instances')}>My GPUs<span>{managed.length}</span></button></nav></header>
+    {!cloud.configured ? <section className="gpu-connect-empty"><Cpu size={30}/><h2>Connect Vast to find a GPU</h2><Button variant="primary" onClick={openSettings}><GearSix size={16}/>Open Settings<ArrowRight size={15}/></Button></section> : <>
+      {cloud.error && <div className="cloud-error" role="alert"><WarningCircle size={16}/><span>{cloud.error}</span><button onClick={() => void refresh()}>Retry</button></div>}
+      {latest && (tab === 'market' || !managed.some(instance => instance.id === latest.instanceId)) && (working.includes(latest.phase) || ['stopping', 'destroying', 'unknown', 'failed'].includes(latest.phase) || tab === 'instances' || latest.autoCleanup) && <SetupTimeline launch={latest} busy={cloud.busy || actionBusy} retry={() => void retry(latest)} manage={() => setTab('instances')} browse={() => { setTab('market'); void search(filters); }} cancel={() => void api(`/cloud/launches/${latest.id}/cancel`, {}).then(() => refresh()).catch(e => notify(e.message))} />}
+      {tab === 'market' ? <GpuMarketplace filters={filters} onChange={setFilters} requirements={requirements} offers={offers} selected={selected} select={quote => { setSelected(quote); if (narrow) setReviewOpen(true); }} searching={searching} searched={searched} searchError={searchError} refresh={() => void search(filters)} details={narrow ? null : review} /> : <InstancesView cloud={cloud} busy={cloud.busy || actionBusy} pending={pending} refreshing={refreshing} refresh={() => void refreshStatus()} action={(id, action) => void instanceAction(id, action)} retry={launch => void retry(launch)} confirmDestroy={instance => { setDestroy(instance); setConfirmation(''); }} browse={() => setTab('market')} onCreate={onCreate} />}
     </>}
-    <Modal open={!!destroy} onOpenChange={value => { if (!value) setDestroy(null); }} title="Destroy this instance?" description="The remote container, models and its disk will be permanently deleted. Your local library is kept."><div className="destroy-summary"><HardDrives size={22} /><div><strong>{destroy?.gpu} · #{destroy?.id}</strong><p>{destroy?.disk} GB remote disk will be deleted.</p></div></div><label className="full-label">Enter instance ID {destroy?.id} to confirm<input inputMode="numeric" value={confirmation} onChange={e => setConfirmation(e.target.value)} autoComplete="off" /></label><div className="modal-actions"><button className="danger-button" disabled={actionBusy || confirmation !== String(destroy?.id)} onClick={() => { if (destroy) void instanceAction(destroy.id, 'destroy'); }}><Trash size={15} />{actionBusy ? 'Destroying...' : 'Destroy instance'}</button><button className="secondary-button" onClick={() => setDestroy(null)}>Keep instance</button></div></Modal>
+    <Dialog.Root open={narrow && reviewOpen && !!chosen && tab === 'market'} onOpenChange={setReviewOpen}><Dialog.Portal><Dialog.Overlay className="sheet-overlay gpu-review-overlay"/><Dialog.Content className="gpu-review-sheet" aria-describedby={undefined} onCloseAutoFocus={event => { event.preventDefault(); const trigger = chosen && document.querySelector<HTMLButtonElement>(`[data-review-gpu="${chosen.id}"]`); (trigger || document.getElementById('gpu-results'))?.focus(); }}><Dialog.Title className="sr-only">Review GPU rental</Dialog.Title>{chosen && <GpuOfferDetails offer={chosen} busy={cloud.busy || actionBusy} rent={() => void rent(chosen)} close={() => setReviewOpen(false)} />}</Dialog.Content></Dialog.Portal></Dialog.Root>
+    <Modal open={!!destroy} onOpenChange={value => { if (!value) setDestroy(null); }} title="Destroy this instance?" description="The remote container, models and its disk will be permanently deleted. Your local library is kept."><div className="destroy-summary"><HardDrives size={22}/><div><strong>{destroy?.gpu} · #{destroy?.id}</strong><p>{destroy?.disk} GB remote disk will be deleted.</p></div></div><label className="full-label">Enter instance ID {destroy?.id} to confirm<input inputMode="numeric" value={confirmation} onChange={e => setConfirmation(e.target.value)} autoComplete="off"/></label><div className="modal-actions"><Button variant="destructive" disabled={actionBusy || confirmation !== String(destroy?.id)} onClick={() => { if (destroy) void instanceAction(destroy.id, 'destroy'); }}><Trash size={15}/>{actionBusy ? 'Destroying…' : 'Destroy instance'}</Button><Button onClick={() => setDestroy(null)}>Keep instance</Button></div></Modal>
   </main>;
 }

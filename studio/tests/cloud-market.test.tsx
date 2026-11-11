@@ -62,7 +62,7 @@ describe('transparent GPU value scores',()=>{
     const original=JSON.stringify([slow,fast]),ranked=rankGpuOffers([slow,fast],filters);
     expect(ranked[0].id).toBe(2);expect(ranked[0].recommendation?.score).toBeGreaterThan(ranked[1].recommendation!.score);
     expect(JSON.stringify([slow,fast])).toBe(original);
-    expect(Object.values(recommendationWeights).reduce((sum,value)=>sum+value,0)).toBe(100);
+    expect(Object.values(recommendationWeights).reduce<number>((sum,value)=>sum+value,0)).toBe(100);
   });
   it('chooses three distinct machines and excludes missing compute ratings from recommendations',()=>{
     const ranked=rankGpuOffers([offer(1),offer(2,{machine_id:1}),offer(3),offer(4),offer(5,{dlperf:null})],filters);
@@ -72,10 +72,11 @@ describe('transparent GPU value scores',()=>{
     expect(rankGpuOffers([offer(6,{dlperf:null,gpu_mem_bw:null})],filters)[0].recommendation?.rank).toBeNull();
     expect(rankGpuOffers([],filters)).toEqual([]);
   });
-  it('caps VRAM credit and uses Mbps plus disk limits for transfer estimates',()=>{
+  it('gives no VRAM bonus and uses Mbps plus disk limits for transfer estimates',()=>{
     const a=offer(1,{gpu_ram:98304,inet_down:8000,disk_bw:100}),b=offer(2,{gpu_ram:196608,inet_down:8000,disk_bw:100});
     const ranked=rankGpuOffers([a,b],filters);
-    expect(ranked[0].recommendation?.components.memory).toBe(10);expect(ranked[1].recommendation?.components.memory).toBe(10);
+    expect(ranked[0].recommendation?.components.memory).toBe(0);expect(ranked[1].recommendation?.components.memory).toBe(0);
+    expect(ranked[0].recommendation?.score).toBe(ranked[1].recommendation?.score);
     expect(ranked[0].recommendation?.transferSeconds).toBe(300);
     expect(ranked[0].recommendation?.firstHourCost).toBeCloseTo(.35);
     expect(ranked[0].recommendation?.transferComputeCost).toBeCloseTo(.32/12);
@@ -86,12 +87,13 @@ describe('transparent GPU value scores',()=>{
 describe('workflow floors and retained hardware',()=>{
   let root='',store:Store|undefined;
   afterEach(async()=>{store?.close();store=undefined;if(root)await rm(root,{recursive:true,force:true});root='';vi.restoreAllMocks();});
-  it('reserves disk for only the chosen workflow and leaves generation drafts unchanged',async()=>{
+  it('uses one retained Studio floor independently of workflow presets and leaves drafts unchanged',async()=>{
     root=await mkdtemp(path.join(os.tmpdir(),'gpu-market-'));store=new Store(root);
     const before=JSON.stringify([store.draft(),store.imageDraft()]);
     const motion=marketRequirements(store,filters),image=marketRequirements(store,{...filters,workflow:'imagen'}),all=marketRequirements(store,{...filters,workflow:'all',disk:64});
     expect(motion.requirements.minVram).toBe(24);expect(motion.requirements.modelGB).toBeGreaterThan(0);
-    expect(all.requirements.modelGB).toBeGreaterThanOrEqual(Math.max(motion.requirements.modelGB,image.requirements.modelGB));
+    expect(all.requirements).toEqual(motion.requirements);expect(all.requirements).toEqual(image.requirements);
+    expect(motion.filters.workflow).toBe('all');expect(motion.filters.gpu).toBe('all');
     expect(all.filters.disk).toBeGreaterThanOrEqual(96);expect(all.filters.ram).toBe(64);expect(all.requirements.architectures).toEqual(['amd64']);
     expect(JSON.stringify([store.draft(),store.imageDraft()])).toBe(before);
   });
@@ -110,7 +112,7 @@ describe('workflow floors and retained hardware',()=>{
   it('renders hardware filters, top picks and cost-aware cards without model-name chips',()=>{
     const offers=rankGpuOffers([offer(1),offer(2),offer(3)],filters);
     const html=renderToStaticMarkup(<GpuMarketplace filters={filters} onChange={()=>{}} offers={offers} selected={null} select={()=>{}} searching={false} searched searchError="" searchedAt={null} refresh={()=>{}} details={<aside>Hardware review</aside>}/>);
-    for(const name of ['Minimum GPU VRAM','Maximum total hourly price','Minimum download speed','Top GPU recommendations','Memory bandwidth','Downloads','Review RTX 4500Ada'])expect(html).toContain(name);
+    for(const name of ['Minimum GPU VRAM','Maximum total hourly price','Minimum download speed','Top GPU recommendations','Memory bandwidth','Download','Review RTX 4500Ada'])expect(html).toContain(name);
     expect(html).not.toContain('gpu-family-filter');expect(html).not.toContain('Datacenter GPU model');
   });
 });

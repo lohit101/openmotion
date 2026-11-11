@@ -46,6 +46,14 @@ export const offerFiltersSchema = z.object({
   sort: z.enum(['recommended','price', 'compute', 'setup','speed']).default('recommended'),
 });
 export type OfferFilters = z.infer<typeof offerFiltersSchema>;
+export const gpuMarketplaceMinimums = { minVram: 24, ram: 64, disk: 96, minDownload: 250 } as const;
+/** Current Studio uses one common floor; old frozen quote filters stay readable. */
+export function marketplaceFilters(value: unknown = {}): OfferFilters {
+  const filters = offerFiltersSchema.parse(value);
+  return { ...filters, gpu: 'all', workflow: 'all', minVram: Math.max(filters.minVram, gpuMarketplaceMinimums.minVram),
+    ram: Math.max(filters.ram, gpuMarketplaceMinimums.ram), disk: Math.max(filters.disk, gpuMarketplaceMinimums.disk),
+    sort: filters.sort === 'compute' ? 'price' : filters.sort };
+}
 // Retained only for old frozen rental filters; the marketplace always uses all.
 export function offerGpuFilter(gpu: OfferFilters['gpu']) {
   if (gpu === 'a-series') return { in: [...aSeriesGpuNames] };
@@ -105,9 +113,11 @@ export function offerMatchesFilters(offer:GpuOffer,filters:OfferFilters):boolean
     (!['clarity','all'].includes(filters.workflow)||['amd64','x86_64'].includes(offer.cpuArch||''));
 }
 export interface GpuRecommendation {
+  version?:'value-v2';
   score:number;rank:number|null;confidence:'rated'|'limited';
   components:{compute:number;value:number;setup:number;memory:number;transfer:number;reliability:number};
   transferSeconds:number|null;transferComputeCost:number|null;firstHourCost:number|null;
+  performanceIndex?:number|null;workPerDollar?:number|null;sessionCost?:number|null;
 }
 export interface MarketRequirements { workflow:OfferFilters['workflow'];minVram:number;minRam:number;minDisk:number;recommendedDisk:number;modelGB:number;architectures:string[]; }
 export type GpuHardware=Pick<GpuOffer,'gpu'|'vram'|'ram'|'cpus'|'cpu'|'driver'|'cuda'|'diskBandwidth'|'downloadMbps'|'uploadMbps'|'downloadPerGB'|'uploadPerGB'|'pcie'|'verified'|'reliability'|'dlperf'|'tflops'|'memoryBandwidth'|'computeCapability'|'cpuArch'>;

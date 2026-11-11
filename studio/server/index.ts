@@ -183,15 +183,9 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   });
   app.post('/api/cloud/refresh', async (_req, res) => res.json(await cloud.refresh()));
   app.post('/api/cloud/offers', async (req, res) => res.json(await cloud.offers(offerFiltersSchema.parse(req.body))));
-  app.post('/api/cloud/favourites', (req, res) => {
-    const value = z.object({ launchId: z.string().min(1).max(120).optional(), quote: z.string().uuid().optional() }).refine(value => !!value.launchId !== !!value.quote, 'Choose one rental or offer.').parse(req.body);
-    res.json(cloud.saveFavourite(value));
-  });
-  app.delete('/api/cloud/favourites/:id', (req, res) => res.json(cloud.removeFavourite(z.string().uuid().parse(req.params.id))));
-  app.post('/api/cloud/favourites/check', async (req, res) => {
-    const value = z.object({ filters: offerFiltersSchema, id: z.string().uuid().optional() }).parse(req.body);
-    res.json(await cloud.checkFavourites(value.filters, value.id));
-  });
+  // Saved host records are retained; stale clients may not change them or issue
+  // availability searches through the retired feature.
+  app.all(['/api/cloud/favourites', '/api/cloud/favourites/{*path}'], (_req, res) => res.status(410).json({ error: 'Saved GPU hosts are unavailable.' }));
   app.post('/api/cloud/preflight', async (req, res) => { const value = z.object({ quote: z.string().uuid() }).parse(req.body); res.json(await cloud.checkConfiguration(value.quote)); });
   app.post('/api/cloud/launch', (req, res) => {
     if (models.state.busy) return void res.status(409).json({ error: 'Finish or cancel model downloads before changing GPU instances.' });

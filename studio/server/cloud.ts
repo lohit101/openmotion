@@ -422,7 +422,7 @@ export class CloudManager {
     const selected=marketRequirements(this.store,filters);filters=selected.filters;
     const rows = await this.client.offers(filters); const offers = rankGpuOffers(rows.map(raw => normalizeOffer(raw, filters, selected.requirements.modelGB)).filter(o => o.compatible && !this.hostCoolingDown(o.machineId)),filters);
     if(filters.sort!=='recommended'){
-      const value=(o:GpuOffer)=>filters.sort==='compute'?o.computeHourly:filters.sort==='setup'?o.recommendation?.firstHourCost:filters.sort==='speed'?-(o.dlperf||0):o.totalHourly;
+      const value=(o:GpuOffer)=>filters.sort==='compute'?o.computeHourly:filters.sort==='setup'?o.recommendation?.sessionCost:filters.sort==='speed'?-(o.dlperf||0):o.totalHourly;
       offers.sort((a,b)=>(value(a)??Infinity)-(value(b)??Infinity)||a.id-b.id);
     }
     this.rememberOffers(offers, filters);
@@ -491,7 +491,7 @@ export class CloudManager {
   }
   private async localPreflight(identity: string, workflow: OfferFilters['workflow'] = 'remotion') {
     if (this.options.preflight) await this.options.preflight(identity);
-    else await command('python3', [path.join(this.repo, 'scripts/managed_instance.py'), '--check-local', '--identity', identity, ...(workflow === 'remotion' ? ['--native-motion'] : [])], undefined, 20000);
+    else await command('python3', [path.join(this.repo, 'scripts/managed_instance.py'), '--check-local', '--identity', identity, ...(['remotion','all'].includes(workflow) ? ['--native-motion'] : [])], undefined, 20000);
   }
   async checkConfiguration(quote: string) {
     const selected = this.quotes.get(quote); if (!selected || selected.offer.totalHourly === null) throw new Error('Refresh the marketplace and choose an offer first.');
