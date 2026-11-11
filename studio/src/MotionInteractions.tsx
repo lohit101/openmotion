@@ -10,8 +10,8 @@ export default function MotionInteractions({ settings, seconds, change, shorten 
   const issue = incomingInteractionIssue(settings, seconds), limit = Math.min(5, settings.clipSeconds);
   return <div className="oj-interactions">
     <Toggle label="Keep incoming hands & objects" checked={enabled} onChange={change}
-      detailVisible detail="Uses the complete source performance with the Motion Transfer adapter. Helps preserve incoming hands, objects and contact while using your character’s setting. Requires lip-sync enabled." />
-    {enabled && <p className="oj-scene-note">{settings.interactionGuide === 'aligned-interactions-v2' ? 'Long clips supported · source guidance in every segment. Long-clip quality is still being evaluated.' : `Saved short-clip guide · up to ${limit}s.`} Identity and hair can still vary after turns or occlusion.</p>}
+      detail="Uses the complete source performance with the Motion Transfer adapter. Helps preserve incoming hands, objects and contact while using your character’s setting. Requires lip-sync enabled. Identity and hair can still vary after turns or occlusion; long-clip quality is still being evaluated." />
+    {enabled && <p className="oj-scene-note">{settings.interactionGuide === 'aligned-interactions-v2' ? 'Long clips supported.' : `Saved short-clip guide · up to ${limit}s.`} Identity and hair may vary.</p>}
     {settings.interactionGuide === 'aligned-interactions-v1' && <button type="button" className="secondary-button" onClick={() => change(true)}>Enable longer clips</button>}
     {issue && <div className="oj-interaction-warning" role="status"><p>{issue}</p>
       {settings.interactionGuide === 'aligned-interactions-v1' && seconds > limit ? <button type="button" className="secondary-button" onClick={shorten}>Use {limit}s from current start</button>

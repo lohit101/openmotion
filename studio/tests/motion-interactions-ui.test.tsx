@@ -74,7 +74,7 @@ describe('live incoming-interaction controls', () => {
     expect(html).toContain('aria-checked="true"');
     expect(html).toContain('Long clips supported');
     expect(html).not.toContain('Use 5s from current start');
-    expect(html).toContain('Identity and hair can still vary');
+    expect(html).toContain('Identity and hair may vary');
     expect(renderToStaticMarkup(<MotionInteractions settings={{ ...openjutsuDefaults, referenceScene: false }} seconds={8} change={() => {}} shorten={() => {}} />)).toBe('');
     const saved = renderToStaticMarkup(<MotionInteractions settings={{ ...settings, interactionGuide: 'aligned-interactions-v1' }} seconds={8} change={() => {}} shorten={() => {}} />);
     expect(saved).toContain('Enable longer clips');

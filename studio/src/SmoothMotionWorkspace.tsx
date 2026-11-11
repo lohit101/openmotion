@@ -37,13 +37,13 @@ export default function SmoothMotionWorkspace({ data, downloads, selectedId, sel
   return <main className="oj-workspace">
     <section className="editor oj-editor" aria-label="Smooth Motion settings"><div className="oj-editor-scroll">
       <div className="editor-heading"><span className="section-icon"><FilmStrip size={19} /></span><h1>Smooth Motion</h1></div>
-      <p className="editor-description">Create smoother motion at 30, 48 or 60fps. Keep the original timing, framing and soundtrack.</p>
+      <p className="editor-description">Smoother motion. Original timing and audio.</p>
       <section className="oj-section"><h2>Video</h2><SmallSelect label="Video to smooth from library" value={draft.parentId || 'none'} onChange={id => void choose(id)} options={[{ value: 'none', label: 'Choose a completed video' }, ...completed.map(j => ({ value: j.id, label: j.title }))]} />
         <AssetDrop kind="video" label="Video to smooth" emptyLabel="Drop a video" asset={source} disabled={!loaded || submitting || choosing} onAsset={value => { if (value) asset(value); setDraft(old => ({ ...old, sourceId: value?.id || null, parentId: null })); }} onError={setError} onUploadStateChange={setUploading} help="Process a finished Library result or an uploaded SDR video up to five minutes long. Your original stays saved." />
         {source && <p className="oj-scene-note">{source.fps.toFixed(2)}fps input · {source.width} × {source.height} · {source.duration.toFixed(2)}s</p>}
       </section>
       <section className="oj-section"><h2>Output</h2><SmallSelect label="Smooth Motion frame rate" value={String(draft.fps)} onChange={value => setDraft(old => ({ ...old, fps: Number(value) as SmoothMotionDraft['fps'] }))} options={[{ value: '30', label: '30 fps · balanced' }, { value: '48', label: '48 fps · double native motion' }, { value: '60', label: '60 fps · smoothest' }]} />
-        <p className="oj-scene-note">Intermediate frames are generated with RIFE. Detected cuts remain cuts; clip speed and audio pitch stay the same.</p>
+        <p className="oj-scene-note">Timing and audio stay unchanged. Cuts remain cuts.</p>
       </section>
       <details className="oj-advanced"><summary>What this changes</summary><div><p className="oj-scene-note">Smoother motion does not repair identity drift or malformed details. Fast hands and mouths can still need review. Higher frame rates use more processing and produce larger exports.</p><p className="oj-scene-note">Frames stream in pairs to limit memory use. The final video is encoded as a high-quality H.264 MP4; existing compatible audio is copied.</p></div></details>
       {error && <p className="model-page-error" role="alert">{error}</p>}

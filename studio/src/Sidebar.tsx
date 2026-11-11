@@ -26,12 +26,12 @@ export default function Sidebar({ view, select, collapsed, toggle, libraryCount 
   const link = (id: WorkspaceView, label: string, Icon: typeof GearSix) => <NavHint key={id} label={label}><button type="button"
     className={`rail-link ${view === id ? 'active' : ''}`} aria-label={label} aria-current={view === id ? 'page' : undefined}
     onClick={() => select(id)} title={label}>
-    <Icon size={20} weight={view === id ? 'duotone' : 'regular'} aria-hidden="true" /><span>{label}</span>
+    <Icon size={18} weight="regular" aria-hidden="true" /><span>{label}</span>
   </button></NavHint>;
   const shortcut = (id: 'library' | 'gpu', label: string, detail: string, Icon: typeof GearSix) => <NavHint label={label} detail={detail}><button type="button"
     className={`rail-shortcut ${view === id ? 'active' : ''}`} onClick={() => select(id)} aria-label={label}
     aria-current={view === id ? 'page' : undefined} title={label}>
-    <Icon size={25} weight={view === id ? 'duotone' : 'regular'} aria-hidden="true" />
+    <Icon size={20} weight="regular" aria-hidden="true" />
   </button></NavHint>;
   const toggleLabel = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
   return <Tooltip.Provider delayDuration={180} skipDelayDuration={100} disableHoverableContent><aside className="nav-rail" aria-label="Main navigation">

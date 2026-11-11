@@ -1,0 +1,26 @@
+/* Product tokens: monochrome surfaces, semantic color only for actual states. */
+:root {
+  color-scheme: dark;
+  --background: #000; --foreground: #ededed; --card: #0a0a0a; --card-foreground: #ededed;
+  --popover: #111; --popover-foreground: #ededed; --primary: #fafafa; --primary-foreground: #0a0a0a;
+  --secondary: #171717; --secondary-foreground: #ededed; --muted-foreground: #a1a1a1;
+  --border: #262626; --ring: #a3a3a3; --destructive: #f87171;
+  --success: #34d399; --warning: #fbbf24; --error: var(--destructive);
+  --bg: var(--background); --surface: var(--card); --panel: #111; --raised: #1a1a1a; --hover: #222;
+  --line: var(--border); --line-soft: #1f1f1f; --text: var(--foreground); --muted: var(--muted-foreground); --quiet: #888;
+  --accent: var(--primary); --accent-text: var(--primary); --accent-ink: var(--primary-foreground);
+  --input: #0e0e0e; --canvas: #050505;
+  --radius-control: 4px; --radius-media: 6px; --shadow: 0 12px 40px #0008;
+  --app-header-height: 52px; --mobile-nav-height: calc(60px + env(safe-area-inset-bottom));
+  --ease-out: cubic-bezier(.2,.8,.2,1); --duration-fast: 140ms;
+}
+:root[data-theme='light'] {
+  color-scheme: light;
+  --background: #fff; --foreground: #171717; --card: #fafafa; --card-foreground: #171717;
+  --popover: #fff; --popover-foreground: #171717; --primary: #171717; --primary-foreground: #fafafa;
+  --secondary: #f0f0f0; --secondary-foreground: #171717; --muted-foreground: #616161;
+  --border: #dedede; --ring: #737373; --destructive: #b91c1c;
+  --success: #067647; --warning: #8a5a00;
+  --panel: #f5f5f5; --raised: #ededed; --hover: #e8e8e8; --line-soft: #e9e9e9; --quiet: #666;
+  --input: #fff; --canvas: #f3f3f3; --shadow: 0 12px 36px #00000012;
+}

@@ -19,7 +19,7 @@ export default function LibraryWorkspace({ jobs, assets, patch, reuse, create, o
   const index = visible.findIndex(job => job.id === selectedId);
   const counts = (value: LibraryCollection) => libraryJobs(jobs, value, 'all', '', 'newest').length;
   return <main className="library library-workspace">
-    <header className="library-heading"><div><h1>My library</h1><p>Your images, videos and the settings behind them.</p></div><button className="secondary-button" onClick={create}><Plus size={16} />New creation</button></header>
+    <header className="library-heading"><div><h1>My library</h1></div><button className="secondary-button" onClick={create}><Plus size={16} />New creation</button></header>
     <div className="library-collections" role="tablist" aria-label="Library collection">
       {([{ id: 'all', label: 'Library', Icon: SquaresFour }, { id: 'favorites', label: 'Favourites', Icon: Heart }, { id: 'trash', label: 'Trash', Icon: Trash }] as const).map(({ id, label, Icon }) => <button key={id} role="tab" aria-selected={collection === id} onClick={() => setCollection(id)}><Icon size={17} weight={collection === id ? 'fill' : 'regular'} />{label}<span>{counts(id)}</span></button>)}
     </div>

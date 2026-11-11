@@ -154,7 +154,7 @@ describe('independent Qwen Image 2.1 editor', () => {
     const html = renderToStaticMarkup(<ImageEditWorkspace data={{ assets: [], jobs: [], models: state, cloud: { busy: false }, connection: { state: 'online' } } as unknown as Bootstrap} draft={draft} setDraft={() => {}} downloads={{ state, online: true, blocked: false, download() {}, remove() {} }} selectedId={null} select={() => {}} close={() => {}} asset={() => {}} job={() => {}} error={() => {}} openDownloads={() => {}} openGPU={() => {}} library={() => {}}/>);
     expect(html).toContain('Download Imagen'); expect(html).toContain('Qwen 2.1 INT8'); expect(html).toContain('What should change?');
     expect(html).not.toContain('Paint replacement'); expect(html).not.toContain('Character source'); expect(html).not.toContain('Face refinement');
-    expect(html.match(/<button[^>]+class="primary-button generate module-primary-button"[^>]*>/)?.[0]).not.toContain('disabled');
+    expect(html.match(/<button[^>]+class="[^"]*primary-button generate module-primary-button"[^>]*>/)?.[0]).not.toContain('disabled');
   });
   it('saves a paid native receipt once, then finishes JPEG locally after a failed export without resampling', async () => {
     const f = await fixture(), job = await f.create({ ...f.draft, settings: { ...f.draft.settings, format: 'jpeg' } });

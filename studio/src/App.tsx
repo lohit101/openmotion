@@ -1,4 +1,6 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import MobileNavigation from './MobileNavigation';
+import { WorkspacePanels, splitWorkspace, jobWorkspace, type WorkspacePane } from './WorkspacePanels';
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Aperture, CaretDown, Moon, Sun } from '@phosphor-icons/react';
 import type { Bootstrap, Job } from '../shared/types';
 import { api } from './components';
@@ -41,6 +43,8 @@ export default function App() {
   const [remotionSettings, setRemotionSettings] = useState(() => structuredClone(openjutsuDefaults));
   const [imageEditDraft, setImageEditDraft] = useState<ImageEditDraft>(emptyImageEditDraft);
   const [editorIntent, setEditorIntent] = useState<EditorIntent | null>(null);
+  const workspaceElement = useRef<HTMLDivElement>(null);
+  const [mobilePane, setMobilePane] = useState<WorkspacePane>('setup');
   const [postMode, setPostMode] = useState<'face'|'motion'>('face');
   const [view, setView] = useState<WorkspaceView>('create'), [selectedId, setSelectedId] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(initialSidebarCollapsed);
@@ -83,7 +87,7 @@ export default function App() {
   }, [data?.cloud]);
   const [theme, setTheme] = useState(() => localStorage.getItem('recast-theme') || 'dark');
   const initialized = useRef(false);
-  useEffect(() => { document.documentElement.dataset.theme = theme; localStorage.setItem('recast-theme', theme); }, [theme]);
+  useEffect(() => { document.documentElement.dataset.theme = theme; document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'light' ? '#ffffff' : '#000000'); localStorage.setItem('recast-theme', theme); }, [theme]);
   const receiveBootstrap = useCallback((value: Bootstrap) => {
     setData(old=>old?{...value,cloud:newestCloudState(old.cloud,value.cloud)}:value);
     if (!initialized.current) { initialized.current = true; setImageEditDraft(value.imageEditDraft || emptyImageEditDraft()); }
@@ -151,23 +155,33 @@ export default function App() {
       setSelectedId(null); setView('image'); toast.message('Inputs copied to Imagen', { description: 'The retired workflow’s settings remain saved with the original image in Library. Enter a prompt for the current editor.' });
     }
   };
+  const paneJob = jobs.find(job => !job.deleted && job.id === selectedId && jobWorkspace(job) === view);
+  useEffect(() => { setMobilePane('setup'); }, [view]);
+  useEffect(() => { if (paneJob) setMobilePane('preview'); else if (!selectedId) setMobilePane('setup'); }, [view, paneJob?.id, selectedId]);
+  useLayoutEffect(() => { if (window.matchMedia('(max-width: 768px)').matches) workspaceElement.current?.querySelector('main')?.scrollTo({ top: 0 }); }, [mobilePane, view]);
   const closePreview = () => { setSelectedId(null); setInfo(false); };
   const setCloud = useCallback((cloud: CloudState) => setData(old => old ? { ...old, cloud:newestCloudState(old.cloud,cloud) } : old), []);
   if (!data) return <div className="app-loading"><Aperture size={40} weight="light" /><h1>Recast</h1><span className="activity-line" /><p>{message || 'Opening your local workspace'}</p>{message && <button className="secondary-button" onClick={() => location.reload()}>Retry</button>}</div>;
   const power=gpuPowerTarget(data.cloud),gpuPreparing=power?.view.preparing||power?.view.ending||power?.starting;
   const gpuLabel=data.cloud.error?'GPU status unavailable':power?.view.ending?power.view.label:power?.starting?'Resuming GPU':power?.view.stopped?'GPU paused':gpuPreparing?'Preparing GPU':online?connection!.gpu||'GPU connected':power?.instance.state==='running'?'GPU running · reconnect':connection!.state==='connecting'?'Connecting':'GPU offline';
   return <div className={`app-shell ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+    <a className="skip-link" href="#workspace-content">Skip to workspace</a>
     <CloudStatusSync cloud={data.cloud} setCloud={setCloud}/>
     <header className="topbar">
       <button className="brand-mark" onClick={() => setView('create')} aria-label="Recast home"><Aperture weight="bold" size={28} /><span className="wordmark">recast<span>studio</span></span></button>
-      <div className="topbar-controls"><button className={`connection-button ${gpuPreparing?'connecting':power?.view.stopped||data.cloud.error?'offline':connection!.state}`} onClick={() => setView('gpu')} title={power?`${gpuLabel} · ${power.instance.gpu} #${power.instance.id}`:gpuLabel}><span className="status-dot" />{gpuLabel}<CaretDown size={12} /></button>
+      <div className="topbar-controls"><button className={`connection-button ${gpuPreparing?'connecting':power?.view.stopped||data.cloud.error?'offline':connection!.state}`} onClick={() => setView('gpu')} title={power?`${gpuLabel} · ${power.instance.gpu} #${power.instance.id}`:gpuLabel}><span className="status-dot" /><span className="gpu-status-label">{gpuLabel}</span><CaretDown size={12} /></button>
         <GpuPowerControl cloud={data.cloud} setCloud={setCloud} activeWork={modelState.busy || jobs.some(job => activeStates.includes(job.status) && job.faceRefinement?.execution !== 'local CPU')} browse={() => setView('gpu')} />
         <button className="theme-button" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}>{theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}</button>
       </div>
     </header>
     <Sidebar view={view} select={setView} collapsed={sidebarCollapsed} toggle={toggleSidebar} libraryCount={jobs.filter(j => !j.deleted && !j.anchorChild).length} />
+    <div className="workspace-host" data-view={view} data-split={splitWorkspace(view)} data-mobile-pane={mobilePane}>
+    {splitWorkspace(view) && <WorkspacePanels pane={mobilePane} change={setMobilePane} busy={!!paneJob && activeStates.includes(paneJob.status)} />}
+    <div className="workspace-content" id="workspace-content" tabIndex={-1} ref={workspaceElement}>
     {view === 'settings' ? <SettingsWorkspace tab={settingsTab} onTabChange={setSettingsTab} connection={connection!} cloud={data.cloud} setCloud={setCloud} error={setMessage} browse={() => setView('gpu')} downloads={<DownloadsWorkspace controls={downloads} required={[...new Set([...requiredFiles, ...imageEditFiles(imageEditDraft.settings)])]} refresh={refreshModels} cancel={cancelDownloads} setup={() => setView('gpu')} />} models={<ModelsWorkspace controls={downloads} required={requiredFiles} missingCustom={[]} refresh={refreshModels} cancel={cancelDownloads} setup={() => setView('gpu')} />} /> : view === 'gpu' ? <Suspense fallback={<main className="gpu-loading">Opening GPU cloud</main>}><GpuWorkspace cloud={data.cloud} setCloud={setCloud} notify={setMessage} onCreate={() => setView('create')} /></Suspense> : view === 'clarity' ? <Suspense fallback={<main className="gpu-loading">Opening Clarity</main>}><ClarityWorkspace library={() => setView('library')} data={data} downloads={downloads} selectedId={selectedId} select={setSelectedId} added={job => setData(old => old ? { ...old, jobs: [job, ...old.jobs.filter(j => j.id !== job.id)] } : old)} assetAdded={asset => setData(old => old ? { ...old, assets: [asset, ...old.assets.filter(a => a.id !== asset.id)] } : old)} openGPU={() => setView('gpu')} openDownloads={() => { setSettingsTab('downloads'); setView('settings'); }} /></Suspense> : view === 'editor' ? <Suspense fallback={<main className="gpu-loading">Opening clip editor</main>}><ClipEditorWorkspace jobs={jobs} assets={assets} assetAdded={asset => setData(old => old ? { ...old, assets: [asset, ...old.assets.filter(a => a.id !== asset.id)] } : old)} intent={editorIntent} consumed={id => setEditorIntent(old => old?.id === id ? null : old)} library={() => setView('library')} /></Suspense> : view === 'image' ? <Suspense fallback={<main className="gpu-loading">Opening Imagen</main>}><ImageEditWorkspace data={data} draft={imageEditDraft} setDraft={setImageEditDraft} downloads={downloads} selectedId={selectedId} select={setSelectedId} close={closePreview} asset={asset => setData(old => old ? { ...old, assets: [asset, ...old.assets.filter(a => a.id !== asset.id)] } : old)} job={job => setData(old => old ? { ...old, jobs: [job, ...old.jobs.filter(j => j.id !== job.id)] } : old)} error={setMessage} openDownloads={() => { setSettingsTab('downloads'); setView('settings'); }} openGPU={() => setView('gpu')} library={() => setView('library')} /></Suspense> : view === 'post' ? <Suspense fallback={<main className="gpu-loading">Opening post-processing</main>}><PostProcessingWorkspace mode={postMode} changeMode={mode => {setPostMode(mode);setSelectedId(null);}} data={data} downloads={downloads} selectedId={selectedId} select={setSelectedId} asset={asset => setData(old => old ? {...old,assets:[asset,...old.assets.filter(a=>a.id!==asset.id)]}:old)} job={job => setData(old => old ? {...old,jobs:[job,...old.jobs.filter(j=>j.id!==job.id)]}:old)} openGPU={()=>setView('gpu')} openDownloads={()=>{setSettingsTab('downloads');setView('settings');}} library={()=>setView('library')} back={()=>setView('create')} /></Suspense> : view === 'create' ? <Suspense fallback={<main className="gpu-loading">Opening Remotion</main>}><OpenjutsuWorkspace outputChanged={setRemotionOutputFPS} postProcess={mode=>{setPostMode(mode);setView('post');}} settingsChanged={setRemotionSettings} data={data} downloads={downloads} selectedId={selectedId} select={setSelectedId} asset={asset => setData(old => old ? { ...old, assets: [asset, ...old.assets.filter(a => a.id !== asset.id)] } : old)} job={job => setData(old => old ? { ...old, jobs: [job, ...old.jobs.filter(j => j.id !== job.id)] } : old)} openGPU={() => setView('gpu')} openDownloads={() => { setSettingsTab('downloads'); setView('settings'); }} library={() => setView('library')} /></Suspense> : <Suspense fallback={<main className="gpu-loading">Opening your library</main>}><LibraryWorkspace jobs={jobs} assets={assets} patch={patch} reuse={reuse} editVideo={editVideo} create={() => { closePreview(); setView('create'); }} openWorkspace={job => { if (isImageJob(job) && !isImageEditJob(job)) { reuse(job); return; } if (job.edit) { editVideo(job); return; } setSelectedId(job.id); if(job.openjutsu?.face || job.smoothMotion&&!job.smoothMotion.automatic)setPostMode(job.openjutsu?.face?'face':'motion'); setView(job.openjutsu?.face || job.smoothMotion&&!job.smoothMotion.automatic ? 'post' : isImageEditJob(job) ? 'image' : job.upscale ? 'clarity' : isImageJob(job) ? 'image' : 'create'); }} /></Suspense>}
 
+    </div></div>
+    <MobileNavigation view={view} select={setView} />
     <Toaster theme={theme === 'light' ? 'light' : 'dark'} position="bottom-right" richColors closeButton visibleToasts={3} toastOptions={{ className: 'recast-toast' }} />
     {selected && <RunDetailsDialog job={selected} selectJob={job=>setSelectedId(job.id)} jobs={jobs} assets={assets} open={info} close={() => setInfo(false)} editVideo={() => { editVideo(selected); setInfo(false); }} patch={changes => patch(selected, changes)} reuse={() => { reuse(selected); setInfo(false); }} openWorkspace={() => setInfo(false)} />}
 

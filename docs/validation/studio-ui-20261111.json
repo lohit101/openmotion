@@ -1,0 +1,51 @@
+{
+  "date": "2026-11-11",
+  "branch": "feat/studio-monochrome-ui",
+  "scope": "Frontend UI and responsive navigation",
+  "stack": {
+    "font": "Existing self-hosted Geist",
+    "icons": "Existing Phosphor",
+    "primitives": "Existing Radix with owned CSS button, badge and sheet components",
+    "newPackages": 0
+  },
+  "checks": {
+    "studioTests": 759,
+    "finalFocusedTests": 51,
+    "typecheck": "passed",
+    "frontendBuild": "passed",
+    "backendBuild": "byte-identical",
+    "diffWhitespace": "passed",
+    "buildAdvisory": "Main bundle remains above the Vite 500 kB warning threshold"
+  },
+  "visualReview": {
+    "browsers": ["Native Chrome", "Native Brave"],
+    "viewports": [
+      { "width": 1470, "themes": ["dark", "light"] },
+      { "width": 393, "themes": ["dark"] },
+      { "width": 320, "themes": ["light"] },
+      { "width": 768, "themes": ["light"] }
+    ],
+    "surfaces": ["Remotion inputs/footer/empty preview", "Imagen references", "Library grid and controls", "GPU filters and retained-instance card", "Settings and download cards", "Tools sheet", "Clip editor"],
+    "keyboard": "Tools Escape dismissal and focus return observed",
+    "isolation": "Read-only API preview with in-memory drafts; paid/download/delete actions blocked",
+    "limits": ["Phone sizes use browser device emulation", "No physical-phone or Safari certification", "No new fullscreen playback check", "Reduced motion reviewed statically", "Not inference-quality evidence"]
+  },
+  "publication": {
+    "frontendOnly": true,
+    "serverRestarted": false,
+    "serverProcessPreserved": true,
+    "backendSHA256": "c97ee156fa952f497368ec6b4af13d9f068fd28be194448fd525976615012e80",
+    "htmlSHA256": "dc1dd77b7cfd1324834fc4f9816fd9915e5560c0b9cbe58baad797ab05d984c9",
+    "oldAssetFilesRetained": 251,
+    "jobsPreserved": 120,
+    "assetsPreserved": 124,
+    "storedSettingsPreserved": 20,
+    "protectedDraftsAndPreferenceChecks": 7,
+    "prodv1Preserved": true,
+    "prodv2Preserved": true
+  },
+  "gpuLifecycleActions": 0,
+  "modelDownloads": 0,
+  "inferenceRuns": 0,
+  "backendWorkflowChanges": 0
+}

@@ -10,6 +10,7 @@ import { FieldLabel } from './InfoTip';
 import { EditorDisclosure, EditorSection } from './EditorControls';
 import type { DownloadControls } from './ModelDownloads';
 import ModuleAction from './ModuleAction';
+import { Badge } from './ui/Button';
 import WorkspaceWelcome from './WorkspaceWelcome';
 import GenerationProgress from './GenerationProgress';
 import { useOutputPresentation } from './useGenerationProgress';
@@ -81,8 +82,7 @@ export default function ImageEditWorkspace(props: ImageEditWorkspaceProps) {
   const frozen = selected?.image?.edit?.settings;
   return <main className="create-layout image-layout workflow-layout image-edit-layout">
     <section className="editor image-editor"><div className="editor-scroll">
-      <div className="editor-heading"><span className="section-icon"><PencilSimple size={19} /></span><h1>Imagen</h1><span className="imagen-model-label">Qwen 2.1 INT8</span></div>
-      <p className="editor-description">Your images. Your instructions.</p>
+      <div className="editor-heading"><span className="section-icon"><PencilSimple size={19} /></span><h1>Imagen</h1><Badge className="imagen-model-label">Qwen 2.1 INT8</Badge></div>
       <EditorSection title="Reference images" help="One to three complete images, in the order used by your prompt. Refer to them as Image 1, Image 2 and Image 3. PNG, JPEG or WebP, up to 10 MB each. For BFS head swaps, put the target first and the reference head second. Image 3 can supply extra identity detail. Your prompt sets their roles; no automatic crop or character template is applied.">
         <fieldset className="image-edit-reference-fields" disabled={uploading}>
         <div className="image-edit-references" style={{ gridTemplateColumns: `repeat(${slotCount}, minmax(0, 1fr))` }}>{Array.from({ length: slotCount }, (_, i) => <div className="image-edit-reference" key={i}>
@@ -122,7 +122,7 @@ export default function ImageEditWorkspace(props: ImageEditWorkspaceProps) {
       </EditorDisclosure>
       {issue && <p role="alert" className="model-page-error">{issue}</p>}
     </div><ModuleAction request={{ module: 'image-edit', settings: s }} controls={downloads} generateLabel="Generate image" generateDisabled={!valid || uploading || creating || data.cloud.busy} submitting={creating} onGenerate={() => void generate()} onConnect={props.openGPU} onManage={props.openDownloads} caption={uploading ? 'Uploading reference images…' : valid ? `${imageEditSampling(s).steps} steps · Qwen Image 2.1` : 'Add a reference image and describe your edit.'}/></section>
-    <section className={`workspace image-workspace ${selected ? '' : 'workspace-idle'}`}><div className="workspace-header"><div><span className="workspace-overline">YOUR IMAGEN WORKSPACE</span><h2>{selected?.title || 'Make it your own'}</h2></div>{selected && <button className="icon-button" aria-label="Close image preview" onClick={props.close}><X size={18}/></button>}</div>
+    <section className={`workspace image-workspace ${selected ? '' : 'workspace-idle'}`}><div className="workspace-header"><div><span className="workspace-overline">YOUR IMAGEN WORKSPACE</span><h2>{selected?.title || 'Preview'}</h2></div>{selected && <button className="icon-button" aria-label="Close image preview" onClick={props.close}><X size={18}/></button>}</div>
       {!selected ? <WorkspaceWelcome kind="photo" library={props.library} openActive={current ? () => props.select(current.id) : undefined}/> : !done ? <GenerationProgress job={selected} kind="photo" online={downloads.online} onCancel={() => void action('cancel')} onResume={() => void action('resume')} onReuse={() => reuse(selected)}/> : <>
         <div className="image-preview-stage"><div className="preview-toolbar"><div className="preview-tabs"><button aria-pressed={!compare} onClick={() => setCompare(false)}>Result</button>{original && <button aria-pressed={compare} onClick={() => setCompare(true)}>Compare</button>}</div><button className="icon-button" aria-label="View image fullscreen" onClick={() => setExpanded(true)}><ArrowsOut size={17}/></button></div>
           <div className="image-result-frame" style={{ aspectRatio: `${width}/${height}` }}><img src={`/api/jobs/${selected.id}/output`} alt={selected.title}/>{compare && original && <img className="image-before" src={`/api/assets/${original.id}/original`} alt="Original Image 1" style={{ clipPath: `inset(0 ${100 - split}% 0 0)` }}/>}</div>

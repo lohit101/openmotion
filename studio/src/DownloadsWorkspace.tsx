@@ -4,6 +4,7 @@ import { deletableModelFile, downloadRows } from '../shared/downloads';
 import { downloadableModelDefinitions, modelWorkingReserve } from '../shared/models';
 import { moduleDownloadProgress } from '../shared/module-downloads';
 import { SmallSelect } from './components';
+import { InfoTip } from './InfoTip';
 import { DownloadButton, modelSize, type DownloadControls } from './ModelDownloads';
 import './downloads.css';
 import GpuFileBrowser from './GpuFileBrowser';
@@ -31,10 +32,10 @@ export default function DownloadsWorkspace({ controls, required, refresh, cancel
   const all=[...new Set(downloadableModelDefinitions.map(file=>file.id))],bulk=moduleDownloadProgress({module:'remotion',key:'entire-catalog',files:all,runtimes:[]},controls.state,controls.state.busy?controls.state.transferFiles:undefined);
   const insufficient=bulk.remaining>0&&controls.state.diskFreeBytes!==undefined&&bulk.remaining+modelWorkingReserve(all)>controls.state.diskFreeBytes;
   return <section className="downloads-workspace" aria-labelledby="downloads-heading">
-    <header className="downloads-heading"><div><h2 id="downloads-heading">Downloads</h2><p>Your model files, what uses them and the space they take.</p></div>
+    <header className="downloads-heading"><div><h2 id="downloads-heading">Downloads</h2></div>
       <button className="secondary-button" disabled={!controls.online || controls.state.refreshing} onClick={() => { setLocation(''); refresh(); }}><ArrowClockwise size={14} />{controls.state.refreshing ? 'Checking…' : 'Sync inventory'}</button>
     </header>
-    <section className="downloads-bulk" aria-label="Download entire model catalog"><div><strong>Download all models</strong><p>All {all.length} available model files. {modelSize(bulk.remaining)} remaining. Shared files download once; module tools are prepared when requested.</p><small>Compute, transfer and storage charges apply. For a smaller setup, use the download button inside a module.</small>{insufficient&&controls.online&&<p className="model-file-error">Needs {modelSize(bulk.remaining+modelWorkingReserve(all))} free including working space.</p>}</div>
+    <section className="downloads-bulk" aria-label="Download entire model catalog"><div><div className="download-bulk-label"><strong>Download all models</strong><InfoTip label="Download all models">Shared files download once. Module tools are prepared when requested. For a smaller setup, use the download button inside a module.</InfoTip></div><p>All {all.length} available model files · {modelSize(bulk.remaining)} remaining.</p><small>Compute, transfer and storage charges apply.</small>{insufficient&&controls.online&&<p className="model-file-error">Needs {modelSize(bulk.remaining+modelWorkingReserve(all))} free including working space.</p>}</div>
       <button className="secondary-button" disabled={!controls.online||controls.blocked||controls.state.busy||controls.state.refreshing||insufficient||bulk.missing.length===0} onClick={()=>controls.download(all)}><DownloadSimple size={16}/>{!bulk.missing.length&&controls.online?'All models installed':controls.state.busy&&!moduleActive?'Downloading · '+bulk.percent+'%':'Download all models'}</button>
     </section>
     <div className="downloads-storage">
