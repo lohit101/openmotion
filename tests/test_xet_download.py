@@ -28,7 +28,9 @@ class XetDownloadTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(); self.root = Path(self.temp.name).resolve()
         self.data = bytes(range(256)) * 1024
-        self.item = dict(repo='owner/model', revision='a'*40, filename='original/weights.bin', destination='diffusion_models/renamed.bin', size=len(self.data), sha256=hashlib.sha256(self.data).hexdigest())
+        # The worker now enforces the retained-module catalog. Keep synthetic
+        # bytes/metadata, but use an allowed destination under the temporary root.
+        self.item = dict(repo='owner/model', revision='a'*40, filename='original/weights.bin', destination='diffusion_models/qwen_image_2.1_int8_convrot.safetensors', size=len(self.data), sha256=hashlib.sha256(self.data).hexdigest())
         self.part = self.root / 'weights.part'
         self.meta = SimpleNamespace(size=len(self.data), commit_hash='a'*40, etag=self.item['sha256'], xet_file_data=SimpleNamespace(file_hash='cas-hash', refresh_route='https://huggingface.co/api/models/owner/model/xet-read-token/'+'a'*40))
         self.ranges = []; self.groups = []; self.fail_once = False; self.fail_always = False
@@ -78,7 +80,7 @@ class XetDownloadTests(unittest.TestCase):
         self.assertFalse(http.return_value.open.called)
         self.assertTrue(downloader.valid_file(final,self.item))
         self.assertFalse(final.with_name(final.name+'.part').exists())
-        self.assertEqual(list(self.root.rglob('*.bin')), [final])
+        self.assertEqual(list(self.root.rglob('*'+final.suffix)), [final])
 
     def test_failed_native_transfer_retains_a_real_contiguous_prefix_and_redacts_urls(self):
         self.fail_always=True

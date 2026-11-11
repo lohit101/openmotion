@@ -126,7 +126,10 @@ export default function App() {
   }, [setMessage]);
   const prepareModule=useCallback(async(request:ModuleDownloadRequest)=>{
     const models=await api<ModelsState>('/models/module',request);setData(old=>old?{...old,models}:old);
-    toast.message('Preparing '+moduleNames[request.module],{description:'Only files and tools for the selected settings. Generation starts separately.'});
+    toast.message(moduleNames[request.module]+' setup queued',{description:'Selected files and tools only. Generation starts separately.'});
+  },[]);
+  const moduleDownloadAction=useCallback(async(key:string,action:'pause'|'resume'|'cancel')=>{
+    const models=await api<ModelsState>('/models/module/action',{key,action});setData(old=>old?{...old,models}:old);
   },[]);
   const recoverDownloads=useCallback(()=>{void api<ModelsState>('/models/recover',{}).then(models=>setData(old=>old?{...old,models}:old)).catch(error=>setMessage(error.message));},[setMessage]);
   const cancelDownloads = useCallback(() => { void api<ModelsState>('/models/cancel', {}).then(models => { setData(old => old ? { ...old, models } : old); toast.message(models.busy?'Cancellation requested. Waiting for confirmation.':'Downloads cancelled. Partial files are kept.'); }).catch(error => setMessage(error.message)); }, [setMessage]);
@@ -145,7 +148,7 @@ export default function App() {
   const online = connection?.state === 'online';
   const modelState = data?.models || emptyModels();
   const requiredFiles = [...openjutsuFiles(remotionSettings), ...(remotionOutputFPS === 24 ? [] : smoothMotionFiles)];
-  const downloads: DownloadControls = { state: modelState, online, blocked: !!data?.cloud.busy || jobs.some(job => activeStates.includes(job.status)), settingUp: !!data?.cloud.busy, download: downloadModels, remove: removeModel, updated: models => setData(old => old ? { ...old, models } : old), prepareModule,cancel:cancelDownloads,refresh:refreshModels,recover:recoverDownloads };
+  const downloads: DownloadControls = { state: modelState, online, blocked: !!data?.cloud.busy || jobs.some(job => activeStates.includes(job.status)), settingUp: !!data?.cloud.busy, download: downloadModels, remove: removeModel, updated: models => setData(old => old ? { ...old, models } : old), prepareModule,moduleAction:moduleDownloadAction,cancel:cancelDownloads,refresh:refreshModels,recover:recoverDownloads };
   const patch = async (job: Job, changes: Partial<Job>) => { try { const updated = await api<Job>('/jobs/' + job.id, changes, 'PATCH'); setData(old => old ? { ...old, jobs: old.jobs.map(item => item.id === updated.id ? updated : item) } : old); } catch (e) { setMessage((e as Error).message); } };
   const editVideo = (job: Job) => { setEditorIntent({ id: crypto.randomUUID(), ...(job.edit ? { receipt: job.edit, title: job.title } : { jobId: job.id }) }); setView('editor'); };
   const reuse = (job: Job) => {

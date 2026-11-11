@@ -60,9 +60,22 @@ else:
 PY
 
 if [[ "$(id -u)" == "0" ]] && command -v apt-get >/dev/null; then
-  echo 'RECAST_STAGE Installing OS dependencies'
-  apt-get update -qq
-  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends git ffmpeg rsync python3-pip python3-venv python3-dev build-essential libgl1 libglib2.0-0 ca-certificates
+  SWAP_OS_PACKAGES=(git ffmpeg rsync python3-pip python3-venv python3-dev build-essential libgl1 libglib2.0-0 ca-certificates)
+  if python3 - "${SWAP_OS_PACKAGES[@]}" <<'PY_OS'
+import subprocess,sys
+try:
+    result=subprocess.run(['dpkg-query','-W','-f=${Status}\n',*sys.argv[1:]],capture_output=True,text=True)
+    lines=result.stdout.splitlines()
+    sys.exit(not(result.returncode==0 and len(lines)==len(sys.argv)-1 and all(line=='install ok installed' for line in lines)))
+except OSError:sys.exit(1)
+PY_OS
+  then
+    echo 'RECAST_STAGE Reusing installed OS dependencies'
+  else
+    echo 'RECAST_STAGE Installing OS dependencies'
+    apt-get update -qq
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends "${SWAP_OS_PACKAGES[@]}"
+  fi
 fi
 for SWAP_TOOL in git ffmpeg rsync; do
   command -v "$SWAP_TOOL" >/dev/null || { echo "Missing $SWAP_TOOL; use a root SSH Ubuntu CUDA/PyTorch template." >&2; exit 1; }

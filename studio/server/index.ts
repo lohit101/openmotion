@@ -90,7 +90,7 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
   // invalidates idle probes when async request preflight has not queued work yet.
   app.use((req, res, next) => {
     const work = req.method === 'POST' && (/^\/api\/upscale\/(?:prepare|jobs(?:\/[^/]+\/recover)?)$/.test(req.path) || /^\/api\/(?:jobs(?:\/[^/]+\/(?:resume|refine-face|face-repairs))?|images\/jobs|image-edit\/jobs|openjutsu\/(?:face\/)?jobs|smooth-motion\/jobs|models\/(?:download|module|recover|delete)|gpu-files\/delete|video-identity\/gpu\/setup|facial-consistency\/prepare|connection\/connect)$/.test(req.path) ||
-      /^\/api\/cloud\/(?:launch|launches\/[^/]+\/continue|instances\/[^/]+\/(?:start|connect))$/.test(req.path));
+      /^\/api\/cloud\/(?:launch|launches\/[^/]+\/continue|instances\/[^/]+\/(?:start|connect))$/.test(req.path) || req.path==='/api/models/module/action'&&req.body?.action==='resume');
     if (work) {
       if (idle.state.status === 'pausing') return void res.status(409).json({ error: 'GPU idle pause is in progress. Wait for its confirmed status, then start & connect before generating.' });
       idle.touch();
@@ -157,12 +157,17 @@ export async function createApplication(options: { dataRoot?: string; seed?: boo
     res.status(202).json(await models.start(value.files));
   });
   app.post('/api/models/module',async(req,res)=>{
-    if(upscale.busy||videoIdentity.gpuBusy||runner.hasUnconfirmedFaceWork()||cloud.state.busy||runner.busy||store.jobs().some(job=>['queued','running','reconnecting'].includes(job.status)))return void res.status(409).json({error:'Finish the current setup or render before preparing a module.'});
+    if(upscale.busy&&!models.preparingClarity||videoIdentity.gpuBusy||runner.hasUnconfirmedFaceWork()||cloud.state.busy||runner.busy||store.jobs().some(job=>['queued','running','reconnecting'].includes(job.status)))return void res.status(409).json({error:'Finish the current setup or render before preparing a module.'});
     const value=moduleDownloadRequestSchema.parse(req.body);
     if(value.module==='remotion'&&value.settings.engine!=='viggle')return void res.status(409).json({error:'Select Viggle before preparing new Remotion work. Existing legacy models and runs are retained.'});
     res.status(202).json(await models.prepareModule(planFromRequest(value)));
   });
   app.post('/api/models/recover',async(_req,res)=>{await models.recoverPending();res.json(models.state);});
+  app.post('/api/models/module/action',async(req,res)=>{
+    const value=z.object({key:z.string().min(1).max(16000),action:z.enum(['pause','resume','cancel'])}).strict().parse(req.body);
+    if(value.action==='resume'&&(upscale.busy&&!models.preparingClarity||videoIdentity.gpuBusy||runner.busy||cloud.state.busy||runner.hasUnconfirmedFaceWork()||store.jobs().some(job=>['queued','running','reconnecting'].includes(job.status))))return void res.status(409).json({error:'Finish GPU work before resuming setup.'});
+    res.json(await models.moduleAction(value.key,value.action));
+  });
   app.post('/api/facial-consistency/prepare', async (req, res) => {
     if (upscale.busy || videoIdentity.gpuBusy || runner.hasUnconfirmedFaceWork() || cloud.state.busy || runner.busy || store.jobs().some(job => ['queued', 'running', 'reconnecting'].includes(job.status))) return void res.status(409).json({ error: 'Finish GPU work before preparing facial tools.' });
     const value = z.object({ version: z.enum(['source-face-v1', 'source-face-v2', 'source-face-v3', 'source-face-v4', 'source-face-v5', 'source-face-v6', 'source-face-v7', 'source-face-v8', 'source-face-v9', 'source-face-v10', 'source-face-v11']).default('source-face-v6') }).strict().parse(req.body);

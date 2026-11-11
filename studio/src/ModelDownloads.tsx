@@ -4,7 +4,7 @@ import { downloadableModelDefinitions, isRetiredModel, modelDefinitions, modelWo
 import './models.css';
 import type { ModuleDownloadRequest } from '../shared/module-downloads';
 
-export interface DownloadControls { state: ModelsState; online: boolean; blocked: boolean; settingUp?: boolean; download: (files: string[]) => void; remove: (name: string) => void; updated?: (state: ModelsState) => void; prepareModule?:(request:ModuleDownloadRequest)=>Promise<void>;cancel?:()=>void;refresh?:()=>void;recover?:()=>void; }
+export interface DownloadControls { state: ModelsState; online: boolean; blocked: boolean; settingUp?: boolean; download: (files: string[]) => void; remove: (name: string) => void; updated?: (state: ModelsState) => void; prepareModule?:(request:ModuleDownloadRequest)=>Promise<void>; moduleAction?:(key:string,action:'pause'|'resume'|'cancel')=>Promise<void>;cancel?:()=>void;refresh?:()=>void;recover?:()=>void; }
 export const modelSize = (bytes: number) => bytes >= 1e9 ? `${(bytes / 1e9).toFixed(2)} GB` : bytes >= 1e6 ? `${Math.round(bytes / 1e6)} MB` : bytes >= 1e3 ? `${Math.round(bytes / 1e3)} KB` : `${bytes} B`;
 const missingBytes = (files: string[], state: ModelsState) => modelDefinitions.filter(file => files.includes(file.id) && state.files.find(item => item.id === file.id)?.status !== 'installed').reduce((sum, file) => sum + file.size - Math.min(file.size, Math.max(0, state.files.find(item => item.id === file.id)?.downloaded || 0)), 0);
 export function DownloadButton({ files, controls, label, size = false }: { files: string[]; controls: DownloadControls; label: string; size?: boolean }) {

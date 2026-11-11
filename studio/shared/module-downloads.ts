@@ -35,7 +35,7 @@ export function planFromRequest(request:ModuleDownloadRequest){
 }
 
 export function moduleDownloadProgress(plan:ModuleDownloadPlan,state:ModelsState,transferFiles?:string[]){
-  const selected=new Set(plan.files),scoped=state.moduleSetup?.key===plan.key?state.moduleSetup:undefined;
+  const selected=new Set(plan.files),scoped=state.moduleSetup?.key===plan.key?state.moduleSetup:state.moduleQueue?.find(item=>item.key===plan.key);
   const transfers=new Set(transferFiles||scoped?.transferFiles||plan.files.filter(id=>state.files.find(f=>f.id===id)?.status!=='installed'));
   const required=modelDefinitions.filter(f=>selected.has(f.id));
   const missing=required.filter(f=>state.files.find(s=>s.id===f.id)?.status!=='installed');
@@ -45,7 +45,8 @@ export function moduleDownloadProgress(plan:ModuleDownloadPlan,state:ModelsState
   const active=state.files.some(f=>selected.has(f.id)&&['queued','downloading','reconnecting'].includes(f.status));
   return {scoped,missing:missing.map(f=>f.id),remaining:missing.reduce((sum,f)=>sum+f.size-Math.min(f.size,Math.max(0,state.files.find(s=>s.id===f.id)?.downloaded||0)),0),
     total,downloaded,percent:total?Math.min(active?99:100,Math.floor(downloaded/total*100)):0,
-    active:active||!!scoped&&(['downloading','preparing','reconnecting'].includes(scoped.status)||!!scoped.activeRuntime),
+    active:!!scoped?(['downloading','preparing','reconnecting'].includes(scoped.status)||!!scoped.activeRuntime):active&&!state.moduleSetup,
+    queued:scoped?.status==='queued',paused:scoped?.status==='paused',
     reconnecting:state.files.some(f=>selected.has(f.id)&&f.status==='reconnecting')||scoped?.status==='reconnecting'||scoped?.status==='cancelled'&&!!scoped.activeRuntime,
     failed:state.files.some(f=>selected.has(f.id)&&f.status==='failed')||scoped?.status==='failed'};
 }

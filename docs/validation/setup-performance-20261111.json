@@ -1,0 +1,152 @@
+{
+  "date": "2026-11-11",
+  "branch": "feat/setup-speed-queue",
+  "features": [
+    "durable selected-module queue",
+    "per-module pause/resume/cancel",
+    "reuse unchanged OS/package setup",
+    "setup-only pinned-package uv fast path with pip fallback"
+  ],
+  "limits": {
+    "pendingModules": 8,
+    "parallelModelFiles": 4,
+    "parallelModuleInstallers": 1
+  },
+  "validation": {
+    "studio": {
+      "passed": 790,
+      "failed": 0
+    },
+    "finalFocused": {
+      "passed": 41,
+      "failed": 0
+    },
+    "python": {
+      "packages": {
+        "total": 12,
+        "skipped": 0
+      },
+      "clarity": {
+        "total": 25,
+        "skipped": 1
+      },
+      "openjutsu": {
+        "total": 15,
+        "skipped": 0
+      },
+      "recovery": {
+        "total": 20,
+        "skipped": 0
+      },
+      "modelPaths": {
+        "total": 2,
+        "skipped": 0
+      },
+      "xet": {
+        "total": 22,
+        "skipped": 1
+      }
+    },
+    "typecheck": true,
+    "shellSyntax": true,
+    "pythonSyntax": true,
+    "isolatedFrontendBuild": true,
+    "isolatedBackendBuild": true,
+    "nativeChrome": {
+      "desktopQueue": true,
+      "individualPause": true,
+      "mobile320px": true,
+      "providerDisabledSyntheticFixture": true
+    }
+  },
+  "localPackageCheck": {
+    "pip": {
+      "cold_seconds": 0.15288649999999993,
+      "observed": {
+        "version": "1.0.0",
+        "value": 42
+      }
+    },
+    "uv": {
+      "cold_seconds": 1.1382165,
+      "observed": {
+        "version": "1.0.0",
+        "value": 42
+      },
+      "receipt_seconds": 0.030229457999999987
+    },
+    "same_result": true,
+    "uv_version": "uv 0.9.13 (7ca92dcf6 2025-11-26)"
+  },
+  "frozenRuntimeFiles": [
+    {
+      "path": "scripts/upscale_worker.py",
+      "sha256": "35325b3ec9c159bcc9708268bada18274a1733cbcf4a561354c672aba395bde1",
+      "unchanged": true
+    },
+    {
+      "path": "scripts/clarity_video.py",
+      "sha256": "6c9182d61d59bc8447ca6fc0354032f0f9f5680bbf11f508b0c9c1798e0a6438",
+      "unchanged": true
+    },
+    {
+      "path": "scripts/clarity_execution.py",
+      "sha256": "fa0c0993209959b90ff5cc09498b841045d32922ce0a1126aa417190ca7884f6",
+      "unchanged": true
+    },
+    {
+      "path": "config/upscale-runtime.lock.json",
+      "sha256": "f63ef96c274f4577a633f3cbc718abb17b4ff74bedf00e8e22f3e64a4babb275",
+      "unchanged": true
+    },
+    {
+      "path": "config/upscale-models.lock.json",
+      "sha256": "c69818559563d920c439f93098c30dcfc401d0a47c527529ea523b577696016d",
+      "unchanged": true
+    },
+    {
+      "path": "config/openjutsu-runtime.lock.json",
+      "sha256": "218b657557dba3e47bb4e91a08aa1cfc8c36ee80af85df5fb69c45ddaf6757a0",
+      "unchanged": true
+    },
+    {
+      "path": "config/runtime.lock.json",
+      "sha256": "3a07be332e27d373a3e3d70437af4e8a437c3802f33702dd626978892bcc2ba8",
+      "unchanged": true
+    }
+  ],
+  "deployment": {
+    "storedMediaRowsUnchanged": true,
+    "allProtectedSettingsUnchanged": true,
+    "changedCacheSettings": [],
+    "priorAssetsRetained": 603,
+    "jobs": 120,
+    "assets": 124,
+    "settings": 20,
+    "connection": "offline",
+    "moduleQueue": [
+      {
+        "module": "smooth-motion",
+        "status": "complete",
+        "activeRuntime": null
+      }
+    ],
+    "backendSHA256": "6f73db792a0b2fe98389cd44efe02e795552f400a9b8b0ce3f4b80c96815e65a",
+    "htmlSHA256": "a215c50dcb310bd90d2307c9424e5671179b1e859761e4e554c4468c51e5f2df",
+    "checkpointCommits": {
+      "prodv1": "88cc90f16ea83c7b884cd5438e7ad0c6ceac2a80",
+      "prodv2": "af25d146d2f24a2cfde8d347f46b7b86218facab"
+    }
+  },
+  "paidGpuActions": 0,
+  "modelDownloads": 0,
+  "remoteInstalls": 0,
+  "inferenceRuns": 0,
+  "freshGpuSetupTiming": "not measured",
+  "limitations": [
+    "Shared-environment installs remain serialized.",
+    "A running tool installation must settle before the next setup; unknown activity stays busy.",
+    "Tiny local wheel timing is not a managed-GPU setup speedup or output-quality test.",
+    "Normal app shutdown cancels pending requests; reconnect recovery retains exact original-rental ownership."
+  ]
+}
