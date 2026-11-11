@@ -1,0 +1,48 @@
+{
+  "checkpoint": "prodv2",
+  "date": "2026-11-11",
+  "branch": "checkpoint/prodv2",
+  "tag": "prodv2",
+  "sourceBase": "5572992",
+  "liveSourceReconstructed": true,
+  "pendingAkatzPreparationExcluded": true,
+  "validation": {
+    "backendByteExact": true,
+    "servedHtmlByteExact": true,
+    "runtimeAssetsByteExact": 43,
+    "debugSourceMapsExcluded": true,
+    "completedV2JobGraphsMatched": 8,
+    "actualUploadedMediaNamesBound": true,
+    "focusedStudioChecks": 48,
+    "focusedPythonChecks": 32,
+    "typecheck": true,
+    "serverAndFrontendBuilds": true,
+    "newGpuInference": 0
+  },
+  "privateRecovery": {
+    "consistentDatabaseBackup": true,
+    "jobs": 116,
+    "assets": 120,
+    "selectedMediaCopies": 4,
+    "selectedMediaHashesVerified": true,
+    "allSavedSettingsRetainedLocally": true,
+    "credentialsDatabasesMediaAndWeightsExcludedFromGit": true
+  },
+  "liveArtifacts": {
+    "backendSHA256": "8f2097644cd3c2ff4cdab89da97a2a9005d7405990e48a4bb9ac4e99fb47ad19",
+    "htmlSHA256": "7d04a6ad113e686294ea75a38294c32799c53f545173e629c4127bd5c5d9d595"
+  },
+  "graphVerification": {
+    "remotionSHA256": "fbf78f67296f0ac6cf825dc497cb3d6a92765c644473961e2740f737f2430498",
+    "fixFacesSHA256": "d61209cd31a4e01aa7f035399db3b365df738e9de986863d958a76d8d2a0ecce"
+  },
+  "safety": {
+    "prodv1Unchanged": true,
+    "liveSourceCheckoutUnchanged": true,
+    "applicationRestarts": 0,
+    "computeActions": 0,
+    "modelDownloads": 0,
+    "userDraftWrites": 0,
+    "newQualityCertification": false
+  }
+}

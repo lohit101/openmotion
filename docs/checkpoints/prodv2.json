@@ -1,0 +1,109 @@
+{
+  "checkpoint": "prodv2",
+  "createdAtUTC": "2026-11-11T08:47:58.880902+00:00",
+  "branch": "checkpoint/prodv2",
+  "sourceBaseCommit": "5572992",
+  "source": "Exact source reconstructed from the verified port3003 live build, plus directly invoked local Clarity helpers.",
+  "remotion": {
+    "settings": {
+      "resolution": "480p",
+      "referenceScene": true,
+      "motion": 768,
+      "hatFix": false,
+      "noLipSync": false,
+      "margin": "normal",
+      "target": "person",
+      "role": "",
+      "seed": 0,
+      "clipSeconds": 15,
+      "steps": 6,
+      "model": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "loras": [
+        {
+          "name": "minimax_h3_DMAD_4step_full_lora_avg_rank_39_bf16.safetensors",
+          "strength": 1
+        },
+        {
+          "name": "minimax_h3_motion_transfer_v1.0_ref2va.safetensors",
+          "strength": 1
+        }
+      ],
+      "describer": "qwen3vl_8b_int8_convrot.safetensors",
+      "textEncoder": "qwen3vl_32b_minimax_h3_int4_convrot.safetensors",
+      "videoVae": "minimax_h3_video_vae_int8_convrot.safetensors",
+      "audioVae": "minimax_h3_audio_vae_fp32.safetensors",
+      "acceleration": "none",
+      "interactionGuide": "aligned-interactions-v2"
+    },
+    "outputFPS": 24
+  },
+  "selectedExampleSection": {
+    "start": 1.9583333333333333,
+    "length": 7.75,
+    "media": "Private selected inputs are retained locally; no photos, videos or asset identifiers are published."
+  },
+  "fixFaces": {
+    "settings": {
+      "resolution": "480p",
+      "referenceScene": true,
+      "motion": 768,
+      "hatFix": false,
+      "noLipSync": false,
+      "margin": "normal",
+      "target": "person",
+      "role": "",
+      "seed": 0,
+      "clipSeconds": 15,
+      "steps": 6,
+      "model": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "loras": [
+        {
+          "name": "minimax_h3_DMAD_4step_full_lora_avg_rank_39_bf16.safetensors",
+          "strength": 1
+        }
+      ],
+      "describer": "qwen3vl_8b_int8_convrot.safetensors",
+      "textEncoder": "qwen3vl_32b_minimax_h3_int4_convrot.safetensors",
+      "videoVae": "minimax_h3_video_vae_int8_convrot.safetensors",
+      "audioVae": "minimax_h3_audio_vae_fp32.safetensors",
+      "acceleration": "none"
+    },
+    "face": {
+      "style": "photo",
+      "chunkSeconds": 6.5
+    },
+    "outputFPS": 24
+  },
+  "pinnedConfigSHA256": {
+    "openjutsu-runtime.lock.json": "218b657557dba3e47bb4e91a08aa1cfc8c36ee80af85df5fb69c45ddaf6757a0",
+    "openjutsu-models.lock.json": "146ef8dd9229062fd291b43f9dd6ae38694803360fef3ce806f001ad7d83aefb",
+    "openjutsu-face-runtime.lock.json": "47630fb8fdaf5276d17cbc5e80e8c2a2c5037632887b8866c3e436c60a0de1b3",
+    "openjutsu-face-models.lock.json": "79e959a72deadc861f6a048862d21a3e8865ce9519e5bedf6af8b8a5f8cdff33",
+    "smooth-motion-models.lock.json": "f2276ba7836f5efc9abc1852ffc494a76244f44564c6de565092951899968088",
+    "upscale-runtime.lock.json": "f63ef96c274f4577a633f3cbc718abb17b4ff74bedf00e8e22f3e64a4babb275",
+    "upscale-models.lock.json": "c69818559563d920c439f93098c30dcfc401d0a47c527529ea523b577696016d",
+    "openjutsu-preset.json": "b495796f64e59929f270bfc815c5e26fed9653071d13075ebf123abcfac65ad4"
+  },
+  "liveArtifacts": {
+    "backendSHA256": "8f2097644cd3c2ff4cdab89da97a2a9005d7405990e48a4bb9ac4e99fb47ad19",
+    "htmlSHA256": "7d04a6ad113e686294ea75a38294c32799c53f545173e629c4127bd5c5d9d595",
+    "runtimeAssetCount": 43
+  },
+  "privateBackup": {
+    "database": true,
+    "selectedMediaFiles": 4,
+    "credentialsAndMediaExcludedFromGit": true
+  },
+  "excludedFromLiveSource": [
+    "Unreleased Akatz model/catalog and adapter comparison preparation"
+  ],
+  "quality": "User-named recovery checkpoint. No new GPU inference, quality certification or promised determinism.",
+  "recipeSHA256": "04a07f64e95938d513916058817a97610d975084056f690dac3cbf7a7ef83179",
+  "graphVerification": {
+    "remotionSHA256": "fbf78f67296f0ac6cf825dc497cb3d6a92765c644473961e2740f737f2430498",
+    "fixFacesSHA256": "d61209cd31a4e01aa7f035399db3b365df738e9de986863d958a76d8d2a0ecce",
+    "namespace": "prodv2-checkpoint",
+    "completedV2JobGraphsMatched": 8,
+    "actualUploadedMediaNamesBound": true
+  }
+}

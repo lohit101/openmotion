@@ -1,0 +1,43 @@
+{
+  "date": "2026-11-09",
+  "status": "source-fixed-and-latest-video-recovered-locally",
+  "jobId": "a5c53319-4e67-4b94-bb43-cf1586ac636c",
+  "cause": "video-frame-limit-ended-muxing-before-final-source-audio-packet",
+  "sourceSHA256": "ef7d3224fdac4cb3019b56225e82cf83daccb2280fc8bab01e61734d529756cf",
+  "recoveredOutputSHA256": "6749a6f5efdf80d3a9ec41fa77ba207c51b4cbd1b754beb7e7eb3e608f2d7046",
+  "media": {
+    "frames": 345,
+    "fps": "24",
+    "width": 720,
+    "height": 1296,
+    "sourceAudioPackets": 621,
+    "failedExportAudioPackets": 620,
+    "recoveredAudioPackets": 621,
+    "exactOriginalAudioPacketsTimestampsAndPadding": true,
+    "exactSavedVideoPacketsAndTimestamps": true,
+    "sourceAndAttemptHashesVerified": true,
+    "remoteAndLocalTransferSHA256Match": true,
+    "videoReencoded": false,
+    "nativeQuickTimeFileOpened": true,
+    "fullPlaybackReviewed": false
+  },
+  "validation": {
+    "focusedPythonChecks": 25,
+    "passed": 24,
+    "existingOptionalPinnedSourceSkip": 1,
+    "actualSourceLocalFailureReproduced": true,
+    "actualSourceLocalRecoveryVerified": true,
+    "newTailAndFractionalFrameCountRegressions": 2
+  },
+  "safety": {
+    "originalFailedJobsUnchanged": true,
+    "remoteFilesUnchanged": true,
+    "gpuComputeActions": 0,
+    "newInference": 0,
+    "weightDownloads": 0,
+    "remoteInstalls": 0,
+    "applicationRestarts": 0,
+    "runtimeUpdateDeferredDuringUserWork": true,
+    "testObserverArmed": false
+  }
+}
