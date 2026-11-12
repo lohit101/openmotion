@@ -123,11 +123,9 @@ export class ModelManager {
   private connectionEvent=(event:{type:string})=>{if(event.type==='connection'&&this.connection.status.state==='online')void this.recoverPending();};
   constructor(public store: Store, public connection: ConnectionManager, public repo: string, private download: DownloadWorker = downloadPinnedModels, private storage: typeof manageModelStorage = manageModelStorage, private releaseCache = releaseModelCache) {
     this.state.inventories = store.value<ModelInventory[]>('model-inventories', []);
-    const saved=store.value<{instanceId?:number;endpoint?:string;startedAt?:number;transferFiles?:string[];files?:ModelFileState[];moduleSetup?:ModuleDownloadState;moduleQueue?:ModuleDownloadState[];cancelled?:boolean}>('model-download-state-v1',{});
+    const saved=store.value<{instanceId?:number;endpoint?:string;startedAt?:number;transferFiles?:string[];files?:ModelFileState[];moduleSetup?:ModuleDownloadState;cancelled?:boolean}>('model-download-state-v1',{});
     this.state.transferFiles=saved.transferFiles;this.state.transferStartedAt=saved.startedAt;this.state.transferInstanceId=saved.instanceId;this.state.transferEndpoint=saved.endpoint;this.cancelled=saved.cancelled===true;
-    this.state.moduleQueue=(saved.moduleQueue||[]).filter(item=>item&&typeof item.key==='string'&&Array.isArray(item.files)&&Array.isArray(item.runtimes));
     this.state.moduleSetup=saved.moduleSetup;
-    if(this.state.moduleSetup){const index=this.state.moduleQueue.findIndex(item=>item.key===this.state.moduleSetup!.key);if(index>=0)this.state.moduleQueue[index]=this.state.moduleSetup;else this.state.moduleQueue.push(this.state.moduleSetup);}
     for(const old of saved.files||[]){const file=this.state.files.find(f=>f.id===old.id);if(!file)continue;
       Object.assign(file,old,...(old.remoteActive?[{status:'reconnecting',message:'Checking the saved transfer after reconnecting.'}]:[]));
       if (isRetiredModel(file.id)) {
@@ -139,15 +137,10 @@ export class ModelManager {
     if(this.state.moduleSetup&&(['downloading','preparing','reconnecting'].includes(this.state.moduleSetup.status)||this.state.moduleSetup.activeRuntime))this.state.moduleSetup.status='reconnecting';
     this.syncBusy();store.on('event',this.connectionEvent);
   }
-  private syncBusy(){this.state.busy=!!this.work||!!this.moduleWork||this.preparing>0||!!this.state.moduleQueue?.some(item=>item.status==='queued')||!!this.state.deleting||!!this.state.facialPreparing||this.queue.size>0||this.state.files.some(f=>f.remoteActive===true)||!!this.state.moduleSetup&&(['downloading','preparing','reconnecting'].includes(this.state.moduleSetup.status)||!!this.state.moduleSetup.activeRuntime);}
+  private syncBusy(){this.state.busy=!!this.work||!!this.moduleWork||this.preparing>0||!!this.state.deleting||!!this.state.facialPreparing||this.queue.size>0||this.state.files.some(f=>f.remoteActive===true)||!!this.state.moduleSetup&&(['downloading','preparing','reconnecting'].includes(this.state.moduleSetup.status)||!!this.state.moduleSetup.activeRuntime);}
   emit() { this.syncBusy();this.store.set('model-download-state-v1',{instanceId:this.state.transferInstanceId,endpoint:this.state.transferEndpoint,startedAt:this.state.transferStartedAt,transferFiles:this.state.transferFiles,
-    files:this.state.files.filter(f=>transferring(f)||f.status==='failed'),moduleSetup:this.state.moduleSetup,moduleQueue:this.state.moduleQueue,cancelled:this.cancelled});this.store.emit('event', { type: 'models', data: this.state }); }
-  canReconnect(endpoint:string){
-    const instance=this.store.value('cloud-connected-instance',null);
-    const original=this.state.transferEndpoint===endpoint&&this.state.transferInstanceId===instance;
-    const queuedOnly=this.state.transferInstanceId===undefined&&this.state.moduleQueue?.some(item=>item.status==='queued'&&item.endpoint===endpoint&&item.instanceId===instance);
-    return this.state.busy&&this.connection.status.state!=='online'&&!!(original||queuedOnly)&&!this.state.deleting;
-  }
+    files:this.state.files.filter(f=>transferring(f)||f.status==='failed'),moduleSetup:this.state.moduleSetup,cancelled:this.cancelled});this.store.emit('event', { type: 'models', data: this.state }); }
+  canReconnect(endpoint:string){return this.state.busy&&this.connection.status.state!=='online'&&this.state.transferEndpoint===endpoint&&this.state.transferInstanceId===this.store.value('cloud-connected-instance',null)&&!this.state.deleting;}
   dispose(){this.disposed=true;this.store.off('event',this.connectionEvent);if(this.recoveryTimer)clearInterval(this.recoveryTimer);}
   startRecoveryMonitor(){if(this.recoveryTimer)return;this.recoveryTimer=setInterval(()=>void this.recoverPending(),10000);this.recoveryTimer.unref();}
   private scopeMatches(){return this.state.transferInstanceId===this.store.value('cloud-connected-instance',null)&&this.state.transferEndpoint===this.connection.status.endpoint;}
@@ -155,12 +148,11 @@ export class ModelManager {
     if(this.disposed||this.recovering||this.work||this.moduleWork||this.preparing)return;
     const pending=this.state.files.filter(f=>transferring(f)||f.remoteActive);
     const module=this.state.moduleSetup;
-    if(!pending.length&&!module?.activeRuntime&&(!module||!['downloading','preparing','reconnecting'].includes(module.status))){this.advanceModules();return;}
     if(module?.activeRuntime?.startsWith('local')&&(this.cancelled||['imagen','remotion'].includes(module.module))){
       try{const busy=JSON.parse(await command('python3',[path.join(this.repo,'scripts/prepare_local_models.py'),module.activeRuntime,'--status'],undefined,15000)).preparing===true;if(!busy){delete module.activeRuntime;module.status='cancelled';this.emit();}}catch{/* Keep an unknown local setup protected. */}return;
     }
     if(!this.scopeMatches())return;
-    if(!pending.length&&(!module||!['downloading','preparing','reconnecting'].includes(module.status)&&!module.activeRuntime)){this.advanceModules();return;}
+    if(!pending.length&&(!module||!['downloading','preparing','reconnecting'].includes(module.status)&&!module.activeRuntime))return;
     this.recovering=(async()=>{
       if(this.connection.status.state!=='online'){
         if(!await this.connection.recoverTransport())return;
@@ -176,7 +168,7 @@ export class ModelManager {
           else if(module.activeRuntime.startsWith('facial:')){await this.refresh();preparing=!!this.state.error||!!this.state.facialPreparing;}
           else preparing=JSON.parse(await command('python3',[path.join(this.repo,'scripts/prepare_local_models.py'),module.activeRuntime,'--status'],undefined,15000)).preparing===true;
         }catch{/* An unknown setup must remain protected. */}
-        if(!preparing){delete module.activeRuntime;module.status=module.stopRequested==='pause'?'paused':'cancelled';module.message=module.status==='paused'?'Paused. Existing files are kept.':'Cancelled. Existing files are kept.';module.error=null;this.emit();this.advanceModules();}
+        if(!preparing){delete module.activeRuntime;module.status='cancelled';module.message='Cancelled. Existing files are kept.';module.error=null;this.emit();}
         return;
       }
       if(module&&!this.cancelled&&['downloading','preparing','reconnecting'].includes(module.status)){this.beginModule(module,true);return;}
@@ -186,55 +178,28 @@ export class ModelManager {
   }
   observeProviderStop(instanceId:number,confirmedAt:number){
     if(instanceId!==this.state.transferInstanceId||!Number.isFinite(confirmedAt))return;
-    if(!this.state.moduleQueue?.some(item=>item.status==='queued')&&!this.work&&!this.moduleWork&&!this.queue.size&&!this.state.facialPreparing&&!this.state.files.some(f=>f.remoteActive)&&!this.state.moduleSetup?.activeRuntime&&!this.state.moduleSetup?.status.match(/^(downloading|preparing|reconnecting)$/))return;
+    if(!this.work&&!this.moduleWork&&!this.queue.size&&!this.state.facialPreparing&&!this.state.files.some(f=>f.remoteActive)&&!this.state.moduleSetup?.activeRuntime&&!this.state.moduleSetup?.status.match(/^(downloading|preparing|reconnecting)$/))return;
     const module=this.state.moduleSetup;if(confirmedAt<(this.state.transferStartedAt??Infinity))return;
     this.cancelled=true;this.cancelEpoch++;this.queue.clear();this.controller?.abort(new Error('The provider confirmed compute stopped.'));this.runtimeController?.abort();
     for(const f of this.state.files)if(transferring(f)||f.remoteActive)Object.assign(f,{remoteActive:false,status:'missing',message:'Compute stopped. Partial files are retained for an explicit retry.'});
     this.state.facialPreparing=false;
-    for(const item of this.state.moduleQueue||[])if(item.status==='queued'){item.status='paused';item.message='GPU stopped. Resume on this same GPU.';}
     if(module){if(!module.activeRuntime?.startsWith('local'))delete module.activeRuntime;if(['downloading','preparing','reconnecting'].includes(module.status))Object.assign(module,{status:'cancelled',message:'Compute stopped. Files are kept.',error:null});}
     this.emit();
   }
   async prepareModule(plan:ModuleDownloadPlan){
     if (plan.module === 'imagen' || plan.module === 'remotion') throw new Error('This module has been retired. Use the current Imagen or Remotion workspace.');
     assertDownloadableModelFiles(plan.files);
-    const current=this.state.moduleQueue?.find(item=>item.key===plan.key);
-    if(current&&(['queued','downloading','preparing','reconnecting'].includes(current.status)||current.activeRuntime))return this.state;
-    if(this.state.deleting)throw new Error('Finish the current file deletion first.');
+    if(this.moduleWork){if(this.state.moduleSetup?.key===plan.key)return this.state;throw new Error('Finish or cancel the current module download first.');}
+    if(this.state.busy)throw new Error('Finish or check the existing transfers first.');
     const instanceId=this.store.value<number|null>('cloud-connected-instance',null),endpoint=this.connection.status.endpoint;
     if(!instanceId||this.connection.status.state!=='online'||endpoint!=='http://127.0.0.1:8188')throw new Error('Connect the managed GPU before downloading this module.');
-    if(this.state.busy&&this.state.transferInstanceId!==undefined&&!this.scopeMatches())throw new Error('Reconnect the original GPU to check its pending setup first.');
     if(!plan.files.length||plan.files.some(id=>!modelDefinitions.some(f=>f.id===id)))throw new Error('This module includes an unavailable model.');
-    const pending=(this.state.moduleQueue||[]).filter(item=>['queued','paused','downloading','preparing','reconnecting'].includes(item.status)||item.activeRuntime);
-    if(!current&&pending.length>=8)throw new Error('Up to eight module setups can be queued. Cancel one before adding another.');
-    const state:ModuleDownloadState={...plan,instanceId,endpoint,transferFiles:plan.files.filter(id=>this.state.files.find(f=>f.id===id)?.status!=='installed'),status:'queued',queuedAt:Date.now(),message:'Queued',error:null,updatedAt:Date.now()};
-    this.state.moduleQueue=[...pending.filter(item=>item.key!==plan.key),state];
-    this.emit();this.advanceModules();return this.state;
-  }
-  private advanceModules(){
-    if(this.disposed||this.moduleWork||this.work||this.preparing||this.state.deleting||this.state.facialPreparing||this.state.moduleSetup?.activeRuntime||this.state.files.some(file=>file.remoteActive))return;
-    const next=this.state.moduleQueue?.find(item=>item.status==='queued');if(!next)return;
-    if(this.connection.status.state!=='online'||next.instanceId!==this.store.value('cloud-connected-instance',null)||next.endpoint!==this.connection.status.endpoint)return;
-    if(next.module==='imagen'||next.module==='remotion'||next.files.some(isRetiredModel)){next.status='cancelled';next.message='Retired module. Existing files are kept.';this.emit();return;}
-    this.cancelled=false;this.state.transferStartedAt=Date.now();this.state.transferInstanceId=next.instanceId;this.state.transferEndpoint=next.endpoint;
-    this.state.moduleSetup=next;this.beginModule(next,false);
-  }
-  async moduleAction(key:string,action:'pause'|'resume'|'cancel'){
-    const item=this.state.moduleQueue?.find(value=>value.key===key)||(this.state.moduleSetup?.key===key?this.state.moduleSetup:undefined);
-    if(!item)throw new Error('This module setup was not found. Refresh Downloads.');
-    if(action==='resume'){
-      if(item.activeRuntime||this.moduleWork&&item===this.state.moduleSetup)throw new Error('Wait for the current file operation or tool installation to finish first.');
-      if(item.instanceId!==this.store.value('cloud-connected-instance',null)||item.endpoint!==this.connection.status.endpoint||this.connection.status.state!=='online'||this.state.busy&&this.state.transferInstanceId!==undefined&&!this.scopeMatches())throw new Error('Reconnect the same GPU before resuming this setup.');
-      if(!['paused','cancelled','failed'].includes(item.status))return this.state;
-      assertDownloadableModelFiles(item.files);delete item.stopRequested;item.status='queued';item.error=null;item.message='Queued';this.emit();this.advanceModules();return this.state;
-    }
-    item.stopRequested=action==='pause'?'pause':'cancel';
-    if(item===this.state.moduleSetup&&(this.moduleWork||item.activeRuntime))await this.cancel(false);
-    else{item.status=action==='pause'?'paused':'cancelled';item.message=action==='pause'?'Paused':'Cancelled. Existing files are kept.';this.emit();}
-    return this.state;
+    this.cancelled=false;this.state.transferStartedAt=Date.now();this.state.transferInstanceId=instanceId;this.state.transferEndpoint=endpoint;
+    const state:ModuleDownloadState={...plan,instanceId,endpoint,transferFiles:plan.files.filter(id=>this.state.files.find(f=>f.id===id)?.status!=='installed'),status:'downloading',message:'Checking files for these settings',error:null,updatedAt:Date.now()};
+    this.state.moduleSetup=state;this.beginModule(state,false);return this.state;
   }
   private beginModule(state:ModuleDownloadState,recover:boolean){
-    this.moduleWork=this.runModule(state,recover).finally(()=>{this.moduleWork=null;this.preparingClarity=false;this.emit();this.advanceModules();});this.emit();
+    this.moduleWork=this.runModule(state,recover).finally(()=>{this.moduleWork=null;this.preparingClarity=false;this.emit();});this.emit();
   }
   private facialReady(version:FacialConsistencyRun['version']){
     const s=this.state;
@@ -245,11 +210,10 @@ export class ModelManager {
     const assertScope=()=>{if(this.cancelled)throw new Error('Module download cancelled. Installed and partial files are kept.');if(!this.scopeMatches()||this.connection.status.state!=='online')throw new Error('Reconnect the original GPU to finish the selected module setup.');};
     try{
       if (state.module === 'imagen' || state.module === 'remotion') throw new Error('This module has been retired. Installed files are kept; no replacement setup was started.');
-      Object.assign(state,{status:'downloading',startedAt:state.startedAt||Date.now(),message:'Checking selected files'});
       assertScope();await this.start(state.files,recover,true);await this.work;assertScope();
       const missing=state.files.filter(id=>this.state.files.find(f=>f.id===id)?.status!=='installed');
       if(missing.length)throw new Error(this.state.files.find(f=>missing.includes(f.id)&&f.error)?.error||'Some files are not ready. Retry downloads to resume partial files.');
-      Object.assign(state,{status:'preparing',filesReadyAt:Date.now(),message:'Preparing required tools',updatedAt:Date.now()});this.emit();
+      Object.assign(state,{status:'preparing',message:'Preparing required tools',updatedAt:Date.now()});this.emit();
       for(const runtime of state.runtimes){
         delete state.runtimePercent;
         state.activeRuntime=runtime;this.emit();
@@ -307,7 +271,7 @@ export class ModelManager {
         }
         delete state.activeRuntime;
       }
-      assertScope();Object.assign(state,{status:'complete',message:'Ready for these settings',readyAt:Date.now(),error:null,updatedAt:Date.now()});
+      assertScope();Object.assign(state,{status:'complete',message:'Ready for these settings',error:null,updatedAt:Date.now()});
     }catch(error){
       let runtimeUnknown=!!state.activeRuntime&&this.connection.status.state!=='online';
       if(state.activeRuntime==='smooth-motion-tools'){try{const result=await manageSmoothMotionTools(this.repo,state.instanceId,'status');runtimeUnknown=result.running||result.unknown;}catch{runtimeUnknown=true;}}
@@ -317,7 +281,7 @@ export class ModelManager {
       if(state.activeRuntime?.startsWith('facial:')){await this.refresh();runtimeUnknown=!!this.state.error||!!this.state.facialPreparing;}
       const unknown=this.state.files.some(f=>state.files.includes(f.id)&&f.remoteActive)||this.state.facialPreparing||runtimeUnknown;
       if(!unknown)delete state.activeRuntime;
-      Object.assign(state,{status:this.cancelled?(state.stopRequested==='pause'?'paused':'cancelled'):unknown?'reconnecting':'failed',message:unknown?'Reconnecting to the existing setup':(error as Error).message,error:(error as Error).message,updatedAt:Date.now()});
+      Object.assign(state,{status:this.cancelled?'cancelled':unknown?'reconnecting':'failed',message:unknown?'Reconnecting to the existing setup':(error as Error).message,error:(error as Error).message,updatedAt:Date.now()});
     }
   }
   private async prepareLocal(kind:'localIdentity'|'localPose'){
@@ -481,16 +445,15 @@ export class ModelManager {
           }
         };
         this.work = Promise.all([worker(), worker(), worker(), worker()]).then(async () => {
-          this.controller = null; this.work = null;this.syncBusy();await this.refresh();this.advanceModules();
+          this.controller = null; this.work = null;this.syncBusy();await this.refresh();
         });
       }
       this.emit(); return this.state;
     } finally { this.preparing--; this.syncBusy();this.emit(); }
   }
-  async cancel(all=true) {
+  async cancel() {
     this.cancelEpoch++;this.cancelled=true;this.runtimeController?.abort();
-    if(all)for(const item of this.state.moduleQueue||[]){if(['queued','paused'].includes(item.status)){item.status='cancelled';item.message='Cancelled. Existing files are kept.';}if(item===this.state.moduleSetup)item.stopRequested='cancel';}
-    if(this.state.moduleSetup&&['downloading','preparing','reconnecting'].includes(this.state.moduleSetup.status)){this.state.moduleSetup.status=this.state.moduleSetup.stopRequested==='pause'?'paused':'cancelled';this.state.moduleSetup.message='Stopping downloads; any active tool installation must settle. Files are kept.';}
+    if(this.state.moduleSetup&&['downloading','preparing','reconnecting'].includes(this.state.moduleSetup.status)){this.state.moduleSetup.status='cancelled';this.state.moduleSetup.message='Cancellation requested. Installed and partial files are retained.';}
     this.queue.clear(); this.controller?.abort(new Error('Cancelled.'));
     for (const file of this.state.files) if (file.status === 'queued') Object.assign(file, { status: 'missing', message: 'Cancelled. Click download to resume.', percent: null });
     this.emit();

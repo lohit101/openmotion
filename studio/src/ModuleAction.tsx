@@ -13,9 +13,7 @@ export default function ModuleAction({request,controls,runtimeReady=true,runtime
   const [expanded,setExpanded]=useState(false),[starting,setStarting]=useState(false),[requestError,setRequestError]=useState('');
   const id=useId(),plan=planFromRequest(request),name=moduleNames[plan.module],progress=moduleDownloadProgress(plan,controls.state);
   const ready=!progress.missing.length&&runtimeReady;
-  const ownSetup=!!progress.scoped&&progress.active||starting||!controls.prepareModule&&progress.active;
-  const queued=progress.queued,paused=progress.paused;
-  const settling=paused&&ownSetup;
+  const ownSetup=progress.active||starting;
   const otherBusy=controls.state.busy&&!ownSetup;
   const free=controls.state.diskFreeBytes,required=progress.remaining+modelWorkingReserve(plan.files);
   const shortage=!progress.active&&progress.remaining>0&&free!==undefined&&free<required;
@@ -28,17 +26,17 @@ export default function ModuleAction({request,controls,runtimeReady=true,runtime
     catch(reason){setRequestError((reason as Error).message||'Could not confirm the download request. Reconnect to check progress.');}
     finally{setStarting(false);}
   };
-  const disabled=starting||submitting||ownSetup||queued||controls.state.refreshing||!!unavailable||
-    (controls.online?(ready?generateDisabled||controls.state.busy:controls.blocked||otherBusy&&!controls.prepareModule||shortage):false);
-  const click=()=>{if(disabled)return;if(!controls.online)onConnect();else if(paused&&controls.moduleAction)void controls.moduleAction(plan.key,'resume').catch(reason=>setRequestError((reason as Error).message));else if(ready)onGenerate();else void download();};
+  const disabled=starting||submitting||progress.active||controls.state.refreshing||!!unavailable||
+    (controls.online?(ready?generateDisabled||controls.state.busy:controls.blocked||otherBusy||shortage):false);
+  const click=()=>{if(disabled)return;if(!controls.online)onConnect();else if(ready)onGenerate();else void download();};
   useEffect(()=>{
     const key=(event:KeyboardEvent)=>{if(!keyboardBlocked&&!event.defaultPrevented&&(event.metaKey||event.ctrlKey)&&event.key==='Enter'){event.preventDefault();click();}};
     window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);
   });
   const runtimePercent=progress.scoped?.status==='preparing'?progress.scoped.runtimePercent:undefined;
-  let label=!controls.online?(progress.active?'Reconnecting · '+progress.percent+'%':'Connect GPU'):submitting?'Submitting…':queued?'Queued':settling?'Pausing…':paused?'Resume downloads':progress.reconnecting?'Reconnecting · '+progress.percent+'%':progress.scoped?.status==='preparing'?(runtimePercent===undefined?'Preparing tools':'Downloading tools · '+runtimePercent+'%'):ownSetup?'Downloading · '+progress.percent+'%':ready?generateLabel:(progress.failed?'Retry downloads':otherBusy&&controls.prepareModule?'Queue '+name:'Download '+name);
+  let label=!controls.online?(progress.active?'Reconnecting · '+progress.percent+'%':'Connect GPU'):submitting?'Submitting…':progress.reconnecting?'Reconnecting · '+progress.percent+'%':progress.scoped?.status==='preparing'?(runtimePercent===undefined?'Preparing tools':'Downloading tools · '+runtimePercent+'%'):ownSetup?'Downloading · '+progress.percent+'%':ready?generateLabel:(progress.failed?'Retry downloads':'Download '+name);
   if(controls.state.refreshing&&!ownSetup)label='Checking files…';
-  const status=unavailable||(!controls.online?'Connect your GPU to continue.':queued?'Waiting for the current setup.':paused?'Paused. Downloaded files are kept.':progress.reconnecting?'Recovering progress from the same GPU. Partial files are retained.':progress.scoped?.status==='preparing'?progress.scoped.message:ownSetup?'Downloading selected files.':shortage?'More disk space is needed before downloading.':otherBusy?'You can queue this module while setup continues.':!ready?progress.missing.length?modelSize(progress.remaining)+' needed · only selected settings':'Model files are ready; runtime preparation is required.':caption||'Ready to generate');
+  const status=unavailable||(!controls.online?'Connect your GPU to continue.':progress.reconnecting?'Recovering progress from the same GPU. Partial files are retained.':progress.scoped?.status==='preparing'?progress.scoped.message:ownSetup?'Downloading selected files.':shortage?'More disk space is needed before downloading.':otherBusy?'Another GPU download or setup is in progress.':!ready?progress.missing.length?modelSize(progress.remaining)+' needed · only selected settings':'Model files are ready; runtime preparation is required.':caption||'Ready to generate');
   return <div className="generate-footer module-action" data-module={plan.module}>
     <div className="module-downloads"><button type="button" className="module-downloads-toggle" aria-expanded={expanded} aria-controls={id} onClick={()=>setExpanded(v=>!v)}>
       <HardDrives size={16}/><span>Downloads</span><small>{plan.files.length-progress.missing.length}/{plan.files.length} ready</small><CaretDown size={14} className={expanded?'expanded':''}/>
@@ -55,7 +53,7 @@ export default function ModuleAction({request,controls,runtimeReady=true,runtime
         {shortage&&<p className="module-file-error" role="alert">Needs {modelSize(required)} free including working space; {modelSize(free!)} available. Remove unused extras or use a larger disk.</p>}
         {error&&<p className="module-file-error" role="alert">{error}</p>}
         <div className="module-downloads-actions"><button type="button" onClick={onManage}>Manage all downloads</button>
-          {(ownSetup||queued||paused)&&controls.moduleAction&&<><button type="button" disabled={settling} onClick={()=>void controls.moduleAction!(plan.key,paused?'resume':'pause').catch(reason=>setRequestError((reason as Error).message))}><Pause size={13}/>{paused?'Resume':'Pause'}</button><button type="button" onClick={()=>void controls.moduleAction!(plan.key,'cancel').catch(reason=>setRequestError((reason as Error).message))}>Cancel setup</button></>}
+          {progress.active&&progress.scoped?.status!=='preparing'&&controls.cancel&&<button type="button" onClick={controls.cancel}><Pause size={13}/>Cancel downloads</button>}
           {progress.reconnecting&&controls.recover&&<button type="button" onClick={controls.recover}><ArrowClockwise size={13}/>Check status</button>}
           {!progress.active&&controls.refresh&&<button type="button" disabled={!controls.online||controls.state.refreshing} onClick={controls.refresh}><ArrowClockwise size={13}/>Sync files</button>}
         </div>

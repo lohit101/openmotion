@@ -17,14 +17,13 @@ from managed_models import check_connection
 from managed_video_identity import sync
 from upscale_worker import ROOT, validate_source, profile_hash, sha
 
-FILES = ['scripts/upscale_worker.py', 'scripts/clarity_video.py', 'scripts/clarity_execution.py', 'scripts/clarity_setup.py', 'scripts/package_install.py', 'config/upscale-runtime.lock.json', 'config/upscale-models.lock.json', 'config/server.json']
+FILES = ['scripts/upscale_worker.py', 'scripts/clarity_video.py', 'scripts/clarity_execution.py', 'config/upscale-runtime.lock.json', 'config/upscale-models.lock.json', 'config/server.json']
 
 
 def call(config, action, job=None):
     root=Path(config['remote_root'])/'upscale-runtime'
     try:
-        script='clarity_setup.py' if action=='prepare' else 'upscale_worker.py'
-        value=vast.remote(config,['python3',str(root/'scripts'/script),action,*(['--job',job]if job else [])],capture_output=True,text=True)
+        value=vast.remote(config,['python3',str(root/'scripts/upscale_worker.py'),action,*(['--job',job]if job else [])],capture_output=True,text=True)
     except subprocess.CalledProcessError as error:
         raise ValueError((error.stderr or error.stdout or 'Clarity remote command failed.')[-2000:])from error
     lines=[line[15:]for line in value.stdout.splitlines()if line.startswith('RECAST_UPSCALE ')]

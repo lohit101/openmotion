@@ -1,0 +1,77 @@
+{
+  "date": "2026-11-12T17:42:53.634637+00:00",
+  "action": "User-requested rollback of unmeasured setup-speed changes",
+  "revertedCommit": "564ff9d",
+  "discardedExperiment": "uncommitted value-v3 ranking",
+  "restoredBaseline": "17bd0b5 plus native setup-mode fix 2d95aa5 and unrelated Xet test-fixture correction",
+  "removed": [
+    "module setup queue and per-module queue controls",
+    "package receipt/uv wrappers",
+    "apt skip optimization"
+  ],
+  "preserved": [
+    "native setup mode fix",
+    "prior GPU UI and Extras cleanup",
+    "Xet model transport and four-file concurrency",
+    "generation settings and algorithms",
+    "weights and partials",
+    "all user media and protected settings"
+  ],
+  "checks": {
+    "focusedStudioPassed": 159,
+    "focusedStudioFailed": 0,
+    "pythonPassed": 8,
+    "typecheck": true,
+    "isolatedFrontendBuild": true,
+    "isolatedBackendBuild": true,
+    "diffCheck": true
+  },
+  "live": {
+    "url": "http://127.0.0.1:3003/",
+    "serverPID": 68832,
+    "serverSHA256": "8149683aef8b3aac3a41a4b8049cdba353eff90b930dda0d98a460de4ccd1364",
+    "htmlSHA256": "2a1215494ea558d2067d5bcb74e5929a7955d9b4103836fd440ca52aa4180df9",
+    "localServerReloads": 1,
+    "sameRunningGPUReconnected": true,
+    "sameFrozenModulePlan": true,
+    "moduleSelectedFileCount": 8,
+    "resumedPartialPrefixes": 4,
+    "everyPartialPreservedAndProgressing": true,
+    "modelsStatus": "downloading",
+    "counts": {
+      "jobs": 120,
+      "assets": 126,
+      "characters": 0,
+      "settings": 20
+    },
+    "unchangedTables": {
+      "jobs": true,
+      "assets": true,
+      "characters": true
+    },
+    "changedRuntimeCacheSettings": [
+      "model-download-state-v1",
+      "model-inventories"
+    ],
+    "priorFrontendRuntimeAssetsRetained": true,
+    "sameNamedSourceMapRestored": true
+  },
+  "gpuActions": {
+    "rentals": 0,
+    "resume": 0,
+    "computeStop": 0,
+    "engineRestart": 0,
+    "modelDeletion": 0,
+    "inference": 0,
+    "ownedModelTransferCancelAndResume": 1
+  },
+  "checkpoints": {
+    "prodv1": "88cc90f16ea83c7b884cd5438e7ad0c6ceac2a80",
+    "prodv2": "af25d146d2f24a2cfde8d347f46b7b86218facab"
+  },
+  "limits": {
+    "measuredStartupSpeedRecovery": false,
+    "measuredDownloadSpeedRecovery": false,
+    "noNewOptimizationPromoted": true
+  }
+}

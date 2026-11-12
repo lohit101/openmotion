@@ -83,7 +83,7 @@ def install_local_nodes(comfy, request):
         atomic(marker, {name: value['sha256'] for name, value in package['files'].items()})
 
 
-def install_requirements(python, requirements, constraints, face, installer=None):
+def install_requirements(python, requirements, constraints, face):
     # FaceRefine/Impact's insightface and SAM2 builds must reuse our constrained
     # PyTorch. PEP517 isolation otherwise downloads a second, unconstrained torch
     # stack just to discover SAM2's build requirements. This workflow uses SAM1;
@@ -95,7 +95,7 @@ def install_requirements(python, requirements, constraints, face, installer=None
     env = dict(os.environ)
     if face:
         env['SAM2_BUILD_CUDA'] = '0'
-    (installer.run if installer else subprocess.run)(command, check=True, env=env)
+    subprocess.run(command, check=True, env=env)
 
 
 def restart_managed_engine(root, python):
@@ -146,8 +146,6 @@ def worker(root, request, attempt):
         sys.path.insert(0, str(root / 'scripts')); import server
         if not server.running(): raise ValueError('This engine is not managed by Recast. Use the existing OpenJutsu engine or prepare a managed GPU first.')
         python = root / '.venv/bin/python'
-        from package_install import SetupInstaller
-        installer = SetupInstaller(root)
         core = request['comfyui']
         if subprocess.check_output(['git', '-C', str(comfy), 'rev-parse', 'HEAD'], text=True).strip() != core['revision']:
             if subprocess.check_output(['git', '-C', str(comfy), 'status', '--porcelain'], text=True).strip():
@@ -155,12 +153,12 @@ def worker(root, request, attempt):
             subprocess.run(['git', '-C', str(comfy), 'fetch', '--depth=1', core['repo'], core['revision']], check=True)
             queue_idle(root)
             subprocess.run(['git', '-C', str(comfy), 'checkout', '--detach', core['revision']], check=True)
-            installer.run([str(python), '-m', 'pip', 'install', '--no-cache-dir', '-r', str(comfy / 'requirements.txt'), '-c', str(root / 'state/torch-constraints.txt')], check=True)
+            subprocess.run([str(python), '-m', 'pip', 'install', '--no-cache-dir', '-r', str(comfy / 'requirements.txt'), '-c', str(root / 'state/torch-constraints.txt')], check=True)
         if request.get('face'):
             if not shutil.which('c++'):
                 subprocess.run(['apt-get', 'update', '-qq'], check=True)
                 subprocess.run(['apt-get', 'install', '-y', '-qq', 'build-essential', 'python3-dev'], check=True)
-            installer.run([str(python), '-m', 'pip', 'install', '--no-cache-dir', 'Cython', 'setuptools', 'wheel', 'onnxruntime-gpu', '-c', str(root / 'state/torch-constraints.txt')], check=True)
+            subprocess.run([str(python), '-m', 'pip', 'install', '--no-cache-dir', 'Cython', 'setuptools', 'wheel', 'onnxruntime-gpu', '-c', str(root / 'state/torch-constraints.txt')], check=True)
         for pack in request['packs']:
             target = comfy / 'custom_nodes' / pack['directory']
             if target.is_symlink(): raise ValueError('Refusing a linked custom-node directory.')
@@ -175,7 +173,7 @@ def worker(root, request, attempt):
                 subprocess.run(['git', '-C', str(target), 'checkout', '--detach', pack['revision']], check=True)
             requirements = target / 'requirements.txt'
             if requirements.is_file():
-                install_requirements(python, requirements, root / 'state/torch-constraints.txt', request.get('face', False), installer)
+                install_requirements(python, requirements, root / 'state/torch-constraints.txt', request.get('face', False))
         if request.get('face'):
             subprocess.run([str(python), '-c', 'import insightface, onnxruntime, segment_anything; assert onnxruntime.get_available_providers()'], check=True)
         queue_idle(root)
@@ -186,7 +184,6 @@ def worker(root, request, attempt):
             if not current['missing']: break
             time.sleep(1)
         if current['missing']: raise ValueError('OpenJutsu still needs compatible ComfyUI/core nodes: ' + ', '.join(current['missing']))
-        for environment in installer.completed: installer.seal(environment)
         record.update(state='ready'); atomic(marker, record)
     except BaseException as error:
         record.update(state='failed', error=str(error)[-1800:]); atomic(marker, record); raise
@@ -224,7 +221,6 @@ def main():
     if args.action == 'prepare':
         code = 'import sys;from pathlib import Path;p=Path(sys.argv[1]);p.parent.mkdir(parents=True,exist_ok=True);p.write_text(sys.argv[2])'
         vast.remote(config, ['python3', '-c', code, str(target), Path(__file__).read_text()])
-        vast.remote(config, ['python3', '-c', code, str(root / 'scripts/package_install.py'), Path(__file__).with_name('package_install.py').read_text()])
     else:
         # Status uses the current helper inline and never writes to the GPU.
         return vast.remote(config, ['python3', '-c', Path(__file__).read_text(), '--remote', '--root', str(root), '--request', args.request])

@@ -8,7 +8,6 @@ import { InfoTip } from './InfoTip';
 import { DownloadButton, modelSize, type DownloadControls } from './ModelDownloads';
 import './downloads.css';
 import GpuFileBrowser from './GpuFileBrowser';
-import ModuleSetupQueue from './ModuleSetupQueue';
 
 const checkedTime = (value: string) => new Date(value).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 const states: Record<string, string> = { installed: 'Downloaded', unavailable: 'On disk; unavailable to ComfyUI', partial: 'Partial download', downloading: 'Downloading',reconnecting:'Reconnecting', queued: 'Queued', failed: 'Failed', missing: 'Not downloaded' };
@@ -36,7 +35,6 @@ export default function DownloadsWorkspace({ controls, required, refresh, cancel
     <header className="downloads-heading"><div><h2 id="downloads-heading">Downloads</h2></div>
       <button className="secondary-button" disabled={!controls.online || controls.state.refreshing} onClick={() => { setLocation(''); refresh(); }}><ArrowClockwise size={14} />{controls.state.refreshing ? 'Checking…' : 'Sync inventory'}</button>
     </header>
-    <ModuleSetupQueue controls={controls}/>
     <section className="downloads-bulk" aria-label="Download entire model catalog"><div><div className="download-bulk-label"><strong>Download all models</strong><InfoTip label="Download all models">Shared files download once. Module tools are prepared when requested. For a smaller setup, use the download button inside a module.</InfoTip></div><p>All {all.length} available model files · {modelSize(bulk.remaining)} remaining.</p><small>Compute, transfer and storage charges apply.</small>{insufficient&&controls.online&&<p className="model-file-error">Needs {modelSize(bulk.remaining+modelWorkingReserve(all))} free including working space.</p>}</div>
       <button className="secondary-button" disabled={!controls.online||controls.blocked||controls.state.busy||controls.state.refreshing||insufficient||bulk.missing.length===0} onClick={()=>controls.download(all)}><DownloadSimple size={16}/>{!bulk.missing.length&&controls.online?'All models installed':controls.state.busy&&!moduleActive?'Downloading · '+bulk.percent+'%':'Download all models'}</button>
     </section>

@@ -12,7 +12,6 @@ import { ModelManager,ModelDownloadError,type downloadPinnedModels } from '../se
 import type { ConnectionManager } from '../server/comfy';
 import { Store } from '../server/store';
 import ModuleAction from '../src/ModuleAction';
-import ModuleSetupQueue from '../src/ModuleSetupQueue';
 
 const video={...defaults,engine:'viggle' as const,referencePreparation:'prepared' as const,facialConsistency:'off' as const};
 const photo=sourceFrameImageSettings(imageDefaults);
@@ -55,19 +54,6 @@ describe('module-specific download presentation',()=>{
     expect(render(false)).toContain('aria-label="Download Clarity"');expect(render(true)).toContain('aria-label="Generate"');
     state.busy=true;state.moduleSetup={...plan,instanceId:123,endpoint:'http://127.0.0.1:8188',transferFiles:[],status:'preparing',message:'Preparing required runtime',error:null,updatedAt:1};
     const html=render(false);expect(html).toContain('Preparing tools');expect(html).toContain('aria-busy="true"');
-  });
-  it('offers queuing another module without enabling generation and lists independent queue controls',()=>{
-    const plan=moduleDownloadPlan('clarity'),other=moduleDownloadPlan('image-edit',emptyImageEditDraft().settings),state=emptyModels();
-    state.busy=true;state.moduleSetup={...other,instanceId:123,endpoint:'http://127.0.0.1:8188',transferFiles:other.files,status:'downloading',message:'Downloading',error:null,updatedAt:1};
-    const controls={state,online:true,blocked:false,download:()=>{},remove:()=>{},prepareModule:vi.fn(),moduleAction:vi.fn()};
-    const html=renderToStaticMarkup(<ModuleAction request={{module:'clarity'}} controls={controls} runtimeReady={false} onGenerate={()=>{}} onConnect={()=>{}} onManage={()=>{}}/>);
-    expect(html).toContain('aria-label="Queue Clarity"');expect(html.match(/<button[^>]+module-primary-button[^>]*>/)?.[0]).not.toContain('disabled');
-    const pending={...plan,instanceId:123,endpoint:'http://127.0.0.1:8188',transferFiles:plan.files,status:'paused' as const,message:'Paused',error:null,updatedAt:2};
-    state.moduleQueue=[state.moduleSetup,pending];
-    const list=renderToStaticMarkup(<ModuleSetupQueue controls={controls}/>);
-    expect(list).toContain('Pause Imagen setup');expect(list).toContain('Resume Clarity setup');expect(list).toContain('Cancel Clarity setup');
-    pending.status='paused';state.moduleSetup.activeRuntime='openjutsu-tools';state.moduleSetup.status='paused';
-    expect(renderToStaticMarkup(<ModuleSetupQueue controls={controls}/>)).toContain('Waiting for tool installation to finish');
   });
 });
 
@@ -143,72 +129,4 @@ describe('module setup ownership and recovery',()=>{
     manager.checkClarity=vi.fn(async()=>({ready:true,preparing:false,missing:[]}));await manager.recoverPending();
     expect(manager.state.busy).toBe(false);expect(manager.prepareClarity).not.toHaveBeenCalled();
   });
-  it('queues a second module immediately and starts it only after the first settles',async()=>{
-    const f=await fixture(),image=moduleDownloadPlan('image-edit',{...emptyImageEditDraft().settings,consistency:false,bfs:false}),clarity=moduleDownloadPlan('clarity');
-    manager.checkClarity=vi.fn(async()=>({ready:true,preparing:false,missing:[]}));manager.prepareClarity=vi.fn();
-    await manager.prepareModule(image);await f.until(()=>f.controls.size===image.files.length);
-    await manager.prepareModule(clarity);expect(manager.state.moduleQueue?.find(x=>x.key===clarity.key)?.status).toBe('queued');expect(manager.state.moduleSetup?.key).toBe(image.key);
-    expect(f.worker.mock.calls.flatMap(c=>c[3])).toEqual(expect.arrayContaining(image.files));expect(f.worker.mock.calls.flatMap(c=>c[3]).some(x=>clarity.files.includes(x))).toBe(false);
-    for(const id of image.files)f.controls.get(id)!.resolve();await f.until(()=>manager.state.moduleSetup?.key===clarity.key&&f.controls.size===image.files.length+clarity.files.length);
-    for(const id of clarity.files)f.controls.get(id)!.resolve();await f.until(()=>!manager.state.busy);
-    expect(manager.state.moduleSetup?.status).toBe('complete');expect(manager.state.moduleSetup?.readyAt).toBeGreaterThanOrEqual(manager.state.moduleSetup!.filesReadyAt!);
-  });
-  it('pauses and cancels queued modules without cancelling the active transfers',async()=>{
-    const f=await fixture(),image=moduleDownloadPlan('image-edit',{...emptyImageEditDraft().settings,consistency:false,bfs:false}),clarity=moduleDownloadPlan('clarity');
-    await manager.prepareModule(image);await f.until(()=>f.controls.size===image.files.length);await manager.prepareModule(clarity);
-    await manager.moduleAction(clarity.key,'pause');expect(manager.state.moduleQueue?.find(x=>x.key===clarity.key)?.status).toBe('paused');
-    expect(f.worker.mock.calls.every(c=>!c[4].aborted)).toBe(true);await manager.moduleAction(clarity.key,'cancel');
-    for(const id of image.files)f.controls.get(id)!.resolve();await f.until(()=>!manager.state.busy);
-    expect(f.worker.mock.calls).toHaveLength(image.files.length);expect(manager.state.moduleQueue?.find(x=>x.key===clarity.key)?.status).toBe('cancelled');
-  });
-  it('deduplicates queued requests and reuses shared files when a different recipe follows',async()=>{
-    const f=await fixture(),settings={...emptyImageEditDraft().settings,consistency:false,bfs:false,quality:'native' as const};
-    const a=moduleDownloadPlan('image-edit',settings),b=moduleDownloadPlan('image-edit',{...settings,consistency:true});
-    await manager.prepareModule(a);await f.until(()=>f.controls.size===a.files.length);await manager.prepareModule(b);await manager.prepareModule(b);
-    expect(manager.state.moduleQueue?.filter(x=>x.key===b.key)).toHaveLength(1);
-    for(const id of a.files)f.controls.get(id)!.resolve();await f.until(()=>f.controls.size===b.files.length);
-    for(const id of b.files)f.controls.get(id)!.resolve();await f.until(()=>!manager.state.busy);
-    const requests=f.worker.mock.calls.flatMap(c=>c[3]);expect(new Set(requests).size).toBe(requests.length);expect(requests.sort()).toEqual([...b.files].sort());
-  });
-  it('keeps a paused setup inactive and resumes it explicitly on its bound GPU',async()=>{
-    const plan=moduleDownloadPlan('image-edit',{...emptyImageEditDraft().settings,consistency:false,bfs:false});
-    const saved={instanceId:123,endpoint:'http://127.0.0.1:8188',moduleQueue:[{...plan,instanceId:123,endpoint:'http://127.0.0.1:8188',transferFiles:plan.files,status:'paused',message:'Paused',error:null,updatedAt:1}]};
-    const f=await fixture(saved);await manager.recoverPending();expect(f.worker).not.toHaveBeenCalled();expect(manager.state.busy).toBe(false);
-    store.set('cloud-connected-instance',999);await expect(manager.moduleAction(plan.key,'resume')).rejects.toThrow('same GPU');expect(f.worker).not.toHaveBeenCalled();
-    store.set('cloud-connected-instance',123);await manager.moduleAction(plan.key,'resume');await f.complete();expect(manager.state.moduleSetup?.status).toBe('complete');
-  });
-  it('restores an accepted queue without submitting anything on another rental',async()=>{
-    const plan=moduleDownloadPlan('image-edit',{...emptyImageEditDraft().settings,consistency:false,bfs:false});
-    const item={...plan,instanceId:123,endpoint:'http://127.0.0.1:8188',transferFiles:plan.files,status:'queued',message:'Queued',error:null,updatedAt:1};
-    const f=await fixture({moduleQueue:[item]});f.connection.status.state='offline';
-    expect(manager.canReconnect('http://127.0.0.1:8188')).toBe(true);expect(manager.canReconnect('http://another:8188')).toBe(false);
-    f.connection.status.state='online';store.set('cloud-connected-instance',999);await manager.recoverPending();expect(f.worker).not.toHaveBeenCalled();
-    store.set('cloud-connected-instance',123);await manager.recoverPending();await f.complete();expect(manager.state.moduleSetup?.status).toBe('complete');
-  });
-  it('a confirmed provider stop pauses pending modules instead of starting another setup',async()=>{
-    const f=await fixture(),image=moduleDownloadPlan('image-edit',{...emptyImageEditDraft().settings,consistency:false,bfs:false});
-    await manager.prepareModule(image);await f.until(()=>f.controls.size===image.files.length);await manager.prepareModule(moduleDownloadPlan('clarity'));
-    manager.observeProviderStop(123,Date.now()+1000);await manager.settle();await f.until(()=>!manager.state.busy);
-    expect(manager.state.moduleQueue?.find(x=>x.module==='clarity')?.status).toBe('paused');expect(f.worker.mock.calls).toHaveLength(image.files.length);
-  });
-  it('pauses active transfers, advances the queue and resumes only the paused module',async()=>{
-    const f=await fixture(),image=moduleDownloadPlan('image-edit',{...emptyImageEditDraft().settings,consistency:false,bfs:false}),clarity=moduleDownloadPlan('clarity');
-    manager.checkClarity=vi.fn(async()=>({ready:true,preparing:false,missing:[]}));
-    await manager.prepareModule(image);await f.until(()=>f.controls.size===image.files.length);await manager.prepareModule(clarity);
-    await manager.moduleAction(image.key,'pause');await f.until(()=>manager.state.moduleSetup?.key===clarity.key&&f.controls.size===image.files.length+clarity.files.length);
-    expect(manager.state.moduleQueue?.find(x=>x.key===image.key)?.status).toBe('paused');
-    for(const id of clarity.files)f.controls.get(id)!.resolve();await f.until(()=>!manager.state.busy);
-    const before=f.worker.mock.calls.length;await manager.moduleAction(image.key,'resume');await f.until(()=>f.worker.mock.calls.length>before);
-    for(const id of image.files)f.controls.get(id)!.resolve();await f.until(()=>!manager.state.busy);expect(manager.state.moduleSetup?.status).toBe('complete');
-  });
-  it('cannot advance a queued module while cancellation remains remotely unconfirmed',async()=>{
-    const f=await fixture(),image=moduleDownloadPlan('image-edit',{...emptyImageEditDraft().settings,consistency:false,bfs:false});
-    await manager.prepareModule(image);await f.until(()=>f.controls.size===image.files.length);await manager.prepareModule(moduleDownloadPlan('clarity'));
-    const error=new ModelDownloadError('Cancellation unconfirmed');error.remoteActive=true;
-    const [first,...others]=[...f.controls.values()];first.reject(error);for(const c of others)c.resolve();
-    await manager.settle();await f.until(()=>manager.state.moduleSetup?.status==='reconnecting');
-    expect(manager.state.busy).toBe(true);expect(f.worker.mock.calls).toHaveLength(image.files.length);
-    expect(manager.state.moduleQueue?.find(x=>x.module==='clarity')?.status).toBe('queued');
-  });
-
 });
