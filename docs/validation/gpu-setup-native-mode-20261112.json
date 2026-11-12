@@ -1,0 +1,74 @@
+{
+  "date": "2026-11-12",
+  "branch": "feat/setup-speed-queue",
+  "problem": "Both latest GPU setups failed on the laptop with Local reference framing is not ready.",
+  "cause": "Marketplace common profile workflow=all was native in preflight but omitted --native-motion from actual provisioning.",
+  "change": "A single setupModeArgs selector is shared by preflight and provisioning, including retained-rental resumes.",
+  "beforeRegression": {
+    "failedTests": 1,
+    "observedError": "Local reference framing is not ready",
+    "launchStopped": true
+  },
+  "validation": {
+    "focusedTestsPassed": 136,
+    "focusedTestsFailed": 0,
+    "pythonNativePreflightChecks": 5,
+    "pythonSSHRetryChecks": 3,
+    "typecheck": true,
+    "isolatedBackendBuild": true,
+    "actualLaptopPreflight": {
+      "ok": true,
+      "ssh_key_ready": true,
+      "deployment_files_ready": true,
+      "local_port_ready": true
+    },
+    "simulatedLifecycle": {
+      "newRentals": 1,
+      "retainedInstanceResumes": 1,
+      "actualLocalPythonPreflightProcesses": 3,
+      "actualLocalPythonSetupProcesses": 2,
+      "everyProcessHasNativeMode": true,
+      "provider": "in-memory fixture; no GPU/network"
+    }
+  },
+  "deployment": {
+    "countsBefore": {
+      "jobs": 120,
+      "assets": 126,
+      "characters": 0,
+      "settings": 20
+    },
+    "countsAfter": {
+      "jobs": 120,
+      "assets": 126,
+      "characters": 0,
+      "settings": 20
+    },
+    "allPriorMediaRowsUnchanged": true,
+    "allProtectedSettingsUnchanged": true,
+    "changedRuntimeCacheSettings": [
+      "model-download-state-v1"
+    ],
+    "frontendUnchanged": true,
+    "backendSHA256": "1caa2fb8dd8d95fc80eb49e96ac0e3ba5cb84bed2d5e7665bc2873a6521234d5",
+    "gpuStateAtGuard": "confirmed stopped by fresh provider read",
+    "currentRentedInstanceCount": 0,
+    "gpuMutations": 0,
+    "remoteInstalls": 0,
+    "inference": 0,
+    "pid": 65385
+  },
+  "preserved": {
+    "legacyCLIFramingChecks": true,
+    "sshAuthenticationAndPortChecks": true,
+    "modelRuntimeAndInferenceFilesUnchanged": true,
+    "checkpointCommits": {
+      "prodv1": "88cc90f16ea83c7b884cd5438e7ad0c6ceac2a80",
+      "prodv2": "af25d146d2f24a2cfde8d347f46b7b86218facab"
+    }
+  },
+  "limits": {
+    "paidGPUValidation": false,
+    "noRemainingRentedHost": true
+  }
+}

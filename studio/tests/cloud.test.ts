@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { Store } from '../server/store';
@@ -63,6 +63,28 @@ describe('Vast marketplace, billing and lifecycle', () => {
     const cloud = new CloudManager(store, connection as unknown as ConnectionManager, { active: null } as Runner, process.cwd(), { fetcher: fixture.fetcher, provision, preflight, sshIdentity: identity, backgroundSafety: false, pollMs: 1, stopPollAttempts: 2, ...options }); tracked = cloud;
     vi.spyOn(cloud, 'ensureSshKey').mockResolvedValue(identity); return { cloud, fixture, provision, connection, identity, preflight };
   }
+  it('passes the common native profile through real preflight and setup processes on rent and retained-disk resume',async()=>{
+    const {cloud,fixture}=await manager({preflight:undefined,provision:undefined});cloud.repo=root;
+    await mkdir(path.join(root,'scripts'));
+    await writeFile(path.join(root,'scripts/managed_instance.py'),`import json,sys
+from pathlib import Path
+with (Path(__file__).parent.parent/'setup-calls.jsonl').open('a') as f:f.write(json.dumps(sys.argv[1:])+'\\n')
+if '--native-motion' not in sys.argv:
+ print('Local reference framing is not ready. Run python3 scripts/setup_local_geometry.py before connecting or renting a GPU.',file=sys.stderr);sys.exit(1)
+print('RECAST_STAGE Native setup fixture verified; no network or GPU work')
+`);
+    const {offers}=await cloud.offers({...filters,workflow:'all',disk:120});
+    const report=await cloud.checkConfiguration(offers[0].quote);expect(report.ready).toBe(true);expect(fixture.createCount).toBe(0);
+    const launch=cloud.launch(offers[0].quote,.23,'common-native-setup');await until(()=>!cloud.state.busy);
+    expect(launch.phase,launch.lastFailure).toBe('ready');expect(launch.filters?.workflow).toBe('all');expect(fixture.createCount).toBe(1);
+    await cloud.action(777,'stop');await cloud.continue(launch);await until(()=>!cloud.state.busy);
+    expect(launch.phase,launch.lastFailure).toBe('ready');expect(fixture.createCount).toBe(1);
+    const calls=(await readFile(path.join(root,'setup-calls.jsonl'),'utf8')).trim().split('\n').map(line=>JSON.parse(line) as string[]);
+    expect(calls.filter(args=>args.includes('--check-local'))).toHaveLength(3);
+    expect(calls.filter(args=>args.includes('--host'))).toHaveLength(2);
+    expect(calls.every(args=>args.includes('--native-motion'))).toBe(true);
+    expect(calls.filter(args=>args.includes('--instance-id')).every(args=>args[args.indexOf('--instance-id')+1]==='777')).toBe(true);
+  });
   it('automatically pauses a rechecked idle rental without cancelling work or deleting its disk', async () => {
     const { cloud, fixture, connection } = await manager(); const { offers } = await cloud.offers(filters);
     const launch = cloud.launch(offers[0].quote, .23, 'idle-pause'); await until(() => !cloud.state.busy);

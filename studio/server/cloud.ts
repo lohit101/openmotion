@@ -19,6 +19,9 @@ import type { CloudAccountInput, CloudAccountStatus } from '../shared/cloud-acco
 
 const MODEL_GB = modelBytes(setupModelFiles) / 1e9;
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+// The common Studio profile uses OpenJutsu's native input preparation. Keep
+// pre-rental checks and actual/retried provisioning on the same CLI contract.
+const setupModeArgs = (workflow: OfferFilters['workflow']) => ['remotion', 'all'].includes(workflow) ? ['--native-motion'] : [];
 export const RENTAL_IMAGE = 'nvidia/cuda:13.0.2-base-ubuntu24.04';
 export const SSH_ONSTART = readFileSync(new URL('../../scripts/ssh_permissions.sh', import.meta.url), 'utf8');
 const number = (value: unknown): number | null => (typeof value==='number'||typeof value==='string'&&value.trim()!=='')&&Number.isFinite(Number(value)) ? Number(value) : null;
@@ -491,7 +494,7 @@ export class CloudManager {
   }
   private async localPreflight(identity: string, workflow: OfferFilters['workflow'] = 'remotion') {
     if (this.options.preflight) await this.options.preflight(identity);
-    else await command('python3', [path.join(this.repo, 'scripts/managed_instance.py'), '--check-local', '--identity', identity, ...(['remotion','all'].includes(workflow) ? ['--native-motion'] : [])], undefined, 20000);
+    else await command('python3', [path.join(this.repo, 'scripts/managed_instance.py'), '--check-local', '--identity', identity, ...setupModeArgs(workflow)], undefined, 20000);
   }
   async checkConfiguration(quote: string) {
     const selected = this.quotes.get(quote); if (!selected || selected.offer.totalHourly === null) throw new Error('Refresh the marketplace and choose an offer first.');
@@ -785,7 +788,7 @@ export class CloudManager {
   private runProvision(instance: any, identity: string, log: (line: string) => void, signal: AbortSignal, workflow: OfferFilters['workflow'] = 'remotion') {
     return new Promise<void>((resolve, reject) => {
       if (signal.aborted) return reject(signal.reason);
-      const child = spawn('python3', ['-u', path.join(this.repo, 'scripts/managed_instance.py'), '--host', String(instance.ssh_host), '--port', String(instance.ssh_port), '--identity', identity, '--instance-id', String(instance.id), ...(workflow === 'remotion' ? ['--native-motion'] : [])], { stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32' });
+      const child = spawn('python3', ['-u', path.join(this.repo, 'scripts/managed_instance.py'), '--host', String(instance.ssh_host), '--port', String(instance.ssh_port), '--identity', identity, '--instance-id', String(instance.id), ...setupModeArgs(workflow)], { stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32' });
       this.provision = child; let buffer = '', tail = ''; const abort = () => { if (this.provision === child) this.stopProvision(); }; signal.addEventListener('abort', abort, { once: true });
       const receive = (chunk: Buffer) => { buffer += chunk.toString(); const lines = buffer.split(/[\r\n]+/); buffer = (lines.pop() || '').slice(-8192); for (const line of lines) if (line.trim()) { log(line); tail = line.slice(-8192); } };
       child.stdout!.on('data', receive); child.stderr!.on('data', receive);
