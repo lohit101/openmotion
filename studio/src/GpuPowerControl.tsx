@@ -24,7 +24,9 @@ export default function GpuPowerControl({ cloud, setCloud, activeWork, browse }:
     const notice = `gpu-power:${crypto.randomUUID()}`;
     toast.loading('Checking GPU status', { id: notice });
     try {
-      const fresh = await api<CloudState>('/cloud/refresh', {}); setCloud(fresh);
+      // The action endpoint checks Vast immediately before acting. Read its
+      // local snapshot here instead of making a redundant provider refresh.
+      const fresh = await api<CloudState>('/cloud'); setCloud(fresh);
       if (fresh.error) throw new Error(fresh.error);
       const current = gpuPowerTarget(fresh);
       if (!current || current.instance.id !== id || current.action !== action || current.blocked) throw new Error('Instance status changed. Review the current GPU before trying again.');

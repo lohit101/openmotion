@@ -28,7 +28,7 @@ const number = (value: unknown): number | null => (typeof value==='number'||type
 const amount = (...values: unknown[]) => values.map(number).find(v => v !== null && v >= 0) ?? null;
 const transferPrice = (value: unknown) => typeof value === 'number' || (typeof value === 'string' && value.trim() !== '') ? amount(value) : null;
 const driverNumber = (value: unknown) => { const parts = String(value || '').split('.'); return parts.length === 1 ? Number(value) : Number(parts[0]) * 1000000 + Number(parts[1]) * 1000 + Number(parts[2] || 0); };
-export class VastError extends Error { constructor(message: string, public status: number, public ambiguous = false) { super(message); } }
+export class VastError extends Error { constructor(message: string, public status: number, public ambiguous = false, public retryAt = 0) { super(message); } }
 const publicKeyIdentity = (value: unknown) => typeof value === 'string' ? value.trim().split(/\s+/).slice(0, 2).join(' ') : '';
 export function registeredSshKeys(response: unknown): any[] {
   if (Array.isArray(response)) return response;
@@ -76,20 +76,56 @@ export function matchesGpuProbe(instance: { gpu_name?: string; gpu_ram?: number 
   });
 }
 export class VastClient {
+  private reads = new Map<string, Promise<any>>();
+  private readEpoch = 0;
+  private cooldownUntil = 0;
   constructor(private key: () => Promise<string>, public fetcher: typeof fetch = fetch, public base = 'https://console.vast.ai') {}
   async request(route: string, method = 'GET', body?: unknown, timeoutMs = 30000): Promise<any> {
-    const key = await this.key(); let response: Response;
-    try { response = await this.fetcher(this.base + route, { method, headers: { Authorization: 'Bearer ' + key, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) }, body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(timeoutMs), redirect: 'error' }); }
-    catch { throw new VastError(method === 'PUT' ? 'Vast did not confirm the request. Refresh instances before retrying; it may have succeeded.' : 'Vast could not be reached. Try refreshing.', 503, method !== 'GET'); }
-    let value: any;
-    try { value = await response.json(); }
-    catch { throw new VastError('Vast returned an unreadable response. The request was not repeated; check the account status before retrying.', 502, method !== 'GET'); }
-    if (value === null || typeof value !== 'object') throw new VastError('Vast returned an invalid response. The request was not repeated; checking the account is required before retrying.', 502, method !== 'GET');
-    if (!response.ok || value.success === false) {
-      const text = String(value.msg || value.message || value.error || `Vast returned HTTP ${response.status}.`).replaceAll(key, '[redacted]').slice(0, 500);
-      throw new VastError(response.status === 401 ? 'This Vast API key is invalid or expired.' : response.status === 403 ? 'This key does not allow this operation. Check its Vast permissions.' : text, response.status, method !== 'GET' && (response.status >= 500 || response.status === 408));
+    // Marketplace POSTs only query offers. Never retry a rental, key change,
+    // start, stop or delete, and never share a pre-mutation status response.
+    const read = method === 'GET' || method === 'POST' && route === '/api/v0/bundles/';
+    if (!read) this.readEpoch++;
+    const epoch = this.readEpoch, key = await this.key();
+    const id = JSON.stringify([key, epoch, method, route, body]);
+    if (read && this.reads.has(id)) return this.reads.get(id)!;
+    const task = this.requestOnceReady(key, route, method, body, timeoutMs, read).finally(() => {
+      if (this.reads.get(id) === task) this.reads.delete(id);
+    });
+    if (read) this.reads.set(id, task);
+    return task;
+  }
+  private limitError() {
+    return new VastError(`Vast is temporarily limiting API requests. Try again in ${Math.max(1, Math.ceil((this.cooldownUntil - Date.now()) / 1000))} seconds. The existing rental and its files are kept.`, 429, false, this.cooldownUntil);
+  }
+  private async requestOnceReady(key: string, route: string, method: string, body: unknown, timeoutMs: number, read: boolean): Promise<any> {
+    const deadline = Date.now() + timeoutMs;
+    for (let attempt = 0; ; attempt++) {
+      while (this.cooldownUntil > Date.now()) {
+        // A delayed paid action could outlive its caller's cancellation. Reject
+        // it locally instead; only read-only requests may wait and retry.
+        if (!read || this.cooldownUntil >= deadline) throw this.limitError();
+        await pause(this.cooldownUntil - Date.now());
+      }
+      let response: Response;
+      try { response = await this.fetcher(this.base + route, { method, headers: { Authorization: 'Bearer ' + key, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) }, body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(Math.max(1, deadline - Date.now())), redirect: 'error' }); }
+      catch { throw new VastError(method === 'PUT' ? 'Vast did not confirm the request. Refresh instances before retrying; it may have succeeded.' : 'Vast could not be reached. Try refreshing.', 503, !read); }
+      let value: any;
+      try { value = await response.json(); }
+      catch { if (response.status === 429) value = {}; else throw new VastError('Vast returned an unreadable response. The request was not repeated; check the account status before retrying.', 502, !read); }
+      const text = value && typeof value === 'object' ? String(value.msg || value.message || value.error || value.detail || `Vast returned HTTP ${response.status}.`).replaceAll(key, '[redacted]').slice(0, 500) : '';
+      if (response.status === 429 || /(?:requests? too frequent|too many requests|rate[ _-]?limit)/i.test(text)) {
+        const header = response.headers.get('Retry-After'), seconds = header === null || header.trim() === '' ? NaN : Number(header);
+        const retryAt = header && !Number.isFinite(seconds) ? Date.parse(header) : Date.now() + seconds * 1000;
+        this.cooldownUntil = Math.max(this.cooldownUntil, Number.isFinite(retryAt) ? retryAt : 0, Date.now() + Math.min(60000, 5000 * 2 ** Math.min(attempt, 4)));
+        if (read && attempt < 2 && this.cooldownUntil < deadline) continue;
+        throw this.limitError();
+      }
+      if (value === null || typeof value !== 'object') throw new VastError('Vast returned an invalid response. The request was not repeated; checking the account is required before retrying.', 502, !read);
+      if (!response.ok || value.success === false) {
+        throw new VastError(response.status === 401 ? 'This Vast API key is invalid or expired.' : response.status === 403 ? 'This key does not allow this operation. Check its Vast permissions.' : text, response.status, !read && (response.status >= 500 || response.status === 408));
+      }
+      return value;
     }
-    return value;
   }
   async instances() {
     const instances: any[] = []; let after = '';
@@ -587,6 +623,7 @@ export class CloudManager {
     }
     if (!launch.instanceId || launch.phase === 'destroyed') throw new Error('No existing rental was found for this request. Check the Vast console before starting a new request if creation was unconfirmed.');
     if (this.stopChecks.has(launch.id)) throw new Error('Wait for stop confirmation before restarting this rental.');
+    this.state.selectedInstanceId=launch.instanceId;this.store.set('cloud-selected-instance',launch.instanceId);
     this.statusEpoch++;this.stopped.delete(launch.id); launch.safetyStatus = 'disarmed'; launch.setupDeadline = null; launch.lastFailure = undefined; this.state.busy = true; this.activeLaunch = launch.id; this.change(launch, 'checking', 'Checking local prerequisites before resuming this existing rental.');
     this.activeTask = (async () => { try {
       const identity = await this.ensureSshKey(launch); await this.localPreflight(identity, launch.filters?.workflow);
@@ -726,7 +763,7 @@ export class CloudManager {
     for (let attempt = 0; ; attempt++) {
       check();
       try { instance = await this.client.instance(launch.instanceId!); }
-      catch (error) { launch.hostWatch = undefined; if (!(error instanceof VastError) || error.status < 429) throw error; launch.warning = 'Vast status is temporarily unavailable. Retrying the existing rental.'; this.emit(); await pause(this.options.pollMs ?? 5000); continue; }
+      catch (error) { launch.hostWatch = undefined; if (!(error instanceof VastError) || error.status < 429) throw error; launch.warning = error.status === 429 ? error.message : 'Vast status is temporarily unavailable. Retrying the existing rental.'; this.emit(); await pause(Math.min(30000, Math.max(this.options.pollMs ?? 5000, error.retryAt - Date.now()))); continue; }
       check();
       if (!instance) { if (attempt < 12) { await pause(this.options.pollMs ?? 5000); continue; } throw new Error('The rental no longer exists.'); }
       if (instance.actual_status === 'running' && instance.ssh_host && instance.ssh_port) break;
@@ -818,13 +855,19 @@ export class CloudManager {
     return launch;
   }
   async action(id: number, action: 'start' | 'stop' | 'destroy' | 'connect', confirmation?: string) {
-    if (action === 'start' || action === 'connect') this.assertIdle();
-    await this.refresh(); if (this.state.error && (action === 'start' || action === 'connect')) throw new Error(this.state.error);
+    if (action === 'start' || action === 'connect') {
+      this.assertIdle();
+      const launch = this.state.launches.find(l => l.instanceId === id);
+      if (!launch) throw new Error('This instance was created outside Recast. Manage it in Vast; Recast controls only its own rentals.');
+      // continue() owns the authoritative fresh read and checks a pending stop.
+      // A second list request here needlessly trips the provider's endpoint limit.
+      return this.continue(launch);
+    }
+    await this.refresh();
     const launch = this.state.launches.find(l => l.instanceId === id); if (!launch) throw new Error('This instance was created outside Recast. Manage it in Vast; Recast controls only its own rentals.');
     if (!this.state.error && !this.rawInstances.some(i => i.id === id)) throw new Error('This instance no longer exists.');
     if (action === 'destroy' && confirmation !== String(id)) throw new Error('Enter the instance ID to confirm permanent deletion of its remote disk.');
     if(action!=='destroy'){this.state.selectedInstanceId=id;this.store.set('cloud-selected-instance',id);this.emit();}
-    if (action === 'start' || action === 'connect') return this.continue(launch);
     this.stopped.add(launch.id); if (this.activeLaunch === launch.id) { this.activeAbort?.abort(new Error('Instance action requested.')); this.stopProvision(); }
     this.interruptLocalRender(id, action === 'destroy' ? 'The GPU instance is being destroyed. Local completed segments are kept; reuse settings for a new rental.' : 'GPU compute is being stopped. Reconnect before checking the unfinished render.');
     if (action === 'stop') { const confirmed = await this.stopRental(launch, 'Compute stop requested by you.'); await this.refresh(); if (!confirmed) throw new Error(launch.message); return launch; }

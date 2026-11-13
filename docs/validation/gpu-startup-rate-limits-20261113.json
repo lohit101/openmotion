@@ -1,0 +1,105 @@
+{
+  "date": "2026-11-13T15:38:25.003689+00:00",
+  "problem": "Slow cold GPU setup and repeated Vast requests-too-frequent errors",
+  "diagnosis": {
+    "launchCreatedAt": "2026-11-13T15:16:31.729Z",
+    "engineSetupStartedAt": "2026-11-13T15:20:34.961Z",
+    "readyAt": "2026-11-13T15:31:40.098Z",
+    "secondsBeforeEngineInstall": 243.232,
+    "secondsEngineInstallAndConnect": 665.137,
+    "secondsTotal": 908.369,
+    "osConfigurationObserved263SecondsIntoEngineSetup": true,
+    "lastComfyDependencyPreparation": "73 packages in 1m 01s",
+    "lastComfyDependencyInstallation": "73 packages in 660ms",
+    "coldCost": "New bare CUDA containers install OS dependencies, pinned PyTorch/CUDA packages and ComfyUI. Model-download bandwidth is a different stage.",
+    "preActionProviderRefreshesBefore": 3,
+    "preActionProviderRefreshesAfter": 1,
+    "rateResponseDocumentation": "https://docs.vast.ai/api-reference/instances/show-instance",
+    "rateLimitMessageCapturedFromCurrentRun": false
+  },
+  "changes": [
+    "One authoritative fresh provider check for managed start/connect",
+    "Power-control precheck and post-action UI updates use the local server snapshot",
+    "Concurrent identical safe reads share in-flight work with no completed-response cache",
+    "Shared cooldown honors numeric and HTTP-date Retry-After, with exponential fallback",
+    "At most two safe-read retries within the original timeout budget",
+    "Detail-only 429 and text rate-limit errors are recognized; active setup follows the same rental",
+    "Mutating requests are never automatically retried or queued through a cooldown",
+    "Mutations invalidate in-flight read sharing for subsequent confirmations"
+  ],
+  "validation": {
+    "focusedTestsPassed": 121,
+    "relatedTestsPassed": 50,
+    "failed": 0,
+    "typecheck": true,
+    "isolatedFrontendBuild": true,
+    "isolatedBackendBuild": true,
+    "diffCheck": true,
+    "deployment": {
+      "pid": 77229,
+      "countsBefore": {
+        "jobs": 124,
+        "assets": 129,
+        "characters": 0,
+        "settings": 20
+      },
+      "countsAfter": {
+        "jobs": 124,
+        "assets": 129,
+        "characters": 0,
+        "settings": 20
+      },
+      "unchangedTables": [
+        "jobs",
+        "assets",
+        "characters"
+      ],
+      "settingsChangedOnStartup": [
+        "model-download-state-v1"
+      ],
+      "protectedSettingsUnchanged": true,
+      "oldFrontendAssetsRetained": 644,
+      "connection": "offline",
+      "computeActions": 0,
+      "serverSHA256": "d2165dfce2610ba3fa37f09ac7b0d4aeef35a249d4b498cdf07fc16f9e974217",
+      "htmlSHA256": "60f75b0351095900de8b83d33c387253c83869a0a64f2bdeb93a8a641ba4fac2"
+    },
+    "finalBackendSHA256": "d2165dfce2610ba3fa37f09ac7b0d4aeef35a249d4b498cdf07fc16f9e974217",
+    "finalFrontendSHA256": "dde1638820995e42809ef0d5623c5db6ea7918b7badefdf2a224238206fb674a",
+    "postReloadFrontendUpdateDidNotRestartServer": true,
+    "allPriorMediaRowsPreserved": true,
+    "subsequentUserAssetAndDraftPreserved": true,
+    "postReloadUserAssetCount": 130,
+    "sameRunningEngineReconnected": true,
+    "lastObservedConnection": "online",
+    "lastObservedModelsBusy": true
+  },
+  "preserved": [
+    "bootstrap and installers",
+    "Xet transport and model concurrency",
+    "runtime/model pins",
+    "generation workflows/settings",
+    "user drafts/media and current downloads",
+    "normal idle-pause preference"
+  ],
+  "actions": {
+    "gpuRent": 0,
+    "gpuResume": 0,
+    "gpuStopPause": 0,
+    "engineRestart": 0,
+    "agentModelTransfer": 0,
+    "modelDeletion": 0,
+    "inference": 0,
+    "sameEngineReconnect": 1,
+    "explicitProviderRefreshAfterPublication": 1
+  },
+  "checkpoints": {
+    "prodv1": "88cc90f16ea83c7b884cd5438e7ad0c6ceac2a80",
+    "prodv2": "af25d146d2f24a2cfde8d347f46b7b86218facab"
+  },
+  "limitations": {
+    "endToEndStartupSpeedupMeasured": false,
+    "realProviderRateLimitStressTest": false,
+    "coldInstallAccelerated": false
+  }
+}

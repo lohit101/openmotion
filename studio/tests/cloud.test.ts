@@ -63,6 +63,15 @@ describe('Vast marketplace, billing and lifecycle', () => {
     const cloud = new CloudManager(store, connection as unknown as ConnectionManager, { active: null } as Runner, process.cwd(), { fetcher: fixture.fetcher, provision, preflight, sshIdentity: identity, backgroundSafety: false, pollMs: 1, stopPollAttempts: 2, ...options }); tracked = cloud;
     vi.spyOn(cloud, 'ensureSshKey').mockResolvedValue(identity); return { cloud, fixture, provision, connection, identity, preflight };
   }
+  it('uses one authoritative pre-resume refresh instead of refreshing twice', async () => {
+    const { cloud, fixture } = await manager(); const { offers } = await cloud.offers(filters);
+    const launch = cloud.launch(offers[0].quote, .23, 'single-resume-read'); await until(() => !cloud.state.busy);
+    fixture.updateInstance({ actual_status: 'exited', intended_status: 'stopped', cur_state: 'stopped', next_state: 'stopped' });
+    await cloud.refresh(); const refresh = vi.spyOn(cloud, 'refresh');
+    await cloud.action(777, 'start'); expect(refresh).toHaveBeenCalledOnce();
+    await until(() => !cloud.state.busy); expect(launch.phase).toBe('ready');
+    expect(fixture.calls.filter(call => call.method === 'PUT' && call.body?.state === 'running')).toHaveLength(1);
+  });
   it('passes the common native profile through real preflight and setup processes on rent and retained-disk resume',async()=>{
     const {cloud,fixture}=await manager({preflight:undefined,provision:undefined});cloud.repo=root;
     await mkdir(path.join(root,'scripts'));

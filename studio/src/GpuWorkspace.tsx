@@ -30,6 +30,9 @@ export default function GpuWorkspace({ cloud, setCloud, notify, onCreate, openSe
   const narrow = useNarrowGpuLayout();
   useEffect(() => { localStorage.setItem('recast-gpu-search-v2', JSON.stringify(filters)); }, [filters]);
   const refresh = useCallback(async () => { try { setCloud(await api<CloudState>('/cloud/refresh', {})); } catch (e) { notify((e as Error).message); } }, [setCloud, notify]);
+  // Lifecycle endpoints already verify Vast and publish progress through SSE.
+  // Read their local result after an action rather than immediately polling again.
+  const snapshot = useCallback(async () => { setCloud(await api<CloudState>('/cloud')); }, [setCloud]);
   useEffect(() => { if (cloud.configured) void refresh(); }, [cloud.configured, refresh]);
   const search = useCallback(async (value: OfferFilters) => {
     const serial = ++searchSerial.current; setSearching(true); setSearchError(''); setOffers([]); setSelected(null); setReviewOpen(false);
@@ -61,7 +64,7 @@ export default function GpuWorkspace({ cloud, setCloud, notify, onCreate, openSe
     try {
       const response = await fetch('/api/cloud/launch', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Idempotency-Key': rentalKey.current.key }, body: JSON.stringify({ quote: offer.quote, approvedHourly: Math.min(offer.totalHourly!, filters.maxHourly) }) });
       const value = await response.json(); if (!response.ok) { rentalKey.current = null; throw new Error(value.error); }
-      setReviewOpen(false); setTab('instances'); await refresh();
+      setReviewOpen(false); setTab('instances'); await snapshot();
     } catch (e) { notify((e as Error).message); } finally { setActionBusy(false); }
   };
   const instanceAction = async (id: number, action: string) => {
@@ -69,18 +72,18 @@ export default function GpuWorkspace({ cloud, setCloud, notify, onCreate, openSe
     try {
       await api(`/cloud/instances/${id}/${action}`, { ...(action === 'destroy' ? { confirmation } : {}) });
       if (action === 'destroy') { setDestroy(null); setConfirmation(''); }
-      await refresh();
+      await snapshot();
       toast.success(action === 'stop' ? 'Compute paused' : action === 'destroy' ? 'Instance destroyed' : 'Connection setup started', { description: action === 'stop' ? 'Your disk is kept and storage remains billed.' : action === 'destroy' ? 'Your local library is kept.' : 'Follow progress on this instance.' });
     } catch (e) { notify((e as Error).message); } finally { setActionBusy(false); setPending(null); }
   };
   const refreshStatus = async () => { if (refreshing) return; setRefreshing(true); try { await refresh(); } finally { setRefreshing(false); } };
-  const retry = async (launch: CloudLaunch) => { setActionBusy(true); try { await api(`/cloud/launches/${launch.id}/continue`, {}); await refresh(); } catch (e) { notify((e as Error).message); } finally { setActionBusy(false); } };
+  const retry = async (launch: CloudLaunch) => { setActionBusy(true); try { await api(`/cloud/launches/${launch.id}/continue`, {}); await snapshot(); } catch (e) { notify((e as Error).message); } finally { setActionBusy(false); } };
   const chosen = offers.find(offer => offer.quote === selected), latest = cloud.launches.find(launch => launch.phase !== 'destroyed' || launch.autoCleanup), managed = cloud.instances.filter(instance => instance.managed);
   const review = chosen ? <GpuOfferDetails offer={chosen} busy={cloud.busy || actionBusy} rent={() => void rent(chosen)} /> : <aside className="gpu-review-empty"><Cpu size={25}/><p>Select a GPU to review</p><ArrowRight size={16}/></aside>;
   return <main className="gpu-workspace gpu-cloud-v3"><header className="gpu-cloud-heading"><h1>GPU cloud</h1><nav className="gpu-cloud-tabs" aria-label="GPU cloud sections"><button aria-current={tab === 'market' ? 'page' : undefined} onClick={() => setTab('market')}>Marketplace</button><button aria-current={tab === 'instances' ? 'page' : undefined} onClick={() => setTab('instances')}>My GPUs<span>{managed.length}</span></button></nav></header>
     {!cloud.configured ? <section className="gpu-connect-empty"><Cpu size={30}/><h2>Connect Vast to find a GPU</h2><Button variant="primary" onClick={openSettings}><GearSix size={16}/>Open Settings<ArrowRight size={15}/></Button></section> : <>
       {cloud.error && <div className="cloud-error" role="alert"><WarningCircle size={16}/><span>{cloud.error}</span><button onClick={() => void refresh()}>Retry</button></div>}
-      {latest && (tab === 'market' || !managed.some(instance => instance.id === latest.instanceId)) && (working.includes(latest.phase) || ['stopping', 'destroying', 'unknown', 'failed'].includes(latest.phase) || tab === 'instances' || latest.autoCleanup) && <SetupTimeline launch={latest} busy={cloud.busy || actionBusy} retry={() => void retry(latest)} manage={() => setTab('instances')} browse={() => { setTab('market'); void search(filters); }} cancel={() => void api(`/cloud/launches/${latest.id}/cancel`, {}).then(() => refresh()).catch(e => notify(e.message))} />}
+      {latest && (tab === 'market' || !managed.some(instance => instance.id === latest.instanceId)) && (working.includes(latest.phase) || ['stopping', 'destroying', 'unknown', 'failed'].includes(latest.phase) || tab === 'instances' || latest.autoCleanup) && <SetupTimeline launch={latest} busy={cloud.busy || actionBusy} retry={() => void retry(latest)} manage={() => setTab('instances')} browse={() => { setTab('market'); void search(filters); }} cancel={() => void api(`/cloud/launches/${latest.id}/cancel`, {}).then(() => snapshot()).catch(e => notify(e.message))} />}
       {tab === 'market' ? <GpuMarketplace filters={filters} onChange={setFilters} requirements={requirements} offers={offers} selected={selected} select={quote => { setSelected(quote); if (narrow) setReviewOpen(true); }} searching={searching} searched={searched} searchError={searchError} refresh={() => void search(filters)} details={narrow ? null : review} /> : <InstancesView cloud={cloud} busy={cloud.busy || actionBusy} pending={pending} refreshing={refreshing} refresh={() => void refreshStatus()} action={(id, action) => void instanceAction(id, action)} retry={launch => void retry(launch)} confirmDestroy={instance => { setDestroy(instance); setConfirmation(''); }} browse={() => setTab('market')} onCreate={onCreate} />}
     </>}
     <Dialog.Root open={narrow && reviewOpen && !!chosen && tab === 'market'} onOpenChange={setReviewOpen}><Dialog.Portal><Dialog.Overlay className="sheet-overlay gpu-review-overlay"/><Dialog.Content className="gpu-review-sheet" aria-describedby={undefined} onCloseAutoFocus={event => { event.preventDefault(); const trigger = chosen && document.querySelector<HTMLButtonElement>(`[data-review-gpu="${chosen.id}"]`); (trigger || document.getElementById('gpu-results'))?.focus(); }}><Dialog.Title className="sr-only">Review GPU rental</Dialog.Title>{chosen && <GpuOfferDetails offer={chosen} busy={cloud.busy || actionBusy} rent={() => void rent(chosen)} close={() => setReviewOpen(false)} />}</Dialog.Content></Dialog.Portal></Dialog.Root>
