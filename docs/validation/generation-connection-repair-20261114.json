@@ -1,0 +1,126 @@
+{
+  "date": "2026-11-14T16:07:51.451139+00:00",
+  "problem": "Checking files stalled and Remotion requests waited/failed with no earlier render",
+  "evidence": {
+    "providerReportedRunning": true,
+    "freshIndependentSSHConfirmedEngineHealthy": true,
+    "remoteQueueRunning": 0,
+    "remoteQueuePending": 0,
+    "oldLocalHTTPProbesTimedOutAtSeconds": 4,
+    "oldControlExitTimedOutAtSeconds": 5,
+    "freshTunnelQueueSeconds": 0.599,
+    "freshTunnelStatsSeconds": 0.618,
+    "failureBeforeSubmission": true,
+    "originalFailedAttemptsPreserved": true,
+    "userLaterSubmittedAnotherJobWhileRepairWasInProgress": true
+  },
+  "cause": "The old local SSH forwarding/control session survived resume in a stalled state. Long metadata retries left Checking files active; upload acknowledgement failures before submission were incorrectly terminal.",
+  "changes": [
+    "Bounded private SSH master check/close commands",
+    "Explicit scoped forwarding-only recreation during transport recovery",
+    "Only exact private socket/destination/local-and-remote forward background SSH masters are eligible",
+    "Foreign processes/listeners, regular files and symlinks are preserved",
+    "30-second overall file-inventory budget and 5-second catalog read attempts",
+    "SSH inventory commands receive the same cancellation signal",
+    "Upload acknowledgement-body interruptions are OfflineErrors",
+    "Pre-submission OfflineErrors stay interrupted and resumable",
+    "Progress shows motion-video and character-image transfer stages separately"
+  ],
+  "validation": {
+    "studioChecksPassed": 183,
+    "studioChecksFailed": 0,
+    "pythonChecksPassed": 36,
+    "realLocalSSHFixture": {
+      "externalNetwork": false,
+      "credentialsOrAuthentication": false,
+      "ownedClientTerminated": true,
+      "unrelatedProcessPreserved": true
+    },
+    "typecheck": true,
+    "isolatedBackendBuild": true,
+    "diffCheck": true,
+    "deployment": {
+      "pid": 85350,
+      "countsBefore": {
+        "jobs": 135,
+        "assets": 149,
+        "characters": 0,
+        "settings": 20
+      },
+      "countsAfter": {
+        "jobs": 135,
+        "assets": 149,
+        "characters": 0,
+        "settings": 20
+      },
+      "unchangedTables": [
+        "jobs",
+        "assets",
+        "characters"
+      ],
+      "settingsChangedOnStartup": [
+        "model-download-state-v1"
+      ],
+      "protectedSettingsUnchanged": true,
+      "oldFrontendAssetsRetained": 684,
+      "connection": "offline",
+      "computeActions": 0,
+      "serverSHA256": "1f6c5e433a8e51718e60ae45dabe928496fe01dd7ccecc62798e171e185ce0a3",
+      "htmlSHA256": "dde1638820995e42809ef0d5623c5db6ea7918b7badefdf2a224238206fb674a"
+    },
+    "frontendUnchanged": true,
+    "allPriorMediaRowsPreservedAfterReconnect": true,
+    "currentCounts": {
+      "jobs": 135,
+      "assets": 150,
+      "characters": 0,
+      "settings": 20
+    },
+    "readiness": {
+      "inventorySeconds": 1.647,
+      "checkingFiles": false,
+      "error": null,
+      "remotionReady": true,
+      "faceToolsReady": true,
+      "sameInstance": 60652451,
+      "renderCompleted": true,
+      "faceFixCompleted": true
+    }
+  },
+  "userOutputs": {
+    "motionRunCompleted": true,
+    "motionFrames": 311,
+    "motionElapsedSeconds": 396.372,
+    "faceFixCompleted": true,
+    "agentCreatedGeneration": false,
+    "agentResubmittedGeneration": false,
+    "noQualityChangeClaim": true
+  },
+  "preserved": [
+    "all drafts and user settings at guarded reload",
+    "subsequent user uploads",
+    "all previous jobs/media including failed attempts",
+    "model pins/weights and native graph compilation",
+    "current GPU and normal idle policy"
+  ],
+  "checkpoints": {
+    "prodv1": "88cc90f16ea83c7b884cd5438e7ad0c6ceac2a80",
+    "prodv2": "af25d146d2f24a2cfde8d347f46b7b86218facab"
+  },
+  "actions": {
+    "gpuRental": 0,
+    "gpuResume": 0,
+    "gpuPauseStop": 0,
+    "remoteEngineRestart": 0,
+    "agentInference": 0,
+    "modelDownload": 0,
+    "modelDeletion": 0,
+    "manualJobDatabaseEdits": 0,
+    "localAppReload": 1,
+    "localTunnelRecreation": 1
+  },
+  "limits": [
+    "The observed user output completed after manual forwarding repair; no extra paid recovery stress render was submitted.",
+    "Scoped automatic recreation is covered by local lifecycle tests, not an intentional outage during a paid production render."
+  ]
+}

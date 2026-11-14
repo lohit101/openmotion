@@ -26,10 +26,10 @@ export async function manageViggleTools(repo: string, instanceId: number, action
   return result;
 }
 
-export async function manageModelStorage(repo: string, instanceId: number, action: 'inventory' | 'delete', name?: string): Promise<{ loras?: InstalledLora[]; files?: { id: string; size: number; verified?: boolean }[]; name?: string; freedBytes?: number; freeBytes?: number; partials?: { id: string; size: number }[]; removed?: boolean; facialRuntimeReady?: boolean; facialCleanupRuntimeReady?: boolean; facialCalibratedRuntimeReady?: boolean; facialEyeFinishRuntimeReady?: boolean; facialGeometryRuntimeReady?: boolean; facialBoundaryRuntimeReady?: boolean; facialOcclusionRuntimeReady?: boolean;facialPreparing?:boolean }> {
+export async function manageModelStorage(repo: string, instanceId: number, action: 'inventory' | 'delete', name?: string, signal?: AbortSignal): Promise<{ loras?: InstalledLora[]; files?: { id: string; size: number; verified?: boolean }[]; name?: string; freedBytes?: number; freeBytes?: number; partials?: { id: string; size: number }[]; removed?: boolean; facialRuntimeReady?: boolean; facialCleanupRuntimeReady?: boolean; facialCalibratedRuntimeReady?: boolean; facialEyeFinishRuntimeReady?: boolean; facialGeometryRuntimeReady?: boolean; facialBoundaryRuntimeReady?: boolean; facialOcclusionRuntimeReady?: boolean;facialPreparing?:boolean }> {
   const args = ['-u', path.join(repo, 'scripts/managed_models.py'), '--instance-id', String(instanceId), '--action', action];
   if (action === 'delete') args.push(deletableModelFile(name!) ? '--file' : '--lora', name!);
-  const output = await command('python3', args, undefined, 45000);
+  const output = await command('python3', args, signal, 45000);
   const line = output.split(/\r?\n/).find(line => line.startsWith('RECAST_MODEL_STORAGE '));
   if (!line) throw new Error('The GPU did not return a model storage result.');
   return JSON.parse(line.slice(21));
@@ -298,12 +298,13 @@ export class ModelManager {
   async refresh(): Promise<ModelsState> {
     if (this.refreshing) return this.refreshing;
     this.refreshing = (async () => {
+      const inventorySignal = AbortSignal.timeout(30000);
       this.state.refreshing = true; this.emit();
       try {
         const image=this.store.imageDraft().settings;
         for(const [kind,needed,file]of [['localIdentity',image.localIdentity,'local_identity.py'],['localPose',image.qwenRecipe==='body-identity'&&image.qwenBodyPose||image.qwenRecipe==='body-only'&&image.bodyOnlyStrategy==='staged'&&image.bodyOnlyPose,'local_pose.py']]as const){
           if(needed||this.state.moduleSetup?.runtimes.includes(kind)){
-            try{const ready=JSON.parse(await command('python3',[path.join(this.repo,'scripts',file),'status'],undefined,15000)).ready===true;if(kind==='localIdentity')this.state.localIdentityReady=ready;else this.state.localPoseReady=ready;}catch{if(kind==='localIdentity')this.state.localIdentityReady=false;else this.state.localPoseReady=false;}
+            try{const ready=JSON.parse(await command('python3',[path.join(this.repo,'scripts',file),'status'],inventorySignal,15000)).ready===true;if(kind==='localIdentity')this.state.localIdentityReady=ready;else this.state.localPoseReady=ready;}catch{if(kind==='localIdentity')this.state.localIdentityReady=false;else this.state.localPoseReady=false;}
           }
         }
         if (this.connection.status.state !== 'online') {
@@ -313,7 +314,7 @@ export class ModelManager {
           this.state.error = null; this.state.checkedAt = null; this.state.installedLoras = []; this.state.diskFreeBytes = undefined; return this.state;
         }
         const instanceId = this.store.value<number | null>('cloud-connected-instance', null), endpoint = this.connection.status.endpoint;
-        const catalog: Catalog = await this.connection.client().json('/object_info');
+        const catalog: Catalog = await this.connection.client().json('/object_info', undefined, inventorySignal, 5000);
         const sameConnection = () => this.connection.status.state === 'online' && this.connection.status.endpoint === endpoint && this.store.value('cloud-connected-instance', null) === instanceId;
         if (!sameConnection()) throw new Error('The GPU changed during the inventory check. Refresh its files again.');
         const installed = installedModelIds(catalog);
@@ -326,7 +327,7 @@ export class ModelManager {
         this.state.smoothMotionToolsReady = hasSmoothMotionTools(catalog); this.state.openjutsuToolsReady = hasOpenjutsuTools(catalog); this.state.openjutsuFaceToolsReady = hasOpenjutsuFaceTools(catalog);
         let inventory: Awaited<ReturnType<typeof manageModelStorage>> | undefined;
         if (instanceId && this.connection.status.endpoint === 'http://127.0.0.1:8188') {
-          const result = await this.storage(this.repo, instanceId, 'inventory');
+          const result = await this.storage(this.repo, instanceId, 'inventory', undefined, inventorySignal);
           inventory = result;
           this.state.installedLoras = result.loras || [];
           this.state.diskFreeBytes = Number.isFinite(result.freeBytes) && result.freeBytes! >= 0 ? result.freeBytes : undefined;

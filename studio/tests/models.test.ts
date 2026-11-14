@@ -186,6 +186,28 @@ describe('manual model queue', () => {
     const untilIdle = async () => { for (let i = 0; i < 100 && manager!.state.busy; i++) await new Promise(resolve => setTimeout(resolve, 5)); expect(manager!.state.busy).toBe(false); };
     return { manager, worker, storage, controls, connection, choices, untilIdle, releaseCache };
   }
+  it('clears Checking files after a bounded catalog timeout without starting downloads', async () => {
+    vi.useFakeTimers();
+    const timeout = vi.spyOn(AbortSignal, 'timeout').mockImplementation(ms => { const c = new AbortController(); setTimeout(() => c.abort(new DOMException('Inventory timed out', 'TimeoutError')), ms); return c.signal; });
+    try {
+      const { manager, connection, worker } = await fixture();
+      connection.client = () => ({ json: vi.fn(async (_route: string, _body?: unknown, signal?: AbortSignal) => new Promise<never>((_resolve, reject) => { signal!.addEventListener('abort', () => reject(signal!.reason), { once: true }); })) });
+      const pending = manager.refresh(); await vi.advanceTimersByTimeAsync(0); expect(manager.state.refreshing).toBe(true);
+      await vi.advanceTimersByTimeAsync(30000); await pending;
+      expect(manager.state.refreshing).toBe(false); expect(manager.state.error).toContain('Model availability could not be checked');
+      expect(manager.state.files.every(file => file.status === 'unknown')).toBe(true); expect(worker).not.toHaveBeenCalled();
+    } finally { timeout.mockRestore(); vi.useRealTimers(); }
+  });
+  it('also bounds a stalled SSH inventory after the catalog succeeds', async () => {
+    vi.useFakeTimers();
+    const timeout = vi.spyOn(AbortSignal, 'timeout').mockImplementation(ms => { const c = new AbortController(); setTimeout(() => c.abort(new DOMException('Inventory timed out', 'TimeoutError')), ms); return c.signal; });
+    try {
+      const { manager, storage, worker } = await fixture();
+      storage.mockImplementation(async (_repo, _id, _action, _name, signal?: AbortSignal) => new Promise<never>((_resolve, reject) => { signal!.addEventListener('abort', () => reject(signal!.reason), { once: true }); }));
+      const pending = manager.refresh(); await vi.advanceTimersByTimeAsync(30000); await pending;
+      expect(manager.state.refreshing).toBe(false); expect(manager.state.error).toContain('Inventory timed out'); expect(worker).not.toHaveBeenCalled();
+    } finally { timeout.mockRestore(); vi.useRealTimers(); }
+  });
   it('refreshes availability without downloading and installs only an explicitly clicked file', async () => {
     const { manager, worker, controls, untilIdle } = await fixture(), file = 'loras/' + ACTIVE_LORA;
     await manager.refresh(); expect(worker).not.toHaveBeenCalled(); expect(manager.state.files.every(file => file.status === 'missing')).toBe(true);

@@ -38,7 +38,7 @@ export function localEndpoint(value: string) {
 }
 export class ComfyClient {
   constructor(public endpoint: string, public recover?: (signal?: AbortSignal) => Promise<boolean>) {}
-  async json(route: string, body?: unknown, signal?: AbortSignal): Promise<any> {
+  async json(route: string, body?: unknown, signal?: AbortSignal, readTimeoutMs = 45000): Promise<any> {
     const read = body === undefined, attempts = read ? READ_ATTEMPTS : 1;
     let recoveryTried = false;
     const restore = async () => {
@@ -50,7 +50,7 @@ export class ComfyClient {
       signal?.throwIfAborted();
       let response: Response, value: unknown;
       try {
-        const deadline = AbortSignal.timeout(read ? 45000 : 12000);
+        const deadline = AbortSignal.timeout(read ? readTimeoutMs : 12000);
         response = await fetch(this.endpoint + route, { method: read ? 'GET' : 'POST', headers: read ? {} : { 'Content-Type': 'application/json' }, body: read ? undefined : JSON.stringify(body), signal: signal ? AbortSignal.any([signal, deadline]) : deadline });
         try { value = await response.json(); }
         catch (error) {
@@ -79,12 +79,19 @@ export class ComfyClient {
   }
   async upload(file: string, id: string, signal: AbortSignal) {
     const form = new FormData(); form.append('image', await openAsBlob(file), id + path.extname(file)); form.append('type', 'input');
-    let response: Response;
-    try { response = await fetch(this.endpoint + '/upload/image', { method: 'POST', body: form, signal: AbortSignal.any([signal, AbortSignal.timeout(180000)]) }); }
-    catch (error) { if (signal.aborted) throw error; throw new OfflineError('Input transfer was interrupted. Reconnect and resume.'); }
-    if (!response.ok) throw new Error(`Input transfer failed (${response.status}).`);
-    const result = await response.json() as { name: string; subfolder?: string };
-    return [result.subfolder, result.name].filter(Boolean).join('/');
+    let response: Response | undefined;
+    try {
+      response = await fetch(this.endpoint + '/upload/image', { method: 'POST', body: form, signal: AbortSignal.any([signal, AbortSignal.timeout(180000)]) });
+      if (!response.ok) throw new Error(`Input transfer failed (${response.status}).`);
+      // A timeout may also interrupt the acknowledgement body after headers.
+      const result = await response.json() as { name: string; subfolder?: string };
+      if (typeof result.name !== 'string' || !result.name) throw new Error('Upload acknowledgement is missing.');
+      return [result.subfolder, result.name].filter(Boolean).join('/');
+    } catch (error) {
+      if (signal.aborted) throw signal.reason || error;
+      if (response && !response.ok) throw error;
+      throw new OfflineError('Input transfer was interrupted. Reconnect and resume.');
+    }
   }
   async download(entry: { filename: string; subfolder?: string; type?: string }, dest: string, signal: AbortSignal, progress?: DownloadProgress) {
     const query = new URLSearchParams({ filename: entry.filename, subfolder: entry.subfolder || '', type: entry.type || 'output' });
@@ -135,9 +142,10 @@ export class ConnectionManager {
     this.recovery = (async () => {
       this.status.state = 'connecting'; this.status.message = 'Restoring the connection to the existing GPU job. No new render is being submitted.'; this.emit();
       try {
-        await this.restore('python3', [path.join(this.repo, 'scripts/vast.py'), 'tunnel', '--instance-id', String(instance)], signal, 25000);
+        await this.restore('python3', [path.join(this.repo, 'scripts/vast.py'), 'tunnel', '--instance-id', String(instance), '--recreate'], signal, 25000);
         // Probe only: recovery never starts a server, installs files, or resumes a rental.
-        const stats = await new ComfyClient(endpoint).json('/system_stats', undefined, signal);
+        const probe = signal ? AbortSignal.any([signal, AbortSignal.timeout(10000)]) : AbortSignal.timeout(10000);
+        const stats = await new ComfyClient(endpoint).json('/system_stats', undefined, probe, 5000);
         if (!stats.devices?.some((device: any) => /cuda/i.test(device.type || device.name))) return false;
         if (this.revision !== revision || this.store.value('cloud-connected-instance', null) !== instance || this.status.endpoint !== endpoint) return false;
         this.status.state = 'online'; this.status.message = 'Connection restored. Checking the existing GPU job.'; this.status.checkedAt = new Date().toISOString(); this.emit(); return true;

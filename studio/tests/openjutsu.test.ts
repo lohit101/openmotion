@@ -11,6 +11,7 @@ import { createOpenjutsuJob } from '../server/openjutsu';
 import { Store, publicJob } from '../server/store';
 import { Runner } from '../server/runner';
 import type { ConnectionManager } from '../server/comfy';
+import { OfflineError } from '../server/comfy';
 import type { ModelManager } from '../server/models';
 import type { Asset, Catalog, Graph } from '../shared/types';
 import { command } from '../server/media';
@@ -117,6 +118,15 @@ for (const interactionGuide of ['reference-interactions-v1', 'aligned-interactio
   expect(job.openjutsu?.settings.loras).toEqual(openjutsuDefaults.loras);
   expect(JSON.stringify([store!.draft(), store!.imageDraft()])).toBe(before);
   expect(f.client.json).not.toHaveBeenCalledWith('/prompt');
+});
+it('keeps a pre-submission transport failure resumable without submitting a render', async () => {
+  const f = await fixture(), job = await f.create();
+  f.client.upload.mockRejectedValueOnce(new OfflineError('Input transfer was interrupted. Reconnect and resume.'));
+  await f.runner.run(job, new AbortController().signal);
+  expect(store!.job(job.id)).toMatchObject({ status: 'interrupted', pendingPrompt: null, error: 'Input transfer was interrupted. Reconnect and resume.' });
+  expect(f.request).not.toHaveBeenCalled();
+  await f.runner.resume(store!.job(job.id)!);
+  expect(store!.job(job.id)?.status).toBe('queued'); expect(f.request).not.toHaveBeenCalled();
 });
 it('persists a successful native receipt and finishes a failed download without submitting again', async () => {
   const f = await fixture(), job = await f.create(), native = path.join(folder, 'fixture.mp4');

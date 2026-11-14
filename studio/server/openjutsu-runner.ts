@@ -111,13 +111,16 @@ export async function runOpenjutsu(ctx: Runner, job: Job, signal: AbortSignal) {
         stage('Preparing your OpenJutsu inputs');
         if (await fileSHA256(source.path) !== run.sourceSHA256 || !smooth && await fileSHA256(reference!.path) !== job.openjutsu!.referenceSHA256) throw new Error('An input changed after this run was saved. Create a new run.');
         if (!job.uploads) {
-          const sourceName = await client.upload(source.path, job.id + (smooth ? '-finish' : '-motion'), signal), referenceName = smooth ? '' : await client.upload(reference!.path, job.id + '-character', signal);
+          stage(smooth ? 'Sending video to GPU' : 'Sending motion video to GPU');
+          const sourceName = await client.upload(source.path, job.id + (smooth ? '-finish' : '-motion'), signal);
+          if (!smooth) stage('Sending character image to GPU');
+          const referenceName = smooth ? '' : await client.upload(reference!.path, job.id + '-character', signal);
           job.uploads = { source: sourceName, reference: referenceName };
           graph[smooth || run.face ? '1' : '5'].inputs.video = sourceName; if (!smooth) graph['2'].inputs.image = referenceName;
           run.graphSHA256 = openjutsuGraphHash(graph); save();
         }
         assertScope(ctx, job);
-        const issues = validateGraph(graph, await client.json('/object_info', undefined, signal));
+        const issues = validateGraph(graph, await client.json('/object_info', undefined, signal, 5000));
         if (issues.length) throw new Error('OpenJutsu tools or models need attention: ' + issues.slice(0, 4).join(' '));
         await writeFile(path.join(folder, smooth ? 'workflow_smooth.json' : 'workflow_0.json'), JSON.stringify(graph, null, 2));
         ctx.checkCancelled(job); assertScope(ctx, job); job.submitting = true; save(); stage('Queued on GPU');
@@ -171,7 +174,7 @@ export async function runOpenjutsu(ctx: Runner, job: Job, signal: AbortSignal) {
   } catch (error) {
     const cancelled = !!ctx.store.job(job.id)?.cancelRequested;
     if (!cancelled && error instanceof NativeExecutionError) { markFailed(ctx, job, error); return; }
-    job.status = cancelled && job.cancellationConfirmed ? 'cancelled' : job.pendingPrompt || job.submitting || run.nativeFile ? 'interrupted' : 'failed';
+    job.status = cancelled && job.cancellationConfirmed ? 'cancelled' : error instanceof OfflineError || job.pendingPrompt || job.submitting || run.nativeFile ? 'interrupted' : 'failed';
     job.error = (error as Error).message; stage(job.status === 'cancelled' ? 'Cancelled' : job.status === 'interrupted' ? 'Generation needs attention · saved work kept' : 'Generation failed');
   } finally { socket?.close(); }
 }

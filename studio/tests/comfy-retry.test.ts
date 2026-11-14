@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ComfyClient, ConnectionManager, OfflineError } from '../server/comfy';
 import type { Store } from '../server/store';
+import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 
 const client = new ComfyClient('http://127.0.0.1:8188');
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } });
@@ -127,6 +130,37 @@ describe('safe ComfyUI metadata retries', () => {
   });
 });
 
+describe('input upload acknowledgement recovery', () => {
+  it('classifies an interrupted acknowledgement as a resumable connection failure', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'recast-upload-'));
+    try {
+      const file = path.join(root, 'fixture.mp4'); await writeFile(file, 'fixture');
+      const fetcher = vi.fn().mockResolvedValue({ ok: true, json: async () => { throw new DOMException('This operation was aborted', 'AbortError'); } });
+      vi.stubGlobal('fetch', fetcher);
+      await expect(client.upload(file, 'same-job-motion', new AbortController().signal)).rejects.toBeInstanceOf(OfflineError);
+      expect(fetcher).toHaveBeenCalledOnce(); expect(fetcher.mock.calls[0][0]).toMatch(/\/upload\/image$/);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+  it('preserves an explicit HTTP rejection without retrying the upload', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'recast-upload-'));
+    try {
+      const file = path.join(root, 'fixture.mp4'); await writeFile(file, 'fixture');
+      const fetcher = vi.fn().mockResolvedValue(json({}, 413)); vi.stubGlobal('fetch', fetcher);
+      await expect(client.upload(file, 'same-job-motion', new AbortController().signal)).rejects.toThrow('Input transfer failed (413)');
+      expect(fetcher).toHaveBeenCalledOnce();
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+  it('keeps user cancellation authoritative during acknowledgement reading', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'recast-upload-'));
+    try {
+      const file = path.join(root, 'fixture.mp4'); await writeFile(file, 'fixture');
+      const controller = new AbortController(), reason = new Error('Cancelled by user');
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => { controller.abort(reason); throw reason; } }));
+      await expect(client.upload(file, 'same-job-motion', controller.signal)).rejects.toBe(reason);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+});
+
 describe('managed connection recovery', () => {
   function managed(restore: (...args: any[]) => Promise<string>) {
     const values = new Map<string, any>([['cloud-connected-instance', 123]]);
@@ -141,7 +175,7 @@ describe('managed connection recovery', () => {
     vi.stubGlobal('fetch', fetcher);
     const first = connection.recoverTransport(), second = connection.recoverTransport(); release();
     expect(await first).toBe(true); expect(await second).toBe(true); expect(restore).toHaveBeenCalledOnce();
-    expect(restore.mock.calls[0]).toEqual(['python3', ['/test/project/scripts/vast.py', 'tunnel', '--instance-id', '123'], undefined, 25000]);
+    expect(restore.mock.calls[0]).toEqual(['python3', ['/test/project/scripts/vast.py', 'tunnel', '--instance-id', '123', '--recreate'], undefined, 25000]);
     expect(connection.status.state).toBe('online'); expect(fetcher).toHaveBeenCalledOnce(); expect(fetcher.mock.calls[0][0]).toMatch(/\/system_stats$/);
   });
 

@@ -8,11 +8,14 @@ import os
 import re
 import shlex
 import shutil
+import signal
 import socket
+import stat
 import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 import webbrowser
 from pathlib import Path
 
@@ -106,13 +109,67 @@ def control_path(config):
 
 
 def master_running(config):
-    result = subprocess.run(ssh_arguments(config) + ["-S", control_path(config), "-O", "check", destination(config)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        result = subprocess.run(ssh_arguments(config) + ["-S", control_path(config), "-O", "check", destination(config)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=3)
+    except subprocess.TimeoutExpired:
+        return False
     return result.returncode == 0
 
 
 def close_tunnel(config):
     if master_running(config):
-        subprocess.run(ssh_arguments(config) + ["-S", control_path(config), "-O", "exit", destination(config)], check=True)
+        subprocess.run(ssh_arguments(config) + ["-S", control_path(config), "-O", "exit", destination(config)], check=True, timeout=5)
+
+
+def owned_forwarders(config, pids=None):
+    """Only this profile's local background masters; never remote workers."""
+    command = ["ps", "-axo", "pid=,command="] if pids is None else ["ps", "-p", ",".join(map(str, pids)), "-o", "pid=,command="]
+    result = subprocess.run(command, capture_output=True, text=True, timeout=3)
+    forward = "127.0.0.1:%d:127.0.0.1:%d" % (config["local_port"], config["remote_port"])
+    found = set()
+    for line in result.stdout.splitlines():
+        try:
+            pid, text = line.strip().split(None, 1)
+            args = shlex.split(text)
+        except ValueError:
+            continue
+        pairs = list(zip(args, args[1:]))
+        if (pid.isdigit() and args and Path(args[0]).name == 'ssh' and '-M' in args and '-N' in args
+                and ('-S', control_path(config)) in pairs and ('-L', forward) in pairs and args[-1] == destination(config)):
+            found.add(int(pid))
+    return found
+
+
+def recreate_tunnel(config):
+    # A control socket can answer checks while its old forwarding connection is
+    # dead after sleep/resume. Only replace the verified local forwarding master.
+    owners = owned_forwarders(config)
+    for pid in owners:
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+    until, remaining = time.monotonic() + 2, owners
+    while remaining and time.monotonic() < until:
+        remaining = owned_forwarders(config, remaining)
+        if remaining:
+            time.sleep(.1)
+    for pid in remaining:
+        if pid in owned_forwarders(config, [pid]):
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+    if master_running(config):
+        raise SystemExit('A forwarding master is still active. No unrelated listener or remote process was stopped.')
+    control = Path(control_path(config))
+    try:
+        info = control.lstat()
+        if info.st_uid != os.getuid() or not stat.S_ISSOCK(info.st_mode):
+            raise SystemExit('The saved control path is not an owned SSH socket. It was not removed.')
+        control.unlink()
+    except FileNotFoundError:
+        pass
 
 
 def tunnel(config, browser=True, capture_stderr=False):
@@ -233,6 +290,7 @@ def main():
         item.add_argument("--no-browser", action="store_true")
     item = sub.add_parser('tunnel', help='Restore SSH forwarding only; never start ComfyUI or GPU compute')
     item.add_argument('--instance-id', type=int, required=True)
+    item.add_argument('--recreate', action='store_true', help='Replace only this profile\'s stale local forwarding master')
     for action in ["status", "logs", "doctor", "pull", "close", "stop-server", "shell"]:
         sub.add_parser(action)
     item = sub.add_parser("push-lora")
@@ -252,6 +310,8 @@ def main():
         if config.get('instance_id') != args.instance_id or config.get('local_port') != 8188:
             raise SystemExit('Saved tunnel belongs to a different instance. Reconnect the intended GPU in GPU cloud.')
         os.environ['RECAST_SSH_BATCH'] = '1'
+        if args.recreate:
+            recreate_tunnel(config)
         tunnel(config, browser=False)
     elif args.action == "setup":
         setup(config, args.no_browser)
