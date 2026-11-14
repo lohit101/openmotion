@@ -1,0 +1,169 @@
+{
+  "date": "2026-11-14T16:50:35.143716+00:00",
+  "cause": "Six-decimal ffprobe duration rounded 124/24 seconds upward; old RIFE output_count selected156 instead of155frames at30fps.",
+  "input": {
+    "frames": 124,
+    "fps": 24,
+    "durationExact": "31/6",
+    "ffprobeRoundedDuration": "5.166667"
+  },
+  "expected": {
+    "fps": 30,
+    "frames": 155,
+    "durationExact": "31/6"
+  },
+  "observedOriginal": {
+    "fps": 30,
+    "frames": 156,
+    "seconds": 5.2
+  },
+  "changes": [
+    "Worker frame counting uses integer stream ticks and rational time_base instead of rounded decimal duration",
+    "Native duration metadata retains the exact stream clock",
+    "Older rounded saved plans are reconciled only within half-microsecond serialization error and against the original input hash",
+    "Only the proven one-frame rounding excess gets a separate local playback export",
+    "Video packet prefix, all audio packet data/timestamps and final two decoded seconds must match before publication",
+    "Original native cache, SHA256, source video, parent and paid history remain intact",
+    "Other count/rate failures stay rejected; cancellation and changed export/source bytes fail closed"
+  ],
+  "checks": {
+    "studioPassed": 50,
+    "studioFailed": 0,
+    "pythonCPUFFmpegPassed": 16,
+    "typecheck": true,
+    "isolatedBackendBuild": true,
+    "offlineRecoveryWithoutAnyGPUClientCalls": true,
+    "diffCheck": true
+  },
+  "recovered": [
+    {
+      "completed": true,
+      "fps": 30,
+      "frames": 155,
+      "seconds": 5.166666666666667,
+      "httpRangePlayback": true,
+      "proof": {
+        "binding": {
+          "version": "smooth-motion-tail-export-v1",
+          "nativeSHA256": "884105a6426b2d9947d5c5e3b2a0b99b9aa1160e7f0501a7c27c785da0b55e11",
+          "sourceSHA256": "0f9ff79f4ee26dfa89e58ddb36df787e879ef05e45c134a925261fd227ffdada",
+          "targetFPS": 30,
+          "frames": 155
+        },
+        "outputSHA256": "c62ba0cebdec4f23accf94669f035e7b42f55412e310974f1d96b1554fbaba7d",
+        "originalFrames": 156,
+        "removedTailFrames": 1,
+        "videoPacketsPreserved": 155,
+        "audioPacketsPreserved": 223,
+        "decodedTailFramesVerified": 60,
+        "reencoded": false
+      },
+      "originalMediaHashesPreserved": true
+    },
+    {
+      "completed": true,
+      "fps": 30,
+      "frames": 155,
+      "seconds": 5.166666666666667,
+      "httpRangePlayback": true,
+      "proof": {
+        "binding": {
+          "version": "smooth-motion-tail-export-v1",
+          "nativeSHA256": "884105a6426b2d9947d5c5e3b2a0b99b9aa1160e7f0501a7c27c785da0b55e11",
+          "sourceSHA256": "0f9ff79f4ee26dfa89e58ddb36df787e879ef05e45c134a925261fd227ffdada",
+          "targetFPS": 30,
+          "frames": 155
+        },
+        "outputSHA256": "c62ba0cebdec4f23accf94669f035e7b42f55412e310974f1d96b1554fbaba7d",
+        "originalFrames": 156,
+        "removedTailFrames": 1,
+        "videoPacketsPreserved": 155,
+        "audioPacketsPreserved": 223,
+        "decodedTailFramesVerified": 60,
+        "reencoded": false
+      },
+      "originalMediaHashesPreserved": true
+    }
+  ],
+  "dataPreservation": {
+    "jobs": 142,
+    "assets": 158,
+    "allUnrelatedJobRowsUnchanged": true,
+    "allAssetRowsUnchanged": true,
+    "protectedSettingsPreservedAtBothReloads": true
+  },
+  "deployment": {
+    "first": {
+      "pid": 87417,
+      "countsBefore": {
+        "jobs": 142,
+        "assets": 158,
+        "characters": 0,
+        "settings": 20
+      },
+      "countsAfter": {
+        "jobs": 142,
+        "assets": 158,
+        "characters": 0,
+        "settings": 20
+      },
+      "unchangedTables": [
+        "jobs",
+        "assets",
+        "characters"
+      ],
+      "settingsChangedOnStartup": [
+        "model-download-state-v1"
+      ],
+      "protectedSettingsUnchanged": true,
+      "oldFrontendAssetsRetained": 684,
+      "connection": "offline",
+      "gpuActions": 0,
+      "serverSHA256": "2bcf6df5decf51f7a1fa9c96f0c3df5a2f8d0c02ef1363e10c6ee0c6a919a03a",
+      "htmlSHA256": "dde1638820995e42809ef0d5623c5db6ea7918b7badefdf2a224238206fb674a"
+    },
+    "final": {
+      "pid": 87833,
+      "countsBefore": {
+        "jobs": 142,
+        "assets": 158,
+        "characters": 0,
+        "settings": 20
+      },
+      "countsAfter": {
+        "jobs": 142,
+        "assets": 158,
+        "characters": 0,
+        "settings": 20
+      },
+      "unchangedTables": [
+        "jobs",
+        "assets",
+        "characters"
+      ],
+      "settingsChangedOnStartup": [],
+      "protectedSettingsUnchanged": true,
+      "oldFrontendAssetsRetained": 684,
+      "connection": "offline",
+      "gpuActions": 0,
+      "serverSHA256": "d7308ef0c3b1a9ea7b9fae1fce9ec1c38c397ee3d31cc7502d203cecd111067a",
+      "htmlSHA256": "dde1638820995e42809ef0d5623c5db6ea7918b7badefdf2a224238206fb674a"
+    },
+    "frontendUnchanged": true,
+    "firstPublicationGateMistake": "An initial shell command continued after one recovery regression failed. Source-probe fallback was corrected; all checks passed before final publication.",
+    "originalInputUnavailableRecoveryPreserved": true
+  },
+  "gpu": {
+    "remainedPaused": true,
+    "resume": 0,
+    "inference": 0,
+    "modelDownload": 0,
+    "remoteInstall": 0,
+    "engineRestart": 0,
+    "existingWorkerCompatibility": "Live export repair covers old installed v1 nodes; next normal explicit tool preparation carries the rational-clock worker fix."
+  },
+  "limits": [
+    "The model interpolation and audiovisual content were not retuned.",
+    "No paid GPU timing comparison was run."
+  ]
+}

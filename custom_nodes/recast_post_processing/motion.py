@@ -47,7 +47,18 @@ def probe(file):
     value = json.loads(subprocess.check_output(['ffprobe', '-v', 'error', '-show_streams', '-show_format', '-of', 'json', str(file)], timeout=30))
     video = next(s for s in value['streams'] if s['codec_type'] == 'video')
     fps = Fraction(video.get('avg_frame_rate') or video['r_frame_rate'])
-    duration = float(video.get('duration') or value['format']['duration'])
+    # ffprobe's decimal duration is rounded to microseconds. For example,
+    # 124/24 is printed as 5.166667, which incorrectly rounds up to 156 at
+    # 30fps. Preserve the stream's integer clock through frame counting.
+    exact = None
+    try:
+        exact = Fraction(str(video['duration_ts'])) * Fraction(video['time_base'])
+        if exact <= 0: exact = None
+    except (KeyError, ValueError, TypeError, ZeroDivisionError):
+        pass
+    if exact is None:
+        exact = Fraction(str(video.get('duration') or value['format']['duration']))
+    duration = float(exact)
     if not 0 < duration <= 300 or not 0 < fps <= 240 or max(video['width'], video['height']) > 4096:
         raise ValueError('Smooth Motion supports SDR videos up to five minutes and 4096 pixels per edge.')
     if video.get('color_transfer') in ('smpte2084', 'arib-std-b67'):
@@ -58,7 +69,7 @@ def probe(file):
     if rotation % 90: raise ValueError('Convert footage with a non-right-angle rotation to an upright video first.')
     w, h = (video['height'], video['width']) if rotation in (90, 270) else (video['width'], video['height'])
     if w % 2 or h % 2: raise ValueError('Smooth Motion needs even pixel dimensions for its playable H.264 export.')
-    return {'width': w, 'height': h, 'fps': fps, 'duration': duration, 'audio': audio}
+    return {'width': w, 'height': h, 'fps': fps, 'duration': duration, 'durationExact': str(exact), 'audio': audio}
 
 
 def read_frame(stream, count):
@@ -80,7 +91,7 @@ def finish_video(source, output, target_fps, predict, check=lambda: None, progre
     """
     import numpy as np
     meta = probe(source); w, h, rate = meta['width'], meta['height'], meta['fps']
-    total = output_count(meta['duration'], target_fps)
+    total = output_count(meta['durationExact'], target_fps)
     audio_codec = 'copy' if not meta['audio'] or meta['audio'].get('codec_name') in ('aac', 'mp3', 'ac3', 'alac') else 'aac'
     counters = {'frames': total, 'interpolated': 0, 'cutFrames': 0, 'edgeHolds': 0, 'sourceFPS': str(rate), 'targetFPS': target_fps, 'audio': bool(meta['audio']), 'audioCodec': audio_codec}
     with tempfile.TemporaryFile() as decode_log, tempfile.TemporaryFile() as encode_log:
@@ -183,7 +194,7 @@ class RecastSmoothVideoV1:
             step = torch.full((1, 1, x0.shape[2], x0.shape[3]), t, device=device, dtype=dtype)
             result = model(x0, x1, timestep=step, cache=cache)
             return (result[0, :, :meta['height'], :meta['width']].permute(1, 2, 0).clamp(0, 1) * 255).round().byte().cpu().numpy()
-        bar = comfy.utils.ProgressBar(output_count(meta['duration'], target_fps))
+        bar = comfy.utils.ProgressBar(output_count(meta['durationExact'], target_fps))
         partial = folder / 'partial.mp4'
         try:
             with torch.inference_mode(): counters = finish_video(source, partial, target_fps, predict, mm.throw_exception_if_processing_interrupted, lambda n, total: bar.update_absolute(n, total))

@@ -69,6 +69,19 @@ describe('Smooth Motion finishing',()=>{
   expect(overallProgressEstimate(j)).toBeGreaterThan(90);expect(overallProgressEstimate(j)).toBeLessThan(100);expect(outputReady(j)).toBe(false);
   j.status='completed';j.output='saved';expect(overallProgressEstimate(j)).toBe(100);expect(runSummary(j)).toContainEqual(['Frame rate','30 fps']);
  });
+ it.each([124/24,5.166667])('recovers a cached timing defect offline, including rounded saved durations (%s)',async sourceSeconds=>{
+  const f=await fixture(),native=path.join(f.root,'saved-156.mp4');
+  await video(f.j.smoothMotion!.sourceFile,24,124);await video(native,30,156);
+  const run=f.j.smoothMotion!;run.sourceSHA256=await fileSHA256(run.sourceFile);run.sourceSeconds=sourceSeconds;
+  run.graph=compileSmoothMotion(f.j.id,run.sourceSHA256,30);run.graphSHA256=openjutsuGraphHash(run.graph);f.j.workflow=run.graph;
+  run.nativeFile=native;run.nativeSHA256=await fileSHA256(native);f.j.status='interrupted';f.j.pendingPrompt='paid-existing';f.store.saveJob(f.j);
+  f.connection.status.state='offline';f.client.json.mockClear();
+  await f.runner.run(f.j,new AbortController().signal);
+  const done=f.store.job(f.j.id)!;expect(done.status).toBe('completed');expect(done.smoothMotion?.actualFrames).toBe(155);
+  expect(done.output).toBe(path.join(f.root,'jobs',f.j.id,'smoothed-playback.mp4'));expect(done.smoothMotion?.nativeFile).toBe(native);
+  expect(await fileSHA256(native)).toBe(run.nativeSHA256);expect(done.segments[0].file).toBe(done.output);
+  expect(f.client.json).not.toHaveBeenCalled();expect(f.client.upload).not.toHaveBeenCalled();expect(f.client.download).not.toHaveBeenCalled();
+ });
  it('saves the native receipt and recovers a failed transfer without submitting again',async()=>{
   const f=await fixture(),output=path.join(f.root,'fixture.mp4');await video(output,30,30);
   f.client.download.mockRejectedValueOnce(new Error('network loss')).mockImplementationOnce(async(_d,dest)=>copyFile(output,dest));

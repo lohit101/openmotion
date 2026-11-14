@@ -52,6 +52,25 @@ class SmoothMotionTests(unittest.TestCase):
         left,t=motion.sample_position(30,Fraction(30000,1001),60)
         self.assertEqual(left,14);self.assertAlmostEqual(t,986/1001)
 
+    def test_stream_clock_prevents_an_extra_frame_from_rounded_duration(self):
+        data={'streams':[{'codec_type':'video','width':96,'height':64,'avg_frame_rate':'24/1',
+                          'duration':'5.166667','duration_ts':63488,'time_base':'1/12288'}], 'format':{'duration':'5.166667'}}
+        with patch.object(motion.subprocess,'check_output',return_value=json.dumps(data).encode()):
+            meta=motion.probe('fixture.mp4')
+        self.assertEqual(Fraction(meta['durationExact']),Fraction(124,24))
+        for fps,count in [(30,155),(48,248),(60,310)]:
+            self.assertEqual(motion.output_count(meta['durationExact'],fps),count)
+        self.assertEqual(motion.output_count(data['streams'][0]['duration'],30),156)
+
+    def test_fractional_stream_clock_and_decimal_fallback(self):
+        data={'streams':[{'codec_type':'video','width':96,'height':64,'avg_frame_rate':'30000/1001',
+                          'duration':'1.001000','duration_ts':30030,'time_base':'1/30000'}], 'format':{}}
+        with patch.object(motion.subprocess,'check_output',return_value=json.dumps(data).encode()):
+            self.assertEqual(motion.probe('fixture.mp4')['durationExact'],'1001/1000')
+        data['streams'][0].pop('duration_ts');data['streams'][0].pop('time_base')
+        with patch.object(motion.subprocess,'check_output',return_value=json.dumps(data).encode()):
+            self.assertEqual(motion.probe('fixture.mp4')['durationExact'],'1001/1000')
+
     def test_cut_veto_and_continuous_scene(self):
         a=np.full((64,96,3),40,dtype=np.uint8);b=np.full_like(a,220)
         self.assertTrue(motion.scene_cut(a,b));self.assertFalse(motion.scene_cut(a,a+5))
@@ -92,6 +111,17 @@ class SmoothMotionTests(unittest.TestCase):
             self.assertIn(.8,times);self.assertEqual(self.packets(source),self.packets(out))
             frames=json.loads(subprocess.check_output(['ffprobe','-v','error','-count_frames','-select_streams','v:0','-show_entries','stream=nb_read_frames','-of','json',str(out)]))
             self.assertEqual(int(frames['streams'][0]['nb_read_frames']),30)
+
+    def test_actual_124_frame_video_finishes_at_155_frames_not_156(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);source=root/'source.mp4';out=root/'output.mp4'
+            subprocess.run(['ffmpeg','-v','error','-y','-f','lavfi','-i','color=blue:size=64x96:rate=24','-frames:v','124','-c:v','libx264',str(source)],check=True)
+            result=motion.finish_video(source,out,30,lambda a,b,t:a)
+            self.assertEqual(result['frames'],155)
+            info=motion.probe(out)
+            self.assertEqual(Fraction(info['durationExact']),Fraction(155,30))
+            frames=json.loads(subprocess.check_output(['ffprobe','-v','error','-select_streams','v:0','-show_entries','stream=nb_frames','-of','json',str(out)]))
+            self.assertEqual(int(frames['streams'][0]['nb_frames']),155)
 
     def test_60fps_output_keeps_no_audio_and_skips_detected_cut(self):
         with tempfile.TemporaryDirectory() as d:

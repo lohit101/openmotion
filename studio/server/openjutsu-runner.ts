@@ -10,6 +10,7 @@ import { validateGraph } from './workflow';
 import { poster, command } from './media';
 import { openjutsuGraphHash } from './openjutsu-workflow';
 import { automaticSmoothMotion } from './smooth-motion';
+import { recoverRoundedSmoothTail, smoothMotionFrameCount } from './smooth-motion-export';
 
 const nativeRun = (job: Job) => job.smoothMotion || job.openjutsu;
 const receiptName = (job: Job, kind: string) => (job.smoothMotion ? 'smooth-motion-' : 'openjutsu-') + kind + '.json';
@@ -158,12 +159,21 @@ export async function runOpenjutsu(ctx: Runner, job: Job, signal: AbortSignal) {
     stage('Preparing playback');
     // Our finishing encoder always writes MP4 frame-count tables. Read those
     // directly instead of decoding a five-minute 1080p/60 export on the laptop.
-    const info = JSON.parse(await command('ffprobe', ['-v', 'error', ...(!smooth ? ['-count_frames'] : []), '-select_streams', 'v:0', '-show_entries', 'stream=width,height,nb_frames,nb_read_frames,duration,avg_frame_rate:format=duration', '-of', 'json', run.nativeFile!], signal, 30000));
-    const video = info.streams[0]; run.actualFrames = Number(video.nb_read_frames || video.nb_frames); run.actualSeconds = Number(video.duration || info.format?.duration);
+    let playback = run.nativeFile!;
+    const inspect = async (file: string) => JSON.parse(await command('ffprobe', ['-v', 'error', ...(!smooth ? ['-count_frames'] : []), '-select_streams', 'v:0', '-show_entries', 'stream=width,height,nb_frames,nb_read_frames,duration,duration_ts,time_base,avg_frame_rate:format=duration', '-of', 'json', file], signal, 30000));
+    let info = await inspect(playback), video = info.streams[0];
+    const smoothFrames = smooth ? await smoothMotionFrameCount(smooth, signal) : null;
+    if (smooth && Number(video.nb_read_frames || video.nb_frames) !== smoothFrames) {
+      stage('Finalizing video timing');
+      const recovered = await recoverRoundedSmoothTail(smooth, folder, signal);
+      if (recovered) { playback = recovered; info = await inspect(playback); video = info.streams[0]; }
+    }
+    const clock = String(video.time_base || '').split('/').map(Number), ticks = Number(video.duration_ts);
+    run.actualFrames = Number(video.nb_read_frames || video.nb_frames); run.actualSeconds = Number.isFinite(ticks) && ticks > 0 && clock.length === 2 && clock[0] > 0 && clock[1] > 0 ? ticks * clock[0] / clock[1] : Number(video.duration || info.format?.duration);
     if (!Number.isFinite(run.actualFrames) || run.actualFrames! < 1 || !Number.isFinite(run.actualSeconds)) throw new Error('The saved output needs a playback check. No new render was queued.');
-    if (smooth && (video.avg_frame_rate !== `${smooth.targetFPS}/1` || run.actualFrames !== Math.ceil(smooth.sourceSeconds * smooth.targetFPS - .000001) || Math.abs(run.actualSeconds! - smooth.sourceSeconds) > 1 / smooth.targetFPS + .01)) throw new Error('The finished frame rate or duration differs from the saved request.');
-    job.width = video.width; job.height = video.height; job.output = run.nativeFile!; job.poster = path.join(folder, 'poster.jpg'); await poster(job.output, job.poster);
-    ctx.checkCancelled(job); job.segments = [{ promptId: job.pendingPrompt!, frames: run.actualFrames!, seconds: run.actualSeconds!, file: run.nativeFile! }];
+    if (smooth && (video.avg_frame_rate !== `${smooth.targetFPS}/1` || run.actualFrames !== smoothFrames || Math.abs(run.actualSeconds! - smooth.sourceSeconds) > 1 / smooth.targetFPS + .01)) throw new Error('The finished frame rate or duration differs from the saved request.');
+    job.width = video.width; job.height = video.height; job.output = playback; job.poster = path.join(folder, 'poster.jpg'); await poster(job.output, job.poster);
+    ctx.checkCancelled(job); job.segments = [{ promptId: job.pendingPrompt!, frames: run.actualFrames!, seconds: run.actualSeconds!, file: playback }];
     job.progress.completedFrames = run.actualFrames!; job.progress.targetFrames = run.actualFrames!; job.progress.segment = 1; job.progress.segments = 1;
     if (!smooth && job.openjutsu?.outputFPS && job.openjutsu.outputFPS !== 24) {
       job.pendingPrompt = null; job.submitting = false; job.uploads = null; job.smoothMotion = automaticSmoothMotion(job);
